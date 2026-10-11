@@ -21,6 +21,7 @@ import {
 import { planInsert, type PlanJob } from "./plan.js";
 import { extractHtml } from "../prompts.js";
 import { renderPlan, stillTimes, type RenderPlanResult } from "./render.js";
+import { emptySceneFindings } from "../empty.js";
 import { overlayHazeFindings } from "../haze.js";
 import { transcribe } from "./transcribe.js";
 import { type Price, loadModelCatalog, usageCost } from "../models.js";
@@ -143,13 +144,18 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
     let errors = check.errors;
     if (check.ok) {
       // the code passed; an overlay may still lay a faint layer over the speaker, which only the pixels show
-      errors = await overlayHazeFindings(
+      const times = stillTimes(plan, ctx.transcript.words);
+      errors = await overlayHazeFindings(plan, projectDir, times, join(outDir, "checks", "haze"));
+      if (errors.length) writeJson(join(outDir, "checks", `haze-${round}.json`), errors);
+      // and a scene may run cleanly yet show nothing: a camera looking past its objects
+      const empty = await emptySceneFindings(
         plan,
         projectDir,
-        stillTimes(plan, ctx.transcript.words),
-        join(outDir, "checks", "haze"),
+        times,
+        join(outDir, "checks", "empty"),
       );
-      if (errors.length) writeJson(join(outDir, "checks", `haze-${round}.json`), errors);
+      if (empty.length) writeJson(join(outDir, "checks", `empty-${round}.json`), empty);
+      errors = [...errors, ...empty];
     }
     if (!errors.length) break;
     if (round >= maxRounds) {
