@@ -42,7 +42,8 @@
       "source": {
         "type": "github-release",
         "repo": "BtbN/FFmpeg-Builds",
-        "tagPattern": "^autobuild-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}$"
+        "tagPattern": "^autobuild-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}$",
+        "monthEnd": true
       },
       "notes": "https://github.com/BtbN/FFmpeg-Builds/releases",
       "files": ["packages/app/scripts/ffmpeg.mjs"]
