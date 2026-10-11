@@ -1,3 +1,4 @@
+import type { Price } from "../models.js";
 import {
   ProviderError,
   mentionsUnavailableModel,
@@ -142,6 +143,13 @@ export class OpenAICompatibleProvider implements TextProvider {
         name?: string;
         context_length?: number;
         architecture?: { input_modalities?: string[]; output_modalities?: string[] };
+        /** USD per token, as strings */
+        pricing?: {
+          prompt?: string;
+          completion?: string;
+          input_cache_read?: string;
+          input_cache_write?: string;
+        };
       }[];
     };
     return (body.data ?? [])
@@ -154,7 +162,22 @@ export class OpenAICompatibleProvider implements TextProvider {
         displayName: m.name ?? m.id,
         contextWindow: m.context_length ?? null,
         vision: (m.architecture?.input_modalities ?? []).includes("image"),
+        ...(openRouterPrice(m.pricing) ? { price: openRouterPrice(m.pricing)! } : {}),
       }));
+  }
+
+  private priceLookup: Promise<Price | undefined> | undefined;
+
+  /**
+   * The model's price from OpenRouter's own list, for models the catalog (models.json) does not know, so a
+   * job's usage.json still says what it cost. Read once; undefined for other providers or when it fails.
+   */
+  modelPrice(): Promise<Price | undefined> {
+    if (this.name !== "openrouter") return Promise.resolve(undefined);
+    this.priceLookup ??= this.listOpenRouterModels()
+      .then((models) => models.find((m) => m.id === this.model)?.price)
+      .catch(() => undefined);
+    return this.priceLookup;
   }
 
   /**
@@ -328,4 +351,26 @@ function cachedTokens(usage: ChatCompletion["usage"]): number {
  */
 export function stripThinking(text: string): string {
   return text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim();
+}
+
+/** OpenRouter's per-token prices as USD per million; a missing cache price is charged like input. */
+function openRouterPrice(p?: {
+  prompt?: string;
+  completion?: string;
+  input_cache_read?: string;
+  input_cache_write?: string;
+}): Price | undefined {
+  const perMillion = (v?: string) => (v === undefined || v === "" ? NaN : Number(v) * 1_000_000);
+  const input = perMillion(p?.prompt);
+  const output = perMillion(p?.completion);
+  if (!Number.isFinite(input) || !Number.isFinite(output) || input < 0 || output < 0)
+    return undefined;
+  const cacheRead = perMillion(p?.input_cache_read);
+  const cacheWrite = perMillion(p?.input_cache_write);
+  return {
+    input,
+    output,
+    cacheRead: Number.isFinite(cacheRead) ? cacheRead : input,
+    cacheWrite: Number.isFinite(cacheWrite) ? cacheWrite : input,
+  };
 }

@@ -23,7 +23,7 @@ import { extractHtml } from "../prompts.js";
 import { renderPlan, stillTimes, type RenderPlanResult } from "./render.js";
 import { overlayHazeFindings } from "../haze.js";
 import { transcribe } from "./transcribe.js";
-import { loadModelCatalog, usageCost } from "../models.js";
+import { type Price, loadModelCatalog, usageCost } from "../models.js";
 import { cutAudio } from "../media/audio.js";
 import { correctTranscript } from "../align.js";
 
@@ -244,9 +244,20 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
   mkdirSync(outDir, { recursive: true });
   const usage = new UsageMeter();
   /** Written on success and on failure, so a failed run still shows what it cost. */
+  // a model models.json does not know may have its price in the provider's list (OpenRouter); looked up
+  // in the background, it is there long before the job ends
+  let listed: { model: string; price: Price | undefined } | undefined;
+  const lookupModel = o.provider.model;
+  void o.provider
+    .modelPrice?.()
+    .then((price) => (listed = { model: lookupModel, price }))
+    .catch(() => {});
   const writeUsage = () => {
     const total = usage.total();
-    const price = loadModelCatalog().models[o.provider.model]?.price;
+    const model = o.provider.model;
+    const price =
+      loadModelCatalog().models[model]?.price ??
+      (listed?.model === model ? listed.price : undefined);
     writeJson(join(outDir, "usage.json"), {
       model: o.provider.model,
       total,

@@ -1,3 +1,4 @@
+import type { Price } from "../models.js";
 export type ContentPart =
   | { type: "text"; text: string }
   | { type: "image"; mediaType: "image/png" | "image/jpeg"; base64: string };
@@ -47,6 +48,8 @@ export interface ModelInfo {
   displayName: string;
   contextWindow: number | null;
   vision: boolean | null;
+  /** USD per million tokens, when the provider's own list says (OpenRouter). */
+  price?: Price;
 }
 
 export interface TextProvider {
@@ -60,6 +63,8 @@ export interface TextProvider {
   preflight?(): void;
   /** Models available to this account, for the model picker. */
   listModels?(): Promise<ModelInfo[]>;
+  /** The model's price when the provider lists it (OpenRouter), for models models.json does not know. */
+  modelPrice?(): Promise<Price | undefined>;
 }
 
 /** A provider failure with a message a user can act on. Never contains the API key. */
@@ -98,6 +103,7 @@ export class UsageMeter {
       ...(provider.billing ? { billing: provider.billing } : {}),
       ...(provider.preflight ? { preflight: () => provider.preflight?.() } : {}),
       ...(provider.listModels ? { listModels: () => provider.listModels!() } : {}),
+      ...(provider.modelPrice ? { modelPrice: () => provider.modelPrice!() } : {}),
       complete: async (req) => {
         const res = await provider.complete(req);
         this.calls.push({ purpose: req.purpose, model: res.model, usage: res.usage });

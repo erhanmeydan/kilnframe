@@ -294,3 +294,64 @@ describe("keys on the command line", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("OpenRouter prices", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads a model's price from OpenRouter's list, per million tokens, once", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "z-ai/glm-5.3-flash",
+              name: "GLM 5.3 Flash",
+              architecture: { input_modalities: ["text", "image"], output_modalities: ["text"] },
+              pricing: {
+                prompt: "0.00000015",
+                completion: "0.0000005",
+                input_cache_read: "0.00000003",
+              },
+            },
+          ],
+        }),
+      );
+    });
+    const p = new OpenAICompatibleProvider({
+      name: "openrouter",
+      baseURL: "https://openrouter.example.test/api/v1",
+      model: "z-ai/glm-5.3-flash",
+      capabilities: { vision: true, structuredOutput: false, contextWindow: 1000 },
+    });
+    const price = await p.modelPrice();
+    expect(price?.input).toBeCloseTo(0.15);
+    expect(price?.output).toBeCloseTo(0.5);
+    expect(price?.cacheRead).toBeCloseTo(0.03);
+    // no cache write price listed: charged like input
+    expect(price?.cacheWrite).toBeCloseTo(0.15);
+    expect((await p.listModels())[0]?.price?.output).toBeCloseTo(0.5);
+    await p.modelPrice();
+    expect(calls).toBe(2);
+  });
+
+  it("has no price for a model OpenRouter does not list, or another provider", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ data: [] })));
+    const caps = { vision: true, structuredOutput: false, contextWindow: 1000 };
+    const p = new OpenAICompatibleProvider({
+      name: "openrouter",
+      baseURL: "https://openrouter.example.test/api/v1",
+      model: "nope/model",
+      capabilities: caps,
+    });
+    expect(await p.modelPrice()).toBeUndefined();
+    const xai = new OpenAICompatibleProvider({
+      name: "xai",
+      baseURL: "https://api.example.test/v1",
+      model: "m",
+      capabilities: caps,
+    });
+    expect(await xai.modelPrice()).toBeUndefined();
+  });
+});
