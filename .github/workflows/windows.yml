@@ -36,6 +36,9 @@ jobs:
         shell: bash
         run: npx --yes @puppeteer/browsers@3.2.3 install chrome-headless-shell@150.0.7871.24 --path "$HOME/.cache/puppeteer"
 
+      # the tests import the workspace packages' built output
+      - run: pnpm -r build
+
       # reported, not blocking: some tests touch macOS-only things (Keychain, Premiere's paths)
       - run: pnpm test
         continue-on-error: true
