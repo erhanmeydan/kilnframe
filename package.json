@@ -14,7 +14,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
+    "deps:check": "node scripts/deps-check.mjs --print",
+    "deps:try": "node scripts/deps-try.mjs",
+    "deps:models": "node scripts/deps-models.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

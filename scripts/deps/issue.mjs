@@ -40,7 +40,7 @@ export function issueBody(results, advisories, previousBody, now) {
     for (const r of ups) {
       const link = r.notes ?? r.dep.notes;
       out.push(
-        `${box(r.dep.id, keep)} ${r.dep.current} → ${r.latest} (${SIZE[bump(r.dep.current, r.latest)]})${link ? ` · [notlar](${link})` : ""}`,
+        `${box(r.dep.id, keep)} ${r.dep.current} → ${r.latest} (${SIZE[bump(r.dep.current, r.latest)]})${link ? ` · [notlar](${link})` : ""}${r.dep.follows ? ` · ${r.dep.follows} ile gelir` : ""}`,
       );
     }
     for (const r of rows.filter((r) => r.error))
@@ -57,16 +57,37 @@ export function issueBody(results, advisories, previousBody, now) {
   );
   out.push("");
   const models = results.find((r) => r.dep.source.type === "openrouter-models");
+  const prevList =
+    /<!-- openrouter: ([^>]*) -->/
+      .exec(previousBody ?? "")?.[1]
+      ?.split(",")
+      .filter(Boolean) ?? [];
   out.push("## Modeller");
-  out.push(
-    models?.error
-      ? `- Kontrol edilemedi: OpenRouter (${models.error})`
-      : `- OpenRouter: görsel okuyan ${models?.latest ?? 0} model`,
-  );
+  if (models?.error) out.push(`- Kontrol edilemedi: OpenRouter (${models.error})`);
+  else if (models) {
+    const list = models.extra.visionModels;
+    const { added, removed } = modelChanges(prevList, list);
+    const tag = (id) => (models.extra.suggested?.includes(id) ? `${id} (önerilen)` : id);
+    out.push(
+      `- OpenRouter: görsel okuyan ${list.length} model` +
+        (prevList.length
+          ? `; yeni: ${added.join(", ") || "yok"}; kalkan: ${removed.map(tag).join(", ") || "yok"}`
+          : ""),
+    );
+  }
   out.push(
     "- Anthropic, OpenAI, Gemini, xAI, MiniMax: Mac'te `pnpm deps:models` ile kontrol edilir",
   );
+  if (models && !models.error)
+    out.push("", `<!-- openrouter: ${models.extra.visionModels.join(",")} -->`);
   return out.join("\n").trimEnd() + "\n";
+}
+
+export function modelChanges(prev, now) {
+  return {
+    added: now.filter((m) => !prev.includes(m)),
+    removed: prev.filter((m) => !now.includes(m)),
+  };
 }
 
 const strip = (b) => b.replace(/^Son kontrol:.*$/m, "").replace(/^- \[[ x]\]/gim, "- [ ]");

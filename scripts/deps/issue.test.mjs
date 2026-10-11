@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseAudit } from "./audit.mjs";
-import { issueBody, sameContent } from "./issue.mjs";
+import { issueBody, modelChanges, sameContent } from "./issue.mjs";
 
 const dep = (id, group, current) => ({
   id,
@@ -26,6 +26,14 @@ describe("issue body", () => {
     expect(body).not.toContain("electron");
     expect(body).toMatch(/## Geliştirici araçları\ntypescript 6\.0\.3 → 6\.1\.0/);
     expect(body).not.toMatch(/[—–]/);
+  });
+  it("says when a dependency comes with another one", () => {
+    const chrome = {
+      ...dep("chrome-headless-shell", "render", "152.0.7977.30"),
+      follows: "hyperframes",
+    };
+    const body = issueBody([{ dep: chrome, latest: "155.0.8059.39" }], [], null, now);
+    expect(body).toContain("· hyperframes ile gelir");
   });
   it("keeps the boxes Erhan ticked", () => {
     const before = issueBody(results, [], null, now).replace(
@@ -63,5 +71,32 @@ describe("issue body", () => {
     );
     expect(sameContent(a, b)).toBe(true);
     expect(sameContent(a, issueBody(results.slice(1), [], null, now))).toBe(false);
+  });
+});
+
+describe("models", () => {
+  it("reports vision models added and removed since last week, and a removed suggested model", () => {
+    expect(modelChanges(["a", "b"], ["b", "c"])).toEqual({ added: ["c"], removed: ["a"] });
+    const body = issueBody(
+      [
+        {
+          dep: {
+            id: "openrouter-models",
+            group: "app",
+            current: "-",
+            source: { type: "openrouter-models" },
+            files: [],
+          },
+          latest: "2",
+          extra: { visionModels: ["b", "c"], suggested: ["a"] },
+        },
+      ],
+      [],
+      "<!-- openrouter: a,b -->",
+      now,
+    );
+    expect(body).toContain("yeni: c");
+    expect(body).toContain("kalkan: a (önerilen)");
+    expect(body).toContain("<!-- openrouter: b,c -->");
   });
 });

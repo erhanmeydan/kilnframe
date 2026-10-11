@@ -1,0 +1,27 @@
+# Weekly: newest stable version of every pinned dependency, written to one issue. Reads only.
+name: Dependencies
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # no install scripts: the check needs the lockfile and hyperframes/dist, not Chrome or Electron
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: node scripts/deps-check.mjs --issue
+        env:
+          GH_TOKEN: ${{ github.token }}
