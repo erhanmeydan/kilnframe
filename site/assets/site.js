@@ -52,6 +52,37 @@
     video.addEventListener("click", () => (video.paused ? play() : video.pause()));
   }
 
+  // the mailing list: Kit takes the address and sends its confirmation email; the page stays where it is
+  for (const form of document.querySelectorAll("form.list")) {
+    const status = form.querySelector(".list-status");
+    const button = form.querySelector("button");
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!status || !button) return;
+      button.disabled = true;
+      status.textContent = tr ? "Gönderiliyor..." : "Sending...";
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        headers: { Accept: "application/json" },
+      })
+        .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+          if (!ok || body.status !== "success") throw new Error();
+          form.reset();
+          status.textContent = tr
+            ? "Neredeyse tamam: e-postana gelen onay bağlantısına tıkla."
+            : "Almost there: click the confirmation link we just emailed you.";
+        })
+        .catch(() => {
+          status.textContent = tr
+            ? "Gönderilemedi. Adresi kontrol edip yeniden dene."
+            : "That did not go through. Check the address and try again.";
+        })
+        .finally(() => (button.disabled = false));
+    });
+  }
+
   // the version line stays hidden when GitHub cannot be reached (or the repository is still private)
   fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
     headers: { Accept: "application/vnd.github+json" },

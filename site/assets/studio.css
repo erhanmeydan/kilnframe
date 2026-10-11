@@ -1073,6 +1073,14 @@ figcaption {
   opacity: 0.55;
 }
 
+.list-status {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  min-height: 1.4em;
+  font: 14px var(--body);
+  color: var(--ink-2);
+}
+
 dialog.player {
   padding: 0;
   border: 0;

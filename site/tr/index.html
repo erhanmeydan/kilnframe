@@ -870,15 +870,22 @@
               >Windows için indir</a
             >
           </div>
-          <!-- liste servisi (Buttondown ya da MailerLite) henüz seçilmedi; form bir yere gönderilmiyor -->
-          <form class="list" onsubmit="return false;">
+          <!-- the list lives at Kit; without the script the form still posts there and Kit shows its own page -->
+          <form
+            class="list"
+            action="https://app.kit.com/forms/10029605/subscriptions"
+            method="post"
+          >
             <input
               type="email"
+              name="email_address"
               placeholder="Yeni stilleri ve sürümleri bana yazın"
               aria-label="E-posta"
-              disabled
+              autocomplete="email"
+              required
             />
-            <button class="btn" disabled>Yakında</button>
+            <button class="btn">Abone Ol</button>
+            <p class="list-status" role="status"></p>
           </form>
         </div>
       </section>

@@ -1,6 +1,6 @@
 # vendor
 
-Third-party runtime files loaded by generated compositions. No CDN access at render time (CLAUDE.md 5, rule 3).
+Third-party runtime files loaded by generated compositions. Nothing is loaded from a CDN at render time.
 Exact versions, each folder keeps its own license.
 
 | Folder | Version | License |

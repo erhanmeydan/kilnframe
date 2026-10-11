@@ -882,15 +882,22 @@
               >Download for Windows</a
             >
           </div>
-          <!-- the list service (Buttondown or MailerLite) is not chosen yet; the form posts nowhere -->
-          <form class="list" onsubmit="return false;">
+          <!-- the list lives at Kit; without the script the form still posts there and Kit shows its own page -->
+          <form
+            class="list"
+            action="https://app.kit.com/forms/10029605/subscriptions"
+            method="post"
+          >
             <input
               type="email"
+              name="email_address"
               placeholder="Email me new styles and versions"
               aria-label="Email"
-              disabled
+              autocomplete="email"
+              required
             />
-            <button class="btn" disabled>Soon</button>
+            <button class="btn">Subscribe</button>
+            <p class="list-status" role="status"></p>
           </form>
         </div>
       </section>
