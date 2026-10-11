@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -15,6 +16,7 @@ import { PlanSchema, sceneMode, type Plan } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
 import { buildPreview, deliver } from "./deliver.js";
 import { renderSfx, type SfxResult } from "./sfx.js";
+import { fullness, pickStill, stillCandidates } from "./still-pick.js";
 
 export class ValidationError extends Error {
   constructor(
@@ -80,10 +82,14 @@ function transcriptWords(outDir: string): { start: number }[] {
  * The review shows an overlay scene over the footage it will sit on, so the editor sees whether it covers
  * the face before the render. The transparent still is kept in stills/alpha/.
  */
-function showOverlaysOverFootage(plan: Plan, stills: string[], outDir: string): void {
+function showOverlaysOverFootage(
+  plan: Plan,
+  stills: string[],
+  outDir: string,
+  times: number[],
+): void {
   const frames = readFrames(outDir);
   if (!frames.length || stills.length !== plan.scenes.length) return;
-  const times = stillTimes(plan, transcriptWords(outDir));
   plan.scenes.forEach((scene, i) => {
     const still = stills[i] as string;
     const frame = nearestFrame(frames, times[i] as number);
@@ -94,6 +100,58 @@ function showOverlaysOverFootage(plan: Plan, stills: string[], outDir: string): 
     copyFileSync(still, alpha);
     compositeOver(alpha, frame.file, still);
   });
+}
+
+/**
+ * One still per scene for the review: a few frames per scene in one snapshot run, the fullest kept
+ * (still-pick.ts). Returns the stills in scene order and the time each was taken.
+ */
+async function reviewStills(
+  plan: Plan,
+  projectDir: string,
+  outDir: string,
+  stillsDir: string,
+): Promise<{ stills: string[]; times: number[]; ms: number }> {
+  const fps = parseFps(plan.fps);
+  const usual = stillTimes(plan, transcriptWords(outDir));
+  const candidates = stillCandidates(
+    plan.scenes.map((s) => ({
+      startS: framesToSeconds(s.start_frame, fps),
+      endS: framesToSeconds(s.end_frame, fps),
+    })),
+    usual,
+  );
+  const sampleDir = join(stillsDir, "samples");
+  // a scene made again renders all stills anew: nothing of the last review stays
+  rmSync(stillsDir, { recursive: true, force: true });
+  mkdirSync(stillsDir, { recursive: true });
+  const snap = await snapshotProject(projectDir, candidates.flat(), sampleDir);
+  // by number: frame-100 comes after frame-99
+  const index = (f: string) => Number(/^frame-(\d+)/.exec(f)?.[1] ?? 0);
+  const shots = readdirSync(sampleDir)
+    .filter((f) => /^frame-\d+.*\.png$/.test(f))
+    .sort((a, b) => index(a) - index(b))
+    .map((f) => join(sampleDir, f));
+  const stills: string[] = [];
+  const times: number[] = [];
+  let at = 0;
+  candidates.forEach((sceneTimes, i) => {
+    const files = shots.slice(at, at + sceneTimes.length);
+    at += sceneTimes.length;
+    const k =
+      files.length === sceneTimes.length
+        ? pickStill(sceneTimes, files.map(fullness), usual[i] as number)
+        : 0;
+    const time = sceneTimes[k] as number;
+    const from = files[k];
+    if (!from) return;
+    const still = join(stillsDir, `frame-${String(i).padStart(2, "0")}-at-${time.toFixed(2)}s.png`);
+    copyFileSync(from, still);
+    stills.push(still);
+    times.push(time);
+  });
+  rmSync(sampleDir, { recursive: true, force: true });
+  return { stills, times, ms: snap.ms };
 }
 
 /** The frame of the footage nearest the middle of the range, for the preview of an insert with alpha. */
@@ -131,17 +189,9 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
 
   log("Rendering stills");
   const stillsDir = join(outDir, "stills");
-  const snap = await snapshotProject(
-    projectDir,
-    stillTimes(plan, transcriptWords(outDir)),
-    stillsDir,
-  );
-  timingsMs.stills = snap.ms;
-  const stills = readdirSync(stillsDir)
-    .filter((f) => /^frame-\d+.*\.png$/.test(f))
-    .sort()
-    .map((f) => join(stillsDir, f));
-  showOverlaysOverFootage(plan, stills, outDir);
+  const { stills, times, ms } = await reviewStills(plan, projectDir, outDir, stillsDir);
+  timingsMs.stills = ms;
+  showOverlaysOverFootage(plan, stills, outDir, times);
   if (o.stillsOnly)
     return { projectDir, stills, output: null, preview: null, sfx: null, timingsMs, warnings };
 
