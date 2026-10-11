@@ -19,6 +19,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hyperframesChrome } from "../../../scripts/deps/pins.mjs";
 import { checkProresAlpha, fetchFfmpeg } from "./ffmpeg.mjs";
 
 const app = fileURLToPath(new URL("..", import.meta.url));
@@ -58,21 +59,23 @@ const exe = (name) => (platform === "win" ? `${name}.exe` : name);
 const ffmpeg = await fetchFfmpeg(platform, platform === "win" ? "x64" : arch, bin);
 checkProresAlpha(join(bin, exe("ffmpeg")));
 console.log(`FFmpeg ${ffmpeg.version} (${ffmpeg.source})`);
-// the headless Chrome HyperFrames already uses on this computer (same build), from Puppeteer's cache
-const shells = join(homedir(), ".cache", "puppeteer", "chrome-headless-shell");
+// the headless Chrome HyperFrames renders with: its pinned CHROME_VERSION, from its own cache
+// (~/.cache/hyperframes/chrome); Puppeteer's cache may hold an older build
+const chrome = hyperframesChrome(root);
 const prefix = platform === "mac" ? (arch === "arm64" ? "mac_arm-" : "mac-") : "win64-";
-const build = readdirSync(shells)
-  .filter((d) => d.startsWith(prefix))
-  .sort()
-  .at(-1);
-if (!build)
-  throw new Error(`No headless Chrome for ${prefix} in ${shells}; render once to fetch it.`);
+const shells = join(homedir(), ".cache", "hyperframes", "chrome", "chrome-headless-shell");
+const build = `${prefix}${chrome}`;
+if (!existsSync(join(shells, build)))
+  throw new Error(
+    `No headless Chrome ${build} in ${shells}; render once with HyperFrames to fetch it.`,
+  );
 const shellDir = readdirSync(join(shells, build)).find((d) =>
   d.startsWith("chrome-headless-shell"),
 );
 // not bin/chrome-headless-shell/: a folder named like its executable makes codesign take it for a bundle
 // and refuse the unsigned data files beside the binary
 cpSync(join(shells, build, shellDir), join(bin, "headless-shell"), { recursive: true });
+console.log(`Chrome ${chrome} (HyperFrames)`);
 cpSync(join(root, "styles"), join(extra, "styles"), { recursive: true });
 cpSync(join(root, "vendor"), join(extra, "vendor"), { recursive: true });
 // the licenses NOTICE points to; FFmpeg's GPL text has to travel with the program

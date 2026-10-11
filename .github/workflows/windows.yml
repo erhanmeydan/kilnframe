@@ -31,10 +31,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # the headless Chrome HyperFrames renders with, the same build the Mac app ships
+      # the headless Chrome HyperFrames pins (its CHROME_VERSION), into HyperFrames' own cache, where the
+      # installer build takes it from
       - name: Headless Chrome
         shell: bash
-        run: npx --yes @puppeteer/browsers@3.2.3 install chrome-headless-shell@150.0.7871.24 --path "$HOME/.cache/puppeteer"
+        run: |
+          v=$(node -e 'import("./scripts/deps/pins.mjs").then(m=>console.log(m.hyperframesChrome(process.cwd())))')
+          npx --yes @puppeteer/browsers@3.2.3 install chrome-headless-shell@$v --path "$HOME/.cache/hyperframes/chrome"
 
       # the tests import the workspace packages' built output
       - run: pnpm -r build
