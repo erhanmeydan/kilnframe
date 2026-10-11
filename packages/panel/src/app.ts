@@ -353,6 +353,8 @@ const state = {
   updateBusy: false,
   /** Which side is out of date when the panel and the companion speak different protocols. */
   mismatch: null as null | "app" | "panel",
+  /** The companion's version from its "ready", for the version line in the settings. */
+  appVersion: null as string | null,
 };
 
 const session = new CompanionSession();
@@ -1924,7 +1926,32 @@ function settings(): string {
     <div class="row"><span>${t("settings.wav")}</span><span class="${okWarn(!!state.system?.wavPreset)}">${state.system?.wavPreset ? t("settings.found") : t("settings.notFound")}</span></div>
   </div>
   <div class="link mt" data-act="setup-open">${t("setup.reopenLink")}</div>
+  ${versionLine()}
   <div class="btn mt" data-act="home">${t("settings.close")}</div>`;
+}
+
+/** The panel's version: what the installed manifest says, else the one it was built with. */
+function panelVersion(): string {
+  try {
+    const v = (require("uxp") as { versions?: { plugin?: unknown } }).versions?.plugin;
+    // only a real version string: anything else would break the settings screen
+    if (typeof v === "string" && /^\d+\.\d+/.test(v)) return v;
+  } catch {
+    // the browser demo has no uxp module
+  }
+  return __PANEL_VERSION__;
+}
+
+/** "Kilnframe 0.1.2 · Panel 0.1.2 · Release Notes ↗"; when they differ, how to put the panel right. */
+function versionLine(): string {
+  const panel = panelVersion();
+  const app = state.appVersion;
+  const differ = Boolean(app && app !== panel);
+  const notes =
+    lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
+  return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div>${
+    differ ? `<div class="small warn-text">${t("settings.versionsDiffer")}</div>` : ""
+  }`;
 }
 
 /** "Redo Scene 3", or "Part 2 · Redo Scene 3" in a series review. */
@@ -2139,6 +2166,7 @@ async function connectCompanion() {
     state.conn = "ok";
     const theirs = session.ready?.protocol ?? PROTOCOL_VERSION;
     state.mismatch = theirs < PROTOCOL_VERSION ? "app" : theirs > PROTOCOL_VERSION ? "panel" : null;
+    state.appVersion = session.ready?.version || null;
     render();
     const [system, styles] = await Promise.all([
       session.request<ServerMessage>({ type: "system.check" }, "system"),
