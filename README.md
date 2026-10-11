@@ -145,6 +145,14 @@ It writes `insert.mp4` (or a `.mov` with alpha when a scene sits over the footag
 Building the installers: `node packages/app/scripts/stage.mjs --pkg` on a Mac (signs and notarizes with the
 maintainer's Developer ID), the Windows installer is built by the [Windows workflow](.github/workflows/windows.yml).
 
+### Dependency updates
+
+Every pinned dependency is listed in `deps.json`. A weekly workflow writes the newest stable versions to one
+issue labelled `dependencies`. To try one update on a Mac: `pnpm deps:try <id>` (its own git worktree; tests,
+then the golden scenes in `examples/golden/` rendered and compared with their reference frames). Add `--pr` to
+open a pull request when everything passes. `pnpm deps:models` checks the providers' model lists with the keys
+the app keeps in the keychain.
+
 ## License
 
 Kilnframe is licensed under the [Apache License 2.0](LICENSE). The installers include FFmpeg (GPL), Chrome
