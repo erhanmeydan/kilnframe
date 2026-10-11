@@ -187,6 +187,58 @@ describe("companion server", () => {
     expect(busy).toEqual([true, false]);
   });
 
+  describe("a review waiting for approval keeps it busy", () => {
+    const start = async () => {
+      const busy: boolean[] = [];
+      companion = await startCompanion({
+        token: TOKEN,
+        keys: new MemoryKeyStore(),
+        version: "test",
+        port: 0,
+        onBusy: (b) => busy.push(b),
+        runner: async () => ({}),
+      });
+      const c = await connect(companion.port);
+      c.send({ type: "hello", token: TOKEN });
+      await c.next((m) => m.type === "ready");
+      const settle = () => new Promise((r) => setTimeout(r, 60));
+      const job = async (extra: Partial<JobParams>) => {
+        const before = c.messages.filter((m) => m.type === "job.done").length;
+        c.send({ type: "job.start", params: { ...params, ...extra } });
+        for (let i = 0; i < 100; i++) {
+          if (c.messages.filter((m) => m.type === "job.done").length > before) break;
+          await new Promise((r) => setTimeout(r, 10));
+        }
+        await settle();
+      };
+      return { busy, c, job, settle };
+    };
+
+    it("until the approved render is done", async () => {
+      const { busy, job } = await start();
+      await job({ stillsOnly: true });
+      expect(busy).toEqual([true]);
+      await job({ action: "render" });
+      expect(busy).toEqual([true, false]);
+    });
+
+    it("until the editor leaves the review", async () => {
+      const { busy, c, job, settle } = await start();
+      await job({ stillsOnly: true });
+      c.send({ type: "review.closed", outDir: params.outDir });
+      await settle();
+      expect(busy).toEqual([true, false]);
+    });
+
+    it("until no panel is connected (Premiere quit with the review open)", async () => {
+      const { busy, c, job, settle } = await start();
+      await job({ stillsOnly: true });
+      c.ws.close();
+      await settle();
+      expect(busy).toEqual([true, false]);
+    });
+  });
+
   it("passes a failed job's kind along, also to a panel that asks again", async () => {
     companion = await startCompanion({
       token: TOKEN,

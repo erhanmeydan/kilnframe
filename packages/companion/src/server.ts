@@ -95,16 +95,45 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     const data = JSON.stringify(msg);
     for (const c of clients) if (c.readyState === c.OPEN) c.send(data);
   };
+  /**
+   * Job folders whose stills wait for the editor's approval: the animation is not done until its render is,
+   * so the app keeps asking before it quits. Cleared by the render, by leaving the review, or when no panel
+   * is connected any more (Premiere quit with the review open).
+   */
+  const pendingReviews = new Set<string>();
+  let saidBusy = false;
+  const tellBusy = () => {
+    const busy = queue.busy() || (pendingReviews.size > 0 && clients.size > 0);
+    if (busy === saidBusy) return;
+    saidBusy = busy;
+    o.onBusy?.(busy);
+  };
+  /** A finished job: stills open a review, its render (done, failed or stopped) closes it. */
+  const reviewAfter = (jobId: string, done: boolean) => {
+    const p = queue.paramsOf(jobId) as { outDir?: string; stillsOnly?: boolean; action?: string };
+    if (!p?.outDir) return;
+    if (p.action === "render") pendingReviews.delete(p.outDir);
+    else if (done && (p.stillsOnly || p.action === "recompose")) pendingReviews.add(p.outDir);
+  };
   const queue = new JobQueue(
     o.runner,
     {
       queued: (jobId, position) => broadcast({ type: "job.queued", jobId, position }),
       progress: (jobId, message) => broadcast({ type: "job.progress", jobId, message }),
-      done: (jobId, result) => broadcast({ type: "job.done", jobId, result }),
-      failed: (jobId, message, kind) => broadcast({ type: "job.error", jobId, message, kind }),
-      cancelled: (jobId) => broadcast({ type: "job.cancelled", jobId }),
+      done: (jobId, result) => {
+        reviewAfter(jobId, true);
+        broadcast({ type: "job.done", jobId, result });
+      },
+      failed: (jobId, message, kind) => {
+        reviewAfter(jobId, false);
+        broadcast({ type: "job.error", jobId, message, kind });
+      },
+      cancelled: (jobId) => {
+        reviewAfter(jobId, false);
+        broadcast({ type: "job.cancelled", jobId });
+      },
     },
-    o.onBusy,
+    () => tellBusy(),
   );
 
   o.appUpdates?.onState((update) => broadcast({ type: "app.update", update }));
@@ -125,6 +154,8 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     ws.on("close", () => {
       clearTimeout(timer);
       clients.delete(ws);
+      // the last panel gone: a review left open no longer holds the app
+      tellBusy();
     });
 
     ws.on("message", async (raw) => {
@@ -255,6 +286,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           case "job.cancel":
             if (!queue.cancel(msg.jobId))
               send({ type: "error", message: "This job has already finished." });
+            break;
+          case "review.closed":
+            if (msg.outDir) pendingReviews.delete(msg.outDir);
+            else pendingReviews.clear();
+            tellBusy();
             break;
           case "review.load":
             send({

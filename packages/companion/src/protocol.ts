@@ -189,6 +189,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   /** Opens an agent CLI's own update in a terminal window. */
   z.object({ type: z.literal("agent.update"), agent: z.enum(["claude-code", "codex", "grok"]) }),
   z.object({ type: z.literal("review.load"), outDir: z.string().min(1) }),
+  /** The editor left a review without rendering it (none: every review), so the app may quit again. */
+  z.object({ type: z.literal("review.closed"), outDir: z.string().min(1).optional() }),
   z.object({
     type: z.literal("providers.test"),
     provider: z.string().min(1),

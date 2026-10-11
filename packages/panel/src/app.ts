@@ -1930,6 +1930,17 @@ function settings(): string {
   <div class="btn mt" data-act="home">${t("settings.close")}</div>`;
 }
 
+/**
+ * The editor left the review without rendering: the companion stops counting it as work in progress, so
+ * quitting Kilnframe no longer waits for it. A series' parts are all let go.
+ */
+function leaveReview() {
+  const r = state.review;
+  const outDir = r && !r.series ? (r.params.outDir as string | undefined) : undefined;
+  if (state.conn === "ok")
+    session.send(outDir ? { type: "review.closed", outDir } : { type: "review.closed" });
+}
+
 /** The panel's version: what the installed manifest says, else the one it was built with. */
 function panelVersion(): string {
   try {
@@ -3383,6 +3394,7 @@ function runAction(el: HTMLElement) {
     state.images.splice(Number(val), 1);
   } else if (act === "cancel-review") {
     trace("review: cancelled");
+    leaveReview();
     if (state.review?.series) {
       state.series = null;
       saveSeries();
@@ -3393,6 +3405,7 @@ function runAction(el: HTMLElement) {
     state.screen = "home";
   } else if (act === "series-later") {
     trace("review: series kept for later");
+    leaveReview();
     state.review = null;
     state.job = null;
     state.screen = "home";

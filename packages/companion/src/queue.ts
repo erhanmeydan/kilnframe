@@ -74,6 +74,11 @@ export class JobQueue {
   }
 
   /** A job is running or waiting: no update is installed now. */
+  /** A job's parameters, while the queue keeps it. */
+  paramsOf(jobId: string): JobParams | undefined {
+    return this.jobs.find((j) => j.id === jobId)?.params;
+  }
+
   busy(): boolean {
     return this.running || this.jobs.some((j) => j.state === "queued");
   }
