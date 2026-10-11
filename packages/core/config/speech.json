@@ -1,0 +1,167 @@
+{
+  "$comment": "Speech providers for story mode. Checked against ai.google.dev/gemini-api/docs/speech-generation and /pricing on 2026-10-07. Prices in USD per million tokens; audio is 25 tokens per second.",
+  "version": 1,
+  "providers": [
+    {
+      "id": "gemini",
+      "displayName": "Google Gemini TTS",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "keyName": "gemini",
+      "models": [
+        {
+          "id": "gemini-3.8-flash-tts",
+          "label": "Flash TTS",
+          "price": {
+            "input": 0.5,
+            "outputAudio": 9
+          },
+          "priceFrom2027": {
+            "input": 1,
+            "outputAudio": 18
+          }
+        },
+        {
+          "id": "gemini-3.8-flash-lite-tts",
+          "label": "Flash-Lite TTS",
+          "price": {
+            "input": 0.5,
+            "outputAudio": 6
+          },
+          "priceFrom2027": {
+            "input": 1,
+            "outputAudio": 12
+          }
+        }
+      ],
+      "audioTokensPerSecond": 25,
+      "sampleRate": 24000,
+      "voices": [
+        {
+          "name": "Zephyr",
+          "character": "Bright"
+        },
+        {
+          "name": "Puck",
+          "character": "Upbeat"
+        },
+        {
+          "name": "Charon",
+          "character": "Informative"
+        },
+        {
+          "name": "Kore",
+          "character": "Firm"
+        },
+        {
+          "name": "Fenrir",
+          "character": "Excitable"
+        },
+        {
+          "name": "Leda",
+          "character": "Youthful"
+        },
+        {
+          "name": "Orus",
+          "character": "Firm"
+        },
+        {
+          "name": "Aoede",
+          "character": "Breezy"
+        },
+        {
+          "name": "Callirrhoe",
+          "character": "Easy-going"
+        },
+        {
+          "name": "Autonoe",
+          "character": "Bright"
+        },
+        {
+          "name": "Enceladus",
+          "character": "Breathy"
+        },
+        {
+          "name": "Iapetus",
+          "character": "Clear"
+        },
+        {
+          "name": "Umbriel",
+          "character": "Easy-going"
+        },
+        {
+          "name": "Algieba",
+          "character": "Smooth"
+        },
+        {
+          "name": "Despina",
+          "character": "Smooth"
+        },
+        {
+          "name": "Erinome",
+          "character": "Clear"
+        },
+        {
+          "name": "Algenib",
+          "character": "Gravelly"
+        },
+        {
+          "name": "Rasalgethi",
+          "character": "Informative"
+        },
+        {
+          "name": "Laomedeia",
+          "character": "Upbeat"
+        },
+        {
+          "name": "Achernar",
+          "character": "Soft"
+        },
+        {
+          "name": "Alnilam",
+          "character": "Firm"
+        },
+        {
+          "name": "Schedar",
+          "character": "Even"
+        },
+        {
+          "name": "Gacrux",
+          "character": "Mature"
+        },
+        {
+          "name": "Pulcherrima",
+          "character": "Forward"
+        },
+        {
+          "name": "Achird",
+          "character": "Friendly"
+        },
+        {
+          "name": "Zubenelgenubi",
+          "character": "Casual"
+        },
+        {
+          "name": "Vindemiatrix",
+          "character": "Gentle"
+        },
+        {
+          "name": "Sadachbia",
+          "character": "Lively"
+        },
+        {
+          "name": "Sadaltager",
+          "character": "Knowledgeable"
+        },
+        {
+          "name": "Sulafat",
+          "character": "Warm"
+        }
+      ],
+      "notes": [
+        "over 130 languages including Turkish, detected from the text",
+        "style is directed in natural language (speech_metadata.style)",
+        "no voice cloning of other people; at most 2 speakers per request"
+      ]
+    }
+  ]
+}

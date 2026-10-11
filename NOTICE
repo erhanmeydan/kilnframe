@@ -1,0 +1,69 @@
+Kilnframe
+Copyright 2026 Erhan Meydan
+
+Kilnframe is licensed under the Apache License 2.0 (LICENSE). It includes software developed as part of
+HyperFrames (https://github.com/heygen-com/hyperframes), licensed under the Apache License 2.0; the
+composition rules in packages/core/prompts/ are adapted from HyperFrames' skills.
+
+The installers (Kilnframe-mac.pkg, Kilnframe-Windows.exe) also contain the third-party components below.
+Each keeps its own license; the license texts ship inside the app (Resources/licenses/ and each package's
+folder under Resources/app/node_modules/).
+
+
+Programs the app runs
+---------------------
+
+FFmpeg 6.0 (ffmpeg, from ffmpeg-static 5.3.0)
+  GNU General Public License version 3 or later; the build includes libx264.
+  Kilnframe starts it as a separate program and does not link to it.
+  Source code: https://ffmpeg.org/releases/ffmpeg-6.0.tar.xz
+  Build: https://github.com/eugeneware/ffmpeg-static (release b6.1.1, FFmpeg 6.0 on macOS)
+  License: Resources/licenses/ffmpeg-LICENSE.md and Resources/licenses/GPL-3.0.txt
+
+FFprobe 4.4.1 (ffprobe, from @ffprobe-installer/ffprobe 2.1.2)
+  GNU Lesser General Public License 2.1; built by Homebrew.
+  Source code: https://ffmpeg.org/releases/ffmpeg-4.4.1.tar.xz
+  Build: https://formulae.brew.sh/formula/ffmpeg
+
+Chrome for Testing, headless shell 150.0.7871.24
+  BSD-style license and the licenses of Chromium's components (Resources/bin/headless-shell/LICENSE.headless_shell).
+  https://developer.chrome.com/blog/chrome-for-testing
+
+Electron 44.7.0
+  MIT License; Chromium's licenses in LICENSES.chromium.html next to the app's executable.
+  https://www.electronjs.org
+
+
+Libraries in the app
+--------------------
+
+HyperFrames 0.8.133                Apache License 2.0
+Transformers.js 4.3.0              Apache License 2.0   (@huggingface/transformers)
+ONNX Runtime 1.30.0                MIT License          (onnxruntime-node)
+Tesseract.js 7.0.0                 Apache License 2.0
+sharp 0.35.5 and libvips           Apache License 2.0 and LGPL-3.0 (libvips)
+Puppeteer 25.12.0                  Apache License 2.0
+ws 8.22.0                          MIT License
+Zod 4.6.5                          MIT License
+electron-updater                   MIT License
+Other npm packages                 their licenses are in Resources/app/node_modules/<package>/
+
+
+Files loaded by the animations (vendor/)
+----------------------------------------
+
+three.js 0.186.1                   MIT License (vendor/three/LICENSE)
+GSAP 3.15.0                        GreenSock "Standard No Charge" license, not open source
+                                   (vendor/gsap/LICENSE.md, https://gsap.com/standard-license)
+Fonts (15 families)                SIL Open Font License 1.1 (vendor/fonts/<family>/OFL.txt):
+                                   Alfa Slab One, Anton, Archivo, Baloo 2, Barlow Condensed,
+                                   Bricolage Grotesque, IBM Plex Mono, Inter, Nunito, Outfit,
+                                   Patrick Hand, Playfair Display, Sora, Source Serif 4, Space Grotesk
+
+
+Downloaded on first use
+-----------------------
+
+Whisper large-v3-turbo (onnx-community/whisper-large-v3-turbo_timestamped), the speech recognition
+model, is downloaded from Hugging Face the first time an animation is made. MIT License (OpenAI Whisper).
+https://huggingface.co/onnx-community/whisper-large-v3-turbo_timestamped

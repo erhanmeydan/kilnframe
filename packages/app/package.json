@@ -1,0 +1,23 @@
+{
+  "name": "@kilnframe/app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kilnframe Helper: the companion as a menu bar / tray app, packaged with Node, FFmpeg and headless Chrome.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "tsc -b && electron ."
+  },
+  "dependencies": {
+    "@kilnframe/companion": "workspace:*",
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@ffprobe-installer/ffprobe": "2.1.2",
+    "electron": "^44.7.0",
+    "electron-builder": "26.15.3",
+    "ffmpeg-static": "5.3.0"
+  }
+}

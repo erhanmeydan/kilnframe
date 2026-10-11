@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "master_db": -5.5,
+  "pan": 0.25,
+  "room": {
+    "enabled": false,
+    "db": -60
+  },
+  "sounds": {
+    "hit": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      },
+      "gain_db": 2
+    },
+    "punch": {
+      "synth": "thock",
+      "params": {
+        "size": 1.3
+      },
+      "gain_db": 2
+    },
+    "swish": {
+      "synth": "whoosh",
+      "params": {
+        "dur": 0.35,
+        "lo": 600,
+        "hi": 5000,
+        "peak": 0.4
+      }
+    },
+    "tick": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      },
+      "gain_db": -4
+    }
+  },
+  "music": "Confident and rhythmic: tight minimal drums, deep bass pulse, muted synth stabs, around 112 BPM, bold but sparse so the words lead."
+}

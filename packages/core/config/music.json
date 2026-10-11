@@ -1,0 +1,16 @@
+{
+  "$comment": "Music beds for story mode. Checked against ai.google.dev/gemini-api/docs/music-generation and /pricing on 2026-10-07. Prices in USD per generated song. All Lyria audio carries an inaudible SynthID watermark.",
+  "version": 1,
+  "providers": [
+    {
+      "id": "gemini",
+      "displayName": "Google Lyria",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "keyName": "gemini",
+      "models": [
+        { "id": "lyria-3.5", "label": "Lyria 3.5", "maxS": 180, "pricePerSong": 0.08 },
+        { "id": "lyria-3-clip-preview", "label": "Lyria 3 Clip", "maxS": 30, "pricePerSong": 0.04 }
+      ]
+    }
+  ]
+}

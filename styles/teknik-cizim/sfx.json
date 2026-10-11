@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "master_db": -5.5,
+  "pan": 0.25,
+  "room": {
+    "enabled": true,
+    "db": -54
+  },
+  "sounds": {
+    "pen": {
+      "synth": "scratch",
+      "params": {
+        "dur": 0.45,
+        "lo": 2500,
+        "hi": 8000
+      },
+      "gain_db": -4
+    },
+    "ruler": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      }
+    },
+    "blip": {
+      "synth": "pop",
+      "params": {
+        "freq": 1200
+      },
+      "gain_db": -6
+    },
+    "slide": {
+      "synth": "whoosh",
+      "params": {
+        "dur": 0.6,
+        "lo": 700,
+        "hi": 3500
+      },
+      "gain_db": -4
+    }
+  },
+  "music": "Precise and spacious: slow evolving analog synth pads, a ticking clock-like pulse, soft piano notes and a deep low drone, around 80 BPM, scientific wonder, like a documentary about engineering or the cosmos."
+}

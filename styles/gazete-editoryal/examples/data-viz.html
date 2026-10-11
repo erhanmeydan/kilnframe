@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Playfair Display";
+          font-weight: 400 900;
+          src: url("vendor/fonts/playfair-display/PlayfairDisplay-Variable.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Source Serif 4";
+          font-weight: 200 900;
+          src: url("vendor/fonts/source-serif-4/SourceSerif4-Variable.ttf") format("truetype");
+        }
+
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #e4dbca;
+        }
+        .s1-layer {
+          position: absolute;
+          inset: 0;
+        }
+        #s1-grain {
+          opacity: 0.07;
+          mix-blend-mode: multiply;
+        }
+        #s1-page {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1920px;
+          height: 1080px;
+        }
+
+        /* left column: kicker, headline, rule, source */
+        #s1-text {
+          position: absolute;
+          left: 100px;
+          top: 300px;
+          width: 520px;
+        }
+        #s1-kicker {
+          font-family: "Source Serif 4", serif;
+          font-size: 24px;
+          font-variant: small-caps;
+          letter-spacing: 0.14em;
+          color: #4a4640;
+        }
+        #s1-headline {
+          margin: 22px 0 0;
+          font-family: "Playfair Display", serif;
+          font-weight: 800;
+          font-size: 80px;
+          line-height: 1.04;
+          color: #1f1e1c;
+        }
+        /* each word sits in a mask that reaches above the cap height, so the dot on İ is never cut */
+        .s1-mask {
+          display: inline-block;
+          overflow: hidden;
+          padding-top: 0.22em;
+          margin-top: -0.22em;
+          padding-bottom: 0.08em;
+          margin-bottom: -0.08em;
+          vertical-align: top;
+        }
+        .s1-word {
+          display: inline-block;
+        }
+        #s1-source {
+          margin-top: 26px;
+          font-family: "Source Serif 4", serif;
+          font-size: 24px;
+          font-style: italic;
+          color: #4a4640;
+        }
+
+        /* right: the boxed chart */
+        /* positions inside the masks are relative to the mask */
+        #s1-number {
+          position: absolute;
+          left: 40px;
+          top: 24px;
+          width: 940px;
+          text-align: right;
+          font-family: "Playfair Display", serif;
+          font-weight: 800;
+          font-size: 260px;
+          line-height: 1;
+          font-variant-numeric: lining-nums;
+          color: #1f1e1c;
+        }
+        #s1-number-mask {
+          position: absolute;
+          left: 780px;
+          top: 96px;
+          width: 1010px;
+          height: 300px;
+          overflow: hidden;
+        }
+        #s1-caption {
+          position: absolute;
+          left: 26px;
+          top: 10px;
+          font-family: "Source Serif 4", serif;
+          font-size: 26px;
+          color: #4a4640;
+        }
+        #s1-caption-mask {
+          position: absolute;
+          left: 780px;
+          top: 990px;
+          width: 900px;
+          height: 52px;
+          overflow: hidden;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <div id="s1-stage" class="s1-layer">
+          <svg id="s1-page" width="1920" height="1080" viewBox="0 0 1920 1080">
+            <defs>
+              <pattern
+                id="s1-hatch"
+                width="11" height="11"
+                patternUnits="userSpaceOnUse"
+                patternTransform="rotate(45)"
+              >
+                <line x1="0" y1="0" x2="0" y2="11" stroke="#1f1e1c" stroke-width="4.5" />
+              </pattern>
+            </defs>
+            <!-- page gutter at the left third -->
+            <line
+              id="s1-column"
+              x1="680"
+              y1="0"
+              x2="680"
+              y2="1080"
+              stroke="#1f1e1c"
+              stroke-width="1.6"
+              pathLength="1"
+            />
+            <!-- frame of the boxed graphic -->
+            <rect
+              id="s1-frame"
+              x="780"
+              y="70"
+              width="1040"
+              height="900"
+              fill="none"
+              stroke="#1f1e1c"
+              stroke-width="2"
+              pathLength="1"
+            />
+            <!-- baseline and ticks -->
+            <line
+              id="s1-baseline"
+              x1="830"
+              y1="880"
+              x2="1770"
+              y2="880"
+              stroke="#1f1e1c"
+              stroke-width="2"
+              pathLength="1"
+            />
+            <g id="s1-ticks"></g>
+            <defs id="s1-clips"></defs>
+            <g id="s1-bars"></g>
+          </svg>
+          <div id="s1-text">
+            <div id="s1-kicker">
+              <span class="s1-mask"><span class="s1-word">Araştırma</span></span>
+            </div>
+            <h1 id="s1-headline"></h1>
+            <svg
+              width="470"
+              height="20"
+              viewBox="0 0 470 20"
+              style="display: block; margin-top: 30px"
+            >
+              <line
+                id="s1-rule"
+                x1="0"
+                y1="10"
+                x2="470"
+                y2="10"
+                stroke="#1f1e1c"
+                stroke-width="1.6"
+                pathLength="1"
+              />
+            </svg>
+            <div id="s1-source">
+              <span class="s1-mask"
+                ><span class="s1-word">Kaynak: 2026 kullanıcı anketi</span></span
+              >
+            </div>
+          </div>
+          <div id="s1-number-mask"><div id="s1-number">0%</div></div>
+          <div id="s1-caption-mask">
+            <div id="s1-caption">Altı ay içinde geri dönen kullanıcıların oranı</div>
+          </div>
+        </div>
+        <svg id="s1-grain" class="s1-layer" width="1920" height="1080" viewBox="0 0 1920 1080">
+          <filter id="s1-noise">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="23" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <rect width="1920" height="1080" filter="url(#s1-noise)" />
+        </svg>
+      </div>
+      <script type="module">
+        const ID = "s1";
+        const SVG = "http://www.w3.org/2000/svg";
+        const HEADLINE = "Kullanıcıların çoğu geri döndü";
+        // bar heights as a share of the chart height; the last one is the key bar in brick red
+        const VALUES = [0.36, 0.5, 0.62, 0.74, 0.88];
+        const BASE = 880;
+        const CHART_H = 500;
+        const BAR_W = 150;
+        const GAP = 40;
+        const LEFT = 850;
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady[ID] = (async () => {
+          await document.fonts.load('800 80px "Playfair Display"');
+          await document.fonts.load('800 260px "Playfair Display"');
+          await document.fonts.load('400 24px "Source Serif 4"');
+
+          const headline = document.getElementById("s1-headline");
+          HEADLINE.trim()
+            .split(/\s+/)
+            .forEach((w, i) => {
+              const mask = document.createElement("span");
+              mask.className = "s1-mask";
+              const word = document.createElement("span");
+              word.className = "s1-word s1-head-word";
+              word.textContent = w;
+              mask.appendChild(word);
+              headline.appendChild(mask);
+              if (i) headline.insertBefore(document.createTextNode(" "), mask);
+            });
+
+          const make = (tag, attrs, parent) => {
+            const el = document.createElementNS(SVG, tag);
+            for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+            parent.appendChild(el);
+            return el;
+          };
+
+          // each bar is revealed from the baseline by its own clip rect, so the hatching sweeps upward
+          const clips = document.getElementById("s1-clips");
+          const bars = document.getElementById("s1-bars");
+          const ticks = document.getElementById("s1-ticks");
+          const clipRects = [];
+          VALUES.forEach((v, i) => {
+            const x = LEFT + i * (BAR_W + GAP);
+            const h = Math.round(v * CHART_H);
+            const clip = make("clipPath", { id: `s1-clip-${i}` }, clips);
+            clipRects.push(make("rect", { x: x - 4, y: BASE, width: BAR_W + 8, height: 0 }, clip));
+            const key = i === VALUES.length - 1;
+            make(
+              "rect",
+              {
+                x,
+                y: BASE - h,
+                width: BAR_W,
+                height: h,
+                fill: key ? "#984330" : "url(#s1-hatch)",
+                stroke: key ? "none" : "#1f1e1c",
+                "stroke-width": 2,
+                "clip-path": `url(#s1-clip-${i})`,
+              },
+              bars,
+            );
+            make(
+              "line",
+              {
+                class: "s1-tick",
+                x1: x + BAR_W / 2,
+                y1: BASE + 10,
+                x2: x + BAR_W / 2,
+                y2: BASE + 30,
+                stroke: "#1f1e1c",
+                "stroke-width": 2,
+                pathLength: 1,
+                "stroke-dasharray": 1,
+                "stroke-dashoffset": 1,
+              },
+              ticks,
+            );
+          });
+
+          const number = document.getElementById("s1-number");
+          const counter = {
+            _v: -1,
+            get value() {
+              return this._v;
+            },
+            set value(v) {
+              const n = Math.round(v);
+              if (n === this._v) return;
+              this._v = n;
+              number.textContent = `${n}%`;
+            },
+          };
+          // clip height setter, so each bar reveal stays exact at any seek time
+          const reveal = (rect, full) => ({
+            _p: -1,
+            get p() {
+              return this._p;
+            },
+            set p(v) {
+              if (v === this._p) return;
+              this._p = v;
+              const h = full * v;
+              rect.setAttribute("y", String(BASE - h));
+              rect.setAttribute("height", String(h));
+            },
+          });
+
+          for (const id of ["#s1-column", "#s1-frame", "#s1-baseline", "#s1-rule"]) {
+            const el = document.querySelector(id);
+            el.setAttribute("stroke-dasharray", "1");
+            el.setAttribute("stroke-dashoffset", "1");
+          }
+
+          const tl = gsap.timeline({ paused: true });
+          // rules first, then the frame, then the contents
+          tl.to(
+            "#s1-column",
+            { attr: { "stroke-dashoffset": 0 }, duration: 0.7, ease: "power2.inOut" },
+            0.05,
+          );
+          tl.to(
+            "#s1-frame",
+            { attr: { "stroke-dashoffset": 0 }, duration: 0.9, ease: "power2.inOut" },
+            0.3,
+          );
+          tl.fromTo(
+            "#s1-kicker .s1-word",
+            { yPercent: 110 },
+            { yPercent: 0, duration: 0.45, ease: "power3.out" },
+            0.45,
+          );
+          tl.fromTo(
+            ".s1-head-word",
+            { yPercent: 110 },
+            { yPercent: 0, duration: 0.55, ease: "power3.out", stagger: 0.13 },
+            0.6,
+          );
+          tl.to(
+            "#s1-rule",
+            { attr: { "stroke-dashoffset": 0 }, duration: 0.5, ease: "power2.out" },
+            1.25,
+          );
+          tl.fromTo(
+            "#s1-source .s1-word",
+            { yPercent: 110 },
+            { yPercent: 0, duration: 0.45, ease: "power3.out" },
+            1.5,
+          );
+          tl.to(
+            "#s1-baseline",
+            { attr: { "stroke-dashoffset": 0 }, duration: 0.5, ease: "power2.out" },
+            1.1,
+          );
+          tl.to(
+            ".s1-tick",
+            { attr: { "stroke-dashoffset": 0 }, duration: 0.2, stagger: 0.06 },
+            1.35,
+          );
+          clipRects.forEach((rect, i) => {
+            const drive = reveal(rect, Math.round(VALUES[i] * CHART_H) + 4);
+            drive.p = 0;
+            tl.fromTo(
+              drive,
+              { p: 0 },
+              { p: 1, duration: 0.6, ease: "power2.out" },
+              1.55 + i * 0.14,
+            );
+          });
+          tl.fromTo(
+            "#s1-number",
+            { yPercent: 100 },
+            { yPercent: 0, duration: 0.6, ease: "power3.out" },
+            1.75,
+          );
+          tl.fromTo(
+            counter,
+            { value: 0 },
+            { value: 73, duration: 0.9, ease: "power2.out", immediateRender: false },
+            1.8,
+          );
+          tl.fromTo(
+            "#s1-caption",
+            { yPercent: 110 },
+            { yPercent: 0, duration: 0.5, ease: "power3.out" },
+            2.6,
+          );
+          // a slow push, like leaning in to read the figure
+          tl.fromTo(
+            "#s1-stage",
+            { scale: 1 },
+            { scale: 1.025, duration: 5, ease: "none", transformOrigin: "1300px 520px" },
+            0,
+          );
+          counter.value = 0;
+          window.__timelines[ID] = tl;
+          return true;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,68 @@
+{
+  "id": "kilnframe",
+  "name": "Kilnframe",
+  "version": "0.1.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": {
+    "app": "premierepro",
+    "minVersion": "25.6.0"
+  },
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess",
+    "network": {
+      "domains": ["ws://localhost"]
+    },
+    "launchProcess": {
+      "schemes": ["https"],
+      "extensions": []
+    }
+  },
+  "entrypoints": [
+    {
+      "id": "main",
+      "type": "panel",
+      "label": {
+        "default": "Kilnframe"
+      },
+      "minimumSize": {
+        "width": 320,
+        "height": 600
+      },
+      "preferredDockedSize": {
+        "width": 360,
+        "height": 720
+      },
+      "preferredFloatingSize": {
+        "width": 380,
+        "height": 760
+      },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/panel-dark.png",
+          "scale": [1, 2],
+          "theme": ["darkest", "dark", "medium"]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/panel-light.png",
+          "scale": [1, 2],
+          "theme": ["lightest", "light"]
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icons/plugin.png",
+      "scale": [1, 2],
+      "theme": ["all"],
+      "species": ["pluginList"]
+    }
+  ]
+}

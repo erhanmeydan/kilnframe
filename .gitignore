@@ -1,0 +1,20 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+._*
+out/
+renders/
+.env
+.env.*
+coverage/
+
+# vendor copies inside composition projects (scripts/sync-vendor.mjs)
+examples/**/vendor/
+
+# private test audio, never published
+examples/audio/private/
+
+# synthetic benchmark audio (scripts/make-benchmark-audio.mjs)
+examples/benchmark/audio/
+packages/panel/dist-probe/

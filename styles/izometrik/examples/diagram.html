@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Outfit";
+          font-weight: 100 900;
+          src: url("vendor/fonts/outfit/Outfit-Variable.ttf") format("truetype");
+        }
+
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #eeeae3;
+        }
+        #s1-gl {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s1-headline {
+          position: absolute;
+          left: 128px;
+          top: 372px;
+          max-width: 560px;
+          font-family: "Outfit", sans-serif;
+          font-weight: 700;
+          font-size: 92px;
+          line-height: 1.08;
+          letter-spacing: -0.01em;
+          color: #4a5563;
+        }
+        .s1-line {
+          display: block;
+          overflow: hidden;
+          padding-top: 0.06em;
+        }
+        .s1-word {
+          display: block;
+        }
+        #s1-underline {
+          width: 212px;
+          height: 14px;
+          margin-top: 10px;
+          background: #c9775a;
+          transform-origin: left center;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <canvas id="s1-gl" width="1920" height="1080"></canvas>
+        <div id="s1-headline">
+          <span class="s1-line"
+            ><span class="s1-word" data-layout-allow-occlusion>Üç adımda</span></span
+          >
+          <span class="s1-line"
+            ><span class="s1-word" data-layout-allow-occlusion>hazır</span></span
+          >
+          <div id="s1-underline"></div>
+        </div>
+      </div>
+      <script type="module">
+        import * as THREE from "three";
+        import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+
+        // ---------- style tokens (styles/izometrik/tokens.json) ----------
+        const PAL = {
+          background: "#EEEAE3",
+          sage: "#8FA79A",
+          terracotta: "#C9775A",
+          slate: "#4A5563",
+          light: "#F5F2EC",
+        };
+        const TONE = { top: 1.0, left: 0.82, right: 0.62 };
+        const W = 1920;
+        const H = 1080;
+        const DURATION = 5;
+
+        // ---------- helpers ----------
+        const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+        const seg = (t, t0, t1) => clamp((t - t0) / (t1 - t0));
+        const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+        const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+        // back.out(1.4): snaps into place with a small overshoot (tokens.motion.enter)
+        const backOut = (p, s = 1.4) => 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2);
+
+        // Flat shading per face. The camera looks from +x +y +z, so the top is +y, the screen-left face
+        // is +z and the screen-right face is +x. Bevels blend the tones, which keeps edges crisp.
+        // Colors are passed and written as sRGB values so the tones match the tokens exactly.
+        // Very light and very dark materials keep more of their own tone on the side faces (lift), as
+        // in the stills: paper stays paper white, the slate gear stays slate.
+        const LIFT = { [PAL.light]: 0.7, [PAL.slate]: 0.45 };
+        const matCache = {};
+        function flat(hex) {
+          if (matCache[hex]) return matCache[hex];
+          const c = new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace);
+          matCache[hex] = new THREE.ShaderMaterial({
+            uniforms: { uColor: { value: c }, uLift: { value: LIFT[hex] ?? 0 } },
+            vertexShader: `
+              varying vec3 vN;
+              void main() {
+                vN = normalize(mat3(modelMatrix) * normal);
+                gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+              }`,
+            fragmentShader: `
+              uniform vec3 uColor;
+              uniform float uLift;
+              varying vec3 vN;
+              void main() {
+                vec3 w = max(normalize(vN), 0.0) + 1e-4;
+                float tone = (w.y * ${TONE.top.toFixed(2)} + w.z * ${TONE.left.toFixed(2)} + w.x * ${TONE.right.toFixed(2)}) / (w.x + w.y + w.z);
+                gl_FragColor = vec4(uColor * mix(tone, 1.0, uLift), 1.0);
+              }`,
+          });
+          return matCache[hex];
+        }
+
+        function block(w, h, d, hex, r = 0.035) {
+          const geo = new RoundedBoxGeometry(w, h, d, 3, r);
+          return new THREE.Mesh(geo, flat(hex));
+        }
+
+        // Extruded 2D shape, front face pointing +z, centered on x/y, back at z = 0.
+        function slab(shape, depth, hex, bevel = 0.025) {
+          const geo = new THREE.ExtrudeGeometry(shape, {
+            depth,
+            bevelEnabled: true,
+            bevelThickness: bevel,
+            bevelSize: bevel,
+            bevelSegments: 2,
+            curveSegments: 24,
+          });
+          return new THREE.Mesh(geo, flat(hex));
+        }
+
+        // Soft square contact shadow drawn once into a canvas (no image files).
+        function shadowTexture() {
+          const size = 128;
+          const c = document.createElement("canvas");
+          c.width = c.height = size;
+          const g = c.getContext("2d");
+          g.filter = "blur(14px)";
+          g.fillStyle = "#000";
+          g.fillRect(30, 30, size - 60, size - 60);
+          return new THREE.CanvasTexture(c);
+        }
+        const shadowTex = shadowTexture();
+
+        // ---------- renderer, scene, camera ----------
+        const canvas = document.getElementById("s1-gl");
+        const renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: true,
+          alpha: true,
+          preserveDrawingBuffer: true,
+        });
+        renderer.setPixelRatio(1);
+        renderer.setSize(W, H, false);
+        renderer.setClearColor(0x000000, 0);
+
+        const scene = new THREE.Scene();
+
+        // True isometric: the camera sits on the (1, 1, 1) diagonal. The angle never changes.
+        const HALF_H = 3.75;
+        const camera = new THREE.OrthographicCamera(
+          (-HALF_H * W) / H,
+          (HALF_H * W) / H,
+          HALF_H,
+          -HALF_H,
+          0.1,
+          100,
+        );
+        const ISO = new THREE.Vector3(1, 1, 1).normalize();
+        const RIGHT = new THREE.Vector3(1, 0, -1).normalize();
+        const UP = new THREE.Vector3(-1, 2, -1).normalize();
+
+        // ---------- the process: three tiles along the grid, joined by terracotta paths ----------
+        const TILE = { size: 2, height: 0.36 };
+        const GAP = 3.2; // tile centers, whole grid units apart along -z
+        const tileZ = [0, -GAP, -2 * GAP];
+
+        const tiles = tileZ.map((z) => {
+          const g = new THREE.Group();
+          const m = block(TILE.size, TILE.height, TILE.size, PAL.sage, 0.03);
+          m.position.y = TILE.height / 2;
+          g.add(m);
+          g.position.z = z;
+          scene.add(g);
+          return g;
+        });
+
+        const shadows = tileZ.map((z) => {
+          const m = new THREE.Mesh(
+            new THREE.PlaneGeometry(TILE.size * 1.5, TILE.size * 1.5),
+            new THREE.MeshBasicMaterial({
+              map: shadowTex,
+              color: PAL.slate,
+              transparent: true,
+              opacity: 0,
+              depthWrite: false,
+            }),
+          );
+          m.rotation.x = -Math.PI / 2;
+          m.position.set(0.12, -0.02, z + 0.12);
+          scene.add(m);
+          return m;
+        });
+
+        // Paths sit a little below the tile tops and grow from one tile edge to the next.
+        const PATH_LEN = GAP - TILE.size;
+        const paths = [0, 1].map((i) => {
+          const geo = new RoundedBoxGeometry(0.5, 0.14, PATH_LEN, 2, 0.02);
+          geo.translate(0, 0, -PATH_LEN / 2);
+          const m = new THREE.Mesh(geo, flat(PAL.terracotta));
+          m.position.set(0, TILE.height - 0.13, tileZ[i] - TILE.size / 2);
+          scene.add(m);
+          return m;
+        });
+
+        // Document: light page with a slate folded corner and three slate lines, facing screen-left.
+        const doc = new THREE.Group();
+        {
+          const w = 0.95;
+          const h = 1.25;
+          const fold = 0.32;
+          const page = new THREE.Shape();
+          page.moveTo(-w / 2, 0);
+          page.lineTo(w / 2, 0);
+          page.lineTo(w / 2, h - fold);
+          page.lineTo(w / 2 - fold, h);
+          page.lineTo(-w / 2, h);
+          page.closePath();
+          const body = slab(page, 0.12, PAL.light);
+          body.position.z = -0.06;
+          doc.add(body);
+          const corner = new THREE.Shape();
+          corner.moveTo(w / 2 - fold, h - fold);
+          corner.lineTo(w / 2, h - fold);
+          corner.lineTo(w / 2 - fold, h);
+          corner.closePath();
+          const flap = slab(corner, 0.04, PAL.slate, 0.012);
+          flap.position.z = 0.085;
+          doc.add(flap);
+          [0.74, 0.55, 0.36].forEach((y, k) => {
+            const line = block(k === 2 ? 0.38 : 0.52, 0.07, 0.03, PAL.slate, 0.012);
+            line.position.set(-0.1 - (k === 2 ? 0.07 : 0), y, 0.09);
+            doc.add(line);
+          });
+        }
+        doc.position.set(-0.2, TILE.height, tileZ[0] + 0.15);
+        scene.add(doc);
+
+        // Gear: slate, 8 teeth, face toward screen-right (the darkest face).
+        function gearShape(rOuter, rInner, teeth, holeR) {
+          const s = new THREE.Shape();
+          const steps = 320;
+          const mid = (rOuter + rInner) / 2;
+          const amp = (rOuter - rInner) / 2;
+          for (let i = 0; i <= steps; i++) {
+            const a = (i / steps) * Math.PI * 2;
+            const r = mid + (amp * Math.tanh(4 * Math.cos(teeth * a))) / Math.tanh(4);
+            const x = Math.cos(a) * r;
+            const y = Math.sin(a) * r;
+            if (i === 0) s.moveTo(x, y);
+            else s.lineTo(x, y);
+          }
+          const hole = new THREE.Path();
+          hole.absarc(0, 0, holeR, 0, Math.PI * 2, true);
+          s.holes.push(hole);
+          return s;
+        }
+        const gear = new THREE.Group();
+        const gearMesh = slab(gearShape(0.62, 0.47, 8, 0.2), 0.26, PAL.slate, 0.03);
+        gearMesh.geometry.center();
+        const gearPivot = new THREE.Group();
+        gearPivot.rotation.y = Math.PI / 2;
+        gearPivot.position.y = 0.66;
+        gearPivot.add(gearMesh);
+        gear.add(gearPivot);
+        gear.position.set(0, TILE.height, tileZ[1]);
+        scene.add(gear);
+
+        // Monitor: slate frame on a stand, light screen, terracotta play mark, facing screen-left.
+        const monitor = new THREE.Group();
+        {
+          const base = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.36, 0.36, 0.08, 40),
+            flat(PAL.slate),
+          );
+          base.position.y = 0.04;
+          const neck = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.08, 0.08, 0.34, 24),
+            flat(PAL.slate),
+          );
+          neck.position.y = 0.25;
+          const frame = block(1.6, 1.05, 0.16, PAL.slate, 0.05);
+          frame.position.y = 0.92;
+          const screen = block(1.38, 0.84, 0.03, PAL.light, 0.012);
+          screen.position.set(0, 0.92, 0.075);
+          const tri = new THREE.Shape();
+          tri.moveTo(-0.13, -0.17);
+          tri.lineTo(0.2, 0);
+          tri.lineTo(-0.13, 0.17);
+          tri.closePath();
+          const play = slab(tri, 0.02, PAL.terracotta, 0.008);
+          play.position.set(0.02, 0.92, 0.09);
+          monitor.add(base, neck, frame, screen, play);
+          monitor.userData.play = play;
+        }
+        monitor.position.set(0, TILE.height, tileZ[2]);
+        scene.add(monitor);
+
+        // ---------- frame from time ----------
+        // Tiles drop onto their grid cells, objects rise out of the tile, paths are laid segment by
+        // segment. Each step lands on its word in the speech.
+        const T = {
+          tiles: [0.25, 1.15, 2.05],
+          objects: [0.55, 1.45, 2.35],
+          paths: [
+            [0.95, 1.4],
+            [1.85, 2.3],
+          ],
+          play: 3.0,
+        };
+        const ENTER = 0.55;
+
+        function dropTile(i, t) {
+          const p = seg(t, T.tiles[i], T.tiles[i] + ENTER);
+          tiles[i].visible = p > 0;
+          tiles[i].position.y = 1.6 * (1 - backOut(p));
+          shadows[i].material.opacity = 0.12 * easeOut(p);
+        }
+        function riseObject(obj, t0, t) {
+          const p = seg(t, t0, t0 + ENTER);
+          obj.visible = p > 0;
+          const s = Math.max(backOut(p), 0.001);
+          obj.scale.set(1, s, 1);
+        }
+
+        function renderAt(t) {
+          for (let i = 0; i < 3; i++) dropTile(i, t);
+          riseObject(doc, T.objects[0], t);
+          riseObject(gear, T.objects[1], t);
+          riseObject(monitor, T.objects[2], t);
+
+          paths.forEach((m, i) => {
+            const p = easeOut(seg(t, ...T.paths[i]));
+            m.visible = p > 0.001;
+            m.scale.z = Math.max(p, 0.001);
+          });
+
+          // the gear turns once the path reaches it, the play mark pops when the monitor is on
+          gearMesh.rotation.z = -easeInOut(seg(t, T.paths[0][1], DURATION)) * 1.2;
+          const pop = seg(t, T.play, T.play + 0.35);
+          monitor.userData.play.scale.setScalar(Math.max(backOut(pop, 2.2), 0.001));
+
+          // camera pans along the grid and zooms a little; the angle never changes
+          const k = easeInOut(seg(t, 0, DURATION));
+          const target = new THREE.Vector3(0, 0.55, -GAP - 0.5 * k);
+          camera.position
+            .copy(target)
+            .addScaledVector(ISO, 30)
+            .addScaledVector(RIGHT, -2.2)
+            .addScaledVector(UP, 0.2);
+          camera.lookAt(camera.position.clone().sub(ISO));
+          camera.zoom = 1 + 0.05 * k;
+          camera.updateProjectionMatrix();
+
+          renderer.render(scene, camera);
+        }
+
+        // ---------- timeline ----------
+        // The 3D frame is drawn from a linear tween's setter, so every seek repaints the exact time.
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["s1"] = document.fonts.load('700 92px "Outfit"').then(() => {
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() {
+              return this._t;
+            },
+            set(v) {
+              if (v === this._t) return;
+              this._t = v;
+              renderAt(v);
+            },
+          });
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+          // headline lines slide up out of their own line, the accent word lands with the last step
+          tl.fromTo(
+            ".s1-word",
+            { yPercent: 105 },
+            { yPercent: 0, duration: 0.5, ease: "back.out(1.4)", stagger: 2.0 },
+            0.15,
+          );
+          // the accent line is laid under the last word like a path segment
+          tl.fromTo(
+            "#s1-underline",
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.45, ease: "power3.out" },
+            2.45,
+          );
+          renderAt(0);
+          window.__timelines["s1"] = tl;
+          return true;
+        });
+      </script>
+    </template>
+  </body>
+</html>

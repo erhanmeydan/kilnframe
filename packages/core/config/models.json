@@ -1,0 +1,38 @@
+{
+  "$comment": "Prices in USD per million tokens, from the Claude API reference cached 2026-09-25. Cache writes are estimated at 1.25x input (5 minute cache). Used to show cost before and after a job; update when prices change.",
+  "version": 1,
+  "models": {
+    "claude-opus-5-5": {
+      "label": "Claude Opus 5.5",
+      "quality": "best",
+      "price": {
+        "input": 4,
+        "output": 20,
+        "cacheWrite": 5,
+        "cacheRead": 0.2
+      },
+      "measured": "Reels 30 s, kil-lacivert: about 9.3 USD, 18 min"
+    },
+    "claude-sonnet-5-5": {
+      "label": "Claude Sonnet 5.5",
+      "quality": "balanced",
+      "price": {
+        "input": 2,
+        "output": 10,
+        "cacheWrite": 2.5,
+        "cacheRead": 0.2
+      },
+      "measured": "Reels 30 s, kil-lacivert: about 4.1 USD, 11 min"
+    },
+    "claude-haiku-4-5": {
+      "label": "Claude Haiku 4.5",
+      "quality": "fast",
+      "price": {
+        "input": 1,
+        "output": 5,
+        "cacheWrite": 1.25,
+        "cacheRead": 0.1
+      }
+    }
+  }
+}

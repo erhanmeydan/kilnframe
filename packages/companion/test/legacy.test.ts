@@ -1,0 +1,42 @@
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { MemoryKeyStore } from "../src/keys.js";
+import { copyLegacyKeys, moveLegacyFolders } from "../src/legacy.js";
+
+describe("data kept under the old name", () => {
+  it("moves the settings folder and the model cache, once", () => {
+    const home = mkdtempSync(join(tmpdir(), "mi-home-"));
+    mkdirSync(join(home, ".motion-insert", "styles"), { recursive: true });
+    writeFileSync(join(home, ".motion-insert", "styles", "mine.md"), "x");
+    mkdirSync(join(home, ".cache", "motion-insert", "models"), { recursive: true });
+    expect(moveLegacyFolders(home)).toEqual([
+      join(home, ".kilnframe"),
+      join(home, ".cache", "kilnframe"),
+    ]);
+    expect(existsSync(join(home, ".kilnframe", "styles", "mine.md"))).toBe(true);
+    expect(existsSync(join(home, ".motion-insert"))).toBe(false);
+    expect(moveLegacyFolders(home)).toEqual([]);
+  });
+
+  it("leaves a new folder alone when both exist", () => {
+    const home = mkdtempSync(join(tmpdir(), "mi-home-"));
+    mkdirSync(join(home, ".motion-insert"));
+    mkdirSync(join(home, ".kilnframe"));
+    expect(moveLegacyFolders(home)).toEqual([]);
+    expect(existsSync(join(home, ".motion-insert"))).toBe(true);
+  });
+
+  it("copies keys the new service lacks and keeps the old ones", async () => {
+    const old = new MemoryKeyStore();
+    const now = new MemoryKeyStore();
+    await old.set("gemini", "g-old");
+    await old.set("xai", "x-old");
+    await now.set("xai", "x-new");
+    expect(await copyLegacyKeys(old, now, ["gemini", "xai", "minimax"])).toEqual(["gemini"]);
+    expect(await now.get("gemini")).toBe("g-old");
+    expect(await now.get("xai")).toBe("x-new");
+    expect(await old.get("gemini")).toBe("g-old");
+  });
+});

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs as root before the Kilnframe installer writes the new app. A Kilnframe still running is the old version:
+# the postinstall's `open` would only bring it forward, so the new one would not start and its plugin would not be
+# installed. Quit it here (up to 10 s), before the files change. Safe to run more than once.
+pgrep -x Kilnframe >/dev/null || exit 0
+user=$(stat -f %Su /dev/console)
+if [ -n "$user" ] && [ "$user" != "root" ]; then
+  launchctl asuser "$(id -u "$user")" sudo -u "$user" osascript -e 'quit app "Kilnframe"' >/dev/null 2>&1 || true
+fi
+i=0
+while pgrep -x Kilnframe >/dev/null && [ $i -lt 20 ]; do sleep 0.5; i=$((i + 1)); done
+pkill -x Kilnframe || true
+exit 0

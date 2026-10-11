@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Kilnframe: a kiln with frames stacked on its shelves (frames being fired, also timeline tracks) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26324a"/><stop offset="1" stop-color="#18202f"/>
+    </linearGradient>
+    <linearGradient id="clay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d98a5c"/><stop offset="1" stop-color="#b45e3a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+  <g id="mark">
+    <path d="M292 800V440A220 220 0 0 1 732 440V800Z" fill="none" stroke="#e6d9c8" stroke-width="34" stroke-linejoin="round"/>
+    <rect x="372" y="500" width="280" height="62" rx="14" fill="url(#clay)" opacity=".55"/>
+    <rect x="372" y="595" width="280" height="62" rx="14" fill="url(#clay)" opacity=".8"/>
+    <rect x="372" y="690" width="280" height="62" rx="14" fill="url(#clay)"/>
+  </g>
+</svg>

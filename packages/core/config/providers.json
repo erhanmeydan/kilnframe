@@ -1,0 +1,150 @@
+{
+  "$comment": "Provider presets. Checked against official docs on 2026-10-06. Every entry lists what was verified; 'unverified' items must be confirmed before the provider is marked recommended. Model IDs here are suggestions shown in the panel, users can type any model. Every provider must read images: stills review, style matching, the speaker's position and the user's own images all need vision, so text-only models are not offered. OpenRouter came back on 2026-10-08 with that filter: its model list says which models take images. keyUrl: where the editor creates a key (checked 2026-10-08 against platform.claude.com/docs/en/get-api-key, platform.openai.com, ai.google.dev, platform.minimax.io/docs/guides/quickstart and the Model Studio docs). Qwen was removed on 2026-10-08: its key is bound to a region and its address to a workspace id, too much setup for an editor.",
+  "version": 1,
+  "checked": "2026-10-06",
+  "providers": [
+    {
+      "id": "anthropic",
+      "displayName": "Claude (Anthropic)",
+      "adapter": "anthropic",
+      "baseURL": null,
+      "models": ["claude-opus-5-5", "claude-sonnet-5-5"],
+      "capabilities": {
+        "vision": true,
+        "structuredOutput": true,
+        "contextWindow": 1000000
+      },
+      "tier": "recommended",
+      "verified": "SDK and model IDs from the claude-api reference bundled with Claude Code, 2026-09-25",
+      "keyUrl": "https://console.anthropic.com/settings/keys"
+    },
+    {
+      "id": "openai",
+      "displayName": "OpenAI",
+      "adapter": "openai-compatible",
+      "baseURL": "https://api.openai.com/v1",
+      "models": ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"],
+      "capabilities": {
+        "vision": true,
+        "structuredOutput": true,
+        "contextWindow": 1050000
+      },
+      "tier": "recommended",
+      "verified": "model names and context from developers.openai.com/api/docs/models",
+      "unverified": [
+        "base URL (from memory)",
+        "OpenAI recommends the Responses API for new projects; whether GPT-6 models work on Chat Completions and whether max_completion_tokens replaces max_tokens is unverified. A dedicated OpenAIAdapter on the Responses API is planned (M1b)."
+      ],
+      "keyUrl": "https://platform.openai.com/api-keys"
+    },
+    {
+      "id": "gemini",
+      "displayName": "Google Gemini",
+      "adapter": "openai-compatible",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai/",
+      "models": ["gemini-3.8-flash", "gemini-3.1-pro-preview"],
+      "capabilities": {
+        "vision": true,
+        "structuredOutput": false,
+        "contextWindow": 1000000
+      },
+      "tier": "works",
+      "verified": "ai.google.dev/gemini-api/docs/openai (base URL), ai.google.dev/gemini-api/docs/models (IDs and image input, page updated 2026-10-06), checked 2026-10-07",
+      "notes": [
+        "the key comes from Google AI Studio",
+        "the same key also covers Gemini TTS (gemini-3.8-flash-tts) for the planned story mode"
+      ],
+      "unverified": [
+        "context windows (1000000 is a placeholder)",
+        "structured output through the OpenAI-compatible endpoint"
+      ],
+      "keyUrl": "https://aistudio.google.com/apikey"
+    },
+    {
+      "id": "xai",
+      "displayName": "xAI (Grok)",
+      "adapter": "openai-compatible",
+      "baseURL": "https://api.x.ai/v1",
+      "models": ["grok-4.7"],
+      "capabilities": {
+        "vision": true,
+        "structuredOutput": false,
+        "contextWindow": 500000
+      },
+      "tier": "works",
+      "slowModels": ["grok-4.7"],
+      "verified": "docs.x.ai/docs/guides/image-understanding (grok-4.7 takes images, base URL https://api.x.ai/v1, OpenAI compatible, png/jpg up to 20 MiB) and docs.x.ai/docs/models (context 500k), checked 2026-10-08; chat/completions with an image_url read the connection test's red square (grok-4.7, 1.4 s), 2026-10-08",
+      "notes": ["the Grok CLI plan (Grok Build) is a separate subscription from API credits"],
+      "keyUrl": "https://console.x.ai/"
+    },
+    {
+      "id": "minimax",
+      "displayName": "MiniMax",
+      "adapter": "openai-compatible",
+      "baseURL": "https://api.minimax.io/v1",
+      "anthropicBaseURL": "https://api.minimax.io/anthropic",
+      "models": ["MiniMax-M3"],
+      "capabilities": {
+        "vision": true,
+        "structuredOutput": false,
+        "contextWindow": 1000000
+      },
+      "tier": "works",
+      "slowModels": ["MiniMax-M3"],
+      "verified": "platform.minimax.io/docs/api-reference/text-openai-api, text-anthropic-api, guides/models-intro; the connection test's red square read by MiniMax-M3 through chat/completions with a real key (1.4 s), 2026-10-08",
+      "notes": [
+        "thinking arrives inline as <think> tags unless reasoning_split is set; strip it before parsing",
+        "MiniMax-M3.1-Flash-Preview was listed here but is not in the API's model list (checked 2026-10-09); removed",
+        "M2.x models are text only and are not offered (M2.7 ran in the 2026-10-08 comparison by mistake: it could not see the frames and guessed the speaker's side)"
+      ],
+      "keyUrl": "https://platform.minimax.io/user-center/basic-information/interface-key"
+    },
+    {
+      "id": "openrouter",
+      "displayName": "OpenRouter",
+      "adapter": "openai-compatible",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "models": [
+        "anthropic/claude-opus-5.5",
+        "anthropic/claude-sonnet-5.5",
+        "google/gemini-3.8-flash",
+        "openai/gpt-6.1-sol",
+        "x-ai/grok-4.7",
+        "qwen/qwen3.8-max-prime"
+      ],
+      "capabilities": {
+        "vision": "per-model",
+        "structuredOutput": false,
+        "contextWindow": 1000000
+      },
+      "tier": "works",
+      "verified": "GET https://openrouter.ai/api/v1/models (public, 467 models, 297 with \"image\" in architecture.input_modalities; the suggested models are among them), openrouter.ai/docs/faq (5.5% fee on buying credits, no markup on model prices), checked 2026-10-08",
+      "notes": [
+        "one key for many providers; only models that take images are offered",
+        "OpenRouter takes 5.5% (at least $0.80) when credits are bought; model prices are passed through",
+        "suggested models each saw the red-square test with a real key (2026-10-08); minimax/minimax-m3 left out of the suggestions because OpenRouter routes it across 13 hosts and one (StreamLake) misread the square, it stays reachable under All Models"
+      ],
+      "keyUrl": "https://openrouter.ai/settings/keys"
+    },
+    {
+      "id": "lmstudio",
+      "displayName": "LM Studio (local)",
+      "adapter": "openai-compatible",
+      "baseURL": "http://localhost:1234/v1",
+      "models": [],
+      "capabilities": {
+        "vision": "per-model",
+        "structuredOutput": false,
+        "contextWindow": 32000
+      },
+      "tier": "works",
+      "slowModels": ["*"],
+      "verified": "lmstudio.ai/docs/developer/openai-compat, core/authentication, rest/endpoints (GET /api/v0/models reports type \"vlm\" for vision models)",
+      "notes": [
+        "no key by default; a token can be enabled",
+        "list loaded models with GET /v1/models",
+        "only models LM Studio lists with type \"vlm\" are offered, for example a local Qwen 3.8 27B"
+      ]
+    }
+  ]
+}

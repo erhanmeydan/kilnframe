@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "master_db": -5.5,
+  "pan": 0.25,
+  "room": {
+    "enabled": true,
+    "db": -60
+  },
+  "sounds": {
+    "tick": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      },
+      "gain_db": -6
+    },
+    "click": {
+      "synth": "click",
+      "gain_db": -3
+    },
+    "air": {
+      "synth": "whoosh",
+      "params": {
+        "dur": 0.7,
+        "lo": 600,
+        "hi": 6000
+      },
+      "gain_db": -4
+    },
+    "activate": {
+      "synth": "shimmer",
+      "params": {
+        "dur": 0.5
+      },
+      "gain_db": -6
+    },
+    "chime": {
+      "synth": "chime",
+      "params": {
+        "freq": 1046
+      },
+      "gain_db": -8
+    }
+  },
+  "music": "Modern and airy: soft synth pads, gentle plucks, subtle glitchy percussion and a smooth sub bass, around 100 BPM, a calm tech product film."
+}

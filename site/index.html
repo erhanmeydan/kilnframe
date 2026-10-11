@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kilnframe: animated inserts for Premiere Pro</title>
+    <meta
+      name="description"
+      content="A free, open source plugin for Premiere Pro. Mark a range, pick a style: Kilnframe writes an animation for what you said, renders it on your computer and places it on your timeline with its sound effects."
+    />
+    <link rel="icon" href="assets/favicon.png" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/" />
+    <meta property="og:title" content="Kilnframe: animated inserts for Premiere Pro" />
+    <meta
+      property="og:description"
+      content="Mark a range, pick a style. The animation lands on your timeline."
+    />
+    <meta property="og:image" content="https://kilnframe.com/assets/video/rain-still.jpg" />
+    <link rel="stylesheet" href="assets/studio.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="./"><img src="assets/icon.png" alt="" />Kilnframe</a>
+        <nav>
+          <a href="#inside">How it thinks</a>
+          <a href="#styles">Styles</a>
+          <a href="#story">Story mode</a>
+          <a href="#spec">Spec</a>
+          <a href="#benchmark">Benchmark</a>
+          <a href="https://github.com/erhanmeydan/kilnframe">GitHub</a>
+        </nav>
+        <div class="lang">
+          <a href="./" aria-current="page">EN</a><a href="tr/" hreflang="tr">TR</a>
+        </div>
+        <a class="btn solid" href="#download">Download</a>
+      </div>
+    </header>
+
+    <main>
+      <div class="hero" id="download">
+        <div class="wrap">
+          <div class="hero-head">
+            <div>
+              <span class="tc">IN 00:00:01:00 · OUT 00:00:07:00</span>
+              <h1>Say it.<br />It turns into <span class="clay">animation.</span></h1>
+            </div>
+            <div>
+              <p class="lead">
+                A free plugin for Premiere Pro. Mark a range on your timeline and pick a style:
+                Kilnframe writes an animation for what you said, renders it on your own computer and
+                lays it right above the range, sound effects included.
+              </p>
+              <div class="downloads">
+                <a
+                  class="btn solid"
+                  data-os="mac"
+                  href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg"
+                  >Download for Mac <small>Apple silicon</small></a
+                >
+                <a
+                  class="btn"
+                  data-os="windows"
+                  href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+                  >Windows <small>10 / 11</small></a
+                >
+                <button class="btn play" data-play="assets/video/promo-en.mp4">
+                  ▶ Watch the film
+                </button>
+              </div>
+              <div class="meta tc">
+                <span data-version></span><span>No account</span
+                ><span>Premiere Pro 2026 · a graphics card</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="desk" aria-label="A range on the timeline turning into an animation">
+            <div class="monitor">
+              <video
+                src="assets/video/desk.mp4"
+                poster="assets/video/desk.jpg"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+            </div>
+            <div class="monitor-bar">
+              <span>PROGRAM · interview</span><span>25 fps · 1920 × 1080</span>
+            </div>
+            <div class="timeline">
+              <div class="ruler">
+                <span>00:00</span><span>00:02</span><span>00:04</span><span>00:06</span
+                ><span>00:08</span><span>00:10</span>
+              </div>
+              <div class="inout"></div>
+              <div class="track">
+                <b>V2</b>
+                <div class="bar insert drop">Kilnframe · Navy Clay</div>
+              </div>
+              <div class="track">
+                <b>V1</b>
+                <div class="bar v1"></div>
+              </div>
+              <div class="track">
+                <b>A1</b>
+                <div class="bar a1"></div>
+              </div>
+              <div class="track">
+                <b>A2</b>
+                <div class="bar sfx drop late"></div>
+              </div>
+              <div class="playhead"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section id="inside">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">01 · HOW IT THINKS</span>
+            <div>
+              <h2>Six seconds of speech, one real run.</h2>
+              <p>
+                What happened inside Kilnframe for the clip above: the words it heard and when, the
+                scene the AI planned from them, and what came out.
+              </p>
+            </div>
+          </div>
+          <div class="anatomy">
+            <div class="panelbox">
+              <h3>What it heard</h3>
+              <div class="words">
+                <span class="word">her<i>0.58</i></span
+                ><span class="word">gün<i>0.74</i></span
+                ><span class="word">yeni<i>0.96</i></span
+                ><span class="word">bir<i>1.08</i></span
+                ><span class="word key">haber<i>1.32</i></span
+                ><span class="word">çıkıyor.<i>1.56</i></span
+                ><span class="word">Üzerimize<i>2.18</i></span
+                ><span class="word">üzerimize<i>2.78</i></span
+                ><span class="word key">yağıyor<i>3.24</i></span
+                ><span class="word">bilgiler.<i>3.54</i></span
+                ><span class="word">Bu<i>4.14</i></span
+                ><span class="word key">sağanak<i>4.52</i></span
+                ><span class="word key">bilgi<i>4.98</i></span
+                ><span class="word key">yağışı<i>5.24</i></span
+                ><span class="word">altında<i>5.72</i></span>
+              </div>
+              <p class="note">
+                Turkish, transcribed on your computer: "A new story every day. Information pours
+                down on us. Under this downpour of information…"
+              </p>
+            </div>
+            <div class="panelbox plan">
+              <h3>What it planned</h3>
+              <dl>
+                <dt>topic</dt>
+                <dd><b>A downpour of information</b></dd>
+                <dt>technique</dt>
+                <dd>3D metaphor, fullscreen</dd>
+                <dt>1.32 s</dt>
+                <dd>"haber": a clay newspaper card drops beside a small figure</dd>
+                <dt>3.24 s</dt>
+                <dd>"yağıyor": the fall turns into rain, pieces pile up</dd>
+                <dt>4.52 s</dt>
+                <dd>"sağanak": a downpour, the figure opens an umbrella</dd>
+                <dt>text</dt>
+                <dd>BİLGİ SAĞANAĞI, word by word</dd>
+                <dt>camera</dt>
+                <dd>slow push in, a slight tilt up on the downpour</dd>
+                <dt>sound</dt>
+                <dd class="sfx">
+                  <span>thock 1.32</span><span>paper 2.20</span><span>whoosh 3.24</span
+                  ><span>thock 4.52</span><span>pop 5.24</span>
+                </dd>
+              </dl>
+            </div>
+            <div class="panelbox frame">
+              <h3>What it made</h3>
+              <video
+                src="assets/video/rain.mp4"
+                poster="assets/video/rain-still.jpg"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+              <p>
+                Navy Clay style, written in code and rendered on a MacBook Pro in about a minute.
+                The text follows the language you speak.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">02 · IN THE PANEL</span>
+            <div>
+              <h2>Nothing lands on your timeline before you say so.</h2>
+              <p>
+                Kilnframe is a panel inside Premiere and a small helper in your menu bar. Four
+                steps, and you approve every scene before a single frame is rendered.
+              </p>
+            </div>
+          </div>
+          <div class="markers">
+            <div class="marker">
+              <span class="tc">IN / OUT</span><b>Mark a range</b
+              ><span>Ten to forty seconds works best; longer ranges are cut at sentence ends.</span>
+            </div>
+            <div class="marker">
+              <span class="tc">STYLE</span><b>Pick a style</b
+              ><span>Once per video. It is kept with the sequence, so every insert matches.</span>
+            </div>
+            <div class="marker">
+              <span class="tc">REVIEW</span><b>Approve the stills</b
+              ><span>One frame per scene, shown over your footage. Redo a scene with a note.</span>
+            </div>
+            <div class="marker">
+              <span class="tc">V2 · A2</span><b>On your timeline</b
+              ><span
+                >On the first free track above your footage, sound on its own track, with
+                handles.</span
+              >
+            </div>
+          </div>
+          <div class="shots">
+            <figure>
+              <img
+                src="assets/panel/en-home.jpg"
+                alt="The Kilnframe panel with the style chosen"
+                loading="lazy"
+              />
+              <figcaption>The range and the video's style.</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="assets/panel/en-progress.jpg"
+                alt="The panel while the scenes are written"
+                loading="lazy"
+              />
+              <figcaption>Every scene written in code.</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="assets/panel/en-review.jpg"
+                alt="A still of every scene before rendering"
+                loading="lazy"
+              />
+              <figcaption>A still of every scene, before any render.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">03 · TAKES</span>
+            <div>
+              <h2>A chart for a number. A drawing for an idea.</h2>
+              <p>
+                The plan picks a technique per scene. In Automatic mode something to read takes the
+                full frame, while a name or a key word sits beside you. Your face is never covered.
+              </p>
+            </div>
+          </div>
+          <div class="reel">
+            <figure class="take">
+              <video
+                src="assets/video/whiteboard-auto.mp4"
+                poster="assets/video/whiteboard-auto.jpg"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+              <figcaption class="slate">
+                <b>Whiteboard · Automatic</b><span>beside you, then fullscreen</span>
+              </figcaption>
+            </figure>
+            <div class="side">
+              <figure class="take">
+                <video
+                  src="assets/video/kinetic-type.mp4"
+                  poster="assets/video/kinetic-type.jpg"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                ></video>
+                <figcaption class="slate">
+                  <b>Kinetic Typography</b><span>word by word</span>
+                </figcaption>
+              </figure>
+              <figure class="take">
+                <video
+                  src="assets/video/whiteboard-astra.mp4"
+                  poster="assets/video/whiteboard-astra.jpg"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                ></video>
+                <figcaption class="slate">
+                  <b>Whiteboard · another model</b><span>same clip</span>
+                </figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="styles">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">04 · STYLES</span>
+            <div>
+              <h2>Eleven looks, and the one you describe.</h2>
+              <p>
+                A style decides how charts, diagrams, type and transitions look and sound. Colours
+                stay muted, so they sit well next to graded footage.
+              </p>
+            </div>
+          </div>
+          <div class="sheet">
+            <figure>
+              <img src="assets/styles/kil-lacivert.jpg" alt="" loading="lazy" />
+              <figcaption>Navy Clay<i>01</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/flat-infografik.jpg" alt="" loading="lazy" />
+              <figcaption>Flat Infographic<i>02</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/izometrik.jpg" alt="" loading="lazy" />
+              <figcaption>Isometric<i>03</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/kinetik-tipografi-en.jpg" alt="" loading="lazy" />
+              <figcaption>Kinetic Typography<i>04</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/beyaz-tahta.jpg" alt="" loading="lazy" />
+              <figcaption>Whiteboard<i>05</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/kagit-kesik.jpg" alt="" loading="lazy" />
+              <figcaption>Paper Cut<i>06</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/kolaj-halftone.jpg" alt="" loading="lazy" />
+              <figcaption>Halftone Collage<i>07</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/retro-risograf.jpg" alt="" loading="lazy" />
+              <figcaption>Retro Risograph<i>08</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/cam-arayuz.jpg" alt="" loading="lazy" />
+              <figcaption>Glass Interface<i>09</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/teknik-cizim.jpg" alt="" loading="lazy" />
+              <figcaption>Technical Drawing<i>10</i></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/styles/gazete-editoryal.jpg" alt="" loading="lazy" />
+              <figcaption>Editorial Newspaper<i>11</i></figcaption>
+            </figure>
+            <div class="own">
+              <b>Your Own Style</b
+              ><span
+                >Describe it in a sentence or show a reference image. Kilnframe builds the style and
+                shows three previews.</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="story">
+        <div class="wrap story">
+          <div>
+            <span class="tc">05 · STORY MODE</span>
+            <h2 style="margin-top: 12px">No recording? Start from a topic.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              Write what the story is about. Kilnframe writes it, reads it aloud and puts music
+              under it, in a new sequence that is ready for animation.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Write the topic,</b> the length, the language and a tone if you like.</span
+                >
+              </li>
+              <li>
+                <span><b>Edit the script,</b> or have it rewritten with a note.</span>
+              </li>
+              <li>
+                <span><b>Pick a voice</b> and listen to it first.</span>
+              </li>
+              <li>
+                <span
+                  ><b>A new sequence opens:</b> narration on A1, music on A2, ducked under the
+                  voice.</span
+                >
+              </li>
+            </ol>
+          </div>
+          <div class="pair">
+            <img
+              src="assets/panel/en-story-1.jpg"
+              alt="Story mode: the topic and the script"
+              loading="lazy"
+            />
+            <img
+              src="assets/panel/en-story-2.jpg"
+              alt="Story mode: choosing a voice"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="spec">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">06 · SPEC SHEET</span>
+            <div>
+              <h2>Everything it does.</h2>
+              <p>What it makes, how it hands it to you, and what it runs on.</p>
+            </div>
+          </div>
+          <div class="spec">
+            <dl>
+              <dt>Techniques</dt>
+              <dd>
+                <div class="tags">
+                  <span>3D metaphor</span><span>kinetic type</span><span>charts</span
+                  ><span>diagrams</span><span>drawing</span><span>interfaces</span><span>code</span
+                  ><span>particles</span><span>motion graphics</span>
+                </div>
+              </dd>
+              <dt>Placement</dt>
+              <dd>
+                <b>Automatic</b>, fullscreen or over your footage. Automatic decides per scene and
+                keeps clear of your face.
+              </dd>
+              <dt>Formats</dt>
+              <dd>
+                Your sequence's own, or 16:9, 9:16 and 1:1, each laid out for its frame, not
+                cropped.
+              </dd>
+              <dt>Video</dt>
+              <dd>
+                H.264 <b>.mp4</b> fullscreen; ProRes 4444 <b>.mov</b> with alpha over footage. Your
+                sequence's exact frame rate.
+              </dd>
+              <dt>Sound</dt>
+              <dd>
+                Synthesized effects on their own track: a mix and every effect as its own 48 kHz
+                .wav.
+              </dd>
+              <dt>Handles</dt>
+              <dd>Extra frames before and after, to trim and slide.</dd>
+              <dt>Long ranges</dt>
+              <dd>
+                Cut at sentence ends into parts of about 30 seconds, approved one by one, laid end
+                to end.
+              </dd>
+              <dt>Your images</dt>
+              <dd>
+                Logos, product shots and screenshots go into the animation; their text is read so it
+                is used right.
+              </dd>
+              <dt>Review</dt>
+              <dd>A still per scene over your real footage; redo one scene with a note.</dd>
+              <dt>Story mode</dt>
+              <dd>
+                A topic becomes a script, a narration voice and music under it, in a new sequence.
+              </dd>
+              <dt>Languages</dt>
+              <dd>
+                Panel in English or Turkish. The animation's text follows the language you speak.
+              </dd>
+              <dt>AI</dt>
+              <dd>
+                Claude plan <span class="rec">recommended</span> · ChatGPT plan
+                <span class="rec">recommended</span> · Grok plan · API keys for Claude, OpenAI,
+                Gemini, xAI, MiniMax, OpenRouter · LM Studio on your computer. Only models that can
+                see images.
+              </dd>
+              <dt>Runs on</dt>
+              <dd>
+                Premiere Pro 2026 (25.6+). Mac with Apple silicon, Windows 10 and 11, a graphics
+                card. About 2 GB of disk.
+              </dd>
+              <dt>Updates</dt>
+              <dd>
+                The panel offers Update when a new version is out; never by itself, never during a
+                job.
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section id="benchmark">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">07 · BENCHMARK</span>
+            <div>
+              <h2>Fourteen models, one clip.</h2>
+              <p>
+                The same 11 second range and three frames, Whiteboard style, Automatic mode. Every
+                model planned, chose fullscreen or overlay, wrote the code and rendered. All of them
+                finished. Hover a take to play it.
+              </p>
+            </div>
+          </div>
+          <div class="bench">
+            <figure>
+              <video
+                src="assets/bench/opus-5-5.mp4"
+                poster="assets/bench/opus-5-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Claude Opus 5.5<i>7.8 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/fable-5-1.mp4"
+                poster="assets/bench/fable-5-1.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Claude Fable 5.1<i>7.0 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/sonnet-5-5.mp4"
+                poster="assets/bench/sonnet-5-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Claude Sonnet 5.5<i>5.2 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/haiku-5-5.mp4"
+                poster="assets/bench/haiku-5-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Claude Haiku 5.5<i>6.1 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/gpt-6-astra.mp4"
+                poster="assets/bench/gpt-6-astra.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>GPT 6 Astra<i>4.8 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/gpt-6-1-sol.mp4"
+                poster="assets/bench/gpt-6-1-sol.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>GPT 6.1 Sol<i>5.0 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/gpt-6-luna.mp4"
+                poster="assets/bench/gpt-6-luna.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>GPT 6 Luna<i>2.5 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/gemini-3-8-flash.mp4"
+                poster="assets/bench/gemini-3-8-flash.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Gemini 3.8 Flash<i>4.6 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/gemini-3-1-pro.mp4"
+                poster="assets/bench/gemini-3-1-pro.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Gemini 3.1 Pro<i>5.0 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/grok-4-5.mp4"
+                poster="assets/bench/grok-4-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Grok 4.5<i>4.7 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/grok-4-7.mp4"
+                poster="assets/bench/grok-4-7.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Grok 4.7<i>18.8 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/minimax-m3.mp4"
+                poster="assets/bench/minimax-m3.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>MiniMax M3<i>17.4 min</i></figcaption>
+            </figure>
+            <figure>
+              <video
+                src="assets/bench/qwen-3-8-27b-local.mp4"
+                poster="assets/bench/qwen-3-8-27b-local.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Qwen 3.8 27B, local<i>121.5 min</i></figcaption>
+            </figure>
+          </div>
+          <div class="scroll">
+            <table class="runs">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Through</th>
+                  <th>Time</th>
+                  <th>List price of the run</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Claude Opus 5.5</td>
+                  <td>Claude plan</td>
+                  <td class="n">7.8 min</td>
+                  <td class="n">$2.26</td>
+                </tr>
+                <tr>
+                  <td>Claude Fable 5.1</td>
+                  <td>Claude plan</td>
+                  <td class="n">7.0 min</td>
+                  <td class="n">$2.75</td>
+                </tr>
+                <tr>
+                  <td>Claude Sonnet 5.5</td>
+                  <td>Claude plan</td>
+                  <td class="n">5.2 min</td>
+                  <td class="n">$0.68</td>
+                </tr>
+                <tr>
+                  <td>Claude Haiku 5.5</td>
+                  <td>Claude plan</td>
+                  <td class="n">6.1 min</td>
+                  <td class="n">$0.08</td>
+                </tr>
+                <tr>
+                  <td>GPT 6 Astra</td>
+                  <td>ChatGPT plan</td>
+                  <td class="n">4.8 min</td>
+                  <td class="n">$1.01</td>
+                </tr>
+                <tr>
+                  <td>GPT 6.1 Sol</td>
+                  <td>ChatGPT plan</td>
+                  <td class="n">5.0 min</td>
+                  <td class="n">$0.29</td>
+                </tr>
+                <tr>
+                  <td>GPT 6 Luna</td>
+                  <td>ChatGPT plan</td>
+                  <td class="n">2.5 min</td>
+                  <td class="n">$0.01</td>
+                </tr>
+                <tr>
+                  <td>Gemini 3.8 Flash</td>
+                  <td>API key</td>
+                  <td class="n">4.6 min</td>
+                  <td class="n">$0.25</td>
+                </tr>
+                <tr>
+                  <td>Gemini 3.1 Pro</td>
+                  <td>API key</td>
+                  <td class="n">5.0 min</td>
+                  <td class="n">$1.00</td>
+                </tr>
+                <tr>
+                  <td>Grok 4.5</td>
+                  <td>API key</td>
+                  <td class="n">4.7 min</td>
+                  <td class="n">$0.33</td>
+                </tr>
+                <tr>
+                  <td>Grok 4.7</td>
+                  <td>API key</td>
+                  <td class="n">18.8 min</td>
+                  <td class="n">$1.49</td>
+                </tr>
+                <tr>
+                  <td>MiniMax M3</td>
+                  <td>API key</td>
+                  <td class="n">17.4 min</td>
+                  <td class="n">$0.18</td>
+                </tr>
+                <tr>
+                  <td>Qwen 3.8 27B</td>
+                  <td>LM Studio, local</td>
+                  <td class="n">121.5 min</td>
+                  <td class="n">free</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">
+            One clip, one run each, on a MacBook Pro: a direction, not a verdict. List price is what
+            the run would cost through the API; through a Claude or ChatGPT plan it comes out of the
+            subscription.
+          </p>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">08 · YOUR FOOTAGE</span>
+            <div>
+              <h2>It stays on your computer.</h2>
+              <p>
+                Rendering, speech recognition and sound effects run locally. The AI you chose gets
+                text and three small frames, nothing else.
+              </p>
+            </div>
+          </div>
+          <div class="facts">
+            <div>
+              <b>Nothing uploaded</b><span>Your audio and video never leave the machine.</span>
+            </div>
+            <div>
+              <b>Keys in your keychain</b
+              ><span
+                >macOS Keychain or Windows Credential Manager. Your Claude, ChatGPT or Grok sign-in
+                stays with their own apps.</span
+              >
+            </div>
+            <div>
+              <b>Open source</b
+              ><span
+                >Apache 2.0, signed and notarized by Apple on the Mac. No account, no
+                tracking.</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">09 · QUESTIONS</span>
+            <div><h2>Before you install.</h2></div>
+          </div>
+          <div class="faq">
+            <details>
+              <summary>Is it really free?</summary>
+              <p>
+                Yes. Kilnframe is free and open source under Apache 2.0. The only cost is the AI:
+                the Claude, ChatGPT or Grok plan you already have, an API key you pay per use, or
+                nothing with a local model.
+              </p>
+            </details>
+            <details>
+              <summary>Do I need an account?</summary>
+              <p>
+                No. Download, install, open the panel. There is no Kilnframe account and no sign-in.
+              </p>
+            </details>
+            <details>
+              <summary>How long does one animation take?</summary>
+              <p>
+                Usually five to ten minutes for a ten second range. Most of it is the AI writing
+                each scene; the render itself takes about a minute.
+              </p>
+            </details>
+            <details>
+              <summary>Can I use the animations commercially?</summary>
+              <p>
+                Yes, they are yours. Kilnframe's code is Apache 2.0; the animations use GSAP under
+                GreenSock's no-charge license and open source fonts.
+              </p>
+            </details>
+            <details>
+              <summary>Can I change an animation afterwards?</summary>
+              <p>
+                Redo any scene with a note before it renders. After that the clip trims like any
+                other, and its plan and HTML stay in the project to change and render again.
+              </p>
+            </details>
+            <details>
+              <summary>Why does Windows warn about the installer?</summary>
+              <p>
+                The Windows installer is not code signed yet, so SmartScreen asks. Click More info,
+                then Run anyway. The Mac installer is signed and notarized by Apple.
+              </p>
+            </details>
+            <details>
+              <summary>Intel Mac?</summary>
+              <p>Not yet. The Mac version runs on Apple silicon (M1 and later).</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing">
+        <div class="wrap">
+          <span class="tc">FADE OUT</span>
+          <h2 style="margin-top: 12px">Mark your first range today.</h2>
+          <p>
+            Free, open source, on your own computer. Install, open the panel in Premiere, select a
+            range.
+          </p>
+          <div class="downloads">
+            <a
+              class="btn solid"
+              href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg"
+              >Download for Mac</a
+            >
+            <a
+              class="btn"
+              href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+              >Download for Windows</a
+            >
+          </div>
+          <!-- the list service (Buttondown or MailerLite) is not chosen yet; the form posts nowhere -->
+          <form class="list" onsubmit="return false;">
+            <input
+              type="email"
+              placeholder="Email me new styles and versions"
+              aria-label="Email"
+              disabled
+            />
+            <button class="btn" disabled>Soon</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <dialog class="player">
+      <button class="btn" data-close>Close</button><video controls playsinline></video>
+    </dialog>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe by Erhan Meydan · Apache 2.0</span>
+        <span
+          ><a href="https://github.com/erhanmeydan/kilnframe">GitHub</a> ·
+          <a href="https://github.com/erhanmeydan/kilnframe/blob/main/NOTICE">Licenses</a> ·
+          <a href="https://github.com/erhanmeydan/kilnframe/releases">All versions</a></span
+        >
+      </div>
+    </footer>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

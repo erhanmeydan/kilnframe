@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "note": "Synthetic cases are generated with scripts/make-benchmark-audio.mjs (macOS voices). Real cases are recordings the maintainer provides; they stay in examples/audio/private/ and are never published.",
+  "cases": [
+    {
+      "id": "tr-sayilar",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "numbers heavy speech: the plan should reach for data-viz",
+      "expect": {
+        "techniques": ["data-viz"]
+      },
+      "text": "Geçen yıl kanalımız yüz yirmi bin aboneye ulaştı. Videoların yüzde altmış ikisi telefondan izlendi. İzleyicilerin yarısından fazlası ilk otuz saniyede kararını veriyor. Bu yüzden girişleri on saniyenin altına indirdik ve izlenme süresi yüzde on sekiz arttı."
+    },
+    {
+      "id": "tr-surec",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "a process in steps: the plan should reach for diagram",
+      "expect": {
+        "techniques": ["diagram"]
+      },
+      "text": "Süreç aslında dört adımdan oluşuyor. Önce ham görüntüyü içeri aktarıyoruz. Sonra renk düzeltmesi yapıyoruz. Üçüncü adımda sesi temizleyip müziği ekliyoruz. Son olarak videoyu dışa aktarıp yüklüyoruz. Her adım bir öncekinin çıktısını kullanıyor."
+    },
+    {
+      "id": "tr-urun",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "a product or app explained: the plan should reach for ui-mockup",
+      "expect": {
+        "techniques": ["ui-mockup"]
+      },
+      "text": "Uygulamayı açınca sol tarafta proje listesi görüyorsunuz. Sağ üstteki yeni proje düğmesine tıklayın, bir isim verin ve şablonu seçin. Ayarlar menüsünden çözünürlüğü ve kare hızını değiştirebilirsiniz. Hazır olunca dışa aktar düğmesine basmanız yeterli."
+    },
+    {
+      "id": "tr-kod",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "code talk: the plan should reach for code",
+      "expect": {
+        "techniques": ["code"]
+      },
+      "text": "Terminali açıp npm install yazıyoruz. Paketler yüklendikten sonra npm run dev komutuyla sunucuyu başlatıyoruz. Bir hata alırsanız önce node sürümünüzü kontrol edin, en az yirmi olmalı."
+    },
+    {
+      "id": "tr-soyut",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "an abstract idea with a strong sentence: three-3d metaphor or kinetic-type",
+      "expect": {
+        "techniques": ["three-3d", "kinetic-type"]
+      },
+      "text": "Yaratıcılık bir musluk gibi değil, bir kas gibi çalışır. Ne kadar çok kullanırsanız o kadar güçlenir. İlham gelmesini beklemeyin. Her gün biraz üretin, gerisi kendiliğinden gelir."
+    },
+    {
+      "id": "en-explainer",
+      "source": "synthetic",
+      "voice": "Samantha",
+      "language": "en",
+      "tests": "another language: on-screen text must stay in English",
+      "expect": {
+        "language": "en"
+      },
+      "text": "Most people think editing is about cutting. It is really about rhythm. Every cut is a decision about time. When the rhythm matches the story, the audience stops noticing the edit and starts feeling the film."
+    },
+    {
+      "id": "tr-kisa",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "a very short range of about three seconds: one scene, no crash",
+      "expect": {
+        "maxScenes": 1
+      },
+      "text": "Ve işte sonuç, tam istediğimiz gibi."
+    },
+    {
+      "id": "tr-uzun",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "a long range of over a minute: many scenes, timing stays on the words",
+      "expect": {
+        "minScenes": 6
+      },
+      "text": "Bugün size bir videonun nasıl planlandığını anlatacağım. Her şey bir fikirle başlıyor. Fikri tek bir cümleye indirebiliyorsanız doğru yoldasınız demektir. Ardından hedef kitleyi düşünüyoruz. Kim izleyecek, nerede izleyecek, ne kadar zamanı var. Telefonda izlenecek bir video ile televizyonda izlenecek bir video aynı kurguyla yapılmaz. Sonra senaryoya geçiyoruz. Senaryo üç bölümden oluşur: giriş, gelişme ve sonuç. Girişte merak uyandırmak gerekir. Gelişmede bilgiyi adım adım veririz. Sonuçta ise izleyiciye ne yapması gerektiğini söyleriz. Çekim planı senaryodan çıkar. Her sahne için kamera açısını, ışığı ve sesi önceden belirleriz. Çekim günü sürprizlerle uğraşmak istemiyorsanız bu listeyi mutlaka hazırlayın. Kurguda ise ilk iş kaba bir montaj çıkarmaktır. Mükemmel olmasına gerek yok. Önemli olan hikayenin akıp akmadığını görmek. Son olarak renk, ses ve grafiklerle videoyu cilalıyoruz. Bu adımlar sırayla yapıldığında iş hem daha hızlı biter hem de daha iyi görünür."
+    },
+    {
+      "id": "tr-gurultu",
+      "source": "synthetic",
+      "voice": "Yelda",
+      "language": "tr",
+      "tests": "speech under a music bed and room noise: transcription still holds",
+      "expect": {
+        "techniques": []
+      },
+      "mix": "music-bed",
+      "text": "Dışarıda çekim yaparken rüzgar en büyük düşmanımız. Mikrofona mutlaka bir rüzgar kalkanı takın. Kalabalık yerlerde ise yaka mikrofonu kullanmak sesi çok daha temiz yapar."
+    },
+    {
+      "id": "sessiz",
+      "source": "synthetic",
+      "language": "tr",
+      "tests": "no speech at all, only a music bed: the run stops with a clear message instead of inventing a plan",
+      "expect": {
+        "error": "no-speech"
+      },
+      "mix": "music-only",
+      "durationS": 8
+    },
+    {
+      "id": "reels-30s",
+      "source": "real",
+      "file": "examples/audio/private/reels-30s.wav",
+      "language": "tr",
+      "tests": "the reference real recording used in every comparison so far",
+      "expect": {
+        "techniques": []
+      }
+    },
+    {
+      "id": "hinton",
+      "source": "real",
+      "file": "examples/audio/private/hinton.mp4",
+      "language": "en",
+      "tests": "English talk with humour, 23.976 fps 1080p video, 40 s so it crosses a 30 s window seam",
+      "expect": {
+        "language": "en"
+      },
+      "sequence": {
+        "fps": "24000/1001",
+        "size": "1920x1080"
+      }
+    },
+    {
+      "id": "orjinal-1",
+      "source": "real",
+      "file": "examples/audio/private/orjinal-1.mp4",
+      "language": "tr",
+      "tests": "short YouTuber intro about AI news, 25 fps",
+      "expect": {},
+      "sequence": {
+        "fps": "25",
+        "size": "1920x1080"
+      }
+    },
+    {
+      "id": "orjinal-2",
+      "source": "real",
+      "file": "examples/audio/private/orjinal-2.mp4",
+      "language": "tr",
+      "tests": "short intro, 4K 30 fps source",
+      "expect": {},
+      "sequence": {
+        "fps": "30",
+        "size": "3840x2160"
+      }
+    },
+    {
+      "id": "sigir",
+      "source": "real",
+      "file": "examples/audio/private/sığır.mp4",
+      "language": "tr",
+      "tests": "excited pitch in vertical 9:16 video, 25 fps: portrait layout",
+      "expect": {
+        "format": "portrait"
+      },
+      "sequence": {
+        "fps": "25",
+        "size": "720x1280"
+      }
+    },
+    {
+      "id": "wan",
+      "source": "real",
+      "file": "examples/audio/private/wan.mp4",
+      "language": "tr",
+      "tests": "AI technology description in an unusual 720x916 frame",
+      "expect": {},
+      "sequence": {
+        "fps": "30",
+        "size": "720x916"
+      }
+    },
+    {
+      "id": "zeki",
+      "source": "real",
+      "file": "examples/audio/private/zeki.mov",
+      "language": "tr",
+      "tests": "archival storytelling by an older voice with dates and names, audio only, crosses a 30 s seam",
+      "expect": {}
+    },
+    {
+      "id": "sarki",
+      "source": "real",
+      "file": "examples/audio/private/Metin Akpınar'dan Şarkılar.mp3",
+      "language": "tr",
+      "tests": "singing over music: only a few words, the insert should stay simple or stop",
+      "expect": {}
+    }
+  ]
+}

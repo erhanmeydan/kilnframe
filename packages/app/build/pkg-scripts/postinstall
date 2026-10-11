@@ -1,0 +1,17 @@
+#!/bin/sh
+# Runs as root at the end of the Kilnframe installer. Opens Kilnframe once as the signed-in user, so it adds
+# itself to the menu bar, starts at login and installs the Premiere plugin without another step.
+# The old version was quit by preinstall. This may run more than once; a second `open` does nothing.
+user=$(stat -f %Su /dev/console)
+[ -n "$user" ] && [ "$user" != "root" ] || exit 0
+uid=$(id -u "$user")
+# $2 is the install location: /Applications on a first install, the app itself when an existing one is updated
+case "$2" in
+  *.app) app="$2" ;;
+  *) app="$2/Kilnframe.app" ;;
+esac
+[ -d "$app" ] || app="/Applications/Kilnframe.app"
+# the app updates itself in place (electron-updater), which needs it to belong to the user, not root
+chown -R "$user":staff "$app" || true
+launchctl asuser "$uid" sudo -u "$user" open -a "$app" || true
+exit 0

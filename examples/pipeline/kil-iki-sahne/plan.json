@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "topic": "Pipeline fixture: two kil-lacivert scenes",
+  "summary": "Two copies of the hand-written proof scene, used to test assemble, check, stills, render and deliver without an LLM.",
+  "style": "kil-lacivert",
+  "mode": "fullscreen",
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "30000/1001",
+  "duration_frames": 300,
+  "handles_frames": 20,
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 150,
+      "anchor_words": ["üç", "adımda"],
+      "visual": "Document, gear and play button drop in a row, joined by growing arrows.",
+      "on_screen_text": "Üç adımda",
+      "camera": "slow push in",
+      "technique": "three-3d",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [{ "frame": 23, "type": "thock", "gain_db": -12 }]
+    },
+    {
+      "id": "s2",
+      "start_frame": 150,
+      "end_frame": 300,
+      "anchor_words": ["tekrar"],
+      "visual": "The same scene again, to test back to back sub-compositions.",
+      "on_screen_text": "Üç adımda",
+      "camera": "slow push in",
+      "technique": "three-3d",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [{ "frame": 173, "type": "thock", "gain_db": -12 }]
+    }
+  ]
+}

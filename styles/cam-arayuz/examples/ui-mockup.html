@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Inter";
+          font-weight: 100 900;
+          src: url("vendor/fonts/inter/Inter-Variable.ttf") format("truetype");
+        }
+
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #1e2228;
+        }
+        /* Light shapes behind the glass: always heavily blurred, never hard (tokens.glowBlobs). */
+        .s1-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(120px);
+          opacity: 0.75;
+        }
+        #s1-blob-mint {
+          left: 760px;
+          top: 160px;
+          width: 560px;
+          height: 520px;
+          background: #5faf98;
+        }
+        #s1-blob-slate {
+          left: 1180px;
+          top: 300px;
+          width: 600px;
+          height: 640px;
+          background: #5b6b8a;
+        }
+        #s1-blob-mint-2 {
+          left: 980px;
+          top: 640px;
+          width: 380px;
+          height: 300px;
+          background: #5faf98;
+          opacity: 0.45;
+        }
+
+        /* Frosted glass (tokens.glass) */
+        .s1-glass {
+          position: absolute;
+          background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(28px) saturate(1.2);
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.18),
+            0 30px 80px rgba(0, 0, 0, 0.45);
+          border-radius: 28px;
+        }
+
+        #s1-headline {
+          position: absolute;
+          left: 128px;
+          top: 396px;
+          max-width: 520px;
+          font-family: "Inter", sans-serif;
+          font-weight: 200;
+          font-size: 84px;
+          line-height: 1.12;
+          letter-spacing: -0.02em;
+          color: #eef2f4;
+        }
+        .s1-hl {
+          display: block;
+        }
+        .s1-hl-accent {
+          color: #7fc8b4;
+        }
+
+        #s1-card {
+          left: 740px;
+          top: 300px;
+          width: 640px;
+          height: 450px;
+        }
+        .s1-label {
+          position: absolute;
+          font-family: "Inter", sans-serif;
+          font-weight: 500;
+          font-size: 24px;
+          color: #9aa5ae;
+        }
+        #s1-card-title {
+          left: 40px;
+          top: 34px;
+          color: #dce3e7;
+        }
+        #s1-wave {
+          position: absolute;
+          left: 40px;
+          right: 40px;
+          top: 96px;
+          height: 180px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .s1-bar {
+          width: 10px;
+          border-radius: 5px;
+          transform-origin: 50% 50%;
+        }
+        #s1-row {
+          position: absolute;
+          left: 40px;
+          right: 40px;
+          bottom: 40px;
+          height: 72px;
+        }
+        #s1-toggle-label {
+          left: 0;
+          top: 22px;
+          color: #eef2f4;
+        }
+        #s1-toggle {
+          position: absolute;
+          left: 200px;
+          top: 18px;
+          width: 68px;
+          height: 38px;
+          border-radius: 19px;
+          background: rgba(255, 255, 255, 0.14);
+          border: 1px solid rgba(255, 255, 255, 0.22);
+        }
+        #s1-knob {
+          position: absolute;
+          left: 4px;
+          top: 4px;
+          width: 28px;
+          height: 28px;
+          border-radius: 14px;
+          background: #eef2f4;
+        }
+        #s1-button {
+          position: absolute;
+          right: 0;
+          top: 4px;
+          width: 196px;
+          height: 64px;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.26);
+          font-family: "Inter", sans-serif;
+          font-weight: 500;
+          font-size: 26px;
+          color: #eef2f4;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        #s1-links {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+        }
+        .s1-tile {
+          width: 176px;
+          height: 176px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #s1-tile-1 {
+          left: 1500px;
+          top: 214px;
+        }
+        #s1-tile-2 {
+          left: 1560px;
+          top: 437px;
+        }
+        #s1-tile-3 {
+          left: 1500px;
+          top: 660px;
+        }
+        .s1-icon {
+          width: 64px;
+          height: 64px;
+          fill: none;
+          stroke: #eef2f4;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
+        #s1-cursor {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 40px;
+          height: 48px;
+        }
+        .s1-ripple {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 60px;
+          height: 60px;
+          margin: -30px 0 0 -30px;
+          border-radius: 50%;
+          border: 2px solid #7fc8b4;
+          opacity: 0;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <div id="s1-blob-mint" class="s1-blob"></div>
+        <div id="s1-blob-slate" class="s1-blob"></div>
+        <div id="s1-blob-mint-2" class="s1-blob"></div>
+
+        <div id="s1-headline">
+          <span class="s1-hl">Tek tıkla</span>
+          <span class="s1-hl s1-hl-accent">animasyon</span>
+        </div>
+
+        <svg id="s1-links" viewBox="0 0 1920 1080">
+          <g fill="none" stroke="#7FC8B4" stroke-width="2" stroke-linecap="round">
+            <path class="s1-link" d="M1380 510 C1440 510 1440 302 1500 302" />
+            <path class="s1-link" d="M1380 525 L1560 525" />
+            <path class="s1-link" d="M1380 540 C1440 540 1440 748 1500 748" />
+          </g>
+        </svg>
+
+        <div id="s1-card" class="s1-glass">
+          <div id="s1-card-title" class="s1-label">Ses kaydı · 00:28</div>
+          <div id="s1-wave"></div>
+          <div id="s1-row">
+            <div id="s1-toggle-label" class="s1-label">Ses efektleri</div>
+            <div id="s1-toggle"><div id="s1-knob"></div></div>
+            <div id="s1-button">Oluştur</div>
+          </div>
+        </div>
+
+        <div id="s1-tile-1" class="s1-glass s1-tile">
+          <svg class="s1-icon" viewBox="0 0 64 64"><path d="M22 14 L50 32 L22 50 Z" /></svg>
+        </div>
+        <div id="s1-tile-2" class="s1-glass s1-tile">
+          <svg class="s1-icon" viewBox="0 0 64 64">
+            <rect x="10" y="14" width="44" height="36" rx="6" />
+            <circle cx="42" cy="25" r="4" />
+            <path d="M12 46 L26 32 L36 42 L42 37 L52 46" />
+          </svg>
+        </div>
+        <div id="s1-tile-3" class="s1-glass s1-tile">
+          <svg class="s1-icon" viewBox="0 0 64 64">
+            <path d="M10 32 h6 M20 22 v20 M28 14 v36 M36 24 v16 M44 18 v28 M52 28 v8" />
+          </svg>
+        </div>
+
+        <div id="s1-ripple-1" class="s1-ripple"></div>
+        <div id="s1-ripple-2" class="s1-ripple"></div>
+        <svg id="s1-cursor" viewBox="0 0 40 48">
+          <path
+            d="M4 3 L4 37 L13 29 L19 43 L25 40 L19 27 L31 27 Z"
+            fill="#EEF2F4"
+            stroke="#1E2228"
+            stroke-width="2"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <script>
+        (function () {
+          const MINT = "#7FC8B4";
+
+          function mulberry(seed) {
+            return function () {
+              seed |= 0;
+              seed = (seed + 0x6d2b79f5) | 0;
+              let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+              t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+          }
+
+          // waveform bars: seeded heights, mint on the left fading to slate on the right
+          const wave = document.getElementById("s1-wave");
+          const rnd = mulberry(17);
+          const N = 33;
+          for (let i = 0; i < N; i++) {
+            const bar = document.createElement("div");
+            bar.className = "s1-bar";
+            const env = 0.25 + 0.75 * Math.abs(Math.sin((i / N) * Math.PI * 2.3 + 0.4));
+            bar.style.height = `${Math.round(20 + env * (60 + rnd() * 100))}px`;
+            const k = i / (N - 1);
+            const mix = (a, b) => Math.round(a + (b - a) * k);
+            bar.style.background = `rgb(${mix(127, 154)},${mix(200, 165)},${mix(180, 200)})`;
+            wave.appendChild(bar);
+          }
+
+          // the link paths draw on from the card (stroke-dashoffset)
+          const links = [...document.querySelectorAll(".s1-link")];
+          links.forEach((p) => {
+            const len = p.getTotalLength();
+            p.style.strokeDasharray = `${len}`;
+            p.style.strokeDashoffset = `${len}`;
+          });
+
+          window.__hf = window.__hf || {};
+          window.__hf.buildReady = window.__hf.buildReady || {};
+          window.__hf.buildReady["s1"] = Promise.all([
+            document.fonts.load('200 84px "Inter"'),
+            document.fonts.load('500 26px "Inter"'),
+          ]).then(() => {
+            const tl = gsap.timeline({ paused: true });
+            const FOCUS = {
+              y: 0,
+              opacity: 1,
+              filter: "blur(0px)",
+              duration: 0.7,
+              ease: "expo.out",
+            };
+            const UNFOCUSED = { y: 24, opacity: 0, filter: "blur(12px)" };
+
+            // light shapes drift slowly behind the glass (under 20 px per second)
+            tl.fromTo(
+              "#s1-blob-mint",
+              { x: -30, y: 10 },
+              { x: 40, y: -30, duration: 5, ease: "sine.inOut" },
+              0,
+            );
+            tl.fromTo(
+              "#s1-blob-slate",
+              { x: 20, y: -10 },
+              { x: -50, y: 30, duration: 5, ease: "sine.inOut" },
+              0,
+            );
+            tl.fromTo(
+              "#s1-blob-mint-2",
+              { x: 0, y: 20 },
+              { x: 30, y: -20, duration: 5, ease: "sine.inOut" },
+              0,
+            );
+
+            // headline and card rise into focus
+            tl.fromTo(".s1-hl", UNFOCUSED, { ...FOCUS, stagger: 0.08 }, 0.1);
+            tl.fromTo("#s1-card", UNFOCUSED, FOCUS, 0.3);
+            tl.fromTo(
+              ".s1-bar",
+              { scaleY: 0.05 },
+              { scaleY: 1, duration: 0.8, ease: "expo.out", stagger: 0.015 },
+              0.6,
+            );
+
+            // the cursor glides in on a curve (x and y on different eases), clicks the toggle
+            tl.fromTo(
+              "#s1-cursor",
+              { x: 1500, y: 1120 },
+              { x: 980, duration: 0.65, ease: "power2.inOut" },
+              1.0,
+            );
+            tl.to("#s1-cursor", { y: 676, duration: 0.65, ease: "sine.out" }, 1.0);
+            tl.fromTo(
+              "#s1-ripple-1",
+              { x: 984, y: 680, scale: 0.2, opacity: 0.9 },
+              { scale: 1.6, opacity: 0, duration: 0.45, ease: "expo.out" },
+              1.68,
+            );
+            tl.to("#s1-knob", { x: 30, duration: 0.3, ease: "expo.out" }, 1.7);
+            tl.to(
+              "#s1-toggle",
+              { backgroundColor: "rgba(127,200,180,0.55)", borderColor: MINT, duration: 0.3 },
+              1.7,
+            );
+
+            // then the button: it activates with a mint border, glow and a tiny scale up
+            tl.to("#s1-cursor", { x: 1250, duration: 0.55, ease: "power2.inOut" }, 1.95);
+            tl.to("#s1-cursor", { y: 680, duration: 0.55, ease: "sine.inOut" }, 1.95);
+            tl.fromTo(
+              "#s1-ripple-2",
+              { x: 1252, y: 684, scale: 0.2, opacity: 0.9 },
+              { scale: 1.6, opacity: 0, duration: 0.45, ease: "expo.out" },
+              2.55,
+            );
+            tl.to(
+              "#s1-button",
+              {
+                scale: 1.04,
+                borderColor: MINT,
+                boxShadow: "0 0 0 1px #7FC8B4, 0 0 32px rgba(127,200,180,0.45)",
+                duration: 0.35,
+                ease: "expo.out",
+              },
+              2.57,
+            );
+            tl.to("#s1-cursor", { x: 1330, y: 800, duration: 0.6, ease: "power2.inOut" }, 2.9);
+
+            // links draw on, output tiles rise into focus, the first one turns active
+            tl.to(
+              ".s1-link",
+              { strokeDashoffset: 0, duration: 0.8, ease: "expo.out", stagger: 0.08 },
+              2.75,
+            );
+            tl.fromTo(".s1-tile", UNFOCUSED, { ...FOCUS, stagger: 0.08 }, 2.95);
+            tl.to(
+              "#s1-tile-1",
+              {
+                scale: 1.04,
+                borderColor: MINT,
+                boxShadow:
+                  "0 0 0 1px #7FC8B4, 0 0 32px rgba(127,200,180,0.45), 0 30px 80px rgba(0,0,0,0.45)",
+                duration: 0.4,
+                ease: "expo.out",
+              },
+              3.7,
+            );
+
+            window.__timelines["s1"] = tl;
+            return true;
+          });
+        })();
+      </script>
+    </template>
+  </body>
+</html>

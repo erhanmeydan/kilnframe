@@ -1,0 +1,56 @@
+# Builds the Windows installer (Kilnframe-Windows.exe) on GitHub's Windows machine. The Mac installer is
+# built, signed and notarized on the maintainer's Mac (packages/app/scripts/stage.mjs --pkg).
+# Run by hand (Actions > Windows > Run workflow); the installer is attached to the run as an artifact.
+# Unsigned for now: Windows shows SmartScreen's "More info, Run anyway".
+name: Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_id:
+        description: "Plugin id (kilnframe, or kilnframe-test beside a development plugin)"
+        default: "kilnframe"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # the headless Chrome HyperFrames renders with, the same build the Mac app ships
+      - name: Headless Chrome
+        shell: bash
+        run: npx --yes @puppeteer/browsers@3.2.3 install chrome-headless-shell@150.0.7871.24 --path "$HOME/.cache/puppeteer"
+
+      # reported, not blocking: some tests touch macOS-only things (Keychain, Premiere's paths)
+      - run: pnpm test
+        continue-on-error: true
+
+      - name: Build the installer
+        run: node packages/app/scripts/stage.mjs --plugin-id ${{ inputs.plugin_id }}
+        env:
+          # no code signing certificate yet
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kilnframe-Windows
+          path: |
+            out/app-build/Kilnframe-Windows.exe
+            out/app-build/Kilnframe-Windows.exe.blockmap
+            out/app-build/latest.yml
+          if-no-files-found: error

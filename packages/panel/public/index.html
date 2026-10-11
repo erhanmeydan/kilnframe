@@ -1,0 +1,753 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script defer src="./index.js"></script>
+    <style>
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        margin: 0;
+        background: #232323;
+        color: #d6d6d6;
+        font-size: 12px;
+      }
+      /* the panel scrolls inside #app: a short panel otherwise hid the button at the bottom */
+      #app {
+        height: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      /* UXP ignores flex-shrink and the height of absolute boxes: the bar stays in the flow and app.ts sizes
+         the scroll area above it to the panel's height */
+      .scroll {
+        height: 100%;
+        box-sizing: border-box;
+        overflow-y: scroll;
+        padding: 12px 12px 20px;
+      }
+      /* the range tab's main button never scrolls away (panel design, 8 Oct 2026) */
+      .actionbar {
+        box-sizing: border-box;
+        border-top: 1px solid #333;
+        background: #262626;
+        padding: 8px 12px 10px;
+      }
+      /* fixed heights: UXP shrinks flex children that ask for more room than they get */
+      .actionbar .row {
+        height: 16px;
+        flex-shrink: 0;
+      }
+      .actionbar .btn {
+        margin-top: 6px;
+        height: 32px;
+        box-sizing: border-box;
+        flex-shrink: 0;
+      }
+      /* fewer boxes (panel design 2, 8 Oct 2026): frames only on things that are clicked or typed in */
+      .rangeline {
+        padding: 2px 0 9px;
+        border-bottom: 1px solid #303030;
+        margin-top: 10px;
+      }
+      .style-row {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      .style-thumb {
+        border: 2px solid #5b8cff;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .style-row .rec-text {
+        margin-left: 9px;
+      }
+      .link {
+        color: #9db6ff;
+        font-size: 11px;
+        cursor: pointer;
+        padding: 4px 2px;
+      }
+      .add {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        color: #d0d0d0;
+        padding: 5px 0;
+        cursor: pointer;
+      }
+      .add .plus {
+        width: 18px;
+        height: 18px;
+        line-height: 16px;
+        text-align: center;
+        border: 1px dashed #5a5a5a;
+        border-radius: 4px;
+        color: #aaa;
+        margin-right: 7px;
+      }
+      .vlist .vrow {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #303030;
+        padding: 3px 4px;
+      }
+      .vlist .vrow.on {
+        background: #262b36;
+        border-radius: 4px;
+      }
+      .vname {
+        flex: 1;
+        padding: 4px 0;
+        cursor: pointer;
+        color: #e6e6e6;
+      }
+      .vrow.on .vname {
+        color: #fff;
+        font-weight: 700;
+      }
+      .more {
+        margin-top: 4px;
+      }
+      /* settings: providers, keys, models (settings design, 8 Oct 2026) */
+      .prow {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        padding: 7px 4px;
+        border-bottom: 1px solid #303030;
+        cursor: pointer;
+      }
+      .pdot {
+        width: 10px;
+        height: 10px;
+        border-radius: 6px;
+        border: 1px solid #6a6a6a;
+        margin-right: 8px;
+      }
+      .prow.on .pdot {
+        border-color: #5b8cff;
+        background: #5b8cff;
+      }
+      .pname {
+        flex: 1;
+        color: #e6e6e6;
+      }
+      .prow.on .pname {
+        color: #fff;
+        font-weight: 700;
+      }
+      .ptag {
+        font-size: 10px;
+        border-radius: 3px;
+        padding: 1px 5px;
+        border: 1px solid #484848;
+        color: #b5b5b5;
+      }
+      .ptag.recommended {
+        color: #a9e0bd;
+        border-color: #2f5a3d;
+      }
+      .ptag.works {
+        color: #b9c7e6;
+        border-color: #3d4a66;
+      }
+      .ptag.none {
+        border-color: transparent;
+      }
+      .pkey {
+        min-width: 64px;
+        margin-left: 10px;
+        white-space: nowrap;
+        text-align: right;
+        font-size: 10.5px;
+        color: #8f8f8f;
+      }
+      .pkey.set {
+        color: #8fd6a8;
+      }
+      .pkey.upd {
+        color: #8fd6a8;
+        font-weight: 700;
+      }
+      .pdetail {
+        background: #262a31;
+        border: 1px solid #353c48;
+        border-radius: 6px;
+        padding: 9px 10px;
+        margin: 6px 0 4px;
+      }
+      .pfield {
+        background: #2b2b2b;
+        border: 1px solid #3a3a3a;
+        border-radius: 5px;
+        padding: 6px 7px;
+        margin: 6px 0;
+      }
+      .pbtns {
+        display: flex;
+        flex-direction: row;
+        margin-top: 6px;
+      }
+      .pbtn {
+        border: 1px solid #4a4a4a;
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-right: 6px;
+        color: #d6d6d6;
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .pbtn.primary {
+        background: #2d64c8;
+        border-color: #2d64c8;
+        color: #fff;
+        font-weight: 700;
+      }
+      .ptest {
+        margin-top: 7px;
+        font-size: 11px;
+      }
+      .mrow {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 4px;
+        border-bottom: 1px solid #303030;
+        cursor: pointer;
+      }
+      .mrow.on {
+        background: #262b36;
+        border-radius: 4px;
+      }
+      .mname {
+        color: #e6e6e6;
+      }
+      .mrow.on .mname {
+        color: #fff;
+        font-weight: 700;
+      }
+      /* setup guide (onboarding design, 8 Oct 2026): one line per step, the current one opens */
+      .hello {
+        font-size: 15px;
+        font-weight: 700;
+        color: #f0f0f0;
+        margin-bottom: 3px;
+      }
+      .ostep {
+        border-bottom: 1px solid #303030;
+        padding: 9px 2px;
+      }
+      .otop {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      .omark {
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        border-radius: 9px;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 700;
+        margin-right: 9px;
+        border: 1px solid #555;
+        color: #777;
+      }
+      .omark.done {
+        background: #24432f;
+        border-color: #24432f;
+        color: #8fd6a8;
+      }
+      .omark.now {
+        border: 2px solid #5b8cff;
+        color: #5b8cff;
+      }
+      .omark.warn {
+        background: #4a3b1c;
+        border-color: #4a3b1c;
+        color: #e0b050;
+      }
+      .oname {
+        flex: 1;
+        color: #e6e6e6;
+      }
+      .ostep.now .oname {
+        color: #fff;
+        font-weight: 700;
+      }
+      .ostatus {
+        font-size: 10.5px;
+        color: #8f8f8f;
+      }
+      .ostep.done .ostatus {
+        color: #8fd6a8;
+      }
+      .ostep.warn .ostatus {
+        color: #e0b050;
+      }
+      .obody {
+        margin: 8px 0 2px 27px;
+      }
+      .info {
+        background: #262a31;
+        border: 1px solid #353c48;
+        border-radius: 6px;
+        padding: 7px 8px;
+        color: #c4cad4;
+        font-size: 11px;
+        margin: 6px 0;
+      }
+      .chg {
+        border: 1px solid #4a4a4a;
+        border-radius: 5px;
+        padding: 4px 8px;
+        font-size: 11px;
+        color: #d6d6d6;
+        cursor: pointer;
+        align-self: center;
+        margin-left: 6px;
+      }
+      .strip {
+        display: flex;
+        flex-direction: row;
+        margin-top: 6px;
+      }
+      .strip-img {
+        border-radius: 3px;
+        margin-right: 5px;
+        cursor: pointer;
+      }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #f0f0f0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+      }
+      .brand img {
+        width: 18px;
+        height: 18px;
+        margin-right: 7px;
+      }
+      .icon {
+        color: #b4b4b4;
+        font-size: 16px;
+        width: 32px;
+        height: 28px;
+        line-height: 28px;
+        text-align: center;
+        border-radius: 5px;
+        border: 1px solid #3a3a3a;
+        cursor: pointer;
+      }
+      .icon:hover {
+        background: #333;
+        color: #fff;
+      }
+      .lbl {
+        color: #8f8f8f;
+        font-size: 11px;
+        margin: 14px 0 6px;
+      }
+      .box {
+        background: #2b2b2b;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 6px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      /* two buttons side by side, equal width (Stop next to Keep Running) */
+      .row2 {
+        display: flex;
+        flex-direction: row;
+      }
+      .row2 .btn2 {
+        flex: 1;
+      }
+      .row2 .btn2 + .btn2 {
+        margin-left: 8px;
+      }
+      .btn2.stop {
+        color: #e8a598;
+        border-color: #6a3a33;
+      }
+      .small {
+        font-size: 11px;
+      }
+      .muted {
+        color: #8f8f8f;
+      }
+      .mt {
+        margin-top: 8px;
+      }
+      .note {
+        font-size: 11px;
+        margin: 2px 2px 6px;
+      }
+      .warn {
+        border-color: #6b5320;
+      }
+      /* the app's own update: calm, like the provider panel, not a warning */
+      .box.update {
+        background: #262a31;
+        border-color: #353c48;
+      }
+      .warn-text {
+        color: #e0b050;
+      }
+      .ok {
+        border-color: #2f5a3d;
+        color: #9fe0b5;
+      }
+      .ok-text {
+        color: #8fd6a8;
+      }
+      .rec {
+        cursor: pointer;
+        display: flex;
+        flex-direction: row;
+        padding: 6px;
+        border: 1px solid #3a3a3a;
+        border-radius: 7px;
+        background: #2b2b2b;
+      }
+      .rec.sel {
+        border-color: #5b8cff;
+        background: #26304a;
+      }
+      .rec-img {
+        width: 96px;
+        height: 64px;
+        border-radius: 4px;
+        background: #333;
+        flex-shrink: 0;
+      }
+      .rec-text {
+        margin-left: 8px;
+        flex: 1;
+      }
+      .rec-name {
+        color: #fff;
+        font-weight: 700;
+        font-size: 12px;
+        margin-bottom: 3px;
+      }
+      .tiles {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin-right: -6px;
+      }
+      .tile {
+        cursor: pointer;
+        margin: 0 8px 8px 0;
+      }
+      .tile.sel .tile-img {
+        border-color: #5b8cff;
+      }
+      .tile.sel .tile-name {
+        color: #fff;
+      }
+      .tile-img {
+        border-radius: 4px;
+        border: 2px solid #383838;
+        background: #333;
+        display: block;
+      }
+      .soon-img {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed #4a4a4a;
+        background: #262626;
+      }
+      .soon-mark {
+        color: #8a8a8a;
+        font-size: 11px;
+      }
+      .soon-mark.plus {
+        font-size: 26px;
+        line-height: 26px;
+      }
+      .tile.soon .tile-name {
+        color: #8a8a8a;
+      }
+      .tile-name {
+        font-size: 10px;
+        color: #b4b4b4;
+        text-align: center;
+        margin-top: 3px;
+      }
+      .seg {
+        display: flex;
+        flex-direction: row;
+        border: 1px solid #3f3f3f;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .seg .opt {
+        flex: 1;
+        text-align: center;
+        color: #bdbdbd;
+        padding: 6px 0;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .seg .opt.on {
+        background: #444;
+        color: #fff;
+      }
+      /* UXP ignores rows, so heights are set here */
+      textarea {
+        min-height: 48px;
+        width: 100%;
+        box-sizing: border-box;
+        background: #2b2b2b;
+        color: #e6e6e6;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        /* UXP's native field pads itself; our padding showed as a thick black ring around the text */
+        padding: 0;
+        font-size: 12px;
+      }
+      #own-desc {
+        min-height: 110px;
+      }
+      #own-redo,
+      #scenenote {
+        min-height: 64px;
+      }
+      .btn {
+        margin-top: 10px;
+        background: #2d64c8;
+        color: #fff;
+        border-radius: 6px;
+        padding: 9px;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        cursor: pointer;
+      }
+      .btn.off {
+        background: #3a3a3a;
+        color: #8a8a8a;
+      }
+      /* Premiere in the background: the first click only brings it forward (docs/ilk-animasyon.md) */
+      #app.asleep .btn {
+        background: #263a63;
+        color: #9aa6c2;
+      }
+      #app.asleep .btn2 {
+        color: #7a7a7a;
+        border-color: #383838;
+      }
+      .btn2 {
+        color: #d6d6d6;
+        border: 1px solid #4a4a4a;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 12px;
+        text-align: center;
+        cursor: pointer;
+      }
+      .tag2 {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: #3a3a3a;
+        color: #c8c8c8;
+      }
+      .img-slot {
+        box-sizing: border-box;
+        overflow: hidden;
+        background: #333;
+      }
+      .img-slot img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .img-card {
+        margin: 0 8px 10px 0;
+      }
+      .img-box {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        border: 1px solid #383838;
+        background: #2b2b2b;
+        overflow: hidden;
+      }
+      .img-box.checker {
+        background: #3a3a3a;
+      }
+      .img-name {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: #b4b4b4;
+        margin-top: 4px;
+        flex: 1;
+      }
+      .img-x {
+        cursor: pointer;
+        color: #b4b4b4;
+        font-size: 14px;
+        width: 22px;
+        height: 20px;
+        line-height: 20px;
+        text-align: center;
+        border-radius: 4px;
+        margin-top: 2px;
+      }
+      .img-x:hover {
+        background: #3a3a3a;
+        color: #fff;
+      }
+      .img-note {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 4px;
+        font-size: 11px;
+        background: #2b2b2b;
+        color: #e6e6e6;
+        border: 1px solid #3a3a3a;
+        border-radius: 4px;
+        padding: 0;
+      }
+      /* an install command the editor copies into a terminal */
+      .img-note.cmd {
+        font-family: Menlo, Consolas, monospace;
+        margin: 4px 0 6px;
+      }
+      .btn2.off {
+        color: #7a7a7a;
+        cursor: default;
+      }
+      .voice {
+        box-sizing: border-box;
+        cursor: pointer;
+        margin: 0 8px 8px 0;
+        padding: 6px 8px;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        background: #2b2b2b;
+        font-size: 12px;
+        color: #e0e0e0;
+      }
+      .voice.on {
+        border-color: #5b8cff;
+        background: #26304a;
+      }
+      #story-brief {
+        min-height: 90px;
+      }
+      #story-script {
+        min-height: 260px;
+        line-height: 1.45;
+      }
+      .gallery {
+        display: flex;
+        flex-direction: row;
+        margin-top: 7px;
+      }
+      .gal-img {
+        cursor: pointer;
+        border-radius: 4px;
+        margin-right: 6px;
+        background: #333;
+      }
+      .big-img {
+        display: block;
+        border-radius: 6px;
+        background: #333;
+      }
+      .half {
+        flex: 1;
+        margin-right: 6px;
+      }
+      .still-label {
+        cursor: pointer;
+        margin-top: 3px;
+      }
+      .stills {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .still {
+        margin: 0 8px 10px 0;
+        cursor: pointer;
+      }
+      .still-img,
+      .still-empty {
+        display: block;
+        border-radius: 5px;
+        border: 2px solid transparent;
+        background: #333;
+      }
+      .still.redo .still-img,
+      .still.redo .still-empty {
+        border-color: #e0a040;
+      }
+      .step {
+        display: flex;
+        flex-direction: row;
+        padding: 3px 0;
+      }
+      .step .mark {
+        width: 18px;
+      }
+      .step.done .mark {
+        color: #8fd6a8;
+      }
+      .step.now {
+        color: #fff;
+      }
+      .step.now .mark {
+        color: #5b8cff;
+      }
+      .step.todo {
+        color: #7a7a7a;
+      }
+      .bar {
+        height: 4px;
+        background: #3a3a3a;
+        border-radius: 2px;
+        margin: 10px 0 5px;
+      }
+      .bar div {
+        height: 4px;
+        background: #5b8cff;
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

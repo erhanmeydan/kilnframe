@@ -1,0 +1,18 @@
+{
+  "name": "@kilnframe/panel",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Premiere Pro UXP panel (M4). The probe panel that verified the APIs lives in probe/.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:probe": "vite build -c vite.probe.config.mjs"
+  },
+  "devDependencies": {
+    "@adobe/cc-ext-uxp-types": "7.3.1",
+    "@adobe/premierepro": "26.5.0",
+    "vite": "8.3.2"
+  }
+}

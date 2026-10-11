@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Sora";
+          font-weight: 100 800;
+          src: url("vendor/fonts/sora/Sora-Variable.ttf") format("truetype");
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          font-family: "Sora", sans-serif;
+        }
+        #s1-bg {
+          background: #e8dcc8;
+        }
+        .s1-layer {
+          position: absolute;
+          inset: 0;
+        }
+        #s1-disc {
+          background: #3e6e73;
+        }
+        #s1-noise {
+          opacity: 0.05;
+          mix-blend-mode: multiply;
+        }
+        #s1-title {
+          position: absolute;
+          left: 110px;
+          top: 150px;
+          max-width: 560px;
+          margin: 0;
+          font-weight: 700;
+          font-size: 72px;
+          line-height: 1.08;
+          color: #2b2f33;
+        }
+        .s1-word {
+          display: inline-block;
+        }
+        .s1-number {
+          position: absolute;
+          left: 660px;
+          top: 250px;
+          margin: 0;
+          font-weight: 800;
+          font-size: 400px;
+          line-height: 1;
+          letter-spacing: -0.02em;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        #s1-number-ink {
+          color: #2b2f33;
+        }
+        #s1-number-paper {
+          color: #e8dcc8;
+        }
+        #s1-bars {
+          position: absolute;
+          left: 110px;
+          bottom: 150px;
+          width: 470px;
+          height: 330px;
+        }
+        .s1-bar {
+          position: absolute;
+          bottom: 0;
+          width: 70px;
+          border-radius: 10px 10px 0 0;
+          background: #3e6e73;
+          transform-origin: 50% 100%;
+        }
+        #s1-baseline {
+          position: absolute;
+          left: 96px;
+          bottom: 142px;
+          width: 500px;
+          height: 8px;
+          border-radius: 4px;
+          background: #2b2f33;
+          transform-origin: 0 50%;
+        }
+        #s1-accents {
+          position: absolute;
+          left: 700px;
+          top: 760px;
+          width: 220px;
+          height: 120px;
+        }
+        .s1-chip {
+          position: absolute;
+          width: 34px;
+          height: 34px;
+          border-radius: 6px;
+          background: #3e6e73;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg" class="s1-layer"></div>
+        <div id="s1-disc" class="s1-layer"></div>
+        <p id="s1-number-ink" class="s1-number">0%</p>
+        <div id="s1-paper-clip" class="s1-layer">
+          <p id="s1-number-paper" class="s1-number">0%</p>
+        </div>
+        <h2 id="s1-title">
+          <span class="s1-word">Dönüşüm</span>
+          <span class="s1-word">oranı</span>
+        </h2>
+        <div id="s1-baseline"></div>
+        <div id="s1-bars"></div>
+        <div id="s1-accents">
+          <svg id="s1-arrow" width="120" height="40" viewBox="0 0 120 40">
+            <path
+              d="M6 20 H96 M78 6 L102 20 L78 34"
+              fill="none"
+              stroke="#d9826b"
+              stroke-width="12"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div class="s1-chip" style="left: 6px; top: 70px"></div>
+          <div class="s1-chip" style="left: 60px; top: 82px"></div>
+          <div class="s1-chip" style="left: 114px; top: 70px"></div>
+        </div>
+        <svg id="s1-noise" class="s1-layer" width="1920" height="1080" viewBox="0 0 1920 1080">
+          <filter id="s1-grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="3" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <rect width="1920" height="1080" filter="url(#s1-grain)" />
+        </svg>
+      </div>
+      <script type="module">
+        const ID = "s1";
+        // Circle that bleeds off the right edge; the teal disc and the knockout number share it.
+        const CX = 1640;
+        const CY = 520;
+        const R = 660;
+        const VALUES = [0.38, 0.5, 0.64, 0.78, 1];
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady[ID] = (async () => {
+          await document.fonts.load('800 400px "Sora"');
+          await document.fonts.load('700 72px "Sora"');
+
+          const bars = document.getElementById("s1-bars");
+          VALUES.forEach((v, i) => {
+            const bar = document.createElement("div");
+            bar.className = "s1-bar";
+            bar.id = `s1-bar-${i}`;
+            bar.style.left = `${i * 100}px`;
+            bar.style.height = `${Math.round(v * 330)}px`;
+            if (i === VALUES.length - 1) bar.style.background = "#d9826b";
+            bars.appendChild(bar);
+          });
+
+          // One radius drives both clip paths, so the knockout stays exact while the disc grows.
+          const disc = document.getElementById("s1-disc");
+          const paper = document.getElementById("s1-paper-clip");
+          const circle = {
+            _r: -1,
+            get r() {
+              return this._r;
+            },
+            set r(v) {
+              if (v === this._r) return;
+              this._r = v;
+              const clip = `circle(${v}px at ${CX}px ${CY}px)`;
+              disc.style.clipPath = clip;
+              paper.style.clipPath = clip;
+            },
+          };
+          const ink = document.getElementById("s1-number-ink");
+          const paperNumber = document.getElementById("s1-number-paper");
+          const counter = {
+            _v: -1,
+            get value() {
+              return this._v;
+            },
+            set value(v) {
+              const n = Math.round(v);
+              if (n === this._v) return;
+              this._v = n;
+              ink.textContent = `${n}%`;
+              paperNumber.textContent = `${n}%`;
+            },
+          };
+
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo(circle, { r: 0 }, { r: R, duration: 0.9, ease: "back.out(1.4)" }, 0.25);
+          tl.fromTo(
+            ".s1-word",
+            { yPercent: 110, opacity: 0 },
+            { yPercent: 0, opacity: 1, duration: 0.5, ease: "back.out(1.6)", stagger: 0.08 },
+            0.35,
+          );
+          tl.fromTo(
+            "#s1-baseline",
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.6, ease: "power3.out" },
+            0.8,
+          );
+          tl.fromTo(
+            ".s1-bar",
+            { scaleY: 0 },
+            { scaleY: 1, duration: 0.7, ease: "power3.out", stagger: 0.09 },
+            1.0,
+          );
+          tl.fromTo(
+            counter,
+            { value: 0 },
+            { value: 73, duration: 0.9, ease: "power2.out", immediateRender: false },
+            1.45,
+          );
+          tl.fromTo(
+            ".s1-number",
+            { yPercent: 18, scale: 0.9, opacity: 0 },
+            {
+              yPercent: 0,
+              scale: 1,
+              opacity: 1,
+              duration: 0.6,
+              ease: "back.out(1.5)",
+              transformOrigin: "0% 100%",
+            },
+            1.4,
+          );
+          tl.fromTo(
+            ".s1-chip",
+            { scale: 0 },
+            { scale: 1, duration: 0.45, ease: "back.out(2)", stagger: 0.07 },
+            2.45,
+          );
+          tl.fromTo(
+            "#s1-arrow",
+            { x: -40, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.5, ease: "back.out(1.6)" },
+            2.75,
+          );
+          circle.r = 0;
+          counter.value = 0;
+          window.__timelines[ID] = tl;
+          return true;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

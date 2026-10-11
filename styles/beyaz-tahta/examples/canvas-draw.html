@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Patrick Hand";
+          font-weight: 400;
+          src: url("vendor/fonts/patrick-hand/PatrickHand-Regular.ttf") format("truetype");
+        }
+
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #f4f1ea;
+        }
+        #s1-board,
+        #s1-grain {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s1-grain {
+          opacity: 0.03;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <canvas id="s1-grain" width="1920" height="1080"></canvas>
+        <canvas id="s1-board" width="1920" height="1080"></canvas>
+      </div>
+      <script>
+        (function () {
+          // ---------- style tokens (styles/beyaz-tahta/tokens.json) ----------
+          const INK = "#1F1F1F";
+          const RED = "#C2493D";
+          const STROKE = 7;
+          const HATCH = { spacing: 14, width: 4 };
+          const SPEED = 2400; // px per second while drawing (tokens.motion.draw)
+          const HATCH_SPEED = 12000; // hatching is a quick scribble (tokens.motion.hatch)
+          const LETTERS_PER_S = 14;
+          const W = 1920;
+          const H = 1080;
+          const DURATION = 5;
+
+          const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+          const seg = (t, t0, t1) => clamp((t - t0) / (t1 - t0));
+          const easeInOut = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+
+          function mulberry(seed) {
+            return function () {
+              seed |= 0;
+              seed = (seed + 0x6d2b79f5) | 0;
+              let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+              t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+          }
+
+          // Paper grain, drawn once (tokens.surface.paperGrain, seed 2).
+          {
+            const g = document.getElementById("s1-grain").getContext("2d");
+            const img = g.createImageData(W, H);
+            const rnd = mulberry(2);
+            for (let i = 0; i < img.data.length; i += 4) {
+              const v = Math.floor(rnd() * 255);
+              img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+              img.data[i + 3] = 255;
+            }
+            g.putImageData(img, 0, 0);
+          }
+
+          // ---------- marker strokes ----------
+          // A stroke is a polyline densified every few px with a smooth seeded wobble (tokens.stroke).
+          const wobbleRnd = mulberry(21);
+          function stroke(points, color = INK, width = STROKE, wobble = 1.5) {
+            const dense = [];
+            for (let i = 0; i < points.length - 1; i++) {
+              const [x0, y0] = points[i];
+              const [x1, y1] = points[i + 1];
+              const len = Math.hypot(x1 - x0, y1 - y0);
+              const n = Math.max(1, Math.ceil(len / 6));
+              const nx = -(y1 - y0) / len;
+              const ny = (x1 - x0) / len;
+              const phase = wobbleRnd() * 6.28;
+              const freq = 0.012 + wobbleRnd() * 0.01;
+              for (let k = 0; k < n; k++) {
+                const f = k / n;
+                const off = wobble * Math.sin(phase + f * len * freq);
+                dense.push([x0 + (x1 - x0) * f + nx * off, y0 + (y1 - y0) * f + ny * off]);
+              }
+            }
+            dense.push(points[points.length - 1]);
+            const cum = [0];
+            for (let i = 1; i < dense.length; i++)
+              cum.push(
+                cum[i - 1] +
+                  Math.hypot(dense[i][0] - dense[i - 1][0], dense[i][1] - dense[i - 1][1]),
+              );
+            return { dense, cum, length: cum[cum.length - 1], color, width };
+          }
+
+          function drawStroke(ctx, s, p) {
+            if (p <= 0) return;
+            const reach = s.length * Math.min(p, 1);
+            ctx.strokeStyle = s.color;
+            ctx.lineWidth = s.width;
+            ctx.beginPath();
+            ctx.moveTo(s.dense[0][0], s.dense[0][1]);
+            for (let i = 1; i < s.dense.length; i++) {
+              if (s.cum[i] <= reach) {
+                ctx.lineTo(s.dense[i][0], s.dense[i][1]);
+              } else {
+                const f = (reach - s.cum[i - 1]) / (s.cum[i] - s.cum[i - 1]);
+                const [ax, ay] = s.dense[i - 1];
+                const [bx, by] = s.dense[i];
+                ctx.lineTo(ax + (bx - ax) * f, ay + (by - ay) * f);
+                break;
+              }
+            }
+            ctx.stroke();
+          }
+
+          // Every drawing step: strokes drawn one after another at marker speed from `start`.
+          const steps = [];
+          function step(start, strokes, speed = SPEED) {
+            let t = start;
+            const timed = strokes.map((s) => {
+              const d = s.length / speed;
+              const item = { s, t0: t, t1: t + d };
+              t += d;
+              return item;
+            });
+            steps.push(...timed);
+            return t;
+          }
+
+          // ---------- the chart (b-veri): outlines, then hatching, then the red accent ----------
+          const BASE_Y = 860;
+          const BAR_W = 135;
+          const bars = [
+            { x: 788, h: 144 },
+            { x: 988, h: 228 },
+            { x: 1190, h: 348 },
+            { x: 1398, h: 468 },
+            { x: 1615, h: 540, red: true },
+          ];
+          // open bottom outline, drawn up, across and down in one stroke
+          const outline = (b, color) =>
+            stroke(
+              [
+                [b.x, BASE_Y - 2],
+                [b.x, BASE_Y - b.h],
+                [b.x + BAR_W, BASE_Y - b.h - 2],
+                [b.x + BAR_W, BASE_Y - 2],
+              ],
+              color,
+            );
+          // 45 degree parallel hatching inside the bar (tokens.hatching)
+          function hatch(b, color) {
+            const lines = [];
+            const x0 = b.x + 9;
+            const x1 = b.x + BAR_W - 9;
+            const y0 = BASE_Y - b.h + 9;
+            const y1 = BASE_Y - 6;
+            for (let c = x0 - (y1 - y0); c < x1; c += HATCH.spacing * Math.SQRT2) {
+              // line x = c + (y1 - y), clipped to the inner box
+              let ya = y1;
+              let xa = c;
+              let yb = y0;
+              let xb = c + (y1 - y0);
+              if (xa < x0) {
+                ya -= x0 - xa;
+                xa = x0;
+              }
+              if (xb > x1) {
+                yb += xb - x1;
+                xb = x1;
+              }
+              if (ya - yb < 6) continue;
+              lines.push(
+                stroke(
+                  [
+                    [xa, ya],
+                    [xb, yb],
+                  ],
+                  color,
+                  HATCH.width,
+                  0.6,
+                ),
+              );
+            }
+            return lines;
+          }
+
+          let t = 0.3;
+          t = step(t, [
+            stroke([
+              [700, BASE_Y + 2],
+              [1810, BASE_Y - 1],
+            ]),
+          ]);
+          for (const b of bars.filter((b) => !b.red)) t = step(t - 0.12, [outline(b, INK)]);
+          for (const b of bars.filter((b) => !b.red)) t = step(t, hatch(b, INK), HATCH_SPEED);
+          const red = bars[4];
+          t = step(t + 0.1, [outline(red, RED)]);
+          t = step(t, hatch(red, RED), HATCH_SPEED);
+
+          // handwritten title and number, revealed letter by letter with a left to right wipe
+          const writes = [
+            { text: "Dönüşüm oranı", x: 130, y: 330, size: 104, color: INK, t0: 0.2 },
+            {
+              text: "%73",
+              x: red.x + BAR_W / 2,
+              y: 238,
+              size: 92,
+              color: INK,
+              t0: t + 0.05,
+              center: true,
+            },
+          ];
+          const NUM = writes[1];
+          const numEnd = NUM.t0 + NUM.text.length / LETTERS_PER_S;
+
+          // red circle around the number, a bit more than one turn, drawn last
+          const circlePts = [];
+          {
+            const cx = red.x + BAR_W / 2 + 4;
+            const cy = 206;
+            for (let k = 0; k <= 72; k++) {
+              const a = -2.2 + (k / 72) * Math.PI * 2.12;
+              const r = 1 + 0.03 * Math.sin(a * 3);
+              circlePts.push([cx + Math.cos(a) * 140 * r, cy + Math.sin(a) * 66 * r]);
+            }
+          }
+          step(numEnd + 0.1, [stroke(circlePts, RED, STROKE, 1)]);
+
+          // ---------- frame from time ----------
+          const board = document.getElementById("s1-board");
+          const ctx = board.getContext("2d");
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+
+          function writeAt(w, time) {
+            const n = w.text.length;
+            const p = clamp((time - w.t0) * LETTERS_PER_S, 0, n);
+            if (p <= 0) return;
+            ctx.font = `${w.size}px "Patrick Hand"`;
+            ctx.textBaseline = "alphabetic";
+            const full = ctx.measureText(w.text).width;
+            const left = w.center ? w.x - full / 2 : w.x;
+            const shown = ctx.measureText(w.text.slice(0, Math.floor(p))).width;
+            const next = ctx.measureText(w.text.slice(0, Math.min(n, Math.floor(p) + 1))).width;
+            const reach = shown + (next - shown) * (p - Math.floor(p));
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(left - 10, w.y - w.size * 1.4, reach + 10, w.size * 2);
+            ctx.clip();
+            ctx.fillStyle = w.color;
+            ctx.fillText(w.text, left, w.y);
+            ctx.restore();
+          }
+
+          function renderAt(time) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, W, H);
+            // only the camera moves: a slow push toward the chart
+            const k = 1 + 0.05 * easeInOut(seg(time, 0, DURATION));
+            const fx = 1250;
+            const fy = 600;
+            ctx.setTransform(k, 0, 0, k, fx * (1 - k), fy * (1 - k));
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            for (const it of steps) drawStroke(ctx, it.s, seg(time, it.t0, it.t1));
+            for (const w of writes) writeAt(w, time);
+          }
+
+          // ---------- timeline ----------
+          window.__hf = window.__hf || {};
+          window.__hf.buildReady = window.__hf.buildReady || {};
+          window.__hf.buildReady["s1"] = document.fonts.load('104px "Patrick Hand"').then(() => {
+            const driver = { _t: -1 };
+            Object.defineProperty(driver, "t", {
+              get() {
+                return this._t;
+              },
+              set(v) {
+                if (v === this._t) return;
+                this._t = v;
+                renderAt(v);
+              },
+            });
+            const tl = gsap.timeline({ paused: true });
+            tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+            renderAt(0);
+            window.__timelines["s1"] = tl;
+            return true;
+          });
+        })();
+      </script>
+    </template>
+  </body>
+</html>

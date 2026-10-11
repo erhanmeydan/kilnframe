@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "master_db": -5.5,
+  "pan": 0.25,
+  "room": {
+    "enabled": true,
+    "db": -54
+  },
+  "sounds": {
+    "marker": {
+      "synth": "scratch",
+      "params": {
+        "dur": 0.5,
+        "lo": 1800,
+        "hi": 7000
+      }
+    },
+    "marker-short": {
+      "synth": "scratch",
+      "params": {
+        "dur": 0.2,
+        "lo": 1800,
+        "hi": 7000
+      }
+    },
+    "tap": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      },
+      "gain_db": -3
+    },
+    "erase": {
+      "synth": "whoosh",
+      "params": {
+        "dur": 0.35,
+        "lo": 800,
+        "hi": 4000,
+        "peak": 0.5
+      }
+    },
+    "rustle": {
+      "synth": "paper",
+      "gain_db": -4
+    }
+  },
+  "music": "Light and thoughtful: acoustic guitar fingerpicking, soft upright bass, light shaker, around 92 BPM, like ideas sketched on paper."
+}

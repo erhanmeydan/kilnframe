@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "language": "tr",
+  "model": "fixed sample",
+  "duration_s": 15,
+  "text": "Sesiniz birkaç saniyede animasyona dönüşüyor. İzleyicilerin yüzde yetmiş üçü videoyu sonuna kadar izledi. Önce metin geliyor, sonra işleniyor, sonra oynatılıyor.",
+  "words": [
+    {
+      "text": "Sesiniz",
+      "start": 0.2,
+      "end": 0.59
+    },
+    {
+      "text": "birkaç",
+      "start": 0.65,
+      "end": 1.02
+    },
+    {
+      "text": "saniyede",
+      "start": 1.06,
+      "end": 1.48
+    },
+    {
+      "text": "animasyona",
+      "start": 1.53,
+      "end": 2.0
+    },
+    {
+      "text": "dönüşüyor.",
+      "start": 2.05,
+      "end": 2.52
+    },
+    {
+      "text": "İzleyicilerin",
+      "start": 5.2,
+      "end": 5.75
+    },
+    {
+      "text": "yüzde",
+      "start": 5.79,
+      "end": 6.14
+    },
+    {
+      "text": "yetmiş",
+      "start": 6.19,
+      "end": 6.56
+    },
+    {
+      "text": "üçü",
+      "start": 6.61,
+      "end": 6.9
+    },
+    {
+      "text": "videoyu",
+      "start": 6.95,
+      "end": 7.35
+    },
+    {
+      "text": "sonuna",
+      "start": 7.4,
+      "end": 7.77
+    },
+    {
+      "text": "kadar",
+      "start": 7.82,
+      "end": 8.16
+    },
+    {
+      "text": "izledi.",
+      "start": 8.21,
+      "end": 8.61
+    },
+    {
+      "text": "Önce",
+      "start": 10.2,
+      "end": 10.52
+    },
+    {
+      "text": "metin",
+      "start": 10.57,
+      "end": 10.91
+    },
+    {
+      "text": "geliyor,",
+      "start": 10.96,
+      "end": 11.38
+    },
+    {
+      "text": "sonra",
+      "start": 11.43,
+      "end": 11.78
+    },
+    {
+      "text": "işleniyor,",
+      "start": 11.83,
+      "end": 12.3
+    },
+    {
+      "text": "sonra",
+      "start": 12.35,
+      "end": 12.69
+    },
+    {
+      "text": "oynatılıyor.",
+      "start": 12.74,
+      "end": 13.26
+    }
+  ]
+}

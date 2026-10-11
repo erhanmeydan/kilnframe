@@ -1,0 +1,95 @@
+{
+  "$comment": "Fonts a style may use: all OFL, all pass the Turkish glyph test and were checked by eye. Paths are relative to the project, like tokens.json.",
+  "fonts": [
+    {
+      "family": "Alfa Slab One",
+      "file": "vendor/fonts/alfa-slab-one/AlfaSlabOne-Regular.ttf",
+      "character": "slab serif display, heavy",
+      "weights": "400"
+    },
+    {
+      "family": "Anton",
+      "file": "vendor/fonts/anton/Anton-Regular.ttf",
+      "character": "condensed sans display, heavy, all caps headlines",
+      "weights": "400"
+    },
+    {
+      "family": "Archivo",
+      "file": "vendor/fonts/archivo/Archivo-Variable.ttf",
+      "character": "grotesque sans, neutral, text and headlines",
+      "weights": "100-900"
+    },
+    {
+      "family": "Baloo 2",
+      "file": "vendor/fonts/baloo-2/Baloo2-Variable.ttf",
+      "character": "rounded friendly sans, soft",
+      "weights": "400-800"
+    },
+    {
+      "family": "Barlow Condensed",
+      "file": "vendor/fonts/barlow-condensed/BarlowCondensed-ExtraBold.ttf",
+      "character": "condensed sans, extra bold, sporty",
+      "weights": "800"
+    },
+    {
+      "family": "Bricolage Grotesque",
+      "file": "vendor/fonts/bricolage-grotesque/BricolageGrotesque-Variable.ttf",
+      "character": "quirky grotesque sans with character",
+      "weights": "200-800"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "file": "vendor/fonts/ibm-plex-mono/IBMPlexMono-Regular.ttf",
+      "character": "monospace, technical labels and code",
+      "weights": "400"
+    },
+    {
+      "family": "Inter",
+      "file": "vendor/fonts/inter/Inter-Variable.ttf",
+      "character": "neutral interface sans, very legible",
+      "weights": "100-900"
+    },
+    {
+      "family": "Nunito",
+      "file": "vendor/fonts/nunito/Nunito-Variable.ttf",
+      "character": "rounded sans, gentle",
+      "weights": "200-1000"
+    },
+    {
+      "family": "Outfit",
+      "file": "vendor/fonts/outfit/Outfit-Variable.ttf",
+      "character": "geometric sans, clean modern",
+      "weights": "100-900"
+    },
+    {
+      "family": "Patrick Hand",
+      "file": "vendor/fonts/patrick-hand/PatrickHand-Regular.ttf",
+      "character": "handwriting, marker on a whiteboard",
+      "weights": "400"
+    },
+    {
+      "family": "Playfair Display",
+      "file": "vendor/fonts/playfair-display/PlayfairDisplay-Variable.ttf",
+      "character": "high contrast serif display, editorial; use lining figures",
+      "weights": "400-900"
+    },
+    {
+      "family": "Sora",
+      "file": "vendor/fonts/sora/Sora-Variable.ttf",
+      "character": "geometric sans, wide and bold for numbers",
+      "weights": "100-800"
+    },
+    {
+      "family": "Source Serif 4",
+      "file": "vendor/fonts/source-serif-4/SourceSerif4-Variable.ttf",
+      "character": "text serif, captions and body",
+      "weights": "200-900"
+    },
+    {
+      "family": "Space Grotesk",
+      "file": "vendor/fonts/space-grotesk/SpaceGrotesk-Variable.ttf",
+      "character": "technical grotesque sans",
+      "weights": "300-700"
+    }
+  ]
+}

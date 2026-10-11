@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "master_db": -5.5,
+  "pan": 0.25,
+  "room": {
+    "enabled": true,
+    "db": -54
+  },
+  "sounds": {
+    "wood-click": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      },
+      "gain_db": 2
+    },
+    "thud": {
+      "synth": "thock",
+      "params": {
+        "size": 1.1
+      }
+    },
+    "rise": {
+      "synth": "pop",
+      "params": {
+        "freq": 540
+      }
+    },
+    "whoosh": {
+      "synth": "whoosh",
+      "params": {
+        "dur": 0.8,
+        "lo": 250,
+        "hi": 2200
+      }
+    }
+  },
+  "music": "Neat and playful: glassy mallets, pizzicato strings, small clicks and a soft sub bass, around 96 BPM, a tidy miniature world being built."
+}

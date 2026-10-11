@@ -1,0 +1,33 @@
+{
+  "whisper": {
+    "model": "onnx-community/whisper-large-v3-turbo_timestamped",
+    "dtype": {
+      "encoder_model": "q8",
+      "decoder_model_merged": "q8"
+    },
+    "chunkLengthS": 30
+  },
+  "text": {
+    "provider": "auto",
+    "model": "claude-opus-5-5",
+    "effort": "high",
+    "suggestModel": "claude-sonnet-5-5"
+  },
+  "ocr": {
+    "languages": [
+      "tur",
+      "eng"
+    ],
+    "dataUrl": "https://github.com/tesseract-ocr/tessdata_fast/raw/main"
+  },
+  "speech": {
+    "provider": "gemini",
+    "model": "gemini-3.8-flash-tts",
+    "voice": "Kore"
+  },
+  "music": {
+    "provider": "gemini",
+    "model": "lyria-3.5",
+    "lufs": -24
+  }
+}

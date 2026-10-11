@@ -1,0 +1,35 @@
+{
+  "id": "kilnframe.probe",
+  "name": "kilnframe probe",
+  "version": "0.0.1",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": { "app": "premierepro", "minVersion": "25.6.0" },
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess",
+    "network": { "domains": ["ws://localhost", "ws://127.0.0.1"] }
+  },
+  "entrypoints": [
+    {
+      "id": "probe",
+      "type": "panel",
+      "label": { "default": "kilnframe probe" },
+      "minimumSize": { "width": 320, "height": 400 },
+      "preferredDockedSize": { "width": 360, "height": 560 },
+      "preferredFloatingSize": { "width": 420, "height": 640 },
+      "icons": [
+        { "width": 23, "height": 23, "path": "icons/icon.svg", "scale": [1, 2], "theme": ["all"] }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icons/icon.svg",
+      "scale": [1, 2],
+      "theme": ["all"],
+      "species": ["pluginList"]
+    }
+  ]
+}

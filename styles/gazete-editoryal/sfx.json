@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "master_db": -5.5,
+  "pan": 0.2,
+  "room": {
+    "enabled": true,
+    "db": -54
+  },
+  "sounds": {
+    "turn": {
+      "synth": "paper",
+      "gain_db": 0
+    },
+    "press": {
+      "synth": "thock",
+      "params": {
+        "size": 1.6
+      },
+      "gain_db": -2
+    },
+    "pen": {
+      "synth": "scratch",
+      "params": {
+        "dur": 0.5,
+        "lo": 2200,
+        "hi": 7000
+      },
+      "gain_db": -6
+    },
+    "type": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      },
+      "gain_db": -4
+    },
+    "slide": {
+      "synth": "whoosh",
+      "params": {
+        "dur": 0.5,
+        "lo": 600,
+        "hi": 3000
+      },
+      "gain_db": -6
+    }
+  },
+  "music": "Serious and measured: chamber strings, solo piano, soft timpani and a subtle typewriter-like pulse, around 86 BPM, a thoughtful news feature."
+}

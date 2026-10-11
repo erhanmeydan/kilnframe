@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "master_db": -5.5,
+  "pan": 0.25,
+  "room": {
+    "enabled": true,
+    "db": -54
+  },
+  "sounds": {
+    "print": {
+      "synth": "thock",
+      "params": {
+        "size": 0.5
+      }
+    },
+    "slide": {
+      "synth": "whoosh",
+      "params": {
+        "dur": 0.5,
+        "lo": 900,
+        "hi": 5000
+      }
+    },
+    "rustle": {
+      "synth": "paper",
+      "gain_db": -4
+    },
+    "tick": {
+      "synth": "click",
+      "params": {
+        "count": 1
+      }
+    }
+  },
+  "music": "Retro and warm: vintage analog synths, tape wobble, soft drum machine and a mellow bass, around 94 BPM, a 1970s educational film feel."
+}

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "types": ["@adobe/premierepro"],
+    "resolveJsonModule": true
+  },
+  "include": ["index.ts", "src/**/*.ts", "probe/**/*.ts"]
+}

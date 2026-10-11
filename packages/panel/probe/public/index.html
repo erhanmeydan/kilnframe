@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script defer src="./probe.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 12px;
+        color: var(--uxp-host-text-color, #ddd);
+        font-size: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        height: 100vh;
+        box-sizing: border-box;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 4px;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 4px 8px;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      label {
+        display: block;
+        margin-top: 4px;
+        opacity: 0.8;
+      }
+      #log {
+        flex: 1;
+        overflow: auto;
+        border: 1px solid #666;
+        border-radius: 4px;
+        padding: 8px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>kilnframe probe</h1>
+    <div class="row">
+      <button id="btn-sequence">1. Sekans bilgisi</button>
+      <button id="btn-frame">2. Kare dışa aktar</button>
+      <button id="btn-audio">3. Ses dışa aktar</button>
+      <button id="btn-companion">4. Companion</button>
+      <button id="btn-place">5. Import + yerleştir</button>
+    </div>
+    <label for="preset">WAV .epr preset yolu (3 için)</label>
+    <input id="preset" type="text" placeholder="/Users/.../WAV 48k.epr" />
+    <label for="media">Yerleştirilecek dosya (5 için)</label>
+    <input id="media" type="text" placeholder="/Users/.../out/flat-veri/insert.mp4" />
+    <div id="log"></div>
+  </body>
+</html>

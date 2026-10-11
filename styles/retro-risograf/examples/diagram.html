@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Bricolage Grotesque";
+          font-weight: 200 800;
+          src: url("vendor/fonts/bricolage-grotesque/BricolageGrotesque-Variable.ttf")
+            format("truetype");
+        }
+
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #f1e9d8;
+        }
+        #s1-grain,
+        #s1-print {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s1-grain {
+          opacity: 0.05;
+        }
+        /* inks overprint the paper and each other */
+        #s1-print {
+          mix-blend-mode: multiply;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <canvas id="s1-grain" width="1920" height="1080"></canvas>
+        <canvas id="s1-print" width="1920" height="1080"></canvas>
+      </div>
+      <script>
+        (function () {
+          // ---------- style tokens (styles/retro-risograf/tokens.json) ----------
+          const INK = { teal: "#2F7A78", red: "#D2553F", mustard: "#E0B04B" };
+          const DOT = { spacing: 12, radius: 3.6, angle: Math.PI / 4 };
+          const W = 1920;
+          const H = 1080;
+          const DURATION = 5;
+          const FPS = 30000 / 1001;
+
+          const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+          const power3Out = (p) => 1 - Math.pow(1 - p, 3);
+
+          function mulberry(seed) {
+            return function () {
+              seed |= 0;
+              seed = (seed + 0x6d2b79f5) | 0;
+              let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+              t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+          }
+
+          // Paper grain, drawn once (tokens.print.paperGrain, seed 4).
+          {
+            const g = document.getElementById("s1-grain").getContext("2d");
+            const img = g.createImageData(W, H);
+            const rnd = mulberry(4);
+            for (let i = 0; i < img.data.length; i += 4) {
+              const v = Math.floor(rnd() * 255);
+              img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+              img.data[i + 3] = 255;
+            }
+            g.putImageData(img, 0, 0);
+          }
+
+          // ---------- ink layers ----------
+          // A layer is one ink pass of one object, baked once into its own canvas with the grainy ink
+          // texture (tokens.print.inkTexture: a few % of the ink is missing in small specks).
+          let layerSeed = 9;
+          function bake(bbox, ink, draw) {
+            const [bx, by, bw, bh] = bbox;
+            const c = document.createElement("canvas");
+            c.width = bw;
+            c.height = bh;
+            const g = c.getContext("2d");
+            g.translate(-bx, -by);
+            g.fillStyle = ink;
+            g.strokeStyle = ink;
+            draw(g);
+            const img = g.getImageData(0, 0, bw, bh);
+            const rnd = mulberry(layerSeed++);
+            for (let i = 3; i < img.data.length; i += 4) {
+              if (!img.data[i]) continue;
+              const r = rnd();
+              img.data[i] *= r < 0.08 ? 0.15 : 0.9 + 0.1 * rnd();
+            }
+            g.putImageData(img, 0, 0);
+            return c;
+          }
+          function dots(g, x0, y0, w, h, inside) {
+            const cos = Math.cos(DOT.angle);
+            const sin = Math.sin(DOT.angle);
+            const R = Math.hypot(w, h);
+            const cx = x0 + w / 2;
+            const cy = y0 + h / 2;
+            for (let u = -R; u < R; u += DOT.spacing) {
+              for (let v = -R; v < R; v += DOT.spacing) {
+                const x = cx + u * cos - v * sin;
+                const y = cy + u * sin + v * cos;
+                if (x < x0 || y < y0 || x > x0 + w || y > y0 + h || !inside(x, y)) continue;
+                g.beginPath();
+                g.arc(x, y, DOT.radius, 0, Math.PI * 2);
+                g.fill();
+              }
+            }
+          }
+
+          // layers: { canvas, x, y, off: [dx, dy] misregistration, from: [fx, fy], t0, wobble }
+          const layers = [];
+          function add(bbox, ink, draw, o) {
+            layers.push({
+              canvas: bake(bbox, ink, draw),
+              x: bbox[0],
+              y: bbox[1],
+              off: o.off ?? [0, 0],
+              from: o.from ?? [0, -36],
+              t0: o.t0,
+              wobble: o.wobble ?? false,
+            });
+          }
+
+          // ---------- the process (c-surec): three mustard discs, red block arrows ----------
+          const R = 182;
+          const CY = 600;
+          const CX = [770, 1190, 1610];
+
+          function gearPath(g, cx, cy, rOut, rIn, teeth) {
+            g.beginPath();
+            for (let i = 0; i <= 360; i++) {
+              const a = (i / 360) * Math.PI * 2;
+              const r =
+                (rOut + rIn) / 2 +
+                (((rOut - rIn) / 2) * Math.tanh(3 * Math.cos(teeth * a))) / Math.tanh(3);
+              const x = cx + Math.cos(a) * r;
+              const y = cy + Math.sin(a) * r;
+              if (i === 0) g.moveTo(x, y);
+              else g.lineTo(x, y);
+            }
+            g.closePath();
+          }
+          const insideGear = (cx, cy, rOut, rIn, teeth) => (x, y) => {
+            const a = Math.atan2(y - cy, x - cx);
+            const r =
+              (rOut + rIn) / 2 +
+              (((rOut - rIn) / 2) * Math.tanh(3 * Math.cos(teeth * a))) / Math.tanh(3);
+            const d = Math.hypot(x - cx, y - cy);
+            return d < r && d > 40;
+          };
+          const disc = (cx) => [cx - R - 4, CY - R - 4, 2 * R + 8, 2 * R + 8];
+
+          function build() {
+            // 1 document: the page is unprinted paper knocked out of the mustard disc
+            const page = { x: CX[0] - 78, y: CY - 104, w: 156, h: 208, fold: 44 };
+            const pagePath = (g, dx = 0, dy = 0) => {
+              g.beginPath();
+              g.moveTo(page.x + dx, page.y + dy);
+              g.lineTo(page.x + page.w - page.fold + dx, page.y + dy);
+              g.lineTo(page.x + page.w + dx, page.y + page.fold + dy);
+              g.lineTo(page.x + page.w + dx, page.y + page.h + dy);
+              g.lineTo(page.x + dx, page.y + page.h + dy);
+              g.closePath();
+            };
+            let t = 0.45;
+            add(
+              disc(CX[0]),
+              INK.mustard,
+              (g) => {
+                g.beginPath();
+                g.arc(CX[0], CY, R, 0, Math.PI * 2);
+                g.fill();
+                g.globalCompositeOperation = "destination-out";
+                pagePath(g);
+                g.fill();
+                pagePath(g, -12, 12);
+                g.fill();
+              },
+              { t0: t, from: [0, 0] },
+            );
+            add(
+              [page.x - 20, page.y - 4, page.w + 30, page.h + 26],
+              INK.teal,
+              (g) => {
+                // the second sheet behind the page, offset down left
+                g.beginPath();
+                g.moveTo(page.x - 12, page.y + 12);
+                g.lineTo(page.x - 12, page.y + page.h + 12);
+                g.lineTo(page.x + page.w - 12, page.y + page.h + 12);
+                g.lineTo(page.x + page.w - 12, page.y + page.h);
+                g.lineTo(page.x, page.y + page.h);
+                g.lineTo(page.x, page.y + 12);
+                g.closePath();
+                g.fill();
+                // text lines and the folded corner
+                for (let i = 0; i < 4; i++)
+                  g.fillRect(page.x + 28, page.y + 66 + i * 34, i === 3 ? 70 : 104, 13);
+                g.beginPath();
+                g.moveTo(page.x + page.w - page.fold, page.y);
+                g.lineTo(page.x + page.w - page.fold, page.y + page.fold);
+                g.lineTo(page.x + page.w, page.y + page.fold);
+                g.closePath();
+                g.fill();
+                // coarse halftone shading in the lower left of the page
+                dots(
+                  g,
+                  page.x,
+                  page.y + 90,
+                  page.w,
+                  page.h - 90,
+                  (x, y) => x - page.x < (y - page.y - 90) * 0.9,
+                );
+              },
+              { t0: t + 0.06, off: [3, -2] },
+            );
+            add(
+              [page.x - 4, page.y - 8, page.w + 20, 70],
+              INK.red,
+              (g) => {
+                g.beginPath();
+                g.moveTo(page.x + page.w - page.fold + 6, page.y - 4);
+                g.lineTo(page.x + page.w + 8, page.y + page.fold - 2);
+                g.lineTo(page.x + page.w + 8, page.y + page.fold + 10);
+                g.lineTo(page.x + page.w - page.fold - 4, page.y - 4);
+                g.closePath();
+                g.fill();
+              },
+              { t0: t + 0.12, off: [2, -3] },
+            );
+
+            // red block arrows
+            const arrow = (x0, x1) => (g) => {
+              const y = CY;
+              g.beginPath();
+              g.moveTo(x0, y - 20);
+              g.lineTo(x1 - 52, y - 20);
+              g.lineTo(x1 - 52, y - 48);
+              g.lineTo(x1, y);
+              g.lineTo(x1 - 52, y + 48);
+              g.lineTo(x1 - 52, y + 20);
+              g.lineTo(x0, y + 20);
+              g.closePath();
+              g.fill();
+            };
+            add(
+              [CX[0] + R - 40, CY - 52, 210, 104],
+              INK.red,
+              arrow(CX[0] + R - 36, CX[1] - R + 34),
+              {
+                t0: 1.25,
+                from: [-60, 0],
+                off: [4, 3],
+              },
+            );
+
+            // 2 gear: teal over an offset red pass; the hole shows the mustard disc
+            t = 1.45;
+            // The disc is knocked out under the gear so the teal prints clean (the hole stays mustard).
+            add(
+              disc(CX[1]),
+              INK.mustard,
+              (g) => {
+                g.beginPath();
+                g.arc(CX[1], CY, R, 0, Math.PI * 2);
+                g.fill();
+                g.globalCompositeOperation = "destination-out";
+                gearPath(g, CX[1], CY, 118, 92, 8);
+                g.fill();
+                g.globalCompositeOperation = "source-over";
+                g.beginPath();
+                g.arc(CX[1], CY, 40, 0, Math.PI * 2);
+                g.fill();
+              },
+              { t0: t, from: [0, 0] },
+            );
+            const gear = (dx, dy) => (g) => {
+              gearPath(g, CX[1] + dx, CY + dy, 118, 92, 8);
+              g.fill();
+              g.globalCompositeOperation = "destination-out";
+              g.beginPath();
+              g.arc(CX[1] + dx, CY + dy, 40, 0, Math.PI * 2);
+              g.fill();
+            };
+            // red pass trapped under the teal: only the offset sliver shows
+            add(
+              [CX[1] - 130, CY - 140, 270, 270],
+              INK.red,
+              (g) => {
+                gear(9, -8)(g);
+                g.globalCompositeOperation = "destination-out";
+                gearPath(g, CX[1] - 2, CY + 2, 118, 92, 8);
+                g.fill();
+              },
+              { t0: t + 0.06, off: [0, 0] },
+            );
+            add(
+              [CX[1] - 140, CY - 130, 270, 270],
+              INK.teal,
+              (g) => {
+                gear(0, 0)(g);
+                g.globalCompositeOperation = "source-over";
+                // halftone shadow below left of the gear, on the disc
+                dots(
+                  g,
+                  CX[1] - 140,
+                  CY - 20,
+                  120,
+                  150,
+                  (x, y) =>
+                    !insideGear(CX[1], CY, 118, 92, 8)(x, y) && Math.hypot(x - CX[1], y - CY) < 134,
+                );
+              },
+              { t0: t + 0.12, off: [-2, 2] },
+            );
+
+            add(
+              [CX[1] + R - 40, CY - 52, 210, 104],
+              INK.red,
+              arrow(CX[1] + R - 36, CX[2] - R + 34),
+              {
+                t0: 2.2,
+                from: [-60, 0],
+                off: [4, 3],
+              },
+            );
+
+            // 3 play: teal triangle with an offset red pass and red halftone, the accent wobbles later
+            t = 2.4;
+            const tri = (dx, dy) => (g) => {
+              g.beginPath();
+              g.moveTo(CX[2] - 64 + dx, CY - 108 + dy);
+              g.lineTo(CX[2] + 112 + dx, CY + dy);
+              g.lineTo(CX[2] - 64 + dx, CY + 108 + dy);
+              g.closePath();
+              g.fill();
+            };
+            add(
+              disc(CX[2]),
+              INK.mustard,
+              (g) => {
+                g.beginPath();
+                g.arc(CX[2], CY, R, 0, Math.PI * 2);
+                g.fill();
+                g.globalCompositeOperation = "destination-out";
+                tri(0, 0)(g);
+              },
+              { t0: t, from: [0, 0] },
+            );
+            add(
+              [CX[2] - 100, CY - 130, 230, 260],
+              INK.red,
+              (g) => {
+                tri(-14, 10)(g);
+                // trapped under the teal except in the left halftone band, where the inks overprint
+                g.save();
+                g.beginPath();
+                g.rect(CX[2] + 16, CY - 140, 200, 280);
+                g.clip();
+                g.globalCompositeOperation = "destination-out";
+                tri(2, -2)(g);
+                g.restore();
+              },
+              { t0: t + 0.06, wobble: true },
+            );
+            add(
+              [CX[2] - 80, CY - 120, 210, 240],
+              INK.teal,
+              (g) => {
+                tri(0, 0)(g);
+                g.globalCompositeOperation = "destination-out";
+                // a knocked out halftone band lets the red pass show through on the left
+                dots(g, CX[2] - 64, CY - 108, 80, 216, () => true);
+              },
+              { t0: t + 0.12, off: [2, -2], wobble: true },
+            );
+
+            // headline printed in two overprinting inks
+            const headline = (ink) => (g) => {
+              g.font = '800 112px "Bricolage Grotesque"';
+              g.textBaseline = "alphabetic";
+              g.fillText("Üç adımda", 120, 380);
+            };
+            add([100, 250, 620, 170], INK.teal, headline(INK.teal), { t0: 0.15, from: [-40, 0] });
+            add(
+              [100, 250, 620, 170],
+              INK.red,
+              (g) => {
+                g.translate(10, -8);
+                headline(INK.red)(g);
+              },
+              { t0: 0.24, from: [40, 0], off: [0, 0] },
+            );
+          }
+
+          // ---------- frame from time ----------
+          const out = document.getElementById("s1-print").getContext("2d");
+          const ENTER = 0.45;
+          const WOBBLE = { t0: 3.4, dur: 0.6 };
+
+          function renderAt(time) {
+            // inks move on whole frames, the paper never moves
+            const t = Math.round(time * FPS) / FPS;
+            out.clearRect(0, 0, W, H);
+            out.globalCompositeOperation = "multiply";
+            for (const L of layers) {
+              const p = clamp((t - L.t0) / ENTER);
+              if (p <= 0) continue;
+              const e = power3Out(p);
+              let dx = L.off[0] + L.from[0] * (1 - e);
+              let dy = L.off[1] + L.from[1] * (1 - e);
+              if (L.wobble && t > WOBBLE.t0) {
+                const k = clamp((t - WOBBLE.t0) / WOBBLE.dur);
+                const r = mulberry(Math.floor(t * 12) + 77);
+                const amp = 7 * (1 - k);
+                dx += (r() - 0.5) * amp;
+                dy += (r() - 0.5) * amp;
+              }
+              out.drawImage(L.canvas, Math.round(L.x + dx), Math.round(L.y + dy));
+            }
+            out.globalCompositeOperation = "source-over";
+          }
+
+          // ---------- timeline ----------
+          window.__hf = window.__hf || {};
+          window.__hf.buildReady = window.__hf.buildReady || {};
+          window.__hf.buildReady["s1"] = document.fonts
+            .load('800 112px "Bricolage Grotesque"')
+            .then(() => {
+              build();
+              const driver = { _t: -1 };
+              Object.defineProperty(driver, "t", {
+                get() {
+                  return this._t;
+                },
+                set(v) {
+                  if (v === this._t) return;
+                  this._t = v;
+                  renderAt(v);
+                },
+              });
+              const tl = gsap.timeline({ paused: true });
+              tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+              renderAt(0);
+              window.__timelines["s1"] = tl;
+              return true;
+            });
+        })();
+      </script>
+    </template>
+  </body>
+</html>

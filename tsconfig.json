@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/sfx"
+    },
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/companion"
+    },
+    {
+      "path": "packages/app"
+    }
+  ]
+}
