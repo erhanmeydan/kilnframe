@@ -4,12 +4,6 @@ allowBuilds:
   esbuild: true
   # downloads the Electron binary for this platform (packages/app)
   electron: true
-  # downloads the FFmpeg binary bundled into the app (packages/app)
-  ffmpeg-static: true
-  # its script only sets the executable bit on the bundled ffprobe
-  "@ffprobe-installer/darwin-arm64": true
-  "@ffprobe-installer/darwin-x64": true
-  "@ffprobe-installer/win32-x64": true
   electron-builder: false
   # Squirrel installer for Windows; we build NSIS installers instead
   electron-winstaller: false

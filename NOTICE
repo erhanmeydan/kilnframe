@@ -13,17 +13,14 @@ folder under Resources/app/node_modules/).
 Programs the app runs
 ---------------------
 
-FFmpeg 6.0 (ffmpeg, from ffmpeg-static 5.3.0)
-  GNU General Public License version 3 or later; the build includes libx264.
-  Kilnframe starts it as a separate program and does not link to it.
-  Source code: https://ffmpeg.org/releases/ffmpeg-6.0.tar.xz
-  Build: https://github.com/eugeneware/ffmpeg-static (release b6.1.1, FFmpeg 6.0 on macOS)
+FFmpeg 9.0.2 (ffmpeg and ffprobe)
+  GNU General Public License version 3 or later; the builds include libx264.
+  Kilnframe starts them as separate programs and does not link to them.
+  Source code: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+  macOS build: https://ffmpeg.martin-riedl.de/info/detail/macos/arm64/1789931890_9.0.2
+  Windows build: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-09-30-13-08
+    (n9.0.2-17-g2a571b6068, source https://github.com/FFmpeg/FFmpeg/commit/2a571b6068)
   License: Resources/licenses/ffmpeg-LICENSE.md and Resources/licenses/GPL-3.0.txt
-
-FFprobe 4.4.1 (ffprobe, from @ffprobe-installer/ffprobe 2.1.2)
-  GNU Lesser General Public License 2.1; built by Homebrew.
-  Source code: https://ffmpeg.org/releases/ffmpeg-4.4.1.tar.xz
-  Build: https://formulae.brew.sh/formula/ffmpeg
 
 Chrome for Testing, headless shell 150.0.7871.24
   BSD-style license and the licenses of Chromium's components (Resources/bin/headless-shell/LICENSE.headless_shell).

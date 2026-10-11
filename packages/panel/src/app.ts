@@ -489,10 +489,12 @@ function updateBox(): string {
   const u = state.update;
   if (!u || u.status === "none" || u.status === "checking") return "";
   const v = esc(u.version ?? "");
+  // the release page carries the notes of what changed
+  const notes = `https://github.com/erhanmeydan/kilnframe/releases/tag/v${encodeURIComponent(u.version ?? "")}`;
   if (u.status === "available")
     return `<div class="box update"><div>${t("update.ready", { v })}</div>${
       state.updateBusy ? `<div class="small muted mt">${t("update.busy")}</div>` : ""
-    }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div></div>`;
+    }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div><div class="btn2 mt" data-act="open-url" data-val="${notes}">${t("update.whatsNew")} ↗</div></div>`;
   if (u.status === "downloading")
     return `<div class="box update">${t("update.downloading", { p: u.percent ?? 0 })}</div>`;
   if (u.status === "ready") return `<div class="box update">${t("update.restarting")}</div>`;

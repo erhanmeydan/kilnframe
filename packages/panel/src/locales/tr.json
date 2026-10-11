@@ -405,6 +405,7 @@
   "prov.openrouterNote": "Sadece görsel okuyan modeller listelenir. OpenRouter kredi yüklerken %5,5 hizmet bedeli alır, model fiyatlarına ek koymaz.",
   "update.ready": "Kilnframe {v} hazır.",
   "update.install": "Güncelle",
+  "update.whatsNew": "Yenilikler",
   "update.busy": "Bir animasyon hazırlanıyor. Bittikten sonra güncelleyin.",
   "update.downloading": "Güncelleme indiriliyor… %{p}",
   "update.restarting": "Kuruluyor. Kilnframe birazdan yeniden açılacak…",

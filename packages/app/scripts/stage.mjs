@@ -19,6 +19,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkProresAlpha, fetchFfmpeg } from "./ffmpeg.mjs";
 
 const app = fileURLToPath(new URL("..", import.meta.url));
 const root = join(app, "..", "..");
@@ -53,8 +54,10 @@ console.log("2/4 bundled tools");
 const bin = join(extra, "bin");
 mkdirSync(bin, { recursive: true });
 const exe = (name) => (platform === "win" ? `${name}.exe` : name);
-cpSync(require("ffmpeg-static"), join(bin, exe("ffmpeg")));
-cpSync(require("@ffprobe-installer/ffprobe").path, join(bin, exe("ffprobe")));
+// pinned FFmpeg builds (scripts/ffmpeg.mjs); the build stops when ffmpeg writes ProRes alpha Premiere ignores
+const ffmpeg = await fetchFfmpeg(platform, platform === "win" ? "x64" : arch, bin);
+checkProresAlpha(join(bin, exe("ffmpeg")));
+console.log(`FFmpeg ${ffmpeg.version} (${ffmpeg.source})`);
 // the headless Chrome HyperFrames already uses on this computer (same build), from Puppeteer's cache
 const shells = join(homedir(), ".cache", "puppeteer", "chrome-headless-shell");
 const prefix = platform === "mac" ? (arch === "arm64" ? "mac_arm-" : "mac-") : "win64-";
@@ -76,8 +79,8 @@ cpSync(join(root, "vendor"), join(extra, "vendor"), { recursive: true });
 const licenses = join(extra, "licenses");
 mkdirSync(licenses, { recursive: true });
 for (const f of ["LICENSE", "NOTICE"]) cpSync(join(root, f), join(licenses, f));
-// FFmpeg's own license notes and the GPL text it ships under, kept in the repository (the Windows build of
-// ffmpeg-static has no license file)
+// FFmpeg's own license notes and the GPL text it ships under, kept in the repository (the zip files of the
+// pinned builds carry no license file of their own)
 for (const f of readdirSync(join(app, "build", "licenses")))
   cpSync(join(app, "build", "licenses", f), join(licenses, f));
 

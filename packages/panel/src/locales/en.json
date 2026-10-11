@@ -405,6 +405,7 @@
   "prov.openrouterNote": "Only models that read images are listed. OpenRouter takes 5.5% when credits are bought and adds nothing to model prices.",
   "update.ready": "Kilnframe {v} is ready.",
   "update.install": "Update",
+  "update.whatsNew": "What's New",
   "update.busy": "An animation is being made. Update when it is done.",
   "update.downloading": "Downloading the update… {p}%",
   "update.restarting": "Installing. Kilnframe restarts in a moment…",
