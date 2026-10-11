@@ -935,7 +935,7 @@ async function startStyleJob(params: Record<string, unknown>) {
     } else if (m.type === "job.error") {
       off();
       own.stage = own.result ? "review" : "new";
-      own.error = t("own.failed", { message: String(m.message) });
+      own.error = t("own.failed", { message: jobErrorText(m) });
       trace(`style: failed ${String(m.message)}`);
     } else return;
     render();
@@ -1069,7 +1069,7 @@ async function storyJob(
     } else if (m.type === "job.error") {
       off();
       st.stage = st.script ? "script" : "brief";
-      st.error = t("story.failed", { message: String(m.message) });
+      st.error = t("story.failed", { message: jobErrorText(m) });
       trace(`story: failed ${String(m.message)}`);
       render();
     }
@@ -2310,7 +2310,7 @@ function runQuietJob(params: Record<string, unknown>): Promise<Record<string, un
         resolve(m.result as Record<string, unknown>);
       } else if (m.type === "job.error") {
         off();
-        reject(new Error(String(m.message)));
+        reject(new Error(jobErrorText(m)));
       }
     });
     session
@@ -2386,7 +2386,7 @@ function awaitJob(
         resolve(m.result as JobResult);
       } else if (m.type === "job.error") {
         off();
-        reject(new Error(String(m.message)));
+        reject(new Error(jobErrorText(m)));
       } else if (m.type === "job.state" && m.state === "unknown") {
         off();
         reject(new JobLost(t("job.lost")));
@@ -2773,7 +2773,7 @@ function onJobMessage(
   } else if (m.type === "job.error") {
     off();
     store("pending", "");
-    failJob(new Error(String(m.message)));
+    failJob(new Error(jobErrorText(m)));
   } else if (m.type === "job.cancelled") {
     off();
     store("pending", "");
@@ -2884,6 +2884,16 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
       },
     );
   });
+}
+
+/**
+ * A failed job's message in the panel's language when its kind is one the user can act on (the companion
+ * passes the provider's kind along); otherwise the companion's own message.
+ */
+function jobErrorText(msg: unknown): string {
+  const m = msg as { message?: unknown; kind?: unknown };
+  if (m.kind === "cut-off") return t("err.cutOff");
+  return String(m.message);
 }
 
 function failJob(err: unknown) {

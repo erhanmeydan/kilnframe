@@ -157,6 +157,30 @@ describe("companion server", () => {
     expect(await late.next((m) => m.type === "job.state")).toMatchObject({ state: "unknown" });
   });
 
+  it("passes a failed job's kind along, also to a panel that asks again", async () => {
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      version: "test",
+      port: 0,
+      runner: () =>
+        Promise.reject(
+          Object.assign(new Error("The reply for compose s2 was cut off at 64000 tokens."), {
+            kind: "cut-off",
+          }),
+        ),
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "job.start", params });
+    const failed = await c.next((m) => m.type === "job.error");
+    expect(failed).toMatchObject({ kind: "cut-off" });
+    if (failed.type !== "job.error") return;
+    c.send({ type: "job.get", jobId: failed.jobId });
+    expect(await c.next((m) => m.type === "job.error")).toMatchObject({ kind: "cut-off" });
+  });
+
   it("answers system checks", async () => {
     companion = await startCompanion({
       token: TOKEN,

@@ -335,6 +335,7 @@
   "series.drop": "Drop",
   "job.cancelled": "The job was cancelled.",
   "job.stopped": "The job was stopped.",
+  "err.cutOff": "The model wrote too long an answer and it was cut off. Try again; if it happens again, pick another model in Settings.",
   "setup.welcome": "Welcome to Kilnframe",
   "setup.almost": "Almost Ready",
   "setup.intro": "A few steps and you are ready. Skip any step and do it later in the settings.",

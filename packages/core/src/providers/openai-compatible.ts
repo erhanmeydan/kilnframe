@@ -248,6 +248,7 @@ export class OpenAICompatibleProvider implements TextProvider {
       throw new ProviderError(
         `The reply for ${req.purpose} was cut off at ${req.maxTokens} tokens.`,
         true,
+        "cut-off",
       );
     }
     return {

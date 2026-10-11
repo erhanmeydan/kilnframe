@@ -335,6 +335,7 @@
   "series.drop": "Bırak",
   "job.cancelled": "İş iptal edildi.",
   "job.stopped": "İş durduruldu.",
+  "err.cutOff": "Model çok uzun bir cevap yazdı ve cevap yarıda kesildi. Yeniden deneyin. Tekrarlarsa Ayarlar'dan başka bir model seçin.",
   "setup.welcome": "Kilnframe'e Hoş Geldiniz",
   "setup.almost": "Neredeyse Hazır",
   "setup.intro": "Birkaç adımda hazır olacak. Her adımı atlayıp sonra ayarlardan yapabilirsiniz.",

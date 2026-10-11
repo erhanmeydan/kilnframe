@@ -97,7 +97,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     queued: (jobId, position) => broadcast({ type: "job.queued", jobId, position }),
     progress: (jobId, message) => broadcast({ type: "job.progress", jobId, message }),
     done: (jobId, result) => broadcast({ type: "job.done", jobId, result }),
-    failed: (jobId, message) => broadcast({ type: "job.error", jobId, message }),
+    failed: (jobId, message, kind) => broadcast({ type: "job.error", jobId, message, kind }),
     cancelled: (jobId) => broadcast({ type: "job.cancelled", jobId }),
   });
 
@@ -236,7 +236,12 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             if (job?.state === "done")
               send({ type: "job.done", jobId: msg.jobId, result: job.result });
             else if (job?.state === "failed")
-              send({ type: "job.error", jobId: msg.jobId, message: job.error ?? "" });
+              send({
+                type: "job.error",
+                jobId: msg.jobId,
+                message: job.error ?? "",
+                kind: job.errorKind,
+              });
             else if (job?.state === "cancelled") send({ type: "job.cancelled", jobId: msg.jobId });
             else send({ type: "job.state", jobId: msg.jobId, state: job?.state ?? "unknown" });
             break;

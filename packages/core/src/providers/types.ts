@@ -63,12 +63,17 @@ export interface TextProvider {
 }
 
 /** A provider failure with a message a user can act on. Never contains the API key. */
+export type ProviderErrorKind = "model-unavailable" | "cut-off";
+
 export class ProviderError extends Error {
   constructor(
     message: string,
     readonly retryable: boolean,
-    /** "model-unavailable": the provider does not offer the requested model; another model may work. */
-    readonly kind?: "model-unavailable",
+    /**
+     * "model-unavailable": the provider does not offer the requested model; another model may work.
+     * "cut-off": the reply hit the output limit before it ended, often a model that thinks at great length.
+     */
+    readonly kind?: ProviderErrorKind,
   ) {
     super(message);
   }

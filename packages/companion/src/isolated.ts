@@ -62,7 +62,8 @@ export function isolatedRunner(
       child.on("message", (m: WorkerMessage) => {
         if (m.type === "progress") events.progress(m.message);
         else if (m.type === "done") finish(() => resolve(m.result));
-        else if (m.type === "failed") finish(() => reject(new Error(m.message)));
+        else if (m.type === "failed")
+          finish(() => reject(Object.assign(new Error(m.message), { kind: m.kind })));
       });
       // close, not exit: it comes after the IPC channel has delivered the last message
       child.on("close", (code) =>

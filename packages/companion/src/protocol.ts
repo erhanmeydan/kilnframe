@@ -245,7 +245,7 @@ export type ServerMessage =
   | { type: "job.prepared"; jobDir: string }
   | { type: "job.progress"; jobId: string; message: string }
   | { type: "job.done"; jobId: string; result: unknown }
-  | { type: "job.error"; jobId: string; message: string }
+  | { type: "job.error"; jobId: string; message: string; kind?: string | undefined }
   | { type: "job.cancelled"; jobId: string }
   | { type: "job.state"; jobId: string; state: JobState | "unknown" }
   | { type: "assets"; assets: unknown[] }

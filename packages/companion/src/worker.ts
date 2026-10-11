@@ -4,12 +4,13 @@
 import "./system-certs.js";
 import { OsKeyStore } from "./keys.js";
 import type { JobParams } from "./protocol.js";
+import { errorKind } from "./queue.js";
 import { pipelineRunner } from "./runner.js";
 
 export type WorkerMessage =
   | { type: "progress"; message: string }
   | { type: "done"; result: unknown }
-  | { type: "failed"; message: string };
+  | { type: "failed"; message: string; kind?: string | undefined };
 
 const send = (m: WorkerMessage) =>
   new Promise<void>((resolve) =>
@@ -24,7 +25,11 @@ process.once("message", (params: JobParams) => {
   })
     .then((result) => send({ type: "done", result }))
     .catch((err: unknown) =>
-      send({ type: "failed", message: err instanceof Error ? err.message : String(err) }),
+      send({
+        type: "failed",
+        message: err instanceof Error ? err.message : String(err),
+        kind: errorKind(err),
+      }),
     )
     .finally(() => process.exit(0));
 });

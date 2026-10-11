@@ -17,13 +17,21 @@ interface Job {
   /** Kept so a client that missed the broadcast (panel reload, sleep) can ask again. */
   result?: unknown;
   error?: string;
+  /** What kind of failure, when the error says (ProviderError's kind, such as "cut-off"). */
+  errorKind?: string;
+}
+
+/** The kind a failed job's error carries, so the panel can explain it in the user's language. */
+export function errorKind(err: unknown): string | undefined {
+  const kind = (err as { kind?: unknown } | null)?.kind;
+  return typeof kind === "string" ? kind : undefined;
 }
 
 export interface QueueListener {
   queued(jobId: string, position: number): void;
   progress(jobId: string, message: string): void;
   done(jobId: string, result: unknown): void;
-  failed(jobId: string, message: string): void;
+  failed(jobId: string, message: string, kind?: string): void;
   cancelled(jobId: string): void;
 }
 
@@ -78,13 +86,16 @@ export class JobQueue {
   }
 
   /** A job's state with its result or error once finished; null for unknown ids. */
-  get(jobId: string): { state: JobState; result?: unknown; error?: string } | null {
+  get(
+    jobId: string,
+  ): { state: JobState; result?: unknown; error?: string; errorKind?: string } | null {
     const job = this.jobs.find((j) => j.id === jobId);
     if (!job) return null;
     return {
       state: job.state,
       ...(job.state === "done" ? { result: job.result } : {}),
       ...(job.error !== undefined ? { error: job.error } : {}),
+      ...(job.errorKind !== undefined ? { errorKind: job.errorKind } : {}),
     };
   }
 
@@ -131,7 +142,9 @@ export class JobQueue {
       if (!cancelled()) {
         job.state = "failed";
         job.error = err instanceof Error ? err.message : String(err);
-        this.listener.failed(job.id, job.error);
+        const kind = errorKind(err);
+        if (kind) job.errorKind = kind;
+        this.listener.failed(job.id, job.error, kind);
       }
     } finally {
       this.stopRunning = null;
