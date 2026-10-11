@@ -9,6 +9,8 @@
 Var pid
 
 !macro customCheckAppRunning
+  ; first: it declares the variable FIND_PROCESS reads
+  !insertmacro IS_POWERSHELL_AVAILABLE
   ${IfNot} ${Silent}
     kilnframeJobCheck:
     !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
@@ -18,6 +20,5 @@ Var pid
       Quit
     ${EndIf}
   ${EndIf}
-  !insertmacro IS_POWERSHELL_AVAILABLE
   !insertmacro _CHECK_APP_RUNNING
 !macroend
