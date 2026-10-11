@@ -39,12 +39,16 @@ export interface QueueListener {
 export class JobQueue {
   private readonly jobs: Job[] = [];
   private running = false;
+  /** What onBusy last said. */
+  private saidBusy = false;
   /** Stops the running job. */
   private stopRunning: { jobId: string; controller: AbortController } | null = null;
 
   constructor(
     private readonly runner: JobRunner,
     private readonly listener: QueueListener,
+    /** True when a job starts with nothing running, false when the last queued job has finished. */
+    private readonly onBusy?: (busy: boolean) => void,
   ) {}
 
   enqueue(params: JobParams): string {
@@ -121,6 +125,10 @@ export class JobQueue {
     const job = this.jobs.find((j) => j.state === "queued");
     if (!job) return;
     this.running = true;
+    if (!this.saidBusy) {
+      this.saidBusy = true;
+      this.onBusy?.(true);
+    }
     job.state = "running";
     const controller = new AbortController();
     this.stopRunning = { jobId: job.id, controller };
@@ -149,6 +157,10 @@ export class JobQueue {
     } finally {
       this.stopRunning = null;
       this.running = false;
+      if (!this.jobs.some((j) => j.state === "queued")) {
+        this.saidBusy = false;
+        this.onBusy?.(false);
+      }
       void this.pump();
     }
   }

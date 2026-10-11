@@ -74,6 +74,8 @@ async function main() {
     keys,
     runner: isolatedRunner(),
     appUpdates: appUpdatesFromParent(),
+    // the app holds off quitting (its Quit, an installer) while a job runs; absent when run on its own
+    onBusy: (busy) => process.send?.({ type: "job.busy", busy }),
     version: VERSION,
     port: Number(process.env.KILNFRAME_PORT ?? DEFAULT_PORT),
     systemCheck: async () => ({

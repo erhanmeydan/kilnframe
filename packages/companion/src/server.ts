@@ -62,6 +62,8 @@ export interface CompanionOptions {
   inspectImages?: (paths: string[]) => Promise<unknown[]>;
   /** The app's update channel; absent when the companion runs on its own (development, CLI). */
   appUpdates?: AppUpdates | undefined;
+  /** Whether a job is running or waiting, for the app: it holds off quitting while the companion is busy. */
+  onBusy?: (busy: boolean) => void;
   /** Creates a job folder next to the Premiere project and returns its path. */
   prepareJob?: (projectPath: string | undefined, sequenceName: string) => Promise<string>;
 }
@@ -93,13 +95,17 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     const data = JSON.stringify(msg);
     for (const c of clients) if (c.readyState === c.OPEN) c.send(data);
   };
-  const queue = new JobQueue(o.runner, {
-    queued: (jobId, position) => broadcast({ type: "job.queued", jobId, position }),
-    progress: (jobId, message) => broadcast({ type: "job.progress", jobId, message }),
-    done: (jobId, result) => broadcast({ type: "job.done", jobId, result }),
-    failed: (jobId, message, kind) => broadcast({ type: "job.error", jobId, message, kind }),
-    cancelled: (jobId) => broadcast({ type: "job.cancelled", jobId }),
-  });
+  const queue = new JobQueue(
+    o.runner,
+    {
+      queued: (jobId, position) => broadcast({ type: "job.queued", jobId, position }),
+      progress: (jobId, message) => broadcast({ type: "job.progress", jobId, message }),
+      done: (jobId, result) => broadcast({ type: "job.done", jobId, result }),
+      failed: (jobId, message, kind) => broadcast({ type: "job.error", jobId, message, kind }),
+      cancelled: (jobId) => broadcast({ type: "job.cancelled", jobId }),
+    },
+    o.onBusy,
+  );
 
   o.appUpdates?.onState((update) => broadcast({ type: "app.update", update }));
 

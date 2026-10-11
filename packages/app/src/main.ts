@@ -1,7 +1,7 @@
 // Kilnframe Helper: the companion (packages/companion) as a menu bar / tray app. It starts the companion
 // with Electron's own Node (ELECTRON_RUN_AS_NODE), restarts it if it stops, and offers a small menu. The
 // panel in Premiere talks to the companion exactly as before; this app only keeps it running.
-import { app, Menu, nativeImage, Notification, shell, Tray } from "electron";
+import { app, dialog, Menu, nativeImage, Notification, powerMonitor, shell, Tray } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -12,6 +12,7 @@ import { bundledTools } from "./bundle.js";
 import { companionPath } from "./shell-path.js";
 import { startUpdates, type Updates } from "./updates.js";
 import { bundledPlugin, installPlugin, installerAgent, needsInstall } from "./plugin.js";
+import { markBusy, onQuitRequest } from "./quit.js";
 
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,12 @@ const text = turkish
       noAgent: "Adobe eklenti kurucusu bulunamadı. Creative Cloud kurulu mu?",
       updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
       quit: "Kilnframe'den Çık",
+      busyTitle: "Bir animasyon hazırlanıyor.",
+      busyDetail:
+        "Şimdi kapatırsanız iş durur ve harcanan token boşa gider. Bitince Kapat'ı seçerseniz Kilnframe animasyon bitince kendiliğinden kapanır.",
+      quitWhenDone: "Bitince Kapat",
+      quitNow: "Şimdi Kapat",
+      closingWhenDone: "Animasyon bitince kapanacak",
     }
   : {
       running: "Kilnframe is running",
@@ -47,6 +54,12 @@ const text = turkish
       noAgent: "Adobe's plugin installer was not found. Is Creative Cloud installed?",
       updateReady: "Version {v} is ready. Update from the panel.",
       quit: "Quit Kilnframe",
+      busyTitle: "An animation is being made.",
+      busyDetail:
+        "If you quit now, the job stops and the tokens it used are lost. With Quit When Done, Kilnframe quits by itself once the animation is finished.",
+      quitWhenDone: "Quit When Done",
+      quitNow: "Quit Now",
+      closingWhenDone: "Quits when the animation is done",
     };
 
 let tray: Tray | null = null;
@@ -54,6 +67,12 @@ let companion: ChildProcess | null = null;
 let updates: Updates | null = null;
 const appVersion = app.getVersion();
 let quitting = false;
+/** A job runs or waits in the companion (job.busy); quitting then asks first (quit.ts). */
+let busy = false;
+let quitWhenDone = false;
+let forceQuit = false;
+let askingToQuit = false;
+let shuttingDown = false;
 let status = text.starting;
 let restarts = 0;
 /** Read once: the login shell takes a moment, and restarts reuse it. */
@@ -143,8 +162,9 @@ function startCompanion() {
     // the IPC channel carries the update state to the companion and the panel's "install" back
     stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
-  companion.on("message", (m: { type?: string }) => {
+  companion.on("message", (m: { type?: string; busy?: boolean }) => {
     if (m?.type === "update.install") updates?.install();
+    if (m?.type === "job.busy") setBusy(Boolean(m.busy));
   });
   if (updates) companion.send({ type: "update.state", state: updates.state() });
   companion.stdout?.pipe(log, { end: false });
@@ -159,6 +179,8 @@ function startCompanion() {
   companion.on("exit", (code) => {
     log.write(`--- exited ${code ?? "signal"}\n`);
     companion = null;
+    // its job ended with it
+    setBusy(false);
     if (quitting) return;
     // a crash restarts it, a little later each time, so a broken install does not spin
     status = text.stopped;
@@ -166,6 +188,41 @@ function startCompanion() {
     restarts++;
     setTimeout(startCompanion, Math.min(30_000, 1000 * 2 ** Math.min(restarts, 5)));
   });
+}
+
+function setBusy(next: boolean) {
+  busy = next;
+  try {
+    markBusy(home, next);
+  } catch (err) {
+    logLine(`job marker: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (!next && quitWhenDone) app.quit();
+  refreshMenu();
+}
+
+/** A job is running: Quit When Done (the default) or Quit Now. */
+function askToQuit() {
+  askingToQuit = true;
+  app.focus({ steal: true });
+  const choice = dialog.showMessageBoxSync({
+    type: "warning",
+    message: text.busyTitle,
+    detail: text.busyDetail,
+    buttons: [text.quitWhenDone, text.quitNow],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  askingToQuit = false;
+  if (choice === 1) {
+    forceQuit = true;
+    app.quit();
+  } else {
+    // the job may have ended while the question was open
+    quitWhenDone = true;
+    if (!busy) app.quit();
+    else refreshMenu();
+  }
 }
 
 /** Asked once, on the first start: the helper should be there whenever Premiere is. */
@@ -182,7 +239,7 @@ function refreshMenu() {
   tray.setToolTip(status);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: status, enabled: false },
+      { label: quitWhenDone ? text.closingWhenDone : status, enabled: false },
       ...(pluginNote ? [{ label: pluginNote, enabled: false }] : []),
       ...(updateNote ? [{ label: updateNote, enabled: false }] : []),
       { type: "separator" },
@@ -216,12 +273,24 @@ else {
   app.on("window-all-closed", () => {
     // a tray app has no windows; it stays until Quit
   });
-  app.on("before-quit", () => {
+  app.on("before-quit", (event) => {
+    const action = onQuitRequest({ busy, force: forceQuit, shuttingDown, asking: askingToQuit });
+    if (action !== "quit") {
+      event.preventDefault();
+      if (action === "ask") askToQuit();
+      return;
+    }
     quitting = true;
     // the companion ends its running job and everything that job started (isolated.ts)
     companion?.kill("SIGTERM");
   });
+  // a marker left by a crash would make the Windows installer wait for a job that is not there
+  markBusy(home, false);
   void app.whenReady().then(() => {
+    // logging out or shutting down is never held up by the question
+    powerMonitor.on("shutdown", () => {
+      shuttingDown = true;
+    });
     app.dock?.hide();
     // macOS tints a black template image for the menu bar; Windows shows it as is, black on a dark taskbar,
     // so there the tray gets the colour app icon

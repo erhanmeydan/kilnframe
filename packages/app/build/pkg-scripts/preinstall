@@ -1,13 +1,29 @@
 #!/bin/sh
 # Runs as root before the Kilnframe installer writes the new app. A Kilnframe still running is the old version:
 # the postinstall's `open` would only bring it forward, so the new one would not start and its plugin would not be
-# installed. Quit it here (up to 10 s), before the files change. Safe to run more than once.
+# installed. Ask it to quit, before the files change. Safe to run more than once.
+#
+# While an animation is being made the app asks the user first: Quit Now, or Quit When Done. The installer waits
+# for that (the job's marker, ~/.kilnframe/job-running, is there until the job ends), up to an hour; an app that
+# answers nothing is ended after 10 s as before.
 pgrep -x Kilnframe >/dev/null || exit 0
 user=$(stat -f %Su /dev/console)
+marker=""
 if [ -n "$user" ] && [ "$user" != "root" ]; then
-  launchctl asuser "$(id -u "$user")" sudo -u "$user" osascript -e 'quit app "Kilnframe"' >/dev/null 2>&1 || true
+  marker="$(dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')/.kilnframe/job-running"
+  # in the background: the app's question keeps the quit event open until the user answers
+  launchctl asuser "$(id -u "$user")" sudo -u "$user" osascript -e 'with timeout of 3600 seconds' -e 'quit app "Kilnframe"' -e 'end timeout' >/dev/null 2>&1 &
 fi
 i=0
-while pgrep -x Kilnframe >/dev/null && [ $i -lt 20 ]; do sleep 0.5; i=$((i + 1)); done
+while pgrep -x Kilnframe >/dev/null; do
+  if [ -n "$marker" ] && [ -f "$marker" ]; then
+    # a job runs: up to an hour
+    [ $i -lt 7200 ] || break
+  else
+    [ $i -lt 20 ] || break
+  fi
+  sleep 0.5
+  i=$((i + 1))
+done
 pkill -x Kilnframe || true
 exit 0

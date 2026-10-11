@@ -157,6 +157,36 @@ describe("companion server", () => {
     expect(await late.next((m) => m.type === "job.state")).toMatchObject({ state: "unknown" });
   });
 
+  it("says when it is busy, once for jobs that follow each other, so the app can hold off quitting", async () => {
+    const busy: boolean[] = [];
+    // the first job waits until the second one is queued behind it
+    let release = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      version: "test",
+      port: 0,
+      onBusy: (b) => busy.push(b),
+      runner: async () => {
+        await gate;
+        return {};
+      },
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "job.start", params });
+    c.send({ type: "job.start", params });
+    for (let i = 0; i < 100 && c.messages.filter((m) => m.type === "job.accepted").length < 2; i++)
+      await new Promise((r) => setTimeout(r, 10));
+    expect(busy).toEqual([true]);
+    release();
+    for (let i = 0; i < 100 && busy.length < 2; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(c.messages.filter((m) => m.type === "job.done")).toHaveLength(2);
+    expect(busy).toEqual([true, false]);
+  });
+
   it("passes a failed job's kind along, also to a panel that asks again", async () => {
     companion = await startCompanion({
       token: TOKEN,

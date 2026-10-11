@@ -225,7 +225,8 @@ writeFileSync(
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",
       },
       win: { target: ["nsis"], icon: join(app, "assets", "icon.png") },
-      nsis: { artifactName: "Kilnframe-Windows.exe" },
+      // the installer asks to wait while an animation is being made (build/installer.nsh)
+      nsis: { artifactName: "Kilnframe-Windows.exe", include: join(app, "build", "installer.nsh") },
     },
     null,
     2,
