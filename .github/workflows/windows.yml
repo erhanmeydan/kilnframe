@@ -39,6 +39,14 @@ jobs:
       # the tests import the workspace packages' built output
       - run: pnpm -r build
 
+      # the same pinned FFmpeg the app ships (packages/app/scripts/ffmpeg.mjs), for the tests that render sound
+      - name: FFmpeg
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ffmpeg"
+          node -e "import('./packages/app/scripts/ffmpeg.mjs').then((m) => m.fetchFfmpeg('win', 'x64', process.argv[1]))" "$RUNNER_TEMP/ffmpeg"
+          echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
+
       # reported, not blocking: some tests touch macOS-only things (Keychain, Premiere's paths)
       - run: pnpm test
         continue-on-error: true
