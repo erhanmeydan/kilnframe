@@ -5,13 +5,14 @@ import { app, dialog, Menu, nativeImage, Notification, powerMonitor, shell, Tray
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { homedir, uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundledTools } from "./bundle.js";
 import { companionPath } from "./shell-path.js";
 import { startUpdates, type Updates } from "./updates.js";
 import { bundledPlugin, installPlugin, installerAgent, needsInstall } from "./plugin.js";
+import { LOGIN_FLAG, announceText, startedAtLogin } from "./announce.js";
 import { markBusy, onQuitRequest } from "./quit.js";
 
 const require = createRequire(import.meta.url);
@@ -73,6 +74,8 @@ let quitWhenDone = false;
 let forceQuit = false;
 let askingToQuit = false;
 let shuttingDown = false;
+/** When the app was ready (ms), so the activate that comes with the start is not taken for a reopen. */
+let readyAt = 0;
 let status = text.starting;
 let restarts = 0;
 /** Read once: the login shell takes a moment, and restarts reuse it. */
@@ -225,17 +228,28 @@ function askToQuit() {
   }
 }
 
+/** On Windows the login item carries LOGIN_FLAG, so a start at login can be told apart (announce.ts). */
+const loginArgs = process.platform === "win32" ? { args: [LOGIN_FLAG] } : {};
+const openAtLogin = () => app.getLoginItemSettings(loginArgs).openAtLogin;
+const setOpenAtLogin = (on: boolean) => app.setLoginItemSettings({ openAtLogin: on, ...loginArgs });
+
+/** Opened by the user, or again while it runs: say where the icon is, and open its menu the second time. */
+function announce(again: boolean) {
+  notify(announceText(process.platform, turkish));
+  if (again) tray?.popUpContextMenu();
+}
+
 /** Asked once, on the first start: the helper should be there whenever Premiere is. */
 function openAtLoginOnFirstStart() {
   const state = readState();
   if (state.firstStart) return;
-  app.setLoginItemSettings({ openAtLogin: true });
+  setOpenAtLogin(true);
   writeState({ ...state, firstStart: new Date().toISOString() });
 }
 
 function refreshMenu() {
   if (!tray) return;
-  const login = app.getLoginItemSettings().openAtLogin;
+  const login = openAtLogin();
   tray.setToolTip(status);
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -258,7 +272,7 @@ function refreshMenu() {
         type: "checkbox",
         checked: login,
         click: () => {
-          app.setLoginItemSettings({ openAtLogin: !login });
+          setOpenAtLogin(!login);
           refreshMenu();
         },
       },
@@ -270,6 +284,12 @@ function refreshMenu() {
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  // opened again while it runs: Windows starts a second copy (it quits at once), macOS sends activate
+  app.on("second-instance", () => announce(true));
+  // macOS also sends activate as the app starts and when the quit question takes focus: not a reopen
+  app.on("activate", () => {
+    if (readyAt && Date.now() - readyAt > 3000 && !askingToQuit) announce(true);
+  });
   app.on("window-all-closed", () => {
     // a tray app has no windows; it stays until Quit
   });
@@ -302,7 +322,18 @@ else {
             .resize({ width: 32, height: 32 });
     if (process.platform === "darwin") icon.setTemplateImage(true);
     tray = new Tray(icon);
+    // a Windows login item from before LOGIN_FLAG starts the app without it: give it the flag
+    if (process.platform === "win32" && app.getLoginItemSettings().openAtLogin)
+      setOpenAtLogin(true);
     openAtLoginOnFirstStart();
+    const login = startedAtLogin({
+      platform: process.platform,
+      argv: process.argv,
+      wasOpenedAtLogin: app.getLoginItemSettings().wasOpenedAtLogin,
+      uptimeS: uptime(),
+    });
+    if (!login) announce(false);
+    readyAt = Date.now();
     refreshMenu();
     // only a packaged app updates; in development the version is the repository's
     if (app.isPackaged)
