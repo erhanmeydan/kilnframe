@@ -1,19 +1,19 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, join, win32 } from "node:path";
+import { posix, win32 } from "node:path";
 
 const MARK = "__KILNFRAME_PATH__";
 
 /** Where the agents and their Node usually live when the login shell cannot be read. */
 function commonDirs(home: string): string[] {
   return [
-    join(home, ".local", "bin"), // Claude Code's native installer
-    join(home, ".claude", "local"),
-    join(home, ".grok", "bin"),
-    join(home, ".npm-global", "bin"),
-    join(home, ".bun", "bin"),
-    join(home, ".volta", "bin"),
+    posix.join(home, ".local", "bin"), // Claude Code's native installer
+    posix.join(home, ".claude", "local"),
+    posix.join(home, ".grok", "bin"),
+    posix.join(home, ".npm-global", "bin"),
+    posix.join(home, ".bun", "bin"),
+    posix.join(home, ".volta", "bin"),
     "/opt/homebrew/bin",
     "/usr/local/bin",
   ];
@@ -59,10 +59,11 @@ export function companionPath(
     ].filter((d) => existsSync(d));
     return [...new Set([...current.split(sep), ...extra].filter(Boolean))].join(sep);
   }
+  // macOS: ":" whatever computer runs this (the tests run on Windows too)
   const dirs = [
-    ...(readShell() ?? "").split(delimiter),
-    ...current.split(delimiter),
+    ...(readShell() ?? "").split(posix.delimiter),
+    ...current.split(posix.delimiter),
     ...commonDirs(home).filter((d) => existsSync(d)),
   ].filter(Boolean);
-  return [...new Set(dirs)].join(delimiter);
+  return [...new Set(dirs)].join(posix.delimiter);
 }

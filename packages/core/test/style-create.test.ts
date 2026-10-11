@@ -39,7 +39,8 @@ describe("your own style", () => {
     const vendored = readdirSync(join(vendorDir(), "fonts"), { recursive: true })
       .map(String)
       .filter((f) => f.endsWith(".ttf"))
-      .map((f) => `vendor/fonts/${f}`);
+      // readdir gives Windows' separators there; the catalog's paths are URLs in the HTML
+      .map((f) => `vendor/fonts/${f.replaceAll("\\", "/")}`);
     expect(catalog.map((f) => f.file).sort()).toEqual(vendored.sort());
   });
 

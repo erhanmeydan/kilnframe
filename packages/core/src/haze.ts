@@ -24,7 +24,9 @@ export function faintShare(png: string): number {
       "-i",
       png,
       "-vf",
-      "alphaextract,scale=480:270",
+      // area: a plain average. The default (bicubic) turns transparent pixels into 1 in the Windows build
+      // of FFmpeg, so a clean overlay read as a faint layer over the whole frame
+      "alphaextract,scale=480:270:flags=area",
       "-f",
       "rawvideo",
       "-pix_fmt",

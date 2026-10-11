@@ -359,48 +359,52 @@ describe("ClaudeCodeProvider", () => {
     expect(folded.endsWith("fix the error")).toBe(true);
   });
 
-  it("runs a fake CLI and reads its JSON result and usage", async () => {
-    const { mkdtempSync, writeFileSync, chmodSync } = await import("node:fs");
-    const { tmpdir } = await import("node:os");
-    const { join } = await import("node:path");
-    const { ClaudeCodeProvider } = await import("../src/index.js");
-    const dir = mkdtempSync(join(tmpdir(), "mi-fakeclaude-"));
-    const bin = join(dir, "claude");
-    writeFileSync(
-      bin,
-      `#!/bin/sh\ncat > "${dir}/stdin.txt"\necho "$@" > "${dir}/args.txt"\necho '{"type":"result","subtype":"success","is_error":false,"result":"ok","total_cost_usd":0.5,"usage":{"input_tokens":3,"output_tokens":4,"cache_creation_input_tokens":5,"cache_read_input_tokens":6},"modelUsage":{"claude-sonnet-5-5":{}}}'\n`,
-    );
-    chmodSync(bin, 0o755);
-    const saved = process.env.KILNFRAME_CLAUDE;
-    process.env.KILNFRAME_CLAUDE = bin;
-    try {
-      const p = new ClaudeCodeProvider({ model: "claude-sonnet-5-5", effort: "high" });
-      const r = await p.complete({
-        system: "SYS",
-        messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
-        maxTokens: 10,
-        purpose: "t",
-      });
-      expect(r).toEqual({
-        text: "ok",
-        model: "claude-sonnet-5-5",
-        usage: {
-          inputTokens: 3,
-          outputTokens: 4,
-          cacheWriteTokens: 5,
-          cacheReadTokens: 6,
-          listPriceUsd: 0.5,
-        },
-      });
-      const { readFileSync } = await import("node:fs");
-      expect(readFileSync(join(dir, "stdin.txt"), "utf8")).toBe("hi");
-      expect(readFileSync(join(dir, "args.txt"), "utf8")).toContain("--system-prompt SYS");
-      expect(p.billing).toBe("plan");
-    } finally {
-      if (saved === undefined) delete process.env.KILNFRAME_CLAUDE;
-      else process.env.KILNFRAME_CLAUDE = saved;
-    }
-  });
+  // the fake CLI is a shell script, which Windows cannot start
+  it.skipIf(process.platform === "win32")(
+    "runs a fake CLI and reads its JSON result and usage",
+    async () => {
+      const { mkdtempSync, writeFileSync, chmodSync } = await import("node:fs");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const { ClaudeCodeProvider } = await import("../src/index.js");
+      const dir = mkdtempSync(join(tmpdir(), "mi-fakeclaude-"));
+      const bin = join(dir, "claude");
+      writeFileSync(
+        bin,
+        `#!/bin/sh\ncat > "${dir}/stdin.txt"\necho "$@" > "${dir}/args.txt"\necho '{"type":"result","subtype":"success","is_error":false,"result":"ok","total_cost_usd":0.5,"usage":{"input_tokens":3,"output_tokens":4,"cache_creation_input_tokens":5,"cache_read_input_tokens":6},"modelUsage":{"claude-sonnet-5-5":{}}}'\n`,
+      );
+      chmodSync(bin, 0o755);
+      const saved = process.env.KILNFRAME_CLAUDE;
+      process.env.KILNFRAME_CLAUDE = bin;
+      try {
+        const p = new ClaudeCodeProvider({ model: "claude-sonnet-5-5", effort: "high" });
+        const r = await p.complete({
+          system: "SYS",
+          messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+          maxTokens: 10,
+          purpose: "t",
+        });
+        expect(r).toEqual({
+          text: "ok",
+          model: "claude-sonnet-5-5",
+          usage: {
+            inputTokens: 3,
+            outputTokens: 4,
+            cacheWriteTokens: 5,
+            cacheReadTokens: 6,
+            listPriceUsd: 0.5,
+          },
+        });
+        const { readFileSync } = await import("node:fs");
+        expect(readFileSync(join(dir, "stdin.txt"), "utf8")).toBe("hi");
+        expect(readFileSync(join(dir, "args.txt"), "utf8")).toContain("--system-prompt SYS");
+        expect(p.billing).toBe("plan");
+      } finally {
+        if (saved === undefined) delete process.env.KILNFRAME_CLAUDE;
+        else process.env.KILNFRAME_CLAUDE = saved;
+      }
+    },
+  );
 });
 
 describe("timeline registration", () => {

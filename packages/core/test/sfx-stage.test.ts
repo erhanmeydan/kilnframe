@@ -1,6 +1,6 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { decodeWav16 } from "@kilnframe/sfx";
 import { describe, expect, it } from "vitest";
 import { PlanSchema, planCues, renderSfx } from "../src/index.js";
@@ -19,7 +19,7 @@ describe("sfx stage", () => {
     const out = mkdtempSync(join(tmpdir(), "mi-sfx-"));
     const r = renderSfx(plan, out);
     expect(r.skipped).toEqual([]);
-    expect(r.stems.map((s) => s.split("/").pop()).sort()).toEqual(["room.wav", "thock.wav"]);
+    expect(r.stems.map((s) => basename(s)).sort()).toEqual(["room.wav", "thock.wav"]);
     const mix = decodeWav16(readFileSync(r.mix));
     expect(mix.channels).toHaveLength(2);
     expect(mix.channels[0]?.length).toBe(Math.round(((300 + 40) * 1001 * 48000) / 30000));
