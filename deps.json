@@ -1,0 +1,492 @@
+{
+  "$comment": "Every pinned dependency and where its newer versions are announced. scripts/deps-check.mjs reads it weekly; scripts/deps/deps.test.mjs checks 'current' against the files that really pin it. Fonts with a GitHub repo record the release that was newest when the font was last reviewed.",
+  "deps": [
+    {
+      "id": "hyperframes",
+      "group": "render",
+      "current": "0.8.133",
+      "source": {
+        "type": "npm",
+        "package": "hyperframes"
+      },
+      "notes": "https://github.com/heygen-com/hyperframes/releases",
+      "files": ["packages/core/package.json"]
+    },
+    {
+      "id": "chrome-headless-shell",
+      "group": "render",
+      "current": "152.0.7977.30",
+      "source": {
+        "type": "chrome-for-testing",
+        "channel": "Stable"
+      },
+      "notes": "https://googlechromelabs.github.io/chrome-for-testing/",
+      "files": [],
+      "follows": "hyperframes"
+    },
+    {
+      "id": "ffmpeg-mac",
+      "group": "render",
+      "current": "1789931890_9.0.2",
+      "source": {
+        "type": "ffmpeg-riedl",
+        "platform": "macos/arm64"
+      },
+      "notes": "https://ffmpeg.martin-riedl.de",
+      "files": ["packages/app/scripts/ffmpeg.mjs"]
+    },
+    {
+      "id": "ffmpeg-win",
+      "group": "render",
+      "current": "autobuild-2026-09-30-13-08",
+      "source": {
+        "type": "github-release",
+        "repo": "BtbN/FFmpeg-Builds",
+        "tagPattern": "^autobuild-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}$"
+      },
+      "notes": "https://github.com/BtbN/FFmpeg-Builds/releases",
+      "files": ["packages/app/scripts/ffmpeg.mjs"]
+    },
+    {
+      "id": "three",
+      "group": "render",
+      "current": "0.186.1",
+      "source": {
+        "type": "npm",
+        "package": "three"
+      },
+      "notes": "https://github.com/mrdoob/three.js/releases",
+      "files": ["vendor/three", "vendor/README.md"]
+    },
+    {
+      "id": "gsap",
+      "group": "render",
+      "current": "3.15.0",
+      "source": {
+        "type": "npm",
+        "package": "gsap"
+      },
+      "notes": "https://github.com/greensock/GSAP/releases",
+      "files": ["vendor/gsap", "vendor/README.md"]
+    },
+    {
+      "id": "font-alfa-slab-one",
+      "group": "render",
+      "current": "-",
+      "source": {
+        "type": "manual",
+        "url": "https://fonts.google.com/specimen/Alfa+Slab+One"
+      },
+      "files": ["vendor/fonts/alfa-slab-one/AlfaSlabOne-Regular.ttf"]
+    },
+    {
+      "id": "font-anton",
+      "group": "render",
+      "current": "-",
+      "source": {
+        "type": "manual",
+        "url": "https://fonts.google.com/specimen/Anton"
+      },
+      "files": ["vendor/fonts/anton/Anton-Regular.ttf"]
+    },
+    {
+      "id": "font-archivo",
+      "group": "render",
+      "current": "-",
+      "source": {
+        "type": "manual",
+        "url": "https://fonts.google.com/specimen/Archivo"
+      },
+      "files": ["vendor/fonts/archivo/Archivo-Variable.ttf"]
+    },
+    {
+      "id": "font-baloo-2",
+      "group": "render",
+      "current": "1.640",
+      "source": {
+        "type": "github-release",
+        "repo": "EkType/Baloo2"
+      },
+      "notes": "https://github.com/EkType/Baloo2/releases",
+      "files": ["vendor/fonts/baloo-2/Baloo2-Variable.ttf"]
+    },
+    {
+      "id": "font-barlow-condensed",
+      "group": "render",
+      "current": "1.422",
+      "source": {
+        "type": "github-release",
+        "repo": "jpt/barlow"
+      },
+      "notes": "https://github.com/jpt/barlow/releases",
+      "files": ["vendor/fonts/barlow-condensed/BarlowCondensed-ExtraBold.ttf"]
+    },
+    {
+      "id": "font-bricolage-grotesque",
+      "group": "render",
+      "current": "-",
+      "source": {
+        "type": "manual",
+        "url": "https://fonts.google.com/specimen/Bricolage+Grotesque"
+      },
+      "files": ["vendor/fonts/bricolage-grotesque/BricolageGrotesque-Variable.ttf"]
+    },
+    {
+      "id": "font-ibm-plex-mono",
+      "group": "render",
+      "current": "@ibm/plex-mono@2.5.0",
+      "source": {
+        "type": "github-release",
+        "repo": "IBM/plex",
+        "tagPattern": "^@ibm/plex-mono@\\d"
+      },
+      "notes": "https://github.com/IBM/plex/releases",
+      "files": ["vendor/fonts/ibm-plex-mono/IBMPlexMono-Regular.ttf"]
+    },
+    {
+      "id": "font-inter",
+      "group": "render",
+      "current": "v4.1",
+      "source": {
+        "type": "github-release",
+        "repo": "rsms/inter"
+      },
+      "notes": "https://github.com/rsms/inter/releases",
+      "files": ["vendor/fonts/inter/Inter-Variable.ttf"]
+    },
+    {
+      "id": "font-nunito",
+      "group": "render",
+      "current": "-",
+      "source": {
+        "type": "manual",
+        "url": "https://fonts.google.com/specimen/Nunito"
+      },
+      "files": ["vendor/fonts/nunito/Nunito-Variable.ttf"]
+    },
+    {
+      "id": "font-outfit",
+      "group": "render",
+      "current": "1.1",
+      "source": {
+        "type": "github-release",
+        "repo": "Outfitio/Outfit-Fonts"
+      },
+      "notes": "https://github.com/Outfitio/Outfit-Fonts/releases",
+      "files": ["vendor/fonts/outfit/Outfit-Variable.ttf"]
+    },
+    {
+      "id": "font-patrick-hand",
+      "group": "render",
+      "current": "-",
+      "source": {
+        "type": "manual",
+        "url": "https://fonts.google.com/specimen/Patrick+Hand"
+      },
+      "files": ["vendor/fonts/patrick-hand/PatrickHand-Regular.ttf"]
+    },
+    {
+      "id": "font-playfair-display",
+      "group": "render",
+      "current": "2.203",
+      "source": {
+        "type": "github-release",
+        "repo": "clauseggers/Playfair"
+      },
+      "notes": "https://github.com/clauseggers/Playfair/releases",
+      "files": ["vendor/fonts/playfair-display/PlayfairDisplay-Variable.ttf"]
+    },
+    {
+      "id": "font-sora",
+      "group": "render",
+      "current": "-",
+      "source": {
+        "type": "manual",
+        "url": "https://fonts.google.com/specimen/Sora"
+      },
+      "files": ["vendor/fonts/sora/Sora-Variable.ttf"]
+    },
+    {
+      "id": "font-source-serif-4",
+      "group": "render",
+      "current": "4.005R",
+      "source": {
+        "type": "github-release",
+        "repo": "adobe-fonts/source-serif"
+      },
+      "notes": "https://github.com/adobe-fonts/source-serif/releases",
+      "files": ["vendor/fonts/source-serif-4/SourceSerif4-Variable.ttf"]
+    },
+    {
+      "id": "font-space-grotesk",
+      "group": "render",
+      "current": "2.0.0",
+      "source": {
+        "type": "github-release",
+        "repo": "floriankarsten/space-grotesk"
+      },
+      "notes": "https://github.com/floriankarsten/space-grotesk/releases",
+      "files": ["vendor/fonts/space-grotesk/SpaceGrotesk-Variable.ttf"]
+    },
+    {
+      "id": "whisper",
+      "group": "app",
+      "current": "b3f77bf9a8c4d5ea3415827033d1ffea7955fd9a",
+      "source": {
+        "type": "huggingface",
+        "model": "onnx-community/whisper-large-v3-turbo_timestamped"
+      },
+      "notes": "https://huggingface.co/onnx-community/whisper-large-v3-turbo_timestamped/commits/main",
+      "files": ["packages/core/config/defaults.json"]
+    },
+    {
+      "id": "openrouter-models",
+      "group": "app",
+      "current": "-",
+      "source": {
+        "type": "openrouter-models"
+      },
+      "files": ["packages/core/config/providers.json"]
+    },
+    {
+      "id": "@eslint/js",
+      "group": "dev",
+      "current": "10.0.1",
+      "source": {
+        "type": "npm",
+        "package": "@eslint/js"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "@types/node",
+      "group": "dev",
+      "current": "24.10.1",
+      "source": {
+        "type": "npm",
+        "package": "@types/node"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "eslint",
+      "group": "dev",
+      "current": "10.12.0",
+      "source": {
+        "type": "npm",
+        "package": "eslint"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "globals",
+      "group": "dev",
+      "current": "17.13.0",
+      "source": {
+        "type": "npm",
+        "package": "globals"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "prettier",
+      "group": "dev",
+      "current": "3.9.9",
+      "source": {
+        "type": "npm",
+        "package": "prettier"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "typescript",
+      "group": "dev",
+      "current": "6.0.3",
+      "source": {
+        "type": "npm",
+        "package": "typescript"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "typescript-eslint",
+      "group": "dev",
+      "current": "8.71.0",
+      "source": {
+        "type": "npm",
+        "package": "typescript-eslint"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "vitest",
+      "group": "dev",
+      "current": "5.0.3",
+      "source": {
+        "type": "npm",
+        "package": "vitest"
+      },
+      "files": ["package.json"]
+    },
+    {
+      "id": "electron-updater",
+      "group": "app",
+      "current": "6.8.9",
+      "source": {
+        "type": "npm",
+        "package": "electron-updater"
+      },
+      "files": ["packages/app/package.json"]
+    },
+    {
+      "id": "electron",
+      "group": "app",
+      "current": "44.7.0",
+      "source": {
+        "type": "npm",
+        "package": "electron"
+      },
+      "files": ["packages/app/package.json"]
+    },
+    {
+      "id": "electron-builder",
+      "group": "app",
+      "current": "26.15.3",
+      "source": {
+        "type": "npm",
+        "package": "electron-builder"
+      },
+      "files": ["packages/app/package.json"]
+    },
+    {
+      "id": "@napi-rs/keyring",
+      "group": "app",
+      "current": "2.1.0",
+      "source": {
+        "type": "npm",
+        "package": "@napi-rs/keyring"
+      },
+      "files": ["packages/companion/package.json"]
+    },
+    {
+      "id": "ws",
+      "group": "app",
+      "current": "8.22.0",
+      "source": {
+        "type": "npm",
+        "package": "ws"
+      },
+      "files": ["packages/companion/package.json"]
+    },
+    {
+      "id": "zod",
+      "group": "app",
+      "current": "4.6.5",
+      "source": {
+        "type": "npm",
+        "package": "zod"
+      },
+      "files": ["packages/companion/package.json", "packages/core/package.json"]
+    },
+    {
+      "id": "@types/ws",
+      "group": "dev",
+      "current": "8.18.2",
+      "source": {
+        "type": "npm",
+        "package": "@types/ws"
+      },
+      "files": ["packages/companion/package.json"]
+    },
+    {
+      "id": "@anthropic-ai/sdk",
+      "group": "app",
+      "current": "0.131.0",
+      "source": {
+        "type": "npm",
+        "package": "@anthropic-ai/sdk"
+      },
+      "files": ["packages/core/package.json"]
+    },
+    {
+      "id": "@huggingface/transformers",
+      "group": "app",
+      "current": "4.3.0",
+      "source": {
+        "type": "npm",
+        "package": "@huggingface/transformers"
+      },
+      "files": ["packages/core/package.json"]
+    },
+    {
+      "id": "fontkit",
+      "group": "app",
+      "current": "2.0.4",
+      "source": {
+        "type": "npm",
+        "package": "fontkit"
+      },
+      "files": ["packages/core/package.json"]
+    },
+    {
+      "id": "tesseract.js",
+      "group": "app",
+      "current": "7.0.0",
+      "source": {
+        "type": "npm",
+        "package": "tesseract.js"
+      },
+      "files": ["packages/core/package.json"]
+    },
+    {
+      "id": "@types/fontkit",
+      "group": "dev",
+      "current": "2.0.9",
+      "source": {
+        "type": "npm",
+        "package": "@types/fontkit"
+      },
+      "files": ["packages/core/package.json"]
+    },
+    {
+      "id": "@adobe/cc-ext-uxp-types",
+      "group": "app",
+      "current": "7.3.1",
+      "source": {
+        "type": "npm",
+        "package": "@adobe/cc-ext-uxp-types"
+      },
+      "files": ["packages/panel/package.json"]
+    },
+    {
+      "id": "@adobe/premierepro",
+      "group": "app",
+      "current": "26.5.0",
+      "source": {
+        "type": "npm",
+        "package": "@adobe/premierepro"
+      },
+      "files": ["packages/panel/package.json"]
+    },
+    {
+      "id": "vite",
+      "group": "app",
+      "current": "8.3.2",
+      "source": {
+        "type": "npm",
+        "package": "vite"
+      },
+      "files": ["packages/panel/package.json"]
+    },
+    {
+      "id": "pnpm",
+      "group": "dev",
+      "current": "11.10.0",
+      "source": {
+        "type": "npm",
+        "package": "pnpm"
+      },
+      "files": ["package.json"]
+    }
+  ]
+}
