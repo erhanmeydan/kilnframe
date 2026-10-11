@@ -54,6 +54,11 @@ export interface ProviderPreset {
    * before a job. "*" marks every model of the preset (a local model runs on the editor's computer).
    */
   slowModels?: string[];
+  /**
+   * OpenRouter's reasoning.effort per model, for models that think until they hit the output limit (GLM 5.3
+   * Flash, 11 Oct 2026). Other models get nothing and think as they do by default.
+   */
+  reasoningEffort?: Record<string, string>;
 }
 
 export function loadProviderCatalog(): ProviderPreset[] {
@@ -224,6 +229,7 @@ function buildProvider(
         structuredOutput: preset?.capabilities.structuredOutput ?? false,
         contextWindow: preset?.capabilities.contextWindow ?? 128_000,
       },
+      reasoningEffort: preset?.reasoningEffort?.[model],
     });
   }
   if (kind === "openai-compatible") {

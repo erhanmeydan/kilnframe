@@ -355,3 +355,66 @@ describe("OpenRouter prices", () => {
     expect(await xai.modelPrice()).toBeUndefined();
   });
 });
+
+describe("OpenRouter thinking", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const caps = { vision: true, structuredOutput: false, contextWindow: 1000 };
+  const request = {
+    system: "s",
+    messages: [{ role: "user" as const, content: [{ type: "text" as const, text: "hi" }] }],
+    maxTokens: 64000,
+    purpose: "compose s1",
+  };
+  const reply = (finish: string) =>
+    new Response(`data: {"choices":[{"delta":{"content":"x"},"finish_reason":"${finish}"}]}\n\n`, {
+      headers: { "content-type": "text/event-stream" },
+    });
+
+  it("asks a model set to think less for that, and nothing for the others", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: { body: string }) => {
+      bodies.push(JSON.parse(init.body) as Record<string, unknown>);
+      return reply("stop");
+    });
+    const opts = {
+      name: "openrouter",
+      baseURL: "https://o.test/v1",
+      capabilities: caps,
+      retryDelayMs: 0,
+    };
+    await new OpenAICompatibleProvider({
+      ...opts,
+      model: "z-ai/glm-5.3-flash",
+      reasoningEffort: "medium",
+    }).complete(request);
+    await new OpenAICompatibleProvider({ ...opts, model: "anthropic/claude-sonnet-5.5" }).complete(
+      request,
+    );
+    expect(bodies[0]?.reasoning).toEqual({ effort: "medium" });
+    expect(bodies[1]).not.toHaveProperty("reasoning");
+  });
+
+  it("tries a reply cut off at the limit once more with little thinking", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: { body: string }) => {
+      bodies.push(JSON.parse(init.body) as Record<string, unknown>);
+      return reply(bodies.length === 1 ? "length" : "stop");
+    });
+    const p = new OpenAICompatibleProvider({
+      name: "openrouter",
+      baseURL: "https://o.test/v1",
+      model: "z-ai/glm-5.3-flash",
+      capabilities: caps,
+      retryDelayMs: 0,
+      reasoningEffort: "medium",
+    });
+    expect((await p.complete(request)).text).toBe("x");
+    expect(bodies.map((b) => b.reasoning)).toEqual([{ effort: "medium" }, { effort: "low" }]);
+  });
+
+  it("names GLM 5.3 Flash in the OpenRouter preset", async () => {
+    const { providerPreset } = await import("../src/index.js");
+    expect(providerPreset("openrouter")?.reasoningEffort?.["z-ai/glm-5.3-flash"]).toBe("medium");
+  });
+});

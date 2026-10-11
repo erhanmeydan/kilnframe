@@ -17,6 +17,11 @@ export interface OpenAICompatibleOptions {
   capabilities: Capabilities;
   /** Extra JSON merged into the request body (provider specific switches). */
   extraBody?: Record<string, unknown>;
+  /**
+   * OpenRouter's reasoning.effort for a model that otherwise thinks so long it uses the whole output limit
+   * (providers.json, reasoningEffort). Unset: nothing is sent and the model thinks as it does by default.
+   */
+  reasoningEffort?: string | undefined;
   /** Pause before a retry, times the attempt number (tests set it to 0). */
   retryDelayMs?: number;
 }
@@ -187,18 +192,21 @@ export class OpenAICompatibleProvider implements TextProvider {
    * hit the limit again, and each try can take many minutes.
    */
   async complete(req: TextRequest): Promise<TextResponse> {
+    let effort = this.o.reasoningEffort;
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.once(req);
+        return await this.once(req, effort);
       } catch (err) {
         if (!(err instanceof ProviderError) || !err.retryable) throw err;
         if (attempt >= (err.kind === "cut-off" ? 2 : 3)) throw err;
+        // on OpenRouter the thinking counts against the limit: the try again thinks little
+        if (err.kind === "cut-off" && this.name === "openrouter") effort = "low";
         await new Promise((r) => setTimeout(r, (this.o.retryDelayMs ?? 5_000) * attempt));
       }
     }
   }
 
-  private async once(req: TextRequest): Promise<TextResponse> {
+  private async once(req: TextRequest, effort?: string): Promise<TextResponse> {
     const messages = [
       { role: "system", content: req.system },
       ...req.messages.map((m) => ({
@@ -226,6 +234,7 @@ export class OpenAICompatibleProvider implements TextProvider {
           max_tokens: req.maxTokens,
           stream: true,
           stream_options: { include_usage: true },
+          ...(effort ? { reasoning: { effort } } : {}),
           ...this.o.extraBody,
         }),
       });
