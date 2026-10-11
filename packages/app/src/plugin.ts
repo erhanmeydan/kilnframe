@@ -54,6 +54,36 @@ export function installArgs(file: string, platform = process.platform): string[]
   return [platform === "win32" ? "/install" : "--install", file];
 }
 
+/**
+ * Adobe's agent leaves an installed version in place, files and all, and still prints "Installation
+ * Successful": a rebuilt plugin with the same version (a test build, a fix shipped without a version bump)
+ * would never reach Premiere. Then the old one is removed first.
+ */
+export function replacesSameVersion(
+  plugin: Pick<BundledPlugin, "id" | "version" | "hash">,
+  installed: { id: string; version: string; hash?: string } | undefined,
+): boolean {
+  return (
+    installed?.id === plugin.id &&
+    installed.version === plugin.version &&
+    installed.hash !== plugin.hash
+  );
+}
+
+/** `--remove` on macOS, `/remove` on Windows, by the name Creative Cloud lists (the manifest's name). */
+export function removeArgs(name: string, platform = process.platform): string[] {
+  return [platform === "win32" ? "/remove" : "--remove", name];
+}
+
+/** Removes the installed plugin by name; resolves either way (it may not be there). */
+export function removePlugin(name: string, agent: string): Promise<string> {
+  return new Promise((resolve) => {
+    execFile(agent, removeArgs(name), { timeout: 120_000 }, (_err, stdout, stderr) =>
+      resolve(`${stdout}${stderr}`.trim()),
+    );
+  });
+}
+
 /** Installs the bundled .ccx with Adobe's agent; resolves with what the agent printed. */
 export function installPlugin(plugin: BundledPlugin, agent: string): Promise<string> {
   return new Promise((resolve, reject) => {

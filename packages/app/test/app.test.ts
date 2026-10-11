@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { installArgs, needsInstall } from "../src/plugin.js";
+import { installArgs, needsInstall, removeArgs, replacesSameVersion } from "../src/plugin.js";
 import { companionPath } from "../src/shell-path.js";
 
 describe("companionPath", () => {
@@ -45,5 +45,25 @@ describe("installArgs", () => {
   it("speaks each platform's form of Adobe's installer", () => {
     expect(installArgs("k.ccx", "darwin")).toEqual(["--install", "k.ccx"]);
     expect(installArgs("C:\\k.ccx", "win32")).toEqual(["/install", "C:\\k.ccx"]);
+  });
+});
+
+describe("replacing a plugin of the same version", () => {
+  const bundled = { id: "kilnframe", version: "0.1.2", hash: "new" };
+
+  it("removes first only when the same version, built differently, is installed", () => {
+    // Adobe's agent leaves an installed version in place and still says it installed
+    expect(replacesSameVersion(bundled, { id: "kilnframe", version: "0.1.2", hash: "old" })).toBe(
+      true,
+    );
+    expect(replacesSameVersion(bundled, { id: "kilnframe", version: "0.1.1", hash: "old" })).toBe(
+      false,
+    );
+    expect(replacesSameVersion(bundled, undefined)).toBe(false);
+  });
+
+  it("removes by the name Creative Cloud lists", () => {
+    expect(removeArgs("Kilnframe", "darwin")).toEqual(["--remove", "Kilnframe"]);
+    expect(removeArgs("Kilnframe", "win32")).toEqual(["/remove", "Kilnframe"]);
   });
 });

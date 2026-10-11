@@ -11,7 +11,14 @@ import { fileURLToPath } from "node:url";
 import { bundledTools } from "./bundle.js";
 import { companionPath } from "./shell-path.js";
 import { startUpdates, type Updates } from "./updates.js";
-import { bundledPlugin, installPlugin, installerAgent, needsInstall } from "./plugin.js";
+import {
+  bundledPlugin,
+  installPlugin,
+  installerAgent,
+  needsInstall,
+  removePlugin,
+  replacesSameVersion,
+} from "./plugin.js";
 import { LOGIN_FLAG, announceText, startedAtLogin } from "./announce.js";
 import { markBusy, onQuitRequest } from "./quit.js";
 
@@ -131,6 +138,11 @@ async function ensurePlugin(force = false) {
     return;
   }
   try {
+    // the same version built again: the agent would keep the old files
+    if (force || replacesSameVersion(plugin, state.plugin))
+      logLine(
+        `plugin: removing the installed ${plugin.name} first\n${await removePlugin(plugin.name, agent)}`,
+      );
     const out = await installPlugin(plugin, agent);
     logLine(`plugin: ${plugin.id} ${plugin.version} installed\n${out}`);
     writeState({
