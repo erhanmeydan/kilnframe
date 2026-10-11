@@ -42,7 +42,10 @@ run("git", ["fetch", "origin", "main"], root);
 if (!existsSync(wt)) run("git", ["worktree", "add", "-B", branch, wt, worktreeBase()], root);
 let ok =
   step(`sürüm ${dep.current} → ${to}`, () => {
-    if (!flags.has("--no-bump")) applyBump(wt, dep, to);
+    if (flags.has("--no-bump")) return;
+    const edited = applyBump(wt, dep, to);
+    // the repo's own formatter, so pnpm check does not trip over the rewritten JSON
+    run("npx", ["prettier", "--write", ...edited]);
   }) &&
   step("pnpm install", () => run("pnpm", ["install"])) &&
   step("pnpm build", () => run("pnpm", ["build"])) &&
