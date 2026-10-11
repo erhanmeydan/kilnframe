@@ -14,10 +14,7 @@
     "suggestModel": "claude-sonnet-5-5"
   },
   "ocr": {
-    "languages": [
-      "tur",
-      "eng"
-    ],
+    "languages": ["tur", "eng"],
     "dataUrl": "https://github.com/tesseract-ocr/tessdata_fast/raw/main"
   },
   "speech": {

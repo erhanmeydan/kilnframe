@@ -16,10 +16,7 @@
       "id": "s1",
       "start_frame": 0,
       "end_frame": 150,
-      "anchor_words": [
-        "Sesiniz",
-        "animasyona"
-      ],
+      "anchor_words": ["Sesiniz", "animasyona"],
       "visual": "A microphone on the right; its sound leaves as three flowing bands that turn into a column of three small animation frames. The words land on 'animasyona'.",
       "on_screen_text": "Sesten animasyona",
       "camera": "slow push in",
@@ -33,11 +30,7 @@
       "id": "s2",
       "start_frame": 150,
       "end_frame": 300,
-      "anchor_words": [
-        "yüzde",
-        "yetmiş",
-        "üçü"
-      ],
+      "anchor_words": ["yüzde", "yetmiş", "üçü"],
       "visual": "Five bars rise from a baseline, the last one in the accent colour, and a large number counts up to 73% on 'yetmiş üçü'.",
       "on_screen_text": "Sonuna kadar izlendi",
       "camera": "hold",
@@ -51,11 +44,7 @@
       "id": "s3",
       "start_frame": 300,
       "end_frame": 450,
-      "anchor_words": [
-        "metin",
-        "işleniyor",
-        "oynatılıyor"
-      ],
+      "anchor_words": ["metin", "işleniyor", "oynatılıyor"],
       "visual": "Three steps in a row: a document, a gear and a play button, joined by arrows; each step appears on its word.",
       "on_screen_text": "Metin, işlem, oynatma",
       "camera": "slide right with the arrows",

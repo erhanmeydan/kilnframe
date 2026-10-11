@@ -7,8 +7,12 @@ const { join } = require("node:path");
 const { homedir } = require("node:os");
 
 const root = join(__dirname, "..");
-const pptr = readdirSync(join(root, "node_modules", ".pnpm")).find((d) => d.startsWith("puppeteer-core@"));
-const puppeteer = require(join(root, "node_modules", ".pnpm", pptr, "node_modules", "puppeteer-core"));
+const pptr = readdirSync(join(root, "node_modules", ".pnpm")).find((d) =>
+  d.startsWith("puppeteer-core@"),
+);
+const puppeteer = require(
+  join(root, "node_modules", ".pnpm", pptr, "node_modules", "puppeteer-core"),
+);
 
 const [outDir, lang = "en"] = process.argv.slice(2);
 const topic = {
@@ -80,7 +84,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(8000);
     await shot("story-making");
     const text = await page.evaluate(() => document.body.innerText);
-    if (/new sequence|yeni bir sekans|sequence could not|sekans oluşturulamadı|Pick a style and press|stil seçip/i.test(text)) break;
+    if (
+      /new sequence|yeni bir sekans|sequence could not|sekans oluşturulamadı|Pick a style and press|stil seçip/i.test(
+        text,
+      )
+    )
+      break;
   }
   await shot("story-done");
   await browser.close();

@@ -6,3 +6,5 @@ CLAUDE.md
 LICENSE
 out
 **/vendor
+# third-party license texts stay as their authors wrote them
+packages/app/build/licenses

@@ -112,7 +112,9 @@
         exportSequenceFrame: async (_s, time, name, dir) =>
           (await api("/demo/frame", { seconds: time.seconds, name, dir })).ok,
       },
-      ClipProjectItem: { cast: (x) => loose({ getMediaFilePath: async () => x?.path ?? "", ...x }, "clip") },
+      ClipProjectItem: {
+        cast: (x) => loose({ getMediaFilePath: async () => x?.path ?? "", ...x }, "clip"),
+      },
       FolderItem: { cast: (x) => x ?? bin },
       SequenceEditor: {
         getEditor: () =>
