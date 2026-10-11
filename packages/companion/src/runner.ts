@@ -10,12 +10,15 @@ import {
   readTranscript,
   UsageMeter,
   writeStory,
+  addUsage,
   formatOf,
   loadDefaults,
+  loadModelCatalog,
   outputSize,
   parseFps,
   parseSize,
   previewStyle,
+  readUsageSummary,
   recomposeScene,
   renderApproved,
   runPipeline,
@@ -104,6 +107,8 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
         plan.scenes.map((sc) => sc.id),
       ),
       plan,
+      // the job's tokens and cost so far, for the line under the placed insert
+      cost: readUsageSummary(params.outDir),
     });
     if (params.action === "render") {
       const { plan, render } = await renderApproved({
@@ -121,6 +126,15 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
         provider,
         defaults,
         onProgress: events.progress,
+      });
+      // the scene made again is part of the job's cost
+      addUsage(params.outDir, {
+        model: provider.model,
+        billing: provider.billing ?? "api",
+        calls: r.usage.calls,
+        price:
+          loadModelCatalog().models[provider.model]?.price ??
+          (await provider.modelPrice?.().catch(() => undefined)),
       });
       return {
         ...panelResult(r.plan, r.render),

@@ -3,6 +3,7 @@
 import { PROTOCOL_VERSION } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
+import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { prettyModel } from "./models";
 import {
   createStorySequence,
@@ -223,6 +224,8 @@ interface JobResult {
   durationSeconds: number;
   stillImages: StillImage[];
   plan: { width: number; height: number };
+  /** The job's tokens and cost (usage.json); absent from an older companion. */
+  cost?: JobCost | null;
 }
 
 /** The open review: the job's parameters are sent again to render or to redo one scene. */
@@ -248,6 +251,8 @@ interface JobView {
   startedAt: number;
   error: string | null;
   placed: { videoTrack: number; audioTrack: number } | null;
+  /** What the placed insert cost; for a long range, all its parts. */
+  cost?: JobCost | null;
   /** Set when a long range finished: how many parts were placed. */
   partsPlaced?: number;
   /** The editor pressed Stop and is asked to confirm. */
@@ -280,6 +285,8 @@ interface Series {
   parts: SeriesPart[];
   /** Where the first part went; the others join it on the same tracks. */
   tracks: { videoTrack: number; audioTrack: number } | null;
+  /** The parts placed so far, added up. */
+  cost?: JobCost | null;
   /** stills: making every part's stills; render: rendering and placing the approved parts. */
   phase: "stills" | "render";
   /** Frames of the footage over the whole range; each part gets the ones inside it. */
@@ -714,12 +721,26 @@ function seriesBox(): string {
   <div class="pbtns"><div class="pbtn primary" data-act="series-continue">${t("series.continue")}</div><div class="pbtn" data-act="series-drop">${t("series.drop")}</div></div></div>`;
 }
 
+/** "This animation used 83k input and 166k output tokens, about $0.09." On a plan: what it would cost as API. */
+function costLine(c: JobCost): string {
+  const tr = lang() === "tr";
+  const tokens = { i: formatTokens(c.inputTokens, tr), o: formatTokens(c.outputTokens, tr) };
+  if (c.billing === "plan")
+    return c.listPriceUsd
+      ? t("home.costPlan", { ...tokens, usd: formatUsd(c.listPriceUsd, tr) })
+      : t("home.costPlanOnly", tokens);
+  return c.costUsd === null
+    ? t("home.costUnknown", tokens)
+    : t("home.cost", { ...tokens, usd: formatUsd(c.costUsd, tr) });
+}
+
 /** The range tab: what the home screen always was. */
 function rangeHome(done: JobView["placed"]): string {
   const chosen = state.styles.find((s) => s.name === state.style);
   const tileWidth = Math.floor((contentWidth() - 3 * 8) / 3);
   const many = state.job?.partsPlaced;
   return `${done ? `<div class="box ok">${many ? t("home.placedParts", { n: many, v: done.videoTrack + 1, a: done.audioTrack + 1 }) : t("home.placed", { v: done.videoTrack + 1, a: done.audioTrack + 1 })}</div>` : ""}
+  ${done && state.job?.cost ? `<div class="small muted">${esc(costLine(state.job.cost))}</div>` : ""}
   ${state.job?.error ? `<div class="box warn">${esc(state.job.error)}</div>` : ""}
   ${seriesBox()}
   ${rangeBox()}
@@ -2524,8 +2545,12 @@ async function placePart(i: number, r: JobResult, target: PanelSequence) {
   trace(`series: part ${i + 1} placed on V${placed.videoTrack + 1} and A${placed.audioTrack + 1}`);
   series.tracks ??= placed;
   part.state = "placed";
+  series.cost = addCosts(series.cost ?? null, r.cost);
   saveSeries();
-  if (state.job) state.job.placed = placed;
+  if (state.job) {
+    state.job.placed = placed;
+    state.job.cost = series.cost;
+  }
 }
 
 /** A long range: transcribe it once, split it at sentence ends, then make the parts. */
@@ -2764,6 +2789,7 @@ function onJobMessage(
       .then((placed) => {
         trace(`job: placed on V${placed.videoTrack + 1} and A${placed.audioTrack + 1}`);
         job.placed = placed;
+        job.cost = r.cost ?? null;
         job.step = 7;
         state.review = null;
         state.screen = "home";
