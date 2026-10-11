@@ -1073,9 +1073,12 @@ figcaption {
   opacity: 0.55;
 }
 
-.list-status {
+/* its own full line under the field, whatever .closing p says about paragraphs */
+.list .list-status {
   flex-basis: 100%;
+  max-width: none;
   margin: 4px 0 0;
+  text-align: center;
   min-height: 1.4em;
   font: 14px var(--body);
   color: var(--ink-2);
