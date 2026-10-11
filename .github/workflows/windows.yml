@@ -47,9 +47,8 @@ jobs:
           node -e "import('./packages/app/scripts/ffmpeg.mjs').then((m) => m.fetchFfmpeg('win', 'x64', process.argv[1]))" "$RUNNER_TEMP/ffmpeg"
           echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
 
-      # reported, not blocking: some tests touch macOS-only things (Keychain, Premiere's paths)
+      # a failing test stops the build: the installer is made only from code that passes on Windows
       - run: pnpm test
-        continue-on-error: true
 
       - name: Build the installer
         run: node packages/app/scripts/stage.mjs --plugin-id ${{ inputs.plugin_id }}
