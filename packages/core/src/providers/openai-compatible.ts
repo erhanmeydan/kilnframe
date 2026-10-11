@@ -160,13 +160,16 @@ export class OpenAICompatibleProvider implements TextProvider {
   /**
    * A dropped connection, a rate limit or a 5xx is tried again, twice, after a short pause: one reset in a
    * six-minute xAI reply used to fail the whole job (8 Oct 2026). The Anthropic SDK does the same on its own.
+   * A reply cut off at the output limit is tried only once more: a model that thinks at great length tends to
+   * hit the limit again, and each try can take many minutes.
    */
   async complete(req: TextRequest): Promise<TextResponse> {
     for (let attempt = 1; ; attempt++) {
       try {
         return await this.once(req);
       } catch (err) {
-        if (!(err instanceof ProviderError) || !err.retryable || attempt >= 3) throw err;
+        if (!(err instanceof ProviderError) || !err.retryable) throw err;
+        if (attempt >= (err.kind === "cut-off" ? 2 : 3)) throw err;
         await new Promise((r) => setTimeout(r, (this.o.retryDelayMs ?? 5_000) * attempt));
       }
     }

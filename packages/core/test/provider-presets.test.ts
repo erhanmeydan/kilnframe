@@ -241,6 +241,19 @@ describe("retries", () => {
     await expect(provider().complete(request)).rejects.toThrow(/rejected the API key/);
     expect(calls).toBe(1);
   });
+
+  it("tries a reply cut off at the output limit only once more", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      return new Response(
+        'data: {"choices":[{"delta":{"content":"<html"},"finish_reason":"length"}]}\n\n',
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    });
+    await expect(provider().complete(request)).rejects.toMatchObject({ kind: "cut-off" });
+    expect(calls).toBe(2);
+  });
 });
 
 describe("billed output tokens", () => {
