@@ -74,8 +74,12 @@ export async function fetchFfmpeg(platform, arch, dest) {
     const out = join(cache, "x");
     rmSync(out, { recursive: true, force: true });
     mkdirSync(out);
-    // bsdtar reads zip files on macOS and on Windows 10 and later
-    execFileSync("tar", ["-xf", zip, "-C", out]);
+    // bsdtar reads zip files: macOS's tar, and Windows' own (System32), not the GNU tar of Git Bash
+    const tar =
+      process.platform === "win32"
+        ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
+        : "tar";
+    execFileSync(tar, ["-xf", zip, "-C", out]);
     for (const [name, inside] of Object.entries(file.binaries)) {
       const bin = join(out, inside);
       if (!existsSync(bin)) throw new Error(`${inside} is not in ${zip}`);
