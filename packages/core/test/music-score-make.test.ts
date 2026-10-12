@@ -80,7 +80,8 @@ const base = (outDir: string, fetchFn: typeof fetch) => ({
   fetch: fetchFn,
 });
 
-describe("making the score", () => {
+// each test makes whole scores through ffmpeg: slow on CI's Windows machine
+describe("making the score", { timeout: 30_000 }, () => {
   it("writes one ducked clip per section that meet exactly and cover the range", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     const { fetchFn } = fakeLyria();
