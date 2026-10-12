@@ -360,11 +360,11 @@ export function createResolveBridge(
             v = tracks.videoTrack + 1;
             a = tracks.audioTrack + 1;
           } else {
+            // an audio track of our own even without sound effects: a series keeps these tracks, and a
+            // later part's effects must never land on the editor's own audio
             await tl.AddTrack("video");
+            await tl.AddTrack("audio", "stereo");
             v = (await tl.GetTrackCount("video")) as number;
-            if (files.sfx) {
-              await tl.AddTrack("audio", "stereo");
-            }
             a = (await tl.GetTrackCount("audio")) as number;
           }
           const handles = Math.round(handlesS * rate.fps);

@@ -249,6 +249,34 @@ describe("resolve bridge", () => {
     expect(f.project.timeline.tracks.video).toHaveLength(2);
   });
 
+  it("never puts a later part's sound effects on the editor's own audio track", async () => {
+    const f = makeFakeResolve();
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    // part 1 has no sound effects, part 2 has
+    const first = await b.placeInsert(
+      seq.id,
+      { video: "/m/Kilnframe/1/insert.mov", sfx: null },
+      1,
+      0,
+      2,
+    );
+    expect(first.audioTrack).toBe(1);
+    const second = await b.placeInsert(
+      seq.id,
+      { video: "/m/Kilnframe/2/insert.mov", sfx: "/m/Kilnframe/2/sfx_mix.wav" },
+      4,
+      0,
+      2,
+      first,
+    );
+    expect(f.project.timeline.tracks.audio[0]!.items.map((i) => i.path)).toEqual(["/footage.mp4"]);
+    expect(second.audioTrack).toBe(1);
+    expect(f.project.timeline.tracks.audio[1]!.items.map((i) => i.path)).toEqual([
+      "/m/Kilnframe/2/sfx_mix.wav",
+    ]);
+  });
+
   it("switches off only tracks holding our inserts over the range, and back on", async () => {
     const f = makeFakeResolve({ ourInsertOnV2: true });
     const b = bridge(f);
