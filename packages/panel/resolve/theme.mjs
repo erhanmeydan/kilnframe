@@ -78,6 +78,9 @@ const FONT = `
       textarea {
         padding: 6px 8px;
       }
+      .img-note {
+        padding: 4px 8px;
+      }
       body,
       button,
       input,
