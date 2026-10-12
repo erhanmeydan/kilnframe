@@ -8,6 +8,7 @@ import {
   decodeAudio,
   loadMusicCatalog,
   makeScore,
+  rewriteSectionPrompt,
   NoSpeechError,
   splitLong,
   transcribe,
@@ -341,9 +342,25 @@ async function musicMakeJob(
   const words = existsSync(transcriptFile)
     ? (JSON.parse(readFileSync(transcriptFile, "utf8")) as Transcript).words
     : [];
+  // a section joined in the panel may be longer than one Lyria piece: split again here
+  let plan = splitLong(params.plan);
+  const notes = Object.entries(params.notes ?? {}).filter(([, note]) => note.trim());
+  if (notes.length) {
+    progress("Rewriting the music for your notes");
+    const name = params.provider ?? defaults.text.provider;
+    const text = createTextProvider(defaults, {
+      provider: name,
+      model: params.model,
+      baseURL: params.baseURL,
+      apiKey: await keys.get(name === "auto" ? "anthropic" : name),
+    });
+    for (const [id, note] of notes) {
+      const prompt = await rewriteSectionPrompt({ provider: text, plan, sectionId: id, note });
+      plan = { ...plan, sections: plan.sections.map((s) => (s.id === id ? { ...s, prompt } : s)) };
+    }
+  }
   const r = await makeScore({
-    // a section joined in the panel may be longer than one Lyria piece: split again here
-    plan: splitLong(params.plan),
+    plan,
     words,
     rangeDurationS: params.durationS,
     speechFile: params.speechFile ?? null,
@@ -356,5 +373,5 @@ async function musicMakeJob(
     only: params.only,
     onProgress: progress,
   });
-  return { kind: "music-make", ...r };
+  return { kind: "music-make", plan, ...r };
 }

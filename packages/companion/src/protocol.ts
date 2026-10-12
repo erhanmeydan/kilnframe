@@ -166,6 +166,9 @@ export const MusicMakeJobParamsSchema = z.object({
   slider: z.number().min(-30).max(-12),
   only: z.array(z.string().min(1)).optional(),
   speechFile: z.string().min(1).optional(),
+  /** The editor's notes per section: each rewrites that section's Lyria text before it is made. */
+  notes: z.record(z.string(), z.string().max(500)).optional(),
+  ...ProviderChoice,
 });
 
 export const JobParamsSchema = z.union([
