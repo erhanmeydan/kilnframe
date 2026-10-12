@@ -71,6 +71,20 @@ describe("panel support", () => {
     expect(safeName("../../etc")).toBe("etc");
   });
 
+  it("makes a job folder under a given root (Resolve has no project file), inside the home folder only", () => {
+    const home = mkdtempSync(join(tmpdir(), "mi-home-"));
+    const root = join(home, "Movies", "Kilnframe", "Belgesel");
+    const dir = prepareJobDir(undefined, "Timeline 1", new Date("2026-10-07T05:30:12Z"), {
+      jobRoot: root,
+      home,
+    });
+    expect(dir).toBe(join(root, "Timeline-1-20261007-053012"));
+    expect(existsSync(dir)).toBe(true);
+    expect(() =>
+      prepareJobDir(undefined, "x", new Date(), { jobRoot: "/etc/kilnframe", home }),
+    ).toThrow(/home folder/);
+  });
+
   it("finds Premiere's own WAV preset in an install folder", () => {
     const root = mkdtempSync(join(tmpdir(), "mi-pf-"));
     const preset = join(

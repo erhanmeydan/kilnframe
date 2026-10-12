@@ -170,6 +170,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("job.prepare"),
     projectPath: z.string().optional(),
     sequenceName: z.string().min(1),
+    /** A folder for the job folders when there is no project file (Resolve); inside the home folder. */
+    jobRoot: z.string().min(1).optional(),
   }),
   z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
   z.object({ type: z.literal("job.get"), jobId: z.string() }),

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BlackmagicDesign>
+    <Plugin>
+        <Id>com.kilnframe.resolve</Id>
+        <Name>Kilnframe</Name>
+        <Version>__VERSION__</Version>
+        <Description>Mark a range, get an animation: AI-written motion graphics for the range, rendered on this computer.</Description>
+        <FilePath>main.js</FilePath>
+    </Plugin>
+</BlackmagicDesign>

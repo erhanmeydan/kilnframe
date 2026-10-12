@@ -1,7 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, resolve as resolvePath, sep } from "node:path";
 import {
   ASSET_EXTENSIONS,
   ffmpegPath,
@@ -129,10 +129,17 @@ export function prepareJobDir(
   projectPathIn: string | undefined,
   sequenceName: string,
   now = new Date(),
+  /** jobRoot: a folder for the job folders when there is no project file (Resolve); only inside `home`. */
+  opts: { jobRoot?: string | undefined; home?: string } = {},
 ): string {
   const projectPath = projectPathIn && withoutLongPathPrefix(projectPathIn);
-  const base =
-    projectPath && existsSync(dirname(projectPath))
+  const home = resolvePath(opts.home ?? homedir());
+  const root = opts.jobRoot ? resolvePath(opts.jobRoot) : null;
+  if (root && !root.startsWith(home + sep))
+    throw new Error(`The job folder root must be inside the home folder: ${opts.jobRoot}`);
+  const base = root
+    ? root
+    : projectPath && existsSync(dirname(projectPath))
       ? join(dirname(projectPath), "Kilnframe")
       : join(process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"), "jobs");
   const stamp = now.toISOString().replace(/[-:]/g, "").replace(/\..+$/, "").replace("T", "-");

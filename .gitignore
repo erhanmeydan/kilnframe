@@ -18,3 +18,4 @@ examples/audio/private/
 # synthetic benchmark audio (scripts/make-benchmark-audio.mjs)
 examples/benchmark/audio/
 packages/panel/dist-probe/
+packages/panel/dist-resolve/
