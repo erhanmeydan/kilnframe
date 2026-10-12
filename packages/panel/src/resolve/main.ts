@@ -57,6 +57,7 @@ const BRIDGE_CALLS = [
   "hideOurInserts",
   "showTracks",
   "placeInsert",
+  "placeAudioClips",
   "createStorySequence",
   "isRendering",
   "cancelExports",

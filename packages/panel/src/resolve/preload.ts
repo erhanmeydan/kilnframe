@@ -10,6 +10,7 @@ const ASYNC = [
   "hideOurInserts",
   "showTracks",
   "placeInsert",
+  "placeAudioClips",
   "createStorySequence",
   "isRendering",
   "cancelExports",

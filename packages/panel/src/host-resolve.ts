@@ -85,6 +85,7 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
     },
     placeInsert: (seq, files, atS, handlesS, durationS, tracks) =>
       words(api.placeInsert(seq.id, files, atS, handlesS, durationS, tracks)),
+    placeAudioClips: (seq, clips) => words(api.placeAudioClips(seq.id, clips)),
     createStorySequence: (template, name, narration, music, format) =>
       words(api.createStorySequence(template.id, name, narration, music, format)),
     pickImages: (types) => api.pickImages(types),

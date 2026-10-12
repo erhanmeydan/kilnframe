@@ -6,6 +6,7 @@ export const HOST_MEMBERS = [
   "exportRangePicture",
   "withoutOurInserts",
   "placeInsert",
+  "placeAudioClips",
   "createStorySequence",
   "pickImages",
   "openUrl",

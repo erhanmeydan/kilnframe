@@ -443,6 +443,17 @@ export function createPremiereHost(
       const { project, sequence } = await sequenceOf(seq);
       return placeInsert(project, sequence, files, atS, handlesS, durationS, tracks);
     },
+    async placeAudioClips(seq, clips) {
+      const { project, sequence } = await sequenceOf(seq);
+      const { videoTrack, audioTrack } = await freeTracks(sequence);
+      // the clips are as long as their sections already: placed whole, no in or out points
+      for (const c of clips) {
+        const item = await importToBin(project, c.file);
+        if (!placeItem(project, sequence, item, c.atS, videoTrack, audioTrack))
+          throw new Error(t("premiere.placeFailed"));
+      }
+      return { audioTrack };
+    },
     async createStorySequence(template, name, narration, music, format) {
       const { project, sequence } = await sequenceOf(template);
       await createStorySequence(project, sequence, name, narration, music, format);
