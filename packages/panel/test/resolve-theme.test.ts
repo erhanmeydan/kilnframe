@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { missingGlyphs } from "../../core/src/fonts";
 import { RESOLVE_COLOURS, STATUS_COLOURS, resolveTheme } from "../resolve/theme.mjs";
 
 const page = readFileSync(join(__dirname, "..", "public", "index.html"), "utf8");
@@ -30,6 +31,11 @@ describe("resolve theme", () => {
     const themed = resolveTheme(page);
     expect(themed).toMatch(/@font-face\s*{[^}]*"Open Sans"[^}]*fonts\/OpenSans-Variable\.ttf/);
     expect(themed).toMatch(/font-family:\s*"Open Sans"/);
+  });
+
+  it("bundles an Open Sans with every Turkish letter", () => {
+    const font = join(__dirname, "..", "resolve", "fonts", "OpenSans-Variable.ttf");
+    expect(missingGlyphs(font, "İıŞşĞğÇçÖöÜü0123456789%·")).toEqual([]);
   });
 
   it("leaves the Premiere page itself alone", () => {

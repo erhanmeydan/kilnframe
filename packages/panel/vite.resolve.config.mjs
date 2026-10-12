@@ -34,7 +34,7 @@ export default defineConfig({
         // the same page as Premiere's, in Resolve's colours and font
         const page = readFileSync(resolve(root, "public", "index.html"), "utf8");
         writeFileSync(resolve(out, "index.html"), resolveTheme(page));
-        const font = resolve(root, "..", "..", "vendor", "fonts", "open-sans");
+        const font = resolve(root, "resolve", "fonts");
         mkdirSync(resolve(out, "fonts"), { recursive: true });
         for (const f of ["OpenSans-Variable.ttf", "OFL.txt"])
           cpSync(resolve(font, f), resolve(out, "fonts", f));
