@@ -90,8 +90,22 @@ export function createPremiereHost(
     return project;
   }
 
-  /** The Sequence behind a HostSequence, found again by guid: the active one may have changed since. */
+  /**
+   * The project and sequence each HostSequence was read from. A job keeps working on them when the editor
+   * switches to another sequence or another open project meanwhile, as the panel did when it held them itself.
+   */
+  const known = new Map<string, { project: Project; sequence: Sequence }>();
+
+  /** The Sequence behind a HostSequence: the one it was read from, else found again by guid. */
   async function sequenceOf(seq: HostSequence): Promise<{ project: Project; sequence: Sequence }> {
+    const kept = known.get(seq.id);
+    if (kept) {
+      // still in its project: not deleted, and the project not closed
+      const there = await kept.project.getSequences().catch(() => []);
+      if (there.some((s) => s.guid.toString() === seq.id)) return kept;
+      known.delete(seq.id);
+      throw new Error(t("seq.noSequence"));
+    }
     const project = await activeProject();
     const active = await project.getActiveSequence();
     if (active && active.guid.toString() === seq.id) return { project, sequence: active };
@@ -378,6 +392,7 @@ export function createPremiereHost(
       if (!sequence) throw new Error(t("seq.noSequence"));
       const info = await sequenceInfo(sequence);
       const end = await sequence.getEndTime();
+      known.set(sequence.guid.toString(), { project, sequence });
       return {
         id: sequence.guid.toString(),
         name: info.name,

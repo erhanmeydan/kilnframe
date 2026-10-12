@@ -165,6 +165,21 @@ describe("premiere host", () => {
     expect((call[0] as { name: string }).name).toBe("Main");
   });
 
+  it("keeps working on the job's project after the user switched to another open project", async () => {
+    const a = fakePremiere();
+    const b = fakePremiere();
+    b.project.activate("guid-b", "Other project's sequence");
+    b.project.remove("guid-1");
+    let activeProject: unknown = a.project;
+    a.ppro.Project.getActiveProject = async () => activeProject as typeof a.project;
+    const h = a.make();
+    const seq = await h.currentSequence();
+    activeProject = b.project;
+    await h.exportFrame(seq, 3, "/jobs/a/", "footage-1.png", 1920, 1080);
+    const call = a.ppro.Exporter.exportSequenceFrame.mock.calls[0] as unknown as unknown[];
+    expect((call[0] as { name: string }).name).toBe("Main");
+  });
+
   it("fails with the no-sequence message when the sequence is gone", async () => {
     const f = fakePremiere();
     const h = f.make();
