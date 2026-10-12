@@ -35,7 +35,7 @@ describe("issue body", () => {
     const body = issueBody([{ dep: chrome, latest: "155.0.8059.39" }], [], null, now);
     expect(body).toContain("· hyperframes ile gelir");
   });
-  it("keeps the boxes Erhan ticked", () => {
+  it("keeps the boxes the maintainer ticked", () => {
     const before = issueBody(results, [], null, now).replace(
       "- [ ] **hyperframes**",
       "- [x] **hyperframes**",
