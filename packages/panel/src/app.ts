@@ -3461,6 +3461,7 @@ function runAction(el: HTMLElement) {
   else if (act === "stop-yes" && state.job) {
     // the companion ends the job and everything it started; job.cancelled brings the panel home
     trace(`job: stopped by the editor (${state.job.id ?? "not started yet"})`);
+    host().cancelExports?.();
     if (state.job.id) session.send({ type: "job.cancel", jobId: state.job.id });
     else failJob(new JobStopped(t("job.stopped")));
   } else if (act === "reconnect") return void connectCompanion();

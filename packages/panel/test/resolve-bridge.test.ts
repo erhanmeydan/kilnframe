@@ -108,6 +108,26 @@ describe("resolve bridge", () => {
     expect(f.log.pages).toEqual(["deliver", "edit", "deliver", "edit", "deliver"]);
   });
 
+  it("stops waiting for Resolve's own render when the editor stops the job", async () => {
+    const f = makeFakeResolve({ renderingFor: 1000 });
+    let waits = 0;
+    const b = createResolveBridge(f.resolve as never, {
+      sleep: async () => {
+        if (++waits === 2) await b.cancelExports();
+      },
+    });
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).rejects.toThrow("EXPORTS_STOPPED");
+    expect(f.log.startRendering).toEqual([]);
+    // a later job is not stopped by it
+    const later = makeFakeResolve();
+    const b2 = createResolveBridge(later.resolve as never, { sleep: async () => undefined });
+    await b2.cancelExports();
+    await expect(b2.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).resolves.toMatchObject({
+      ok: true,
+    });
+  });
+
   it("is patient with a Deliver page that refuses the first starts after opening", async () => {
     const f = makeFakeResolve({ refuseStarts: 4 });
     const b = bridge(f);

@@ -12,6 +12,7 @@ const ASYNC = [
   "placeInsert",
   "createStorySequence",
   "isRendering",
+  "cancelExports",
   "pickImages",
   "openUrl",
   "readTextFile",

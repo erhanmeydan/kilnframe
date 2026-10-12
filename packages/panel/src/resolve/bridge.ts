@@ -7,6 +7,7 @@
 // - Rendering changes the Deliver page's settings and Resolve cannot report them: they are kept as a preset.
 // - Renders, frame exports and appends act on the current timeline: the target is made current for them.
 import {
+  EXPORTS_STOPPED,
   NO_SEQUENCE,
   PLACE_FAILED,
   RENDER_BUSY,
@@ -38,6 +39,9 @@ export function createResolveBridge(
   opts: { sleep?: (ms: number) => Promise<void> } = {},
 ): ResolveBridge {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)));
+
+  /** Counts the editor's stops: a wait that sees it change ends. */
+  let stops = 0;
 
   /** The editor's page before a job's exports changed it; showTracks brings it back. */
   let pageBefore: string | null = null;
@@ -162,7 +166,9 @@ export function createResolveBridge(
     settings: Record<string, unknown>,
     format?: [string, RegExp],
   ): Promise<boolean> {
+    const stopsBefore = stops;
     for (let waited = 0; await p.IsRenderingInProgress(); waited += POLL_MS) {
+      if (stops !== stopsBefore) throw new Error(EXPORTS_STOPPED);
       if (waited >= BUSY_WAIT_MS) throw new Error(RENDER_BUSY);
       await sleep(POLL_MS);
     }
@@ -345,6 +351,10 @@ export function createResolveBridge(
           await tl.SetCurrentTimecode(before);
         }
       });
+    },
+
+    async cancelExports() {
+      stops++;
     },
 
     async isRendering() {

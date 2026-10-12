@@ -31,6 +31,7 @@ function fakeApi(over: Partial<KilnframeResolveApi> = {}): KilnframeResolveApi {
     placeInsert: vi.fn(async () => ({ videoTrack: 1, audioTrack: 1 })),
     createStorySequence: vi.fn(async () => undefined),
     isRendering: vi.fn(async () => false),
+    cancelExports: vi.fn(async () => undefined),
     pickImages: vi.fn(async () => []),
     openUrl: vi.fn(async () => undefined),
     readTextFile: vi.fn(async () => ""),
@@ -81,6 +82,36 @@ describe("resolve host", () => {
     await expect(
       h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
     ).rejects.toThrow(/still rendering after 10 minutes/);
+  });
+
+  it("shows the export error, not a later one from switching the tracks back on", async () => {
+    const api = fakeApi({
+      showTracks: vi.fn(async () => {
+        throw new Error("tracks");
+      }),
+    });
+    const h = createResolveHost(api);
+    const s = await h.currentSequence();
+    await expect(
+      h.withoutOurInserts(s, 0, 5, async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+  });
+
+  it("stops the bridge's waiting when the editor stops, and says the job was stopped", async () => {
+    setLang("en");
+    const api = fakeApi({
+      exportRangeAudio: vi.fn(async () => {
+        throw new Error("EXPORTS_STOPPED");
+      }),
+    });
+    const h = createResolveHost(api);
+    h.cancelExports?.();
+    expect(api.cancelExports).toHaveBeenCalled();
+    await expect(
+      h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
+    ).rejects.toThrow(/stopped/i);
   });
 
   it("says before the exports that it waits for a render Resolve is doing", async () => {

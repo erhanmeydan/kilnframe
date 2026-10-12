@@ -62,6 +62,7 @@ const BRIDGE_CALLS = [
   "placeInsert",
   "createStorySequence",
   "isRendering",
+  "cancelExports",
 ] as const;
 
 // window size, place and always-on-top, kept between sessions
