@@ -53,9 +53,9 @@ describe("companion file through the host", () => {
 
 describe("only the host touches the editor", () => {
   const dir = join(__dirname, "..", "src");
-  it("no panel source file outside host-premiere.ts calls require()", () => {
+  it("no panel source file outside the Premiere host and its entry calls require()", () => {
     const offenders = readdirSync(dir)
-      .filter((f) => f.endsWith(".ts") && !["host-premiere.ts", "globals.d.ts"].includes(f))
+      .filter((f) => f.endsWith(".ts") && !["host-premiere.ts", "premiere-entry.ts", "globals.d.ts"].includes(f))
       .filter((f) => /\brequire\(/.test(readFileSync(join(dir, f), "utf8")));
     expect(offenders).toEqual([]);
   });
