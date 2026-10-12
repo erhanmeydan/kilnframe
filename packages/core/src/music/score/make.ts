@@ -118,10 +118,10 @@ export async function makeScore(
   const stopped = () => o.signal?.aborted === true;
   const baseFetch = o.fetch ?? fetch;
   // a stop also cancels a request on its way
+  const signal = o.signal;
   const doFetch = (
-    o.signal
-      ? (u: Parameters<typeof fetch>[0], i?: RequestInit) =>
-          baseFetch(u, { ...i, signal: o.signal })
+    signal
+      ? (u: Parameters<typeof fetch>[0], i?: RequestInit) => baseFetch(u, { ...i, signal })
       : baseFetch
   ) as typeof fetch;
 
