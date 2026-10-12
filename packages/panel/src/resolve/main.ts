@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath, sep } from "node:path";
 import { createResolveBridge } from "./bridge";
+import { kilnframeFile } from "./paths";
 import type { ResolveBridge } from "./api";
 
 const PLUGIN_ID = "com.kilnframe.resolve";
@@ -32,7 +33,7 @@ function resolveBridge(): Promise<ResolveBridge> {
 }
 
 const home = homedir();
-/** Files the page may read and write: the companion's connection file, the panel log, job folders. */
+/** Files the page may ask about (a story narration in a job folder): anywhere in the home folder. */
 function insideHome(path: string): string {
   const full = resolvePath(path);
   if (!full.startsWith(home + sep)) throw new Error(`Not inside the home folder: ${path}`);
@@ -113,10 +114,10 @@ function register() {
     await shell.openExternal(url);
   });
   ipcMain.handle("kilnframe:readTextFile", (_e, path: string) =>
-    readFile(insideHome(path), "utf8"),
+    readFile(kilnframeFile(path, home), "utf8"),
   );
   ipcMain.handle("kilnframe:writeTextFile", async (_e, path: string, text: string) => {
-    const full = insideHome(path);
+    const full = kilnframeFile(path, home);
     await mkdir(dirname(full), { recursive: true });
     await writeFile(full, text, "utf8");
   });
@@ -148,6 +149,9 @@ function createWindow() {
     },
   });
   win.setMenu(null);
+  // the page is the panel and nothing else: no navigating away with the preload attached, no new windows
+  win.webContents.on("will-navigate", (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.on("close", () => {
     try {
       const b = win!.getBounds();
