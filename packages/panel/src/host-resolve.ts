@@ -39,7 +39,8 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
         id: s.id,
         name: s.name,
         projectPath: "",
-        jobRoot: `${api.homedir()}/Movies/Kilnframe/${folderName(s.projectName)}`,
+        // ~/Movies/Kilnframe on a Mac, Videos\Kilnframe on Windows
+        jobRoot: `${api.homedir().replace(/\\/g, "/")}/${api.platform() === "win" ? "Videos" : "Movies"}/Kilnframe/${folderName(s.projectName)}`,
         fps: s.fps,
         fpsValue: s.fpsValue,
         width: s.width,
@@ -85,6 +86,7 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
     },
     placeInsert: (seq, files, atS, handlesS, durationS, tracks) =>
       words(api.placeInsert(seq.id, files, atS, handlesS, durationS, tracks)),
+    placeAudioClips: (seq, clips) => words(api.placeAudioClips(seq.id, clips)),
     createStorySequence: (template, name, narration, music, format) =>
       words(api.createStorySequence(template.id, name, narration, music, format)),
     pickImages: (types) => api.pickImages(types),

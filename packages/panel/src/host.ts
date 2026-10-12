@@ -75,6 +75,11 @@ export interface Host {
     /** The tracks of an earlier part of the same long range; a new pair of tracks when missing. */
     tracks?: PlaceResult,
   ): Promise<PlaceResult>;
+  /** Music clips on one new audio track, each at its time in the sequence (seconds). */
+  placeAudioClips(
+    seq: HostSequence,
+    clips: { file: string; atS: number; durationS: number }[],
+  ): Promise<{ audioTrack: number }>;
   /** A new sequence holding the narration (and music); it becomes the active sequence. */
   createStorySequence(
     template: HostSequence,

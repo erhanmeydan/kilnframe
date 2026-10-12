@@ -244,6 +244,49 @@ describe("resolve bridge", () => {
     expect(f.project.timeline.tracks.audio).toHaveLength(1);
   });
 
+  it("puts music clips on one new stereo track at their times and gives In/Out back", async () => {
+    const f = makeFakeResolve({ markIn: 50, markOut: 225 });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    const placed = await b.placeAudioClips(seq.id, [
+      { file: "/m/Kilnframe/j/music/s1.wav", atS: 2, durationS: 3 },
+      { file: "/m/Kilnframe/j/music/s2.wav", atS: 5, durationS: 4 },
+    ]);
+    expect(placed).toEqual({ audioTrack: 1 });
+    expect(f.project.timeline.tracks.audio[1]!.items.map((i) => [i.start, i.end])).toEqual([
+      [90050, 90125],
+      [90125, 90225],
+    ]);
+    expect(f.project.timeline.mark).toEqual({ in: 50, out: 225 });
+  });
+
+  it("lays music clips that meet in seconds end to end in frames, whatever the rounding", async () => {
+    const f = makeFakeResolve();
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    // 0.02 s and 1.04 s fall between frames at 25 fps: rounded one by one they would overlap by a frame
+    await b.placeAudioClips(seq.id, [
+      { file: "/m/Kilnframe/j/music/s1.wav", atS: 0.02, durationS: 1.02 },
+      { file: "/m/Kilnframe/j/music/s2.wav", atS: 1.04, durationS: 1 },
+    ]);
+    const items = f.project.timeline.tracks.audio[1]!.items;
+    expect(items[0]!.end).toBe(items[1]!.start);
+  });
+
+  it("takes the music track away again when a clip cannot be placed", async () => {
+    const f = makeFakeResolve();
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    // the second clip overlaps the first: Resolve slides it, the bridge sees it and gives up
+    await expect(
+      b.placeAudioClips(seq.id, [
+        { file: "/m/Kilnframe/j/music/s1.wav", atS: 2, durationS: 3 },
+        { file: "/m/Kilnframe/j/music/s2.wav", atS: 4, durationS: 3 },
+      ]),
+    ).rejects.toThrow("PLACE_FAILED");
+    expect(f.project.timeline.tracks.audio).toHaveLength(1);
+  });
+
   it("gives an In point back on its own after placing", async () => {
     const f = makeFakeResolve({ markIn: 50 });
     const b = bridge(f);

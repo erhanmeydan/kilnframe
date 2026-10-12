@@ -59,6 +59,11 @@ export interface ResolveBridge {
   cancelExports(): Promise<void>;
   /** Whether Resolve is rendering (the editor's own queue): the exports wait for it. */
   isRendering(): Promise<boolean>;
+  /** Music clips on one new stereo track, each at its time (seconds from the timeline start). */
+  placeAudioClips(
+    id: string,
+    clips: { file: string; atS: number; durationS: number }[],
+  ): Promise<{ audioTrack: number }>;
   createStorySequence(
     templateId: string,
     name: string,

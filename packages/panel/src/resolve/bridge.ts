@@ -444,6 +444,53 @@ export function createResolveBridge(
       });
     },
 
+    placeAudioClips(id, clips) {
+      return onTimeline(id, async (tl, p) => {
+        const rate = await rateOf(tl);
+        const start = (await tl.GetStartFrame()) as number;
+        const mark = markOf(await tl.GetMarkInOut());
+        const playhead = (await tl.GetCurrentTimecode()) as string;
+        let track: number | null = null;
+        try {
+          const items = await importFiles(
+            p,
+            clips.map((c) => c.file),
+          );
+          await tl.AddTrack("audio", "stereo");
+          track = (await tl.GetTrackCount("audio")) as number;
+          const a = track;
+          await append(
+            tl,
+            p,
+            clips.map((c, i) => {
+              // the start and the end are rounded to frames from the sequence time, not the length on its
+              // own: clips that meet in seconds then meet in frames too
+              const from = Math.round(c.atS * rate.fps);
+              const to = Math.round((c.atS + c.durationS) * rate.fps);
+              return {
+                mediaPoolItem: items[i],
+                startFrame: 0,
+                // exclusive, as measured for AppendToTimeline
+                endFrame: to - from,
+                mediaType: 2 as const,
+                trackIndex: a,
+                recordFrame: start + from,
+              };
+            }),
+          );
+          return { audioTrack: a - 1 };
+        } catch (err) {
+          if (track !== null) await tl.DeleteTrack("audio", track);
+          throw err;
+        } finally {
+          if (mark.in !== undefined && mark.out !== undefined)
+            await tl.SetMarkInOut(mark.in, mark.out);
+          else if (mark.in !== undefined) await tl.SetMarkInOut(mark.in);
+          await tl.SetCurrentTimecode(playhead);
+        }
+      });
+    },
+
     async createStorySequence(templateId, name, narration, music, format) {
       const template = await onTimeline(
         templateId,

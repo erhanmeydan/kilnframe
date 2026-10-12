@@ -54,6 +54,20 @@ describe("resolve plugin", () => {
     expect(p?.developerNode).toMatch(/Examples\/SamplePlugin\/WorkflowIntegration\.node$/);
   });
 
+  it("knows where Resolve keeps things on Windows (Blackmagic's README, checked on Resolve 21.1.1)", () => {
+    const p = resolvePaths("win32", {
+      ProgramData: "C:\\ProgramData",
+      ProgramFiles: "C:\\Program Files",
+    });
+    expect(p?.app).toBe("C:\\Program Files\\Blackmagic Design\\DaVinci Resolve\\Resolve.exe");
+    expect(p?.pluginsDir).toBe(
+      "C:\\ProgramData\\Blackmagic Design\\DaVinci Resolve\\Support\\Workflow Integration Plugins",
+    );
+    expect(p?.developerNode).toBe(
+      "C:\\ProgramData\\Blackmagic Design\\DaVinci Resolve\\Support\\Developer\\Workflow Integrations\\Examples\\SamplePlugin\\WorkflowIntegration.node",
+    );
+  });
+
   it("does nothing without Resolve", () => {
     const m = machine({ resolve: false });
     expect(resolveInstallState(m.paths, { version: "0.2.0" })).toBe("no-resolve");

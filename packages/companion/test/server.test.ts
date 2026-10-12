@@ -419,6 +419,86 @@ describe("companion server", () => {
     expect(deleted).toEqual(["neon-gece"]);
   });
 
+  it("takes music jobs: a plan, then the music, and refuses a slider out of range", async () => {
+    const seen: { kind?: string }[] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      version: "test",
+      port: 0,
+      runner: async (p) => {
+        seen.push(p as { kind?: string });
+        return { kind: (p as { kind?: string }).kind };
+      },
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({
+      type: "job.start",
+      params: { kind: "music-plan", audioPath: "/a.wav", outDir: "/tmp/m", language: "tr" },
+    });
+    await c.next(
+      (m) => m.type === "job.done" && (m.result as { kind?: string }).kind === "music-plan",
+    );
+    const plan = {
+      version: 1,
+      world: "warm piano",
+      sections: [
+        {
+          id: "s1",
+          title: "T",
+          startS: 0,
+          endS: 60,
+          mood: "m",
+          energy: 2,
+          tempo: 90,
+          prompt: "p",
+          final: true,
+        },
+      ],
+    };
+    c.send({
+      type: "job.start",
+      params: { kind: "music-make", plan, outDir: "/tmp/m", durationS: 60, slider: -21 },
+    });
+    await c.next(
+      (m) => m.type === "job.done" && (m.result as { kind?: string }).kind === "music-make",
+    );
+    expect(seen.map((p) => p.kind)).toEqual(["music-plan", "music-make"]);
+    c.send({
+      type: "job.start",
+      params: { kind: "music-make", plan, outDir: "/tmp/m", durationS: 60, slider: -5 },
+    });
+    expect(await c.next((m) => m.type === "error")).toBeTruthy();
+  });
+
+  it("plays a music clip or preview, and nothing else", async () => {
+    const played: string[] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      version: "test",
+      port: 0,
+      runner: async () => ({}),
+      playAudio: (file) => played.push(file),
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "audio.play", file: "/Users/e/Movies/Kilnframe/P/job/music/preview/s2.wav" });
+    await c.next((m) => m.type === "audio.played");
+    // a section made again has a versioned name
+    c.send({ type: "audio.play", file: "/Users/e/Movies/Kilnframe/P/job/music/preview/s2-3.wav" });
+    await c.next((m) => m.type === "audio.played");
+    c.send({ type: "audio.play", file: "/etc/passwd" });
+    expect(await c.next((m) => m.type === "error")).toBeTruthy();
+    expect(played).toEqual([
+      "/Users/e/Movies/Kilnframe/P/job/music/preview/s2.wav",
+      "/Users/e/Movies/Kilnframe/P/job/music/preview/s2-3.wav",
+    ]);
+  });
+
   it("takes story jobs and answers voice requests", async () => {
     const seen: { kind?: string }[] = [];
     const played: string[] = [];

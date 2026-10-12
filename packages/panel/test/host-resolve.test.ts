@@ -55,6 +55,13 @@ describe("resolve host", () => {
     expect(h.kind).toBe("resolve");
   });
 
+  it("puts the job folders under Videos\\Kilnframe on Windows", async () => {
+    const s = await createResolveHost(
+      fakeApi({ homedir: () => "C:\\Users\\e", platform: () => "win" }),
+    ).currentSequence();
+    expect(s.jobRoot).toBe("C:/Users/e/Videos/Kilnframe/Belgesel- Ay - Gelgit");
+  });
+
   it("maps the timeline and puts its job folders under ~/Movies/Kilnframe/<project>", async () => {
     const s = await createResolveHost(fakeApi()).currentSequence();
     expect(s).toMatchObject({

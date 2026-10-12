@@ -118,7 +118,9 @@ export class JobQueue {
           ? "style-create"
           : j.params.kind === "story-write" ||
               j.params.kind === "story-voice" ||
-              j.params.kind === "parts"
+              j.params.kind === "parts" ||
+              j.params.kind === "music-plan" ||
+              j.params.kind === "music-make"
             ? j.params.kind
             : j.params.style,
       createdAt: j.createdAt.toISOString(),

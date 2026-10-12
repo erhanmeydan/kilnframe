@@ -8,6 +8,15 @@ import { host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { prettyModel } from "./models";
 import {
+  musicAct,
+  musicBox,
+  musicReadFields,
+  musicWriteFields,
+  newMusic,
+  watchesSequence,
+  type MusicCtx,
+} from "./music";
+import {
   LONG_RANGE_SECONDS,
   STORY_LENGTH,
   footageFrameTimes,
@@ -192,6 +201,8 @@ interface Settings {
   review: "on" | "off";
   /** Panel language; "auto" follows Premiere. */
   lang: LangSetting;
+  /** The Music tab's level under speech, as the editor's audio meter reads it (dBFS). */
+  musicLevel?: number;
 }
 
 interface StillImage {
@@ -313,15 +324,18 @@ const state = {
     fps: string;
     fpsValue: number;
     size: string;
+    /** The sequence's length: the Music tab can score all of it while an In/Out is set. */
+    endS: number;
   },
   seqError: "",
   job: null as JobView | null,
   /** A long range made part by part, also when it was started before a reload. */
   series: loadSeries(),
   lightbox: null as Lightbox | null,
-  /** The home screen's two ways to make an animation. */
-  tab: "range" as "range" | "story",
+  /** The home screen's ways to make something: an animation for a range, a story, music. */
+  tab: "range" as "range" | "story" | "music",
   story: newStory(),
+  music: newMusic(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -351,8 +365,9 @@ session.on((m) => {
     state.update = m.update as NonNullable<typeof state.update>;
     if (state.update.status !== "available") state.updateBusy = false;
     render();
-  } else if (m.type === "speech.ended") {
+  } else if (m.type === "speech.ended" || m.type === "audio.ended") {
     state.voicePlaying = "";
+    state.music.playing = null;
     render();
   } else if (m.type === "app.update.busy") {
     state.updateBusy = true;
@@ -502,6 +517,21 @@ function connectionBox(): string {
   return `<div class="box warn"><div>${t("conn.down")}</div><div class="small muted">${esc(
     state.connError,
   )}</div><div class="btn2 mt" data-act="reconnect">${t("conn.retry")}</div></div>`;
+}
+
+/** The Music tab's range line, like the range tab's: the In/Out or the whole sequence, as chosen. */
+function musicRangeLine(scope: "all" | "range"): string {
+  if (state.seqError) return `<div class="box warn">${esc(state.seqError)}</div>`;
+  if (!state.seq) return `<div class="box muted">${t("seq.reading")}</div>`;
+  const inOut = state.seq.range.source === "inout";
+  const r =
+    scope === "range" && inOut
+      ? state.seq.range
+      : { startS: 0, endS: state.seq.endS, durationS: state.seq.endS };
+  const label = scope === "range" && inOut ? t("seq.range") : t("seq.whole");
+  return `<div class="rangeline row"><span>${label} ${formatTimecode(r.startS)} → ${formatTimecode(
+    r.endS,
+  )}</span><span class="muted">${formatDuration(r.durationS)} · ${esc(formatFps(state.seq.fps, state.seq.fpsValue))} fps</span></div>`;
 }
 
 function rangeBox(): string {
@@ -691,8 +721,9 @@ function home(): string {
   ${seg("tab", state.tab, [
     ["range", t("tab.range")],
     ["story", t("tab.story")],
+    ["music", t("tab.music")],
   ])}
-  ${state.tab === "story" ? storyBox() : rangeHome(done)}`;
+  ${state.tab === "story" ? storyBox() : state.tab === "music" ? musicBox(state.music, musicCtx) : rangeHome(done)}`;
 }
 
 /** A long range left unfinished (reload, restart, an error, or Continue Later): where it stands. */
@@ -1892,6 +1923,12 @@ function settings(): string {
     ["off", t("settings.reviewOff")],
   ])}
   ${speechKeys()}
+  <div class="lbl">${t("settings.musicLevel")}</div>
+  ${seg(
+    "music-level",
+    String(s.musicLevel ?? -21),
+    ["-27", "-24", "-21", "-18", "-15"].map((v) => [v, `${v} dB`] as [string, string]),
+  )}
   ${
     host().onTop
       ? `<div class="lbl">${t("settings.window")}</div>
@@ -2061,6 +2098,7 @@ function render() {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     if (el) state.story[key] = el.value ?? "";
   }
+  musicReadFields(state.music);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
   const baseField = document.getElementById("base-input") as HTMLInputElement | null;
@@ -2124,6 +2162,7 @@ function render() {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     if (el) el.value = state.story[key];
   }
+  musicWriteFields(state.music);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
   if (state.own) {
@@ -2215,6 +2254,43 @@ async function exportFootageFrames(
   return frames;
 }
 
+/** Lyria 3.5's price per piece (the companion's music catalog); shown before any money is spent. */
+const LYRIA_PRICE_USD = 0.08;
+
+/** What the Music tab (music.ts) uses from the rest of the panel. */
+const musicCtx: MusicCtx = {
+  esc: (s) => esc(s),
+  seg: (name, value, options) => seg(name, value, options),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  keySet: () => state.story.keySet,
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  providerParams: () => providerParams(),
+  wavPreset: () => state.system?.wavPreset ?? "",
+  frames: async (target, range, jobDir) =>
+    (await exportFootageFrames(target, range, jobDir)).map((f) => ({
+      path: f.path,
+      atS: f.seqS - range.startS,
+    })),
+  withoutOurInserts: (target, range, fn) =>
+    host().withoutOurInserts(target, range.startS, range.endS, fn),
+  exportAudio: (target, range, file) =>
+    host().exportRangeAudio(target, range.startS, range.endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  placeClips: (target, clips) => host().placeAudioClips(target, clips),
+  rangeLine: (scope) => musicRangeLine(scope),
+  slider: () => state.settings.musicLevel ?? -21,
+  pricePerSong: () => LYRIA_PRICE_USD,
+  openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
+};
+
 async function readSequence(): Promise<HostSequence | null> {
   try {
     const seq = await host().currentSequence();
@@ -2226,6 +2302,7 @@ async function readSequence(): Promise<HostSequence | null> {
       fps: seq.fps,
       fpsValue: seq.fpsValue,
       size: `${seq.width}x${seq.height}`,
+      endS: seq.endSeconds,
     };
     state.seqError = "";
     // the style belongs to the video: reuse the one chosen for this sequence before
@@ -3233,8 +3310,19 @@ function runAction(el: HTMLElement) {
     state.review.note = "";
     state.lightbox = null;
   } else if (act === "lb-close") state.lightbox = null;
-  else if (act === "tab") state.tab = val as "range" | "story";
-  else if (act === "story-length") {
+  else if (act === "tab") {
+    state.tab = val as "range" | "story" | "music";
+    // the music needs the Gemini key: its state comes with the voices
+    if (state.tab === "music" && state.conn === "ok")
+      void loadVoices()
+        .then(render)
+        .catch(() => undefined);
+  } else if (act && musicAct(state.music, musicCtx, act, val)) {
+    /* handled by the Music tab */
+  } else if (act === "music-level") {
+    state.settings = { ...state.settings, musicLevel: Number(val) };
+    store("settings", JSON.stringify(state.settings));
+  } else if (act === "story-length") {
     const choice = (["30", "60", "120", "custom"] as const).find((c) => c === val);
     if (choice) {
       state.story.lengthChoice = choice;
@@ -3522,9 +3610,14 @@ function rereadSequence() {
 }
 
 // Premiere has no event for a new in or out point (26.5 lists sequence activated, closed and selection
-// changed only), so the range tab looks again every 1.5 s while it is open
+// changed only), so the range tab (and the Music tab's first screen) looks again every 1.5 s while it is open
 setInterval(() => {
-  if (state.screen === "home" && state.tab === "range" && !state.lightbox && !pressed)
+  if (
+    state.screen === "home" &&
+    watchesSequence(state.tab, state.music.stage) &&
+    !state.lightbox &&
+    !pressed
+  )
     rereadSequence();
 }, 1500);
 
