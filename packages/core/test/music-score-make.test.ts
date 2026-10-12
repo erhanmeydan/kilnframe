@@ -156,6 +156,57 @@ describe("making the score", { timeout: 30_000 }, () => {
     expect(r.sections.every((x) => x.file)).toBe(true);
   });
 
+  it("makes a section again when the plan changed it, instead of reusing a piece made for something else", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    await makeScore(base(out, fakeLyria().fetchFn));
+    const changed: MusicPlan = {
+      ...plan,
+      sections: [plan.sections[0]!, { ...plan.sections[1]!, prompt: "brighter strings" }],
+    };
+    const again = fakeLyria();
+    await makeScore({ ...base(out, again.fetchFn), plan: changed });
+    expect(again.calls).toHaveLength(1);
+    expect(again.calls[0]).toMatch(/brighter strings/);
+  });
+
+  it("keeps the section's earlier piece when making it again fails", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    await makeScore(base(out, fakeLyria().fetchFn));
+    const refused = (async () => new Response("{}", { status: 400 })) as unknown as typeof fetch;
+    const r = await makeScore({ ...base(out, refused), only: ["s2"] });
+    expect(r.sections[1]!.file).toBeTruthy();
+    expect(r.sections[1]!.error).toBeTruthy();
+    // the neighbour still crossfades into it: its clip keeps its full length
+    expect(r.sections[0]!.durationS).toBeCloseTo(40, 3);
+  });
+
+  it("refuses a piece too short to loop instead of hanging", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const r = await makeScore(base(out, fakeLyria(2).fetchFn));
+    expect(r.sections.every((x) => x.error && !x.file)).toBe(true);
+  });
+
+  it("asks Lyria no more after a stop, also not for a retry", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const stop = new AbortController();
+    let calls = 0;
+    const busy = (async () => {
+      calls++;
+      stop.abort();
+      return new Response("{}", { status: 503 });
+    }) as unknown as typeof fetch;
+    await expect(
+      makeScore({ ...base(out, busy), concurrency: 1, signal: stop.signal, sleep: async () => undefined }),
+    ).rejects.toThrow(/stopped/i);
+    expect(calls).toBe(1);
+  });
+
+  it("measures the last section's speech level without the final rise", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const r = await makeScore(base(out, fakeLyria().fetchFn));
+    expect(r.sections[1]!.measured.speechDb).toBeCloseTo(-21, 0);
+  });
+
   it("keeps going when one section fails and turns its neighbour's crossfade into an ending", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     let n = 0;

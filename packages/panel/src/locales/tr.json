@@ -466,5 +466,6 @@
   "music.licence": "Google Lyria ile üretilir, duyulmayan bir filigran taşır, kullanımı Google'ın koşullarına tabidir.",
   "music.terms": "Koşullar",
   "music.jobFailed": "Müzik üretilemedi: {message}",
-  "settings.musicLevel": "Konuşma Altında Müzik Seviyesi"
+  "settings.musicLevel": "Konuşma Altında Müzik Seviyesi",
+  "music.redoFailed": "Yeniden üretilemedi, önceki müzik kaldı."
 }

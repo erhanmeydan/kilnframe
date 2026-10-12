@@ -2,7 +2,15 @@
 // the next clip's head), ducked under the speech by the level curve; the last piece's own close ends the range.
 // Raw pieces are kept per section, so making one section again re-cuts its neighbours without Lyria.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { ffmpegPath } from "../../config.js";
 import type { Word } from "../../schemas/transcript.js";
@@ -25,6 +33,9 @@ const FIRST_FADE_IN_S = 0.6;
 const AFTER_END_FADE_IN_S = 0.3;
 const END_FADE_OUT_S = 1;
 const FINAL_FADE_S = 0.5;
+/** A piece must outlast its own loop crossfade twice over to be looped (a cut-off reply is refused). */
+const MIN_PIECE_S = 6;
+const FINAL_RAMP_S = 20;
 
 export interface MakeMusicOptions {
   plan: MusicPlan;
@@ -76,7 +87,8 @@ function nextName(dir: string, id: string): string {
 
 function rawOf(dir: string, id: string): string | null {
   if (!existsSync(dir)) return null;
-  const f = readdirSync(dir).find((x) => x.startsWith(`${id}.`));
+  // the piece, not its note (<id>.json)
+  const f = readdirSync(dir).find((x) => x.startsWith(`${id}.`) && !x.endsWith(".json"));
   return f ? join(dir, f) : null;
 }
 
@@ -103,8 +115,21 @@ export async function makeScore(
   const errors = new Map<string, string>();
   const sections = o.plan.sections;
 
-  /** One Lyria piece, with the story mode's retries and one plainer try after a content refusal. */
-  async function generate(model: string, prompt: string, plain: string, file: string) {
+  const stopped = () => o.signal?.aborted === true;
+  const baseFetch = o.fetch ?? fetch;
+  // a stop also cancels a request on its way
+  const doFetch = (
+    o.signal
+      ? (u: Parameters<typeof fetch>[0], i?: RequestInit) =>
+          baseFetch(u, { ...i, signal: o.signal })
+      : baseFetch
+  ) as typeof fetch;
+
+  /**
+   * One Lyria piece, with the story mode's retries and one plainer try after a content refusal. The piece
+   * replaces the section's earlier one only once it has arrived, with a note of the prompt it was made for.
+   */
+  async function generate(model: string, prompt: string, plain: string, id: string) {
     let text = prompt;
     for (let attempt = 1; ; attempt++) {
       try {
@@ -113,16 +138,17 @@ export async function makeScore(
           model,
           endpoint: o.endpoint,
           prompt: text,
-          ...(o.fetch ? { fetch: o.fetch } : {}),
+          fetch: doFetch,
         });
         priceUsd += priceOf(model);
-        const saved = saveRawMusic(r.audio, r.mimeType, rawDir);
+        const saved = saveRawMusic(r.audio, r.mimeType, join(rawDir, "incoming", id));
         const ext = saved.slice(saved.lastIndexOf("."));
-        const target = `${file}${ext}`;
-        rmSync(target, { force: true });
-        renameSync(saved, target);
-        return target;
+        for (const f of readdirSync(rawDir)) if (f.startsWith(`${id}.`)) rmSync(join(rawDir, f));
+        renameSync(saved, join(rawDir, `${id}${ext}`));
+        writeFileSync(join(rawDir, `${id}.json`), JSON.stringify({ prompt }));
+        return;
       } catch (err) {
+        if (stopped()) throw err;
         if (
           err instanceof MusicError &&
           /blocked|sensitive|prohibited/i.test(err.message) &&
@@ -137,27 +163,32 @@ export async function makeScore(
     }
   }
 
-  // 1. raw pieces: the asked sections again, any section without one yet
-  const wanted = sections.filter(
-    (s) => !s.silent && (o.only?.includes(s.id) || !rawOf(rawDir, s.id)),
-  );
+  /** Whether the kept piece was made for this section as the plan has it now (its prompt holds its length). */
+  const fits = (s: MusicSection) => {
+    const note = join(rawDir, `${s.id}.json`);
+    if (!rawOf(rawDir, s.id) || !existsSync(note)) return false;
+    try {
+      return (
+        (JSON.parse(readFileSync(note, "utf8")) as { prompt?: string }).prompt ===
+        lyriaPrompt(o.plan, s)
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  // 1. raw pieces: the asked sections again, and any section without a piece made for it as it is now
+  const wanted = sections.filter((s) => !s.silent && (o.only?.includes(s.id) || !fits(s)));
   let done = 0;
-  const stopped = () => o.signal?.aborted === true;
   await pool(wanted, o.concurrency ?? 3, async (s) => {
     if (stopped()) return;
     o.onProgress?.(`Writing the music ${++done}/${wanted.length}`);
-    for (const f of readdirSync(rawDir)) if (f.startsWith(`${s.id}.`)) rmSync(join(rawDir, f));
     const plainSection: MusicSection = {
       ...s,
       prompt: "Simple, calm instrumental background music.",
     };
     try {
-      await generate(
-        o.model,
-        lyriaPrompt(o.plan, s),
-        lyriaPrompt(o.plan, plainSection),
-        join(rawDir, s.id),
-      );
+      await generate(o.model, lyriaPrompt(o.plan, s), lyriaPrompt(o.plan, plainSection), s.id);
     } catch (err) {
       errors.set(s.id, err instanceof Error ? err.message : String(err));
     }
@@ -165,8 +196,16 @@ export async function makeScore(
 
   if (stopped()) throw new Error("The music was stopped.");
   o.onProgress?.("Fitting the music to the speech");
-  const playable = (s: MusicSection | undefined) =>
-    !!s && !s.silent && !errors.has(s.id) && !!rawOf(rawDir, s.id);
+  // the pieces to use: a failed remake keeps the earlier piece; a cut-off piece is refused
+  const pieces = new Map<string, Float32Array[]>();
+  for (const s of sections) {
+    const raw = !s.silent ? rawOf(rawDir, s.id) : null;
+    if (!raw) continue;
+    const piece = readAudio(raw);
+    if (piece[0]!.length < MIN_PIECE_S * SR) errors.set(s.id, "The music came back too short.");
+    else pieces.set(s.id, piece);
+  }
+  const playable = (s: MusicSection | undefined) => !!s && pieces.has(s.id);
 
   // 2. each section's own music, long enough for a crossfade into the next one
   const own = new Map<string, Float32Array[]>();
@@ -181,7 +220,7 @@ export async function makeScore(
         ? "crossfade"
         : "end";
     outOf.set(s.id, kind);
-    const piece = readAudio(rawOf(rawDir, s.id)!);
+    const piece = pieces.get(s.id)!;
     let music: Float32Array[];
     if (kind !== "final") {
       music = fitLength(piece, len + (kind === "crossfade" ? CROSSFADE_S : 0), kind === "end");
@@ -261,7 +300,11 @@ export async function makeScore(
       Math.max(a, s.startS) - s.startS,
       Math.min(b, s.endS) - s.startS,
     ];
-    const speech = spans.map((x) => inSection(x.start, x.end)).filter(([a, b]) => b > a);
+    // the last 20 s rise on purpose: the speech level is read before them
+    const speechEnd = s.final ? o.rangeDurationS - FINAL_RAMP_S : s.endS;
+    const speech = spans
+      .map((x) => inSection(x.start, Math.min(x.end, speechEnd)))
+      .filter(([a, b]) => b > a);
     const gaps: [number, number][] = [];
     let at = s.startS;
     for (const x of spans) {

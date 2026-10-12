@@ -4,6 +4,7 @@ import {
   musicAct,
   clock,
   levelNote,
+  musicBox,
   mergeWithNext,
   newMusic,
   planCost,
@@ -133,5 +134,27 @@ describe("music panel", () => {
     const st = { ...newMusic(), stage: "making" as const, jobId: "job-7" };
     expect(musicAct(st, ctx, "music-cancel", "")).toBe(true);
     expect(sent).toEqual([{ type: "job.cancel", jobId: "job-7" }]);
+  });
+
+  it("says when making a section again failed and its earlier music stays", () => {
+    const st = {
+      ...newMusic(),
+      plan,
+      stage: "listen" as const,
+      made: [
+        {
+          id: "s1",
+          file: "/j/music/s1.wav",
+          clean: null,
+          preview: null,
+          atS: 0,
+          durationS: 40,
+          measured: { speechDb: null, gapDb: null },
+          error: "Lyria failed",
+        },
+      ],
+    };
+    const ctx = { esc: (x: string) => x, slider: () => -21 } as never;
+    expect(musicBox(st, ctx)).toMatch(/earlier music stays|önceki müzik kaldı/);
   });
 });

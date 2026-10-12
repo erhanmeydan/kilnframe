@@ -466,5 +466,6 @@
   "music.licence": "Made with Google Lyria; it carries an inaudible watermark and its use follows Google's terms.",
   "music.terms": "Terms",
   "music.jobFailed": "The music could not be made: {message}",
-  "settings.musicLevel": "Music Level Under Speech"
+  "settings.musicLevel": "Music Level Under Speech",
+  "music.redoFailed": "Making it again failed; the earlier music stays."
 }

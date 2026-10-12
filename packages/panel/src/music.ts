@@ -298,7 +298,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
           : "";
       const playing = st.playing === m.id;
       return `<div class="box small">${head}<span class="link" data-act="${playing ? "music-stop" : "music-play"}" data-val="${m.id}">${playing ? t("music.stop") : t("music.play")}</span></div>
-    ${levels}
+    ${levels}${m.error ? `<div class="warn-text mt">${t("music.redoFailed")}</div>` : ""}
     <input class="img-note" id="music-edit-${m.id}" type="text" placeholder="${t("music.sectionNote")}">
     <div class="link mt" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
     })
