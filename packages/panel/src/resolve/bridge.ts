@@ -135,8 +135,11 @@ export function createResolveBridge(
         ...settings,
       });
       if (!ok) return false;
-      // Resolve has refused to start a job it had just added (StartRendering false, the job left Ready for
-      // good, 12 Oct 2026); a fresh job then renders. So: a few tries, each job deleted, never an endless wait.
+      // Resolve Studio 21.1.1 refuses StartRendering on the Edit page right after a still export or a format
+      // change, and that job then never starts; from the Deliver page it starts (12 Oct 2026). Rendering shows
+      // the Deliver page anyway; the editor's page comes back in `finally`. Still: a few tries with a growing
+      // pause, each refused job deleted, never an endless wait.
+      await resolve.OpenPage("deliver");
       for (let attempt = 1; attempt <= START_TRIES; attempt++) {
         job = (await p.AddRenderJob()) as string;
         if (!job) return false;
@@ -156,7 +159,7 @@ export function createResolveBridge(
         }
         await p.DeleteRenderJob(job);
         job = null;
-        await sleep(POLL_MS / 2);
+        await sleep(POLL_MS * attempt);
       }
       throw new Error(RENDER_FAILED);
     } finally {
@@ -165,7 +168,7 @@ export function createResolveBridge(
         await p.LoadRenderPreset(TEMP_PRESET);
         await p.DeleteRenderPreset(TEMP_PRESET);
       }
-      if (page) await resolve.OpenPage(page);
+      if (page && page !== "deliver") await resolve.OpenPage(page);
     }
   }
 
@@ -256,8 +259,8 @@ export function createResolveBridge(
             ExportVideo: true,
             ExportAudio: false,
             FormatWidth: half(s.timelineResolutionWidth ?? "1920"),
+            // no VideoQuality: a string there makes Resolve refuse the whole settings (12 Oct 2026)
             FormatHeight: half(s.timelineResolutionHeight ?? "1080"),
-            VideoQuality: "Low",
           },
           // "H.264", not "H.265"
           ["mp4", /^H\.?264\b/i],

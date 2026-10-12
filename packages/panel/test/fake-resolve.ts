@@ -37,6 +37,8 @@ export interface FakeOptions {
   failFirstStill?: boolean;
   /** StartRendering returns false this many times before it works (Infinity: never). */
   refuseStarts?: number;
+  /** Resolve Studio 21.1.1 refuses StartRendering on the Edit page right after a still export (12 Oct 2026). */
+  refuseOffDeliver?: boolean;
 }
 
 const track = (items: FakeItem[] = []): FakeTrack => ({ items, enabled: true, locked: false });
@@ -263,7 +265,11 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     LoadRenderPreset: async (n: string) => (log.presets.push(`load:${n}`), true),
     DeleteRenderPreset: async (n: string) => (log.presets.push(`delete:${n}`), true),
     GetRenderPresetList: async () => [] as string[],
-    SetRenderSettings: async (s: Record<string, unknown>) => (log.renderSettings.push(s), true),
+    // a VideoQuality string makes Resolve 21.1.1 refuse the whole settings dict
+    SetRenderSettings: async (s: Record<string, unknown>) => (
+      log.renderSettings.push(s),
+      typeof s.VideoQuality !== "string"
+    ),
     SetCurrentRenderFormatAndCodec: async (f: string, c: string) => (
       log.formats.push(`${f}/${c}`),
       true
@@ -273,6 +279,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     AddRenderJob: async () => `job-${++jobs}`,
     StartRendering: async (ids: string[]) => {
       log.startRendering.push(ids);
+      if (o.refuseOffDeliver && page !== "deliver") return false;
       if (refusals > 0) {
         refusals--;
         return false;

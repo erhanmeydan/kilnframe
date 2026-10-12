@@ -69,6 +69,15 @@ describe("resolve bridge", () => {
     expect(f.log.pages.at(-1)).toBe("edit");
   });
 
+  it("starts renders from the Deliver page and goes back to the editor's page", async () => {
+    const f = makeFakeResolve({ refuseOffDeliver: true });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).resolves.toMatchObject({ ok: true });
+    expect(f.log.pages).toEqual(["deliver", "edit"]);
+    expect(f.log.startRendering).toHaveLength(1);
+  });
+
   it("adds the job again when Resolve refuses to start it (seen 12 Oct 2026), deleting the refused one", async () => {
     const f = makeFakeResolve({ refuseStarts: 1 });
     const b = bridge(f);
