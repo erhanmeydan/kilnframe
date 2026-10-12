@@ -8,3 +8,5 @@ out
 **/vendor
 # third-party license texts stay as their authors wrote them
 packages/app/build/licenses
+# golden scenes are compositions exactly as the app wrote them; formatting them would change what is rendered
+examples/golden/*/
