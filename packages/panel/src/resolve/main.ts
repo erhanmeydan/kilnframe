@@ -93,6 +93,7 @@ function register() {
       platform: process.platform === "win32" ? "win" : "mac",
       locale: app.getLocale(),
       pluginVersion: pluginVersion(),
+      onTop: win?.isAlwaysOnTop() ?? readWindowState().onTop,
     };
   });
   for (const m of BRIDGE_CALLS)
@@ -100,6 +101,9 @@ function register() {
       const b = await resolveBridge();
       return (b[m] as (...a: unknown[]) => Promise<unknown>)(...args);
     });
+  ipcMain.handle("kilnframe:setOnTop", (_e, on: boolean) => {
+    win?.setAlwaysOnTop(Boolean(on));
+  });
   ipcMain.handle("kilnframe:pickImages", async (_e, types: string[]) => {
     const r = await dialog.showOpenDialog(win!, {
       properties: ["openFile", "multiSelections"],

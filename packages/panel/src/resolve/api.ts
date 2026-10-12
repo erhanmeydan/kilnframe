@@ -78,6 +78,9 @@ export interface KilnframeResolveApi extends ResolveBridge {
   platform(): "mac" | "win";
   locale(): string;
   pluginVersion(): string;
+  /** Whether the panel window stays above Resolve, as it opened. */
+  onTop(): boolean;
+  setOnTop(on: boolean): Promise<void>;
 }
 
 /** Error messages the bridge throws; the host turns them into the panel's words. */

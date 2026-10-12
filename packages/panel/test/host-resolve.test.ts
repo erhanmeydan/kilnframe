@@ -41,6 +41,8 @@ function fakeApi(over: Partial<KilnframeResolveApi> = {}): KilnframeResolveApi {
     platform: () => "mac",
     locale: () => "tr-TR",
     pluginVersion: () => "0.2.0",
+    onTop: () => true,
+    setOnTop: vi.fn(async () => undefined),
     ...over,
   };
 }
@@ -112,6 +114,15 @@ describe("resolve host", () => {
     await expect(
       h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
     ).rejects.toThrow(/stopped/i);
+  });
+
+  it("lets the editor keep the panel window above Resolve or not", () => {
+    const api = fakeApi();
+    const h = createResolveHost(api);
+    expect(h.onTop?.get()).toBe(true);
+    h.onTop?.set(false);
+    expect(api.setOnTop).toHaveBeenCalledWith(false);
+    expect(h.onTop?.get()).toBe(false);
   });
 
   it("says before the exports that it waits for a render Resolve is doing", async () => {

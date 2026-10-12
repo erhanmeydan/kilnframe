@@ -1892,6 +1892,15 @@ function settings(): string {
     ["off", t("settings.reviewOff")],
   ])}
   ${speechKeys()}
+  ${
+    host().onTop
+      ? `<div class="lbl">${t("settings.window")}</div>
+  ${seg("ontop", host().onTop?.get() ? "on" : "off", [
+    ["on", t("settings.onTopOn")],
+    ["off", t("settings.onTopOff")],
+  ])}`
+      : ""
+  }
   <div class="lbl">${t("settings.system")}</div>
   <div class="box small">
     <div class="row"><span>${t("settings.companion")}</span><span class="${okWarn(state.conn === "ok")}">${state.conn === "ok" ? t("settings.running") : t("settings.notConnected")}</span></div>
@@ -1933,7 +1942,9 @@ function versionLine(): string {
   const notes =
     lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
   return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div>${
-    differ ? `<div class="small warn-text">${t("settings.versionsDiffer")}</div>` : ""
+    differ
+      ? `<div class="small warn-text">${t(host().kind === "resolve" ? "settings.versionsDifferResolve" : "settings.versionsDiffer")}</div>`
+      : ""
   }`;
 }
 
@@ -3408,6 +3419,8 @@ function runAction(el: HTMLElement) {
     state.settings = { ...state.settings, [act]: val };
     store("settings", JSON.stringify(state.settings));
     if (act === "lang") applyLang();
+  } else if (act === "ontop") {
+    host().onTop?.set(val === "on");
   } else if (act === "provider") {
     state.settings = { ...state.settings, provider: val };
     store("settings", JSON.stringify(state.settings));

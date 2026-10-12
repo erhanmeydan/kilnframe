@@ -18,6 +18,7 @@ const ASYNC = [
   "readTextFile",
   "writeTextFile",
   "fileExists",
+  "setOnTop",
 ] as const;
 
 const info = ipcRenderer.sendSync("kilnframe:info") as {
@@ -25,6 +26,7 @@ const info = ipcRenderer.sendSync("kilnframe:info") as {
   platform: "mac" | "win";
   locale: string;
   pluginVersion: string;
+  onTop: boolean;
 };
 
 contextBridge.exposeInMainWorld("kilnframeResolve", {
@@ -35,4 +37,5 @@ contextBridge.exposeInMainWorld("kilnframeResolve", {
   platform: () => info.platform,
   locale: () => info.locale,
   pluginVersion: () => info.pluginVersion,
+  onTop: () => info.onTop,
 });

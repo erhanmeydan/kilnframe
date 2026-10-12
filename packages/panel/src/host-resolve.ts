@@ -15,6 +15,7 @@ import {
 const folderName = (name: string) => name.replace(/[\\/:*?"<>|]/g, "-").trim() || "Resolve";
 
 export function createResolveHost(api: KilnframeResolveApi): Host {
+  let onTop = api.onTop();
   /** The bridge's codes in the panel's words; anything else as it came. */
   const words = async <T>(p: Promise<T>): Promise<T> => {
     try {
@@ -58,6 +59,13 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
       words(api.exportRangePicture(seq.id, startS, endS, file)),
     async busyNote() {
       return (await api.isRendering().catch(() => false)) ? t("resolve.waitingRender") : null;
+    },
+    onTop: {
+      get: () => onTop,
+      set(on) {
+        onTop = on;
+        void api.setOnTop(on).catch(() => undefined);
+      },
     },
     cancelExports() {
       void api.cancelExports().catch(() => undefined);
