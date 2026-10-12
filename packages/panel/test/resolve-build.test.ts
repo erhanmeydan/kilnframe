@@ -9,7 +9,12 @@ const version = JSON.parse(readFileSync(join(panel, "public", "manifest.json"), 
 
 describe("resolve build", () => {
   beforeAll(() => {
-    execFileSync("pnpm", ["build"], { cwd: panel, stdio: "ignore" });
+    // pnpm is pnpm.cmd on Windows, which only a shell finds
+    execFileSync("pnpm", ["build"], {
+      cwd: panel,
+      stdio: "ignore",
+      shell: process.platform === "win32",
+    });
   }, 120_000);
 
   it("writes a Workflow Integration plugin folder", () => {

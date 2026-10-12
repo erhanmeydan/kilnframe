@@ -2,7 +2,7 @@
 // Workflow Integration plugins from one folder at start. The plugin needs Blackmagic's WorkflowIntegration.node,
 // which Kilnframe does not ship: it is copied from the user's own Resolve install, again whenever Resolve updates it.
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
-import { join, win32 } from "node:path";
+import { join, posix, win32 } from "node:path";
 
 export const RESOLVE_PLUGIN_ID = "com.kilnframe.resolve";
 
@@ -47,10 +47,11 @@ export function resolvePaths(
     };
   }
   if (platform !== "darwin") return null;
+  // a Mac path is always a POSIX path, also when this runs elsewhere (the tests on Windows)
   const support = "/Library/Application Support/Blackmagic Design/DaVinci Resolve";
   return {
     app: "/Applications/DaVinci Resolve/DaVinci Resolve.app",
-    developerNode: join(
+    developerNode: posix.join(
       support,
       "Developer",
       "Workflow Integrations",
@@ -58,7 +59,7 @@ export function resolvePaths(
       "SamplePlugin",
       "WorkflowIntegration.node",
     ),
-    pluginsDir: join(support, "Workflow Integration Plugins"),
+    pluginsDir: posix.join(support, "Workflow Integration Plugins"),
   };
 }
 
