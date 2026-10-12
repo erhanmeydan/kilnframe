@@ -1,5 +1,5 @@
 // The music-make step: one Lyria piece per section, fitted to its section, joined (a crossfade is baked into
-// the next clip's head), ducked under the speech by the level curve, and the closing hit put on its mark.
+// the next clip's head), ducked under the speech by the level curve; the last piece's own close ends the range.
 // Raw pieces are kept per section, so making one section again re-cuts its neighbours without Lyria.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -8,7 +8,6 @@ import { ffmpegPath } from "../../config.js";
 import type { Word } from "../../schemas/transcript.js";
 import { generateMusic, loadMusicCatalog, MusicError, saveRawMusic } from "../index.js";
 import { readAudio, SR, writeAudio } from "./audio-io.js";
-import { alignFinal, findHit } from "./final.js";
 import { bakeCrossfade, fade, fitLength } from "./fit.js";
 import {
   applyLevels,
@@ -25,7 +24,7 @@ const CROSSFADE_S = 2.5;
 const FIRST_FADE_IN_S = 0.6;
 const AFTER_END_FADE_IN_S = 0.3;
 const END_FADE_OUT_S = 1;
-const HIT_LIFT_DB = 9;
+const FINAL_FADE_S = 0.5;
 
 export interface MakeMusicOptions {
   plan: MusicPlan;
@@ -37,7 +36,6 @@ export interface MakeMusicOptions {
   apiKey: string;
   endpoint: string;
   model: string;
-  clipModel: string;
   only?: string[] | undefined;
   fetch?: typeof fetch;
   onProgress?: ((m: string) => void) | undefined;
@@ -63,32 +61,6 @@ async function pool<T>(items: T[], limit: number, fn: (t: T) => Promise<void>): 
       for (let t = queue.shift(); t !== undefined; t = queue.shift()) await fn(t);
     }),
   );
-}
-
-const cut = (ch: Float32Array[], from: number, to: number) => ch.map((c) => c.slice(from, to));
-const concat = (a: Float32Array[], b: Float32Array[]) =>
-  a.map((c, k) => {
-    const o = new Float32Array(c.length + b[k]!.length);
-    o.set(c);
-    o.set(b[k]!, c.length);
-    return o;
-  });
-const add = (a: Float32Array[], b: Float32Array[]) =>
-  a.map((c, k) => c.map((v, i) => v + (b[k]![i] ?? 0)));
-
-/** Scales the stretch from `fromS` on so its peak is at most `peakDb` (the final hit). */
-function capFrom(ch: Float32Array[], fromS: number, peakDb: number): Float32Array[] {
-  const from = Math.max(0, Math.round(fromS * SR));
-  let p = 0;
-  for (const c of ch) for (let i = from; i < c.length; i++) p = Math.max(p, Math.abs(c[i]!));
-  const ceiling = 10 ** (peakDb / 20);
-  if (p <= ceiling) return ch;
-  const g = ceiling / p;
-  return ch.map((c) => {
-    const o = c.slice();
-    for (let i = from; i < o.length; i++) o[i]! *= g;
-    return o;
-  });
 }
 
 function rawOf(dir: string, id: string): string | null {
@@ -181,7 +153,6 @@ export async function makeScore(
   o.onProgress?.("Fitting the music to the speech");
   const playable = (s: MusicSection | undefined) =>
     !!s && !s.silent && !errors.has(s.id) && !!rawOf(rawDir, s.id);
-  const lastWordEnd = o.words.length ? o.words.at(-1)!.end : null;
 
   // 2. each section's own music, long enough for a crossfade into the next one
   const own = new Map<string, Float32Array[]>();
@@ -202,57 +173,9 @@ export async function makeScore(
       music = fitLength(piece, len + (kind === "crossfade" ? CROSSFADE_S : 0), kind === "end");
       if (kind === "end") music = fade(music, 0, END_FADE_OUT_S);
     } else {
-      const ruleEnd = lastWordEnd ?? -Infinity;
-      const hitAt = (ruleEnd >= o.rangeDurationS - 3 ? ruleEnd : o.rangeDurationS - 2) - s.startS;
-      const hitS = findHit(piece);
-      if (hitS !== null) {
-        // enough music before the hit: the part ahead of it is looped when the piece is short of it
-        const before = cut(piece, 0, Math.round(hitS * SR));
-        const after = cut(piece, Math.round(hitS * SR), piece[0]!.length);
-        const lead = hitS < hitAt ? fitLength(before, hitAt, false) : before;
-        music = alignFinal({
-          music: concat(lead, after),
-          hitS: lead[0]!.length / SR,
-          sectionStartS: s.startS,
-          rangeDurationS: o.rangeDurationS,
-          lastWordEndS: lastWordEnd,
-        });
-      } else {
-        // no hit in the piece: a separate hit from the clip model, the section's music fading into it
-        let clipFile: string | null;
-        try {
-          clipFile = await generate(
-            o.clipModel,
-            `A single big final hit with a natural decay, nothing before it. ${o.plan.world}. Instrumental only.`,
-            "A single big orchestral hit with a natural decay. Instrumental only.",
-            join(rawDir, `${s.id}-hit`),
-          );
-        } catch {
-          clipFile = null;
-        }
-        const stop = Math.min(len, Math.max(0.5, hitAt));
-        const body = fade(
-          cut(fitLength(piece, len, false), 0, Math.round(stop * SR)),
-          0,
-          Math.min(1, stop),
-        );
-        const silence = body.map(() => new Float32Array(Math.round(len * SR) - body[0]!.length));
-        music = concat(body, silence);
-        if (clipFile) {
-          const clip = readAudio(clipFile);
-          const clipHit = findHit(clip, 0) ?? 0;
-          music = add(
-            music,
-            alignFinal({
-              music: clip,
-              hitS: clipHit,
-              sectionStartS: s.startS,
-              rangeDurationS: o.rangeDurationS,
-              lastWordEndS: lastWordEnd,
-            }),
-          );
-        }
-      }
+      // the closing piece keeps its own ending, which lands on the range's last frame; a forced final hit
+      // sounded worse than the model's own close (12 Oct 2026)
+      music = fade(fitLength(piece, len, true), 0, FINAL_FADE_S);
     }
     const prevKind = outOf.get(sections[i - 1]?.id ?? "");
     const fadeIn = i === 0 ? FIRST_FADE_IN_S : prevKind === "crossfade" ? 0 : AFTER_END_FADE_IN_S;
@@ -292,10 +215,6 @@ export async function makeScore(
     }
     const normal = normalizeTo(music, SR, open);
     let ducked = applyLevels(normal, SR, s.startS, gainPlan, open);
-    if (s.final) {
-      const hitFrom = Math.max(0, (findHit(ducked) ?? s.endS - s.startS) - 0.05);
-      ducked = capFrom(ducked, hitFrom, Math.min(o.slider + HIT_LIFT_DB, -1.5));
-    }
     ducked = limitPeak(ducked);
     const file = join(dir, `${s.id}.wav`);
     const cleanFile = join(dir, "clean", `${s.id}.wav`);

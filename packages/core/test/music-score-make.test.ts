@@ -113,6 +113,17 @@ describe("making the score", () => {
     expect(r.sections[0]!.durationS + r.sections[0]!.atS).toBeCloseTo(r.sections[1]!.atS, 3);
   });
 
+  it("ends the music on the piece's own close at the last frame, with no separate hit", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const lyria = fakeLyria();
+    const r = await makeScore(base(out, lyria.fetchFn));
+    expect(lyria.calls).toHaveLength(2);
+    expect(lyria.calls.some((c) => /lyria-3-clip|final hit/i.test(c))).toBe(false);
+    const last = readAudio(r.sections[1]!.file!);
+    expect(last[0]!.length / SR).toBeCloseTo(40, 3);
+    expect(Math.abs(last[0]!.at(-1)!)).toBeLessThan(0.01);
+  });
+
   it("keeps going when one section fails and turns its neighbour's crossfade into an ending", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     let n = 0;

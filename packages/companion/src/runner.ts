@@ -369,7 +369,6 @@ async function musicMakeJob(
     apiKey: (await keys.get(provider.keyName)) ?? "",
     endpoint: provider.endpoint,
     model: defaults.music.model,
-    clipModel: provider.models.find((m) => m.maxS <= 30)?.id ?? defaults.music.model,
     only: params.only,
     onProgress: progress,
   });

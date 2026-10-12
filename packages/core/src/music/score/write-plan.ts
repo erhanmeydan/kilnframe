@@ -20,7 +20,7 @@ const RULES =
 export function lyriaPrompt(plan: MusicPlan, s: MusicSection): string {
   const len = Math.round(s.endS - s.startS);
   const close = s.final
-    ? "It grows towards the end and finishes on a single strong final hit (one big chord or drum hit) with a natural decay."
+    ? "It ends the video: let it grow towards the end and close in the way that suits the music best."
     : s.transitionOut === "end"
       ? "It ends with a clear, resolved close."
       : "It keeps going steadily to the end, no ending.";

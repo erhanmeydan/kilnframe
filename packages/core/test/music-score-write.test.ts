@@ -78,7 +78,7 @@ describe("writing the music plan", () => {
     expect(JSON.stringify(p.requests[0]!.messages)).toMatch(/no speech/i);
   });
 
-  it("builds the Lyria text: the world first, instrumental only, mid range open, a final hit", () => {
+  it("builds the Lyria text: the world first, instrumental only, mid range open, a free ending", () => {
     const plan = {
       version: 1 as const,
       world: "warm piano, D minor",
@@ -100,7 +100,9 @@ describe("writing the music plan", () => {
     expect(text.indexOf("warm piano")).toBeLessThan(text.indexOf("rising strings"));
     expect(text).toMatch(/instrumental only/i);
     expect(text).toMatch(/300 Hz to 3 kHz/);
-    expect(text).toMatch(/single strong final hit/i);
+    // the editor found a forced final hit worse than the model's own close (12 Oct 2026)
+    expect(text).not.toMatch(/final hit/i);
+    expect(text).toMatch(/ends the video/i);
   });
 
   it("rewrites one section's Lyria text from the editor's note", async () => {
