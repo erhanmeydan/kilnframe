@@ -83,6 +83,8 @@ const READERS = {
       .filter((m) => m.architecture?.input_modalities?.includes("image"))
       .map((m) => m.id)
       .sort();
+    // an empty list means the answer changed shape, not that every model is gone
+    need(vision.length, "model that takes images");
     return { latest: String(vision.length), extra: { visionModels: vision } };
   },
   async manual(s) {

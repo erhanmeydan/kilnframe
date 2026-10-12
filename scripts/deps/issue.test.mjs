@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseAudit } from "./audit.mjs";
-import { issueBody, modelChanges, sameContent } from "./issue.mjs";
+import { issueBody, modelChanges, newItems, sameContent } from "./issue.mjs";
 
 const dep = (id, group, current) => ({
   id,
@@ -98,5 +98,26 @@ describe("models", () => {
     expect(body).toContain("yeni: c");
     expect(body).toContain("kalkan: a (önerilen)");
     expect(body).toContain("<!-- openrouter: b,c -->");
+  });
+});
+
+describe("newItems", () => {
+  it("names only updates and advisories that were not there before", () => {
+    const before = issueBody(results, [], null, now);
+    expect(newItems(before, issueBody(results, [], before, now))).toEqual([]);
+    const more = [...results, { dep: dep("zod", "app", "4.6.5"), latest: "4.6.6" }];
+    expect(newItems(before, issueBody(more, [], before, now))).toEqual(["zod 4.6.6"]);
+  });
+  it("ignores a source that became unreachable or a changed model list", () => {
+    const before = issueBody(results, [], null, now);
+    const flaky = results.map((r) => (r.dep.id === "ffmpeg-mac" ? { ...r, error: "HTTP 502" } : r));
+    expect(newItems(before, issueBody(flaky, [], before, now))).toEqual([]);
+  });
+  it("counts a newer version of an update already listed", () => {
+    const before = issueBody(results, [], null, now);
+    const newer = results.map((r) =>
+      r.dep.id === "hyperframes" ? { ...r, latest: "0.8.150" } : r,
+    );
+    expect(newItems(before, issueBody(newer, [], before, now))).toEqual(["hyperframes 0.8.150"]);
   });
 });

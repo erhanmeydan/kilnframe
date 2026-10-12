@@ -92,3 +92,19 @@ export function modelChanges(prev, now) {
 
 const strip = (b) => b.replace(/^Son kontrol:.*$/m, "").replace(/^- \[[ x]\]/gim, "- [ ]");
 export const sameContent = (a, b) => strip(a) === strip(b);
+
+/** "hyperframes 0.8.140" for each update or advisory row of a body. */
+const items = (body) =>
+  new Set(
+    [
+      ...(body ?? "").matchAll(
+        /^- \[[ x]\] \*\*([^*]+)\*\*(?:: .*düzeltildi: (\S+)| \S+ → (\S+))/gim,
+      ),
+    ].map((m) => `${m[1]} ${m[2] ?? m[3]}`),
+  );
+
+/** Updates and advisories in `body` that `previous` did not have: only these are worth a notification. */
+export function newItems(previous, body) {
+  const before = items(previous);
+  return [...items(body)].filter((i) => !before.has(i));
+}

@@ -2,7 +2,13 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyBump, reportMarkdown, worktreeBase } from "./try.mjs";
+import {
+  applyBump,
+  comparableGoldens,
+  prepareWorktree,
+  reportMarkdown,
+  worktreeBase,
+} from "./try.mjs";
 
 describe("applyBump", () => {
   it("pins an npm dependency exactly in its package.json and in deps.json", () => {
@@ -87,5 +93,50 @@ describe("reportMarkdown", () => {
     expect(md).toContain("![kil-lacivert 1.20 s](kil-lacivert/f00.png)");
     expect(md).toContain("Sonuç: PR açılmadı");
     expect(md).not.toMatch(/[—–]/);
+  });
+});
+
+describe("comparableGoldens", () => {
+  it("lists only golden scenes with reference frames and a threshold", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kf-golden-"));
+    const make = (name, golden, ref) => {
+      mkdirSync(join(dir, name, ref ? "ref" : "x"), { recursive: true });
+      if (golden) writeFileSync(join(dir, name, "golden.json"), JSON.stringify(golden));
+    };
+    make("ready", { threshold: { mean: 1, changed: 0.01 } }, true);
+    make("no-refs", { threshold: { mean: 1, changed: 0.01 } }, false);
+    make("no-threshold", { times: [1] }, true);
+    make("empty", null, false);
+    expect(comparableGoldens(dir)).toEqual(["ready"]);
+    expect(comparableGoldens(join(dir, "missing"))).toEqual([]);
+  });
+});
+
+describe("prepareWorktree", () => {
+  it("throws away a leftover worktree and branch, then starts fresh from the base", () => {
+    const calls = [];
+    prepareWorktree((cmd, args) => calls.push([cmd, ...args].join(" ")), {
+      wt: "/w",
+      branch: "deps/three-0.187.0",
+      base: "origin/main",
+      exists: true,
+    });
+    expect(calls).toEqual([
+      "git worktree remove --force /w",
+      "git worktree prune",
+      "git branch -D deps/three-0.187.0",
+      "git worktree add -b deps/three-0.187.0 /w origin/main",
+    ]);
+  });
+  it("tolerates a branch that does not exist yet", () => {
+    const calls = [];
+    prepareWorktree(
+      (cmd, args) => {
+        calls.push(args[1]);
+        if (args[1] === "-D") throw new Error("not found");
+      },
+      { wt: "/w", branch: "b", base: "origin/main", exists: false },
+    );
+    expect(calls).toEqual(["prune", "-D", "add"]);
   });
 });

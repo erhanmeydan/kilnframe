@@ -2,11 +2,18 @@
 // Try one dependency update on this Mac: node scripts/deps-try.mjs <id> [version] [--no-bump] [--pr]
 // Works in ../kilnframe-deps-<id> (a git worktree from origin/main); never touches this working tree.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { latest } from "./deps/readers.mjs";
-import { applyBump, compareScene, reportMarkdown, worktreeBase } from "./deps/try.mjs";
+import {
+  applyBump,
+  comparableGoldens,
+  compareScene,
+  prepareWorktree,
+  reportMarkdown,
+  worktreeBase,
+} from "./deps/try.mjs";
 import { loadDeps } from "./deps/versions.mjs";
 import { renderGolden } from "./golden-add.mjs";
 
@@ -39,8 +46,15 @@ const step = (name, fn) => {
 };
 
 run("git", ["fetch", "origin", "main"], root);
-if (!existsSync(wt)) run("git", ["worktree", "add", "-B", branch, wt, worktreeBase()], root);
 let ok =
+  step(`worktree ${wt}`, () =>
+    prepareWorktree((cmd, a) => run(cmd, a, root), {
+      wt,
+      branch,
+      base: worktreeBase(),
+      exists: existsSync(wt),
+    }),
+  ) &&
   step(`sürüm ${dep.current} → ${to}`, () => {
     if (flags.has("--no-bump")) return;
     const edited = applyBump(wt, dep, to);
@@ -54,9 +68,12 @@ let ok =
 const scenes = [];
 if (ok && dep.group === "render") {
   const goldens = join(wt, "examples", "golden");
-  const names = existsSync(goldens)
-    ? readdirSync(goldens).filter((n) => existsSync(join(goldens, n, "golden.json")))
-    : [];
+  const names = comparableGoldens(goldens);
+  // a renderer update compared with nothing must not pass
+  ok =
+    step("altın sahne var", () => {
+      if (!names.length) throw new Error(`no golden scene with reference frames in ${goldens}`);
+    }) && ok;
   for (const name of names) {
     const g = JSON.parse(readFileSync(join(goldens, name, "golden.json"), "utf8"));
     ok =

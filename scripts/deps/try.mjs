@@ -1,10 +1,35 @@
 // One dependency update, tried in its own worktree: bump, check, render the golden scenes old and new, report.
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { alphaReport, framesAt, pixelDiff, sideBySide } from "./diff.mjs";
 
 /** Trials branch from the published main, never from whatever is uncommitted here. */
 export const worktreeBase = (env = process.env) => env.DEPS_TRY_BASE ?? "origin/main";
+
+/** Golden scenes ready to compare: a golden.json with a threshold and reference frames. */
+export function comparableGoldens(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((n) => {
+    const g = join(dir, n, "golden.json");
+    return (
+      existsSync(g) &&
+      existsSync(join(dir, n, "ref")) &&
+      JSON.parse(readFileSync(g, "utf8")).threshold !== undefined
+    );
+  });
+}
+
+/** A fresh worktree on a fresh branch from `base`; a leftover from an earlier trial is thrown away first. */
+export function prepareWorktree(run, { wt, branch, base, exists }) {
+  if (exists) run("git", ["worktree", "remove", "--force", wt]);
+  run("git", ["worktree", "prune"]);
+  try {
+    run("git", ["branch", "-D", branch]);
+  } catch {
+    // no such branch yet
+  }
+  run("git", ["worktree", "add", "-b", branch, wt, base]);
+}
 
 const MANUAL = {
   "ffmpeg-riedl":

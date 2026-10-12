@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAudit } from "./deps/audit.mjs";
-import { issueBody, sameContent } from "./deps/issue.mjs";
+import { issueBody, newItems, sameContent } from "./deps/issue.mjs";
 import { Unreachable, latest } from "./deps/readers.mjs";
 import { loadDeps } from "./deps/versions.mjs";
 
@@ -69,8 +69,13 @@ if (process.argv.includes("--issue")) {
     console.log("issue created");
   } else if (!sameContent(found.body, body)) {
     gh(["issue", "edit", String(found.number), "--body", body]);
-    gh(["issue", "comment", String(found.number), "--body", "Yeni güncellemeler var."]);
-    console.log(`issue #${found.number} updated`);
+    // a notification only for a new update or advisory, not for a flaky source or a model list change
+    const fresh = newItems(found.body, body);
+    if (fresh.length)
+      gh(["issue", "comment", String(found.number), "--body", `Yeni: ${fresh.join(", ")}`]);
+    console.log(
+      `issue #${found.number} updated${fresh.length ? `, new: ${fresh.join(", ")}` : ""}`,
+    );
   } else {
     console.log(`issue #${found.number} unchanged`);
   }

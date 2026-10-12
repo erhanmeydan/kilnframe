@@ -92,6 +92,17 @@ describe("readers", () => {
     const ff = { source: { type: "ffmpeg-riedl", platform: "macos/arm64" } };
     await expect(latest(ff, reply("<html>maintenance</html>"))).rejects.toBeInstanceOf(Unreachable);
   });
+  it("openrouter-models: an empty vision list is a broken answer, not 'every model removed'", async () => {
+    await expect(
+      latest({ source: { type: "openrouter-models" } }, reply({ data: [] })),
+    ).rejects.toBeInstanceOf(Unreachable);
+    await expect(
+      latest(
+        { source: { type: "openrouter-models" } },
+        reply({ data: [{ id: "a", architecture: { modalities: "text+image->text" } }] }),
+      ),
+    ).rejects.toBeInstanceOf(Unreachable);
+  });
   it("manual sources are never fetched", async () => {
     await expect(
       latest({ source: { type: "manual", url: "u" } }, () => {
