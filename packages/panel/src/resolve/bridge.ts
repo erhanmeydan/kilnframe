@@ -306,6 +306,10 @@ export function createResolveBridge(
       });
     },
 
+    async isRendering() {
+      return Boolean(await (await project()).IsRenderingInProgress());
+    },
+
     hideOurInserts(id, startS, endS) {
       return onTimeline(id, async (tl) => {
         await leaveDeliver();

@@ -53,6 +53,8 @@ export interface Host {
     file: string,
     opts: { previewPreset: string },
   ): Promise<boolean>;
+  /** A note for the editor before the exports start, when they will wait (Resolve: its own render queue). */
+  busyNote?(): Promise<string | null>;
   /** Runs `fn` with earlier Kilnframe inserts over the range switched off, then switches them back on. */
   withoutOurInserts<T>(
     seq: HostSequence,

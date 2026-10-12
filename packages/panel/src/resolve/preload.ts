@@ -11,6 +11,7 @@ const ASYNC = [
   "showTracks",
   "placeInsert",
   "createStorySequence",
+  "isRendering",
   "pickImages",
   "openUrl",
   "readTextFile",

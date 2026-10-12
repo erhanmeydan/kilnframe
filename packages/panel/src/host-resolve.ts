@@ -54,6 +54,9 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
       words(api.exportRangeAudio(seq.id, startS, endS, file)),
     exportRangePicture: (seq, startS, endS, file) =>
       words(api.exportRangePicture(seq.id, startS, endS, file)),
+    async busyNote() {
+      return (await api.isRendering().catch(() => false)) ? t("resolve.waitingRender") : null;
+    },
     async withoutOurInserts(seq, startS, endS, fn) {
       const hidden = await words(api.hideOurInserts(seq.id, startS, endS));
       try {

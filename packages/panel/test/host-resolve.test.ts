@@ -30,6 +30,7 @@ function fakeApi(over: Partial<KilnframeResolveApi> = {}): KilnframeResolveApi {
     showTracks: vi.fn(async () => undefined),
     placeInsert: vi.fn(async () => ({ videoTrack: 1, audioTrack: 1 })),
     createStorySequence: vi.fn(async () => undefined),
+    isRendering: vi.fn(async () => false),
     pickImages: vi.fn(async () => []),
     openUrl: vi.fn(async () => undefined),
     readTextFile: vi.fn(async () => ""),
@@ -79,7 +80,15 @@ describe("resolve host", () => {
     await expect(h.currentSequence()).rejects.toThrow(/sequence/i);
     await expect(
       h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
-    ).rejects.toThrow(/Resolve is rendering/);
+    ).rejects.toThrow(/still rendering after 10 minutes/);
+  });
+
+  it("says before the exports that it waits for a render Resolve is doing", async () => {
+    setLang("en");
+    const idle = createResolveHost(fakeApi());
+    expect(await idle.busyNote?.()).toBeNull();
+    const busy = createResolveHost(fakeApi({ isRendering: vi.fn(async () => true) }));
+    expect(await busy.busyNote?.()).toMatch(/waits for it/);
   });
 
   it("switches our earlier inserts back on even when the export fails", async () => {

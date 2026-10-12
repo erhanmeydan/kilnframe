@@ -60,6 +60,7 @@ const BRIDGE_CALLS = [
   "showTracks",
   "placeInsert",
   "createStorySequence",
+  "isRendering",
 ] as const;
 
 // window size, place and always-on-top, kept between sessions

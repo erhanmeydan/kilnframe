@@ -55,6 +55,8 @@ export interface ResolveBridge {
     durationS: number,
     tracks?: PlacedTracks,
   ): Promise<PlacedTracks>;
+  /** Whether Resolve is rendering (the editor's own queue): the exports wait for it. */
+  isRendering(): Promise<boolean>;
   createStorySequence(
     templateId: string,
     name: string,

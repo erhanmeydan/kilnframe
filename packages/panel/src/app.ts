@@ -2264,6 +2264,11 @@ async function generate() {
     // (a second run) is switched off for the exports
     // where in the sequence the audio file starts: 0 for Premiere's whole-sequence export and a story narration
     let audioOffset = 0;
+    const busy = await host().busyNote?.();
+    if (busy && state.job) {
+      state.job.last = busy;
+      render();
+    }
     const footage = await host().withoutOurInserts(target, range.startS, range.endS, async () => {
       const frames = mode === "fullscreen" ? [] : await exportFootageFrames(target, range, jobDir);
       if (narration) trace(`job: transcribing the story narration ${narration}`);
