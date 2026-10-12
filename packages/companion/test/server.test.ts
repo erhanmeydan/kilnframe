@@ -488,9 +488,15 @@ describe("companion server", () => {
     await c.next((m) => m.type === "ready");
     c.send({ type: "audio.play", file: "/Users/e/Movies/Kilnframe/P/job/music/preview/s2.wav" });
     await c.next((m) => m.type === "audio.played");
+    // a section made again has a versioned name
+    c.send({ type: "audio.play", file: "/Users/e/Movies/Kilnframe/P/job/music/preview/s2-3.wav" });
+    await c.next((m) => m.type === "audio.played");
     c.send({ type: "audio.play", file: "/etc/passwd" });
     expect(await c.next((m) => m.type === "error")).toBeTruthy();
-    expect(played).toEqual(["/Users/e/Movies/Kilnframe/P/job/music/preview/s2.wav"]);
+    expect(played).toEqual([
+      "/Users/e/Movies/Kilnframe/P/job/music/preview/s2.wav",
+      "/Users/e/Movies/Kilnframe/P/job/music/preview/s2-3.wav",
+    ]);
   });
 
   it("takes story jobs and answers voice requests", async () => {

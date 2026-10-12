@@ -260,7 +260,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
           case "audio.play":
             // only the Music tab's own clips: never any file a page names
-            if (!/[\\/]music[\\/](preview[\\/])?s\d+\.wav$/.test(msg.file))
+            if (!/[\\/]music[\\/](preview[\\/])?s\d+(-\d+)?\.wav$/.test(msg.file))
               throw new Error("Only music clips can be played.");
             if (!o.playAudio) throw new Error("playing music is not supported");
             o.playAudio(msg.file, () => broadcast({ type: "audio.ended" }));
