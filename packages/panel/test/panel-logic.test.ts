@@ -220,4 +220,15 @@ describe("earlier inserts on the timeline", () => {
     expect(isOurInsert("/Footage/orjinal-1.mp4")).toBe(false);
     expect(isOurInsert("/Footage/Kilnframe-logo.png")).toBe(false);
   });
+  it("leaves the editor's own media alone even inside a folder named Kilnframe", async () => {
+    const { isOurInsert } = await import("../src/our-files");
+    // a project folder called Kilnframe, or footage copied out of a job folder (the Resolve test, 12 Oct 2026)
+    expect(isOurInsert("/Users/e/Videos/Kilnframe/footage.mp4")).toBe(false);
+    expect(isOurInsert("/out/Kilnframe/orjinal-1-20261011-191201/footage.mp4")).toBe(false);
+    expect(isOurInsert("/Projects/Kilnframe/interview.mov")).toBe(false);
+    expect(isOurInsert("/Projects/Film/Kilnframe/Seq/sfx_stems/01-whoosh.wav")).toBe(true);
+    expect(isOurInsert("/Users/e/Movies/Kilnframe/Belgesel/Timeline-1-20261012/insert.mov")).toBe(
+      true,
+    );
+  });
 });

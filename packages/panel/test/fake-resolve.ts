@@ -264,6 +264,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       log.formats.push(`${f}/${c}`),
       true
     ),
+    GetRenderCodecs: async (ext: string) =>
+      ext === "mp4" ? { "H.265 Main10": "H265_Main10", "H.264": "H264_Main" } : {},
     AddRenderJob: async () => `job-${++jobs}`,
     StartRendering: async (ids: string[]) => (log.startRendering.push(ids), true),
     IsRenderingInProgress: async () => {

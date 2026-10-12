@@ -16,13 +16,13 @@ import {
   type ResolveSequence,
 } from "./api";
 import { frameFor } from "../frame";
+import { isOurInsert } from "../our-files";
 import { framesToTimecode, parseRate, rateString, type Rate } from "./timecode";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Resolve's promise objects are untyped */
 type R = any;
 
 const TEMP_PRESET = "Kilnframe Temp";
-const OURS = /[\\/]Kilnframe[\\/]/;
 const BUSY_WAIT_MS = 10 * 60_000;
 const POLL_MS = 2_000;
 
@@ -102,7 +102,7 @@ export function createResolveBridge(
     endS: number,
     file: string,
     settings: Record<string, unknown>,
-    format?: [string, string],
+    format?: [string, RegExp],
   ): Promise<boolean> {
     for (let waited = 0; await p.IsRenderingInProgress(); waited += POLL_MS) {
       if (waited >= BUSY_WAIT_MS) throw new Error(RENDER_BUSY);
@@ -115,7 +115,14 @@ export function createResolveBridge(
     const saved = await p.SaveAsNewRenderPreset(TEMP_PRESET);
     let job: string | null = null;
     try {
-      if (format) await p.SetCurrentRenderFormatAndCodec(format[0], format[1]);
+      if (format) {
+        // codec ids differ between Resolve versions and machines: take the one Resolve lists for the name
+        const codecs = ((await p.GetRenderCodecs(format[0])) ?? {}) as Record<string, string>;
+        const id =
+          Object.entries(codecs).find(([name]) => format[1].test(name))?.[1] ??
+          Object.values(codecs).find((v) => format[1].test(v));
+        if (!id || !(await p.SetCurrentRenderFormatAndCodec(format[0], id))) return false;
+      }
       const ok = await p.SetRenderSettings({
         SelectAllFrames: false,
         MarkIn: start + Math.round(startS * rate.fps),
@@ -234,7 +241,8 @@ export function createResolveBridge(
             FormatHeight: half(s.timelineResolutionHeight ?? "1080"),
             VideoQuality: "Low",
           },
-          ["mp4", "H264"],
+          // "H.264", not "H.265"
+          ["mp4", /^H\.?264\b/i],
         );
       });
     },
@@ -273,7 +281,7 @@ export function createResolveBridge(
             for (const item of ((await tl.GetItemListInTrack(type, i)) ?? []) as R[]) {
               if ((await item.GetEnd()) <= from || (await item.GetStart()) >= to) continue;
               const path = await (await item.GetMediaPoolItem())?.GetClipProperty("File Path");
-              if (typeof path === "string" && OURS.test(path)) ours = true;
+              if (typeof path === "string" && isOurInsert(path)) ours = true;
             }
             if (ours && (await tl.SetTrackEnable(type, i, false))) hidden.push({ type, index: i });
           }

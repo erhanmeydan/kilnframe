@@ -84,6 +84,15 @@ describe("resolve bridge", () => {
     expect(f.log.startRendering).toEqual([]);
   });
 
+  it("renders the range's picture as H.264, picking the codec Resolve names for it", async () => {
+    const f = makeFakeResolve();
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    expect(await b.exportRangePicture(seq.id, 0, 2, "/jobs/a/footage.mp4")).toBe(true);
+    expect(f.log.formats).toEqual(["mp4/H264_Main"]);
+    expect(f.log.renderSettings.at(-1)).toMatchObject({ ExportVideo: true, CustomName: "footage" });
+  });
+
   it("exports a frame at the right timecode and puts the playhead back", async () => {
     const f = makeFakeResolve({ playhead: "01:00:05:00" });
     const b = bridge(f);
@@ -175,6 +184,15 @@ describe("resolve bridge", () => {
     expect(f.project.timeline.tracks.video[0]!.enabled).toBe(true);
     await b.showTracks(seq.id, hidden);
     expect(f.project.timeline.tracks.video[1]!.enabled).toBe(true);
+  });
+
+  it("does not hide the editor's footage that lives in a folder named Kilnframe", async () => {
+    const f = makeFakeResolve();
+    f.project.timeline.tracks.video[0]!.items[0]!.path = "/out/Kilnframe/orjinal-1/footage.mp4";
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    expect(await b.hideOurInserts(seq.id, 0, 10)).toEqual([]);
+    expect(f.project.timeline.tracks.video[0]!.enabled).toBe(true);
   });
 
   it("opens a story timeline with the template's rate, the chosen frame and the narration on A1", async () => {
