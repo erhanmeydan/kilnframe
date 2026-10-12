@@ -82,6 +82,32 @@ describe("resolve bridge", () => {
     expect(f.log.startRendering).toHaveLength(2);
   });
 
+  it("switches the hidden tracks back on after leaving the Deliver page, where Resolve ignores it", async () => {
+    const f = makeFakeResolve({ ourInsertOnV2: true });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    const hidden = await b.hideOurInserts(seq.id, 0, 10);
+    await b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav");
+    await b.showTracks(seq.id, hidden);
+    expect(f.project.timeline.tracks.video[1]!.enabled).toBe(true);
+    expect(f.log.pages).toEqual(["deliver", "edit"]);
+  });
+
+  it("hides and shows off the Deliver page when the editor started there, and goes back to it", async () => {
+    const f = makeFakeResolve({ ourInsertOnV2: true });
+    const b = bridge(f);
+    await f.resolve.OpenPage("deliver");
+    const seq = await b.currentSequence();
+    const hidden = await b.hideOurInserts(seq.id, 0, 10);
+    expect(hidden).toEqual([{ type: "video", index: 2 }]);
+    expect(f.project.timeline.tracks.video[1]!.enabled).toBe(false);
+    await b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav");
+    await b.showTracks(seq.id, hidden);
+    expect(f.project.timeline.tracks.video[1]!.enabled).toBe(true);
+    // the editor's Deliver page, the Edit page to hide, Deliver to render, Edit to show, Deliver again
+    expect(f.log.pages).toEqual(["deliver", "edit", "deliver", "edit", "deliver"]);
+  });
+
   it("is patient with a Deliver page that refuses the first starts after opening", async () => {
     const f = makeFakeResolve({ refuseStarts: 4 });
     const b = bridge(f);

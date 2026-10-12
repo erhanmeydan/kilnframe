@@ -39,8 +39,18 @@ export function createResolveBridge(
 ): ResolveBridge {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)));
 
-  /** The editor's page before the exports opened the Deliver page; restored by showTracks. */
+  /** The editor's page before a job's exports changed it; showTracks brings it back. */
   let pageBefore: string | null = null;
+
+  /**
+   * Resolve 21.1.1 answers true to SetTrackEnable on the Deliver page but leaves the track as it was (12 Oct
+   * 2026), so tracks are hidden and shown elsewhere; an editor who started there gets the page back at the end.
+   */
+  async function leaveDeliver() {
+    if ((await resolve.GetCurrentPage()) !== "deliver") return;
+    pageBefore ??= "deliver";
+    await resolve.OpenPage("edit");
+  }
 
   async function project(): Promise<R> {
     const p = await (await resolve.GetProjectManager()).GetCurrentProject();
@@ -298,6 +308,7 @@ export function createResolveBridge(
 
     hideOurInserts(id, startS, endS) {
       return onTimeline(id, async (tl) => {
+        await leaveDeliver();
         const rate = await rateOf(tl);
         const start = (await tl.GetStartFrame()) as number;
         const from = start + Math.round(startS * rate.fps);
@@ -322,9 +333,12 @@ export function createResolveBridge(
 
     showTracks(id, tracks) {
       return onTimeline(id, async (tl) => {
-        for (const t of tracks) await tl.SetTrackEnable(t.type, t.index, true);
-        if (pageBefore && pageBefore !== "deliver") await resolve.OpenPage(pageBefore);
+        const back = pageBefore;
         pageBefore = null;
+        if ((await resolve.GetCurrentPage()) === "deliver")
+          await resolve.OpenPage(back && back !== "deliver" ? back : "edit");
+        for (const t of tracks) await tl.SetTrackEnable(t.type, t.index, true);
+        if (back === "deliver") await resolve.OpenPage("deliver");
       });
     },
 

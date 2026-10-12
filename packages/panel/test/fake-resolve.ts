@@ -187,10 +187,11 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       },
       GetItemListInTrack: async (type: "video" | "audio", i: number) =>
         (list(type)[i - 1]?.items ?? []).map((it) => wrapItem(tl, type, i, it)),
+      // Resolve 21.1.1 answers true on the Deliver page but leaves the track as it was (12 Oct 2026)
       SetTrackEnable: async (type: "video" | "audio", i: number, on: boolean) => {
         const t = list(type)[i - 1];
         if (!t) return false;
-        t.enabled = on;
+        if (page !== "deliver") t.enabled = on;
         return true;
       },
       GetIsTrackEnabled: async (type: "video" | "audio", i: number) =>
