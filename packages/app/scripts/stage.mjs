@@ -122,6 +122,24 @@ writeFileSync(
   ),
 );
 
+// the DaVinci Resolve panel (packages/panel/dist-resolve), which the app copies into Resolve's plugin folder
+// together with the user's own WorkflowIntegration.node (src/resolve-plugin.ts)
+const resolvePanel = join(root, "packages", "panel", "dist-resolve");
+if (!existsSync(join(resolvePanel, "manifest.xml")))
+  throw new Error("packages/panel/dist-resolve is missing: run pnpm build first.");
+cpSync(resolvePanel, join(extra, "resolve-panel"), {
+  recursive: true,
+  filter: (src) => !src.endsWith(".map"),
+});
+const resolveManifest = join(extra, "resolve-panel", "manifest.xml");
+writeFileSync(
+  resolveManifest,
+  readFileSync(resolveManifest, "utf8").replace(
+    /<Version>[^<]*<\/Version>/,
+    `<Version>${version}</Version>`,
+  ),
+);
+
 console.log("3/4 trimming");
 const modules = join(stage, "node_modules");
 // onnxruntime-node ships every platform's library; keep this platform and architecture. The binding links
@@ -191,6 +209,7 @@ writeFileSync(
         { from: "extra/styles", to: "styles" },
         { from: "extra/vendor", to: "vendor" },
         { from: "extra/plugin", to: "plugin" },
+        { from: "extra/resolve-panel", to: "resolve-panel" },
         { from: "extra/licenses", to: "licenses" },
       ],
       mac: {

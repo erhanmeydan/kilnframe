@@ -21,6 +21,12 @@ import {
 } from "./plugin.js";
 import { LOGIN_FLAG, announceText, startedAtLogin } from "./announce.js";
 import { markBusy, onQuitRequest } from "./quit.js";
+import {
+  bundledResolvePanel,
+  installResolvePanel,
+  resolveInstallState,
+  resolvePaths,
+} from "./resolve-plugin.js";
 
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +46,12 @@ const text = turkish
       pluginDone: "Eklenti kuruldu. Premiere'i yeniden başlatın.",
       pluginFailed: "Eklenti kurulamadı, günlüğe bakın.",
       noAgent: "Adobe eklenti kurucusu bulunamadı. Creative Cloud kurulu mu?",
+      resolvePanel: "Paneli DaVinci Resolve'a Kur",
+      resolveDone:
+        "Kilnframe DaVinci Resolve'da hazır: Workspace > Workflow Integrations > Kilnframe. Resolve açıksa yeniden başlatın.",
+      resolveNoDeveloper:
+        "DaVinci Resolve Studio'nun geliştirici dosyaları bulunamadı. Resolve Studio'yu blackmagicdesign.com'dan yeniden kurun.",
+      resolveFailed: "Resolve paneli kurulamadı, günlüğe bakın.",
       updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
       quit: "Kilnframe'den Çık",
       busyTitle: "Bir animasyon hazırlanıyor.",
@@ -60,6 +72,12 @@ const text = turkish
       pluginDone: "Plugin installed. Restart Premiere.",
       pluginFailed: "The plugin could not be installed, see the log.",
       noAgent: "Adobe's plugin installer was not found. Is Creative Cloud installed?",
+      resolvePanel: "Install the Panel in DaVinci Resolve",
+      resolveDone:
+        "Kilnframe is ready in DaVinci Resolve: Workspace > Workflow Integrations > Kilnframe. Restart Resolve if it is open.",
+      resolveNoDeveloper:
+        "DaVinci Resolve Studio's developer files were not found. Reinstall Resolve Studio from blackmagicdesign.com.",
+      resolveFailed: "The Resolve panel could not be installed, see the log.",
       updateReady: "Version {v} is ready. Update from the panel.",
       quit: "Quit Kilnframe",
       busyTitle: "An animation is being made.",
@@ -89,6 +107,8 @@ let restarts = 0;
 let path: string | null = null;
 /** A line under the status about the plugin, while installing or after it failed. */
 let pluginNote = "";
+/** A Resolve panel problem worth showing in the menu (developer files missing, copy failed). */
+let resolveNote = "";
 /** "New version ready", shown in the menu; the panel offers the button. */
 let updateNote = "";
 
@@ -259,6 +279,36 @@ function openAtLoginOnFirstStart() {
   writeState({ ...state, firstStart: new Date().toISOString() });
 }
 
+/**
+ * Installs the DaVinci Resolve panel that came with this app, when Resolve is installed. On a start it runs only
+ * when the installed panel is another version; the menu item forces it.
+ */
+function ensureResolvePlugin(force = false) {
+  const paths = resolvePaths();
+  const bundled = bundledResolvePanel();
+  if (!paths || !bundled) return;
+  const state = resolveInstallState(paths, bundled);
+  if (state === "no-resolve") return;
+  if (state === "no-developer-files") {
+    logLine(`resolve: ${text.resolveNoDeveloper}`);
+    resolveNote = text.resolveNoDeveloper;
+    refreshMenu();
+    return;
+  }
+  if (state === "up-to-date" && !force) return;
+  try {
+    installResolvePanel(bundled.dir, paths);
+    logLine(`resolve: panel ${bundled.version} installed in ${paths.pluginsDir}`);
+    resolveNote = "";
+    notify(text.resolveDone);
+  } catch (err) {
+    logLine(`resolve: ${err instanceof Error ? err.message : String(err)}`);
+    resolveNote = text.resolveFailed;
+    notify(text.resolveFailed);
+  }
+  refreshMenu();
+}
+
 function refreshMenu() {
   if (!tray) return;
   const login = openAtLogin();
@@ -267,10 +317,14 @@ function refreshMenu() {
     Menu.buildFromTemplate([
       { label: quitWhenDone ? text.closingWhenDone : status, enabled: false },
       ...(pluginNote ? [{ label: pluginNote, enabled: false }] : []),
+      ...(resolveNote ? [{ label: resolveNote, enabled: false }] : []),
       ...(updateNote ? [{ label: updateNote, enabled: false }] : []),
       { type: "separator" },
       { label: text.log, click: () => void shell.openPath(logFile) },
       ...(bundledPlugin() ? [{ label: text.plugin, click: () => void ensurePlugin(true) }] : []),
+      ...(bundledResolvePanel() && resolvePaths()
+        ? [{ label: text.resolvePanel, click: () => ensureResolvePlugin(true) }]
+        : []),
       {
         label: text.styles,
         click: () => {
@@ -365,5 +419,6 @@ else {
       });
     startCompanion();
     void ensurePlugin();
+    ensureResolvePlugin();
   });
 }
