@@ -217,6 +217,11 @@ describe("earlier inserts on the timeline", () => {
     expect(isOurInsert("/Projects/Film/Kilnframe/Sekans-1-20261009/insert.mov")).toBe(true);
     expect(isOurInsert("C:\\Projects\\Film\\Kilnframe\\Seq\\sfx_mix.wav")).toBe(true);
     expect(isOurInsert("/Projects/Film/Motion Inserts/old/insert.mp4")).toBe(true);
+    // the companion's own job folder when the project has none (and every job of the 0.1.x companions)
+    expect(isOurInsert("/Users/e/.kilnframe/jobs/Timeline-1-20261012-115531/insert.mp4")).toBe(
+      true,
+    );
+    expect(isOurInsert("C:\\Users\\e\\.kilnframe\\jobs\\Seq\\sfx_mix.wav")).toBe(true);
     expect(isOurInsert("/Footage/orjinal-1.mp4")).toBe(false);
     expect(isOurInsert("/Footage/Kilnframe-logo.png")).toBe(false);
   });
