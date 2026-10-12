@@ -20,6 +20,8 @@ describe("resolve build", () => {
       "main.js",
       "preload.js",
       "icons/mark@2x.png",
+      "fonts/OpenSans-Variable.ttf",
+      "fonts/OFL.txt",
     ])
       expect(existsSync(join(out, f)), f).toBe(true);
   });
@@ -30,6 +32,11 @@ describe("resolve build", () => {
     expect(xml).toContain("<Name>Kilnframe</Name>");
     expect(xml).toContain("<FilePath>main.js</FilePath>");
     expect(xml).toContain(`<Version>${version}</Version>`);
+  });
+
+  it("dresses the Resolve page in Resolve's colours and font, not the Premiere page", () => {
+    expect(readFileSync(join(out, "index.html"), "utf8")).toContain("#e64c3c");
+    expect(readFileSync(join(panel, "dist", "index.html"), "utf8")).not.toContain("#e64c3c");
   });
 
   it("keeps the two hosts apart", () => {
