@@ -117,6 +117,23 @@ export function levelNote(
   };
 }
 
+/**
+ * A make (or a remake) finished: the listen screen comes back, and the new files can be placed again. They go
+ * on a new track; the track placed before stays as it was (its files are never written over).
+ */
+export function afterMake(
+  st: MusicState,
+  result: { sections: MadeSection[]; priceUsd?: number; plan?: MusicPlan },
+  noted: string[],
+): void {
+  st.made = result.sections;
+  st.plan = result.plan ?? st.plan;
+  st.spent += Number(result.priceUsd ?? 0);
+  for (const id of noted) delete st.edits[id];
+  st.placedTrack = null;
+  st.stage = "listen";
+}
+
 export function clock(seconds: number): string {
   const s = Math.floor(seconds);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -418,14 +435,12 @@ async function makeMusic(st: MusicState, ctx: MusicCtx, only?: string[]): Promis
       ...(st.speechFile ? { speechFile: st.speechFile } : {}),
     },
     back,
-    (result) => {
-      const made = result.sections as MadeSection[];
-      st.made = made;
-      st.plan = (result.plan as MusicPlan | undefined) ?? st.plan;
-      st.spent += Number(result.priceUsd ?? 0);
-      for (const id of Object.keys(notes)) delete st.edits[id];
-      st.stage = "listen";
-    },
+    (result) =>
+      afterMake(
+        st,
+        result as { sections: MadeSection[]; priceUsd?: number; plan?: MusicPlan },
+        Object.keys(notes),
+      ),
   );
 }
 

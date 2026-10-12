@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { clock, levelNote, mergeWithNext, planCost, toggleSilent } from "../src/music";
+import {
+  afterMake,
+  clock,
+  levelNote,
+  mergeWithNext,
+  newMusic,
+  planCost,
+  toggleSilent,
+} from "../src/music";
 
 const plan = {
   version: 1 as const,
@@ -79,5 +87,32 @@ describe("music panel", () => {
     expect(clock(0)).toBe("0:00");
     expect(clock(95.6)).toBe("1:35");
     expect(clock(3725)).toBe("62:05");
+  });
+
+  it("offers to place again after a section was made again, on a new track", () => {
+    const st = {
+      ...newMusic(),
+      plan,
+      stage: "making" as const,
+      placedTrack: 1,
+      edits: { s2: "brighter", s3: "keep" },
+    };
+    const made = [
+      {
+        id: "s2",
+        file: "/j/music/s2-2.wav",
+        clean: null,
+        preview: null,
+        atS: 40,
+        durationS: 30,
+        measured: { speechDb: null, gapDb: null },
+      },
+    ];
+    afterMake(st, { sections: made, priceUsd: 0.08, plan }, ["s2"]);
+    expect(st.stage).toBe("listen");
+    expect(st.placedTrack).toBeNull();
+    expect(st.spent).toBeCloseTo(0.08);
+    // the note that made s2 again is used up; the other note waits for its own remake
+    expect(st.edits).toEqual({ s3: "keep" });
   });
 });
