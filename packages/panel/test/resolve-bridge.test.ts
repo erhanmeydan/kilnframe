@@ -197,10 +197,12 @@ describe("resolve bridge", () => {
     );
     expect(placed).toEqual({ videoTrack: 1, audioTrack: 1 });
     const v = f.project.timeline.tracks.video[1]!.items[0]!;
-    expect([v.start, v.sourceIn, v.sourceOut, v.path]).toEqual([
+    // 7 s at 25 fps: exactly 175 frames, the source's handles left out on both sides
+    expect([v.start, v.end, v.sourceIn, v.sourceOut, v.path]).toEqual([
       90050,
+      90225,
       20,
-      194,
+      195,
       "/m/Kilnframe/j/insert.mov",
     ]);
     const a = f.project.timeline.tracks.audio[1]!.items[0]!;

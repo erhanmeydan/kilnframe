@@ -377,7 +377,8 @@ export function createResolveBridge(
           const clip = (item: R, mediaType: 1 | 2, trackIndex: number) => ({
             mediaPoolItem: item,
             startFrame: handles,
-            endFrame: handles + dur - 1,
+            // exclusive: Resolve Studio 21.1.1 placed 870 frames for 20..890 (12 Oct 2026)
+            endFrame: handles + dur,
             mediaType,
             trackIndex,
             recordFrame,

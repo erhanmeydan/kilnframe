@@ -235,15 +235,16 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       for (const info of infos) {
         const type = info.mediaType === 2 ? "audio" : "video";
         const t = tl.tracks[type][info.trackIndex - 1] as FakeTrack;
-        // a whole clip when no frames are given (a WAV of the fake is 250 frames long)
-        const len = info.endFrame !== undefined ? info.endFrame - (info.startFrame ?? 0) + 1 : 250;
+        // a whole clip when no frames are given (a WAV of the fake is 250 frames long); endFrame is exclusive,
+        // as measured in Resolve Studio 21.1.1 (12 Oct 2026: 20..891 placed 871 frames)
+        const len = info.endFrame !== undefined ? info.endFrame - (info.startFrame ?? 0) : 250;
         let start = info.recordFrame;
         for (const it of t.items) if (start < it.end && start + len > it.start) start = it.end;
         const it: FakeItem = {
           start,
           end: start + len,
           sourceIn: info.startFrame ?? 0,
-          sourceOut: info.endFrame ?? len - 1,
+          sourceOut: info.endFrame ?? len,
           path: info.mediaPoolItem.path,
         };
         if (!t.locked) t.items.push(it);
