@@ -3,19 +3,9 @@
 import { PROTOCOL_VERSION } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
-import { host } from "./host";
+import { host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { prettyModel } from "./models";
-import {
-  createStorySequence,
-  exportFrame,
-  exportRangePicture,
-  withoutOurInserts,
-  exportSequenceAudio,
-  panelSequence,
-  placeInsert,
-  type PanelSequence,
-} from "./premiere";
 import {
   LONG_RANGE_SECONDS,
   STORY_LENGTH,
@@ -222,7 +212,7 @@ interface JobResult {
 
 /** The open review: the job's parameters are sent again to render or to redo one scene. */
 interface Review {
-  target: PanelSequence;
+  target: HostSequence;
   range: Range;
   params: Record<string, unknown>;
   stills: StillImage[];
@@ -242,7 +232,7 @@ interface JobView {
   last: string;
   startedAt: number;
   error: string | null;
-  placed: { videoTrack: number; audioTrack: number } | null;
+  placed: PlaceResult | null;
   /** What the placed insert cost; for a long range, all its parts. */
   cost?: JobCost | null;
   /** Set when a long range finished: how many parts were placed. */
@@ -276,7 +266,7 @@ interface Series {
   base: Record<string, unknown>;
   parts: SeriesPart[];
   /** Where the first part went; the others join it on the same tracks. */
-  tracks: { videoTrack: number; audioTrack: number } | null;
+  tracks: PlaceResult | null;
   /** The parts placed so far, added up. */
   cost?: JobCost | null;
   /** stills: making every part's stills; render: rendering and placing the approved parts. */
@@ -364,22 +354,13 @@ session.on((m) => {
   }
 });
 
-// Steps and errors also go to ~/.kilnframe/panel-log.txt, so problems inside Premiere can be read outside it.
-const fs = require("fs") as {
-  writeFile(p: string, d: string, o: { encoding: string }): Promise<void>;
-  lstat(p: string): Promise<unknown>;
-};
+// Steps and errors also go to ~/.kilnframe/panel-log.txt, so problems inside the editor can be read outside it.
 
 /** A story sequence's own narration, when it is still on disk: cleaner to transcribe than the mix. */
 async function storyNarration(guid: string): Promise<string | null> {
   const file = stored(`narration:${guid}`);
   if (!file) return null;
-  try {
-    await fs.lstat(file);
-    return file;
-  } catch {
-    return null;
-  }
+  return (await host().fileExists(file)) ? file : null;
 }
 const logLines: string[] = [];
 function trace(line: string) {
@@ -388,9 +369,9 @@ function trace(line: string) {
   if (logLines.length > 200) logLines.shift();
   const home = homeDirNow();
   if (!home) return;
-  fs.writeFile(`${home}/.kilnframe/panel-log.txt`, logLines.join("\n"), {
-    encoding: "utf-8",
-  }).catch(() => undefined);
+  host()
+    .writeTextFile(`${home}/.kilnframe/panel-log.txt`, logLines.join("\n"))
+    .catch(() => undefined);
 }
 const root = document.getElementById("app") as HTMLDivElement;
 
@@ -818,26 +799,9 @@ function imagesBox(kind: ImageList): string {
 async function addImages(kind: ImageList) {
   const list = imageList(kind);
   const max = kind === "img" ? MAX_IMAGES : MAX_REFS;
-  const uxp = require("uxp") as {
-    storage: {
-      localFileSystem: {
-        getFileForOpening(o: {
-          allowMultiple: boolean;
-          types: string[];
-        }): Promise<{ nativePath: string }[] | { nativePath: string } | null>;
-      };
-    };
-  };
-  const picked = await uxp.storage.localFileSystem.getFileForOpening({
-    allowMultiple: true,
-    types: ["png", "jpg", "jpeg", "webp"],
-  });
-  const files = !picked ? [] : Array.isArray(picked) ? picked : [picked];
+  const picked = await host().pickImages(["png", "jpg", "jpeg", "webp"]);
   const known = new Set(list.map((i) => i.path));
-  const paths = files
-    .map((f) => f.nativePath)
-    .filter((p) => p && !known.has(p))
-    .slice(0, max - list.length);
+  const paths = picked.filter((p) => p && !known.has(p)).slice(0, max - list.length);
   if (!paths.length) return;
   state.imagesBusy = true;
   render();
@@ -1187,13 +1151,14 @@ async function makeStorySequence() {
       (result) => {
         st.last = t("story.placing");
         render();
-        createStorySequence(
-          target,
-          name,
-          String(result.file),
-          result.music ? String(result.music) : null,
-          st.format === "orijinal" ? undefined : st.format,
-        )
+        host()
+          .createStorySequence(
+            target,
+            name,
+            String(result.file),
+            result.music ? String(result.music) : null,
+            st.format === "orijinal" ? undefined : st.format,
+          )
           .then(() => {
             st.done = { name, durationS: Number(result.durationS) };
             st.stage = "done";
@@ -1201,7 +1166,7 @@ async function makeStorySequence() {
             return readSequence();
           })
           .then((seq) => {
-            if (seq) store(`narration:${seq.guid}`, String(result.file));
+            if (seq) store(`narration:${seq.id}`, String(result.file));
           })
           .then(render)
           .catch((err: unknown) => {
@@ -1936,9 +1901,8 @@ function leaveReview() {
 /** The panel's version: what the installed manifest says, else the one it was built with. */
 function panelVersion(): string {
   try {
-    const v = (require("uxp") as { versions?: { plugin?: unknown } }).versions?.plugin;
-    // only a real version string: anything else would break the settings screen
-    if (typeof v === "string" && /^\d+\.\d+/.test(v)) return v;
+    const v = host().pluginVersion();
+    if (v) return v;
   } catch {
     // the browser demo has no uxp module
   }
@@ -2199,7 +2163,7 @@ async function connectCompanion() {
  * review shows overlays over them. Optional: a frame that fails is left out, the job goes on without it.
  */
 async function exportFootageFrames(
-  target: PanelSequence,
+  target: HostSequence,
   range: Range,
   jobDir: string,
 ): Promise<FootageFrame[]> {
@@ -2207,13 +2171,13 @@ async function exportFootageFrames(
   for (const [k, seqS] of footageFrameTimes(range).entries()) {
     const name = `footage-${k + 1}.png`;
     try {
-      const ok = await exportFrame(
-        target.sequence,
+      const ok = await host().exportFrame(
+        target,
         seqS,
         `${jobDir}/`,
         name,
-        target.info.width,
-        target.info.height,
+        target.width,
+        target.height,
       );
       if (ok) frames.push({ path: `${jobDir}/${name}`, seqS });
       else trace(`frames: ${name} at ${seqS.toFixed(2)} s was not written`);
@@ -2224,21 +2188,21 @@ async function exportFootageFrames(
   return frames;
 }
 
-async function readSequence(): Promise<PanelSequence | null> {
+async function readSequence(): Promise<HostSequence | null> {
   try {
-    const seq = await panelSequence();
-    const { info } = seq;
+    const seq = await host().currentSequence();
+    // the field stays "guid": unfinished series and pending jobs saved before the host interface use it
     state.seq = {
-      name: info.name,
-      guid: seq.guid,
-      range: pickRange(info.inSeconds, info.outSeconds, seq.endSeconds),
-      fps: info.fps,
-      fpsValue: info.fpsValue,
-      size: `${info.width}x${info.height}`,
+      name: seq.name,
+      guid: seq.id,
+      range: pickRange(seq.inSeconds, seq.outSeconds, seq.endSeconds),
+      fps: seq.fps,
+      fpsValue: seq.fpsValue,
+      size: `${seq.width}x${seq.height}`,
     };
     state.seqError = "";
     // the style belongs to the video: reuse the one chosen for this sequence before
-    const kept = stored(`style:${seq.guid}`);
+    const kept = stored(`style:${seq.id}`);
     if (kept && !state.style) state.style = kept;
     return seq;
   } catch (err) {
@@ -2253,7 +2217,7 @@ async function generate() {
   if (!target || !state.seq || !state.system?.wavPreset) return render();
   const range = state.seq.range;
   // the style belongs to the video, also when it was carried over from another sequence
-  store(`style:${target.guid}`, state.style);
+  store(`style:${target.id}`, state.style);
   state.job = {
     id: null,
     step: 0,
@@ -2267,28 +2231,25 @@ async function generate() {
   render();
   try {
     const prepared = await session.request<ServerMessage>(
-      { type: "job.prepare", projectPath: target.projectPath, sequenceName: target.info.name },
+      { type: "job.prepare", projectPath: target.projectPath, sequenceName: target.name },
       "job.prepared",
     );
     const jobDir = String(prepared.jobDir);
     // a story sequence holds its narration from 0 on A1; under it is music, so read the voice alone
-    const narration = await storyNarration(target.guid);
+    const narration = await storyNarration(target.id);
     // a story sequence has no speaker under the animation, so there is nothing to sit beside: fullscreen
     const mode = narration ? "fullscreen" : state.mode;
     const audioPath = narration ?? `${jobDir}/sequence.wav`;
     // the frames, the speech and the picture are the editor's own: an earlier insert over the same range
     // (a second run) is switched off for the exports
-    const footage = await withoutOurInserts(target.sequence, range.startS, range.endS, async () => {
+    const footage = await host().withoutOurInserts(target, range.startS, range.endS, async () => {
       const frames = mode === "fullscreen" ? [] : await exportFootageFrames(target, range, jobDir);
       if (narration) trace(`job: transcribing the story narration ${narration}`);
       else {
-        const ok = await exportSequenceAudio(
-          target.sequence,
-          audioPath,
-          state.system!.wavPreset!,
-          true,
-        );
-        if (!ok) throw new Error(t("job.exportFailed"));
+        const audio = await host().exportRangeAudio(target, range.startS, range.endS, audioPath, {
+          wavPreset: state.system!.wavPreset!,
+        });
+        if (!audio.ok) throw new Error(t("job.exportFailed"));
       }
       // the preview of an insert with overlays sits on the range's real picture; optional, the job goes
       // on without it (series parts keep the still frame for now)
@@ -2297,12 +2258,12 @@ async function generate() {
         if (state.job) state.job.last = t("detail.exportPicture");
         render();
         try {
-          const ok = await exportRangePicture(
-            target.sequence,
+          const ok = await host().exportRangePicture(
+            target,
             range.startS,
             range.endS,
             `${jobDir}/footage.mp4`,
-            preset,
+            { previewPreset: preset },
           );
           trace(`job: range picture ${ok ? "exported" : "not exported"}`);
         } catch (err) {
@@ -2321,8 +2282,8 @@ async function generate() {
       mode,
       ...(footage.length ? { frames: framesForRange(footage, range.startS, range.endS) } : {}),
       ...(state.format === "orijinal" ? {} : { format: FORMAT_SIZE[state.format] }),
-      fps: target.info.fps,
-      sequenceSize: `${target.info.width}x${target.info.height}`,
+      fps: target.fps,
+      sequenceSize: `${target.width}x${target.height}`,
       ...(state.note.trim() ? { note: state.note.trim() } : {}),
       ...(state.images.some((i) => !i.error)
         ? {
@@ -2559,13 +2520,13 @@ function showPart(i: number, phase: "stills" | "render") {
   render();
 }
 
-async function placePart(i: number, r: JobResult, target: PanelSequence) {
+async function placePart(i: number, r: JobResult, target: HostSequence) {
   const series = state.series as Series;
   const part = series.parts[i] as SeriesPart;
   if (!r.output) throw new Error(t("job.noOutput"));
   if (state.job) state.job.step = 6;
   render();
-  const placed = await placeInsert(
+  const placed = await host().placeInsert(
     target,
     { video: r.output, sfx: r.sfxMix },
     part.startS,
@@ -2586,7 +2547,7 @@ async function placePart(i: number, r: JobResult, target: PanelSequence) {
 
 /** A long range: transcribe it once, split it at sentence ends, then make the parts. */
 async function startParts(
-  target: PanelSequence,
+  target: HostSequence,
   base: Record<string, unknown>,
   jobDir: string,
   frames: FootageFrame[],
@@ -2605,8 +2566,8 @@ async function startParts(
   trace(`parts: ${list.map((p) => `${p.startS.toFixed(1)}-${p.endS.toFixed(1)}`).join(", ")}`);
   seriesStills.clear();
   state.series = {
-    guid: target.guid,
-    title: target.info.name,
+    guid: target.id,
+    title: target.name,
     jobDir,
     base,
     parts: list.map((p, i) => ({
@@ -2637,7 +2598,7 @@ async function runSeries() {
   seriesBusy = true;
   try {
     const target = await readSequence();
-    if (!target || target.guid !== series.guid)
+    if (!target || target.id !== series.guid)
       throw new Error(t("series.openSequence", { name: series.title }));
     const review = state.settings.review === "on";
     if (series.phase === "stills") {
@@ -2681,7 +2642,7 @@ async function runSeries() {
 }
 
 /** One review for every part: stills grouped by part, keyed "part:scene". */
-function openSeriesReview(target: PanelSequence) {
+function openSeriesReview(target: HostSequence) {
   const series = state.series as Series;
   const stills: StillImage[] = [];
   let aspect = 16 / 9;
@@ -2740,7 +2701,7 @@ function partTag(): string {
 let stopFollowing: (() => void) | null = null;
 
 /** One job listener at a time, so a resumed job is never placed twice. */
-function followJob(target: PanelSequence, range: Range, baseParams: Record<string, unknown>) {
+function followJob(target: HostSequence, range: Range, baseParams: Record<string, unknown>) {
   stopFollowing?.();
   const off = () => {
     remove();
@@ -2754,7 +2715,7 @@ function followJob(target: PanelSequence, range: Range, baseParams: Record<strin
 /** Starts a job (a full run, a render of the approved stills, or one scene again) and follows it. */
 async function submitJob(
   params: Record<string, unknown>,
-  target: PanelSequence,
+  target: HostSequence,
   range: Range,
   baseParams: Record<string, unknown>,
 ) {
@@ -2766,10 +2727,7 @@ async function submitJob(
     );
     if (state.job) state.job.id = String(accepted.jobId);
     // kept until the result is handled, so a reloaded or woken panel can ask for it again
-    store(
-      "pending",
-      JSON.stringify({ jobId: accepted.jobId, guid: target.guid, range, baseParams }),
-    );
+    store("pending", JSON.stringify({ jobId: accepted.jobId, guid: target.id, range, baseParams }));
   } catch (err) {
     off();
     throw err;
@@ -2778,7 +2736,7 @@ async function submitJob(
 
 function onJobMessage(
   m: ServerMessage,
-  target: PanelSequence,
+  target: HostSequence,
   range: Range,
   baseParams: Record<string, unknown>,
   off: () => void,
@@ -2810,13 +2768,14 @@ function onJobMessage(
     }
     job.step = 6;
     render();
-    placeInsert(
-      target,
-      { video: r.output, sfx: r.sfxMix },
-      range.startS,
-      r.handlesSeconds,
-      r.durationSeconds,
-    )
+    host()
+      .placeInsert(
+        target,
+        { video: r.output, sfx: r.sfxMix },
+        range.startS,
+        r.handlesSeconds,
+        r.durationSeconds,
+      )
       .then((placed) => {
         trace(`job: placed on V${placed.videoTrack + 1} and A${placed.audioTrack + 1}`);
         job.placed = placed;
@@ -2863,7 +2822,7 @@ async function resumePending() {
   }
   if (!p?.jobId) return;
   const target = await readSequence();
-  if (!target || target.guid !== p.guid) {
+  if (!target || target.id !== p.guid) {
     trace(`resume: job ${p.jobId} belongs to another sequence`);
     return;
   }
@@ -3436,13 +3395,9 @@ function runAction(el: HTMLElement) {
   else if (act === "agent-recheck") return void refreshProviders();
   else if (act === "or-all") onboard.allModels = !onboard.allModels;
   else if (act === "open-url") {
-    try {
-      void (
-        require("uxp") as { shell: { openExternal(url: string): Promise<unknown> } }
-      ).shell.openExternal(val);
-    } catch (err) {
-      trace(`open url failed: ${String(err)}`);
-    }
+    host()
+      .openUrl(val)
+      .catch((err: unknown) => trace(`open url failed: ${String(err)}`));
   } else if (act === "setup-open") openSetup();
   else if (act === "setup-finish") finishSetup();
   else if (act === "setup-more") onboard.allProviders = true;

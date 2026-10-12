@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readConnection } from "../src/companion";
 import { homeDir, homeDirNow, isWindows } from "../src/home";
@@ -46,5 +48,18 @@ describe("companion file through the host", () => {
     } as unknown as Host);
     await expect(readConnection()).resolves.toEqual({ port: 47615, token: "x", version: "0.1.2" });
     expect(read).toEqual(["/Users/e/.kilnframe/companion.json"]);
+  });
+});
+
+describe("only the host touches the editor", () => {
+  const dir = join(__dirname, "..", "src");
+  it("no panel source file outside host-premiere.ts calls require()", () => {
+    const offenders = readdirSync(dir)
+      .filter((f) => f.endsWith(".ts") && !["host-premiere.ts", "globals.d.ts"].includes(f))
+      .filter((f) => /\brequire\(/.test(readFileSync(join(dir, f), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+  it("premiere.ts is gone", () => {
+    expect(readdirSync(dir)).not.toContain("premiere.ts");
   });
 });

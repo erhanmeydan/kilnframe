@@ -1,13 +1,23 @@
 // kilnframe probe panel: one button per open question in docs/premiere-uxp.md.
+import type { premierepro } from "@adobe/premierepro";
 import { connect, connectionFilePath, readConnection } from "../src/companion";
+import { host, setHost } from "../src/host";
 import {
-  activeSequence,
-  exportFrame,
-  exportSequenceAudio,
-  importToBin,
-  placeItem,
-  sequenceInfo,
-} from "../src/premiere";
+  createPremiereHost,
+  type FsModule,
+  type OsModule,
+  type UxpModule,
+} from "../src/host-premiere";
+
+// the probe goes through the same host as the panel, so it checks the calls the panel really makes
+setHost(
+  createPremiereHost(
+    require("premierepro") as premierepro,
+    require("uxp") as UxpModule,
+    require("fs") as FsModule,
+    require("os") as OsModule,
+  ),
+);
 
 const os = require("os") as { homedir(): string };
 const fs = require("fs") as {
@@ -47,15 +57,13 @@ function inputValue(id: string): string {
 const probeDir = () => `${os.homedir().replace(/\\/g, "/")}/.kilnframe/probe/`;
 
 button("btn-sequence", async () => {
-  const { sequence } = await activeSequence();
-  log("1. Sekans bilgisi", await sequenceInfo(sequence));
+  log("1. Sekans bilgisi", await host().currentSequence());
 });
 
 button("btn-frame", async () => {
-  const { sequence } = await activeSequence();
-  const info = await sequenceInfo(sequence);
-  const ok = await exportFrame(
-    sequence,
+  const info = await host().currentSequence();
+  const ok = await host().exportFrame(
+    info,
     info.inSeconds,
     probeDir(),
     "probe-in.png",
@@ -68,9 +76,9 @@ button("btn-frame", async () => {
 button("btn-audio", async () => {
   const preset = inputValue("preset");
   if (!preset) throw new Error("Önce WAV .epr preset yolunu yaz.");
-  const { sequence } = await activeSequence();
+  const seq = await host().currentSequence();
   const out = `${probeDir()}probe-sequence.wav`;
-  const ok = await exportSequenceAudio(sequence, out, preset, true);
+  const { ok } = await host().exportRangeAudio(seq, 0, seq.endSeconds, out, { wavPreset: preset });
   log("3. Ses dışa aktar (tüm sekans)", { ok, out });
 });
 
@@ -99,15 +107,17 @@ button("btn-companion", async () => {
 button("btn-place", async () => {
   const media = inputValue("media");
   if (!media) throw new Error("Önce yerleştirilecek dosyanın yolunu yaz.");
-  const { project, sequence } = await activeSequence();
-  const info = await sequenceInfo(sequence);
-  const item = await importToBin(project, media);
-  const ok = placeItem(project, sequence, item, info.inSeconds, info.videoTracks, info.audioTracks);
+  const info = await host().currentSequence();
+  const placed = await host().placeInsert(
+    info,
+    { video: media, sfx: null },
+    info.inSeconds,
+    0,
+    info.outSeconds - info.inSeconds,
+  );
   log("5. Import + yerleştir", {
-    ok,
     at: info.inSeconds,
-    videoTrack: info.videoTracks,
-    audioTrack: info.audioTracks,
+    ...placed,
     note: "Geri almak için Cmd+Z",
   });
 });
