@@ -87,7 +87,8 @@ async function main() {
       styleCards(
         join(process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"), "cache", "thumbs"),
       ),
-    prepareJob: async (projectPath, sequenceName) => prepareJobDir(projectPath, sequenceName),
+    prepareJob: async (projectPath, sequenceName, jobRoot) =>
+      prepareJobDir(projectPath, sequenceName, new Date(), { jobRoot }),
     deleteStyle: async (name) => deleteUserStyle(name),
     listVoices: async () => {
       const defaults = loadDefaults();

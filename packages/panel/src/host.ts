@@ -2,11 +2,13 @@
 // (index.ts: Premiere Pro). Everything editor-specific lives behind this interface.
 
 export interface HostSequence {
-  /** Premiere: sequence.guid. Keys the per-sequence settings (style, story narration). */
+  /** Premiere: sequence.guid; Resolve: timeline.GetUniqueId(). Keys the per-sequence settings (style, story narration). */
   id: string;
   name: string;
   /** Where the companion makes the job folders: next to the project file. */
   projectPath: string;
+  /** A folder for the job folders when there is no project file (Resolve): ~/Movies/Kilnframe/<project>. */
+  jobRoot?: string;
   fps: string;
   fpsValue: number;
   width: number;

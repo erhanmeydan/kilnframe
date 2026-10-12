@@ -421,5 +421,6 @@
   "mismatch.app": "Kilnframe uygulaması bu panelden eski. Yeni sürümü indirip kurun.",
   "mismatch.download": "İndir",
   "mismatch.panel": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Eklentiyi Premiere'e Kur'u seçin, sonra Premiere'i yeniden başlatın.",
-  "story.stopShort": "Durdur"
+  "story.stopShort": "Durdur",
+  "resolve.renderBusy": "DaVinci Resolve başka bir render yapıyor. Kilnframe onun bitmesini bekliyor; bitince yeniden deneyin."
 }

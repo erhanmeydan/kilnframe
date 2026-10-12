@@ -3,6 +3,7 @@
 import { PROTOCOL_VERSION } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
+import { audioRangeParams } from "./audio-range";
 import { host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { prettyModel } from "./models";
@@ -273,6 +274,11 @@ interface Series {
   phase: "stills" | "render";
   /** Frames of the footage over the whole range; each part gets the ones inside it. */
   frames?: FootageFrame[];
+  /**
+   * Where the cut audio starts in the sequence: parts are timed in the audio file, so a part's place in the
+   * sequence is its start plus this. 0 (or missing, in a series saved before Resolve) for Premiere.
+   */
+  audioOffset?: number;
 }
 
 /** The last or first words of a part, so the model knows what comes before and after it. */
@@ -383,6 +389,10 @@ function stored(key: string): string | null {
   } catch {
     return null;
   }
+}
+/** Premiere exports the audio with its own WAV preset; Resolve renders the range itself and needs none. */
+function wavPresetOk(): boolean {
+  return host().kind !== "premiere" || Boolean(state.system?.wavPreset);
 }
 function store(key: string, value: string) {
   try {
@@ -661,7 +671,7 @@ function fitScroll() {
 
 /** The range tab's bar: what runs and how long, and the main button, always in view. */
 function rangeBar(): string {
-  const ready = state.conn === "ok" && state.seq && state.style && state.system?.wavPreset;
+  const ready = state.conn === "ok" && state.seq && state.style && wavPresetOk();
   const d = state.seq?.range.durationS;
   const length = d
     ? `${formatDuration(d)}${d > LONG_RANGE_SECONDS ? ` · ${t("bar.inParts")}` : ""}`
@@ -743,7 +753,7 @@ function rangeHome(done: JobView["placed"]): string {
   ${imagesBox("img")}
   ${slowNote()}
   ${
-    state.conn === "ok" && state.system && !state.system.wavPreset
+    state.conn === "ok" && state.system && !wavPresetOk()
       ? `<div class="note warn-text">${t("home.noWavPreset")}</div>`
       : ""
   }`;
@@ -1128,7 +1138,12 @@ async function makeStorySequence() {
   const name = t("story.sequence", { title: st.title || "Story" }).slice(0, 80);
   try {
     const prepared = await session.request<ServerMessage>(
-      { type: "job.prepare", projectPath: target.projectPath, sequenceName: st.title || "Story" },
+      {
+        type: "job.prepare",
+        projectPath: target.projectPath,
+        sequenceName: st.title || "Story",
+        ...(target.jobRoot ? { jobRoot: target.jobRoot } : {}),
+      },
       "job.prepared",
     );
     await storyJob(
@@ -1695,7 +1710,7 @@ function speechModelReady(): boolean {
 /** Each step's state and the line beside its name. */
 function setupSteps(): { name: string; state: StepState; status: string }[] {
   const gpuOk = state.system?.gpu?.mode === "hardware";
-  const wavOk = Boolean(state.system?.wavPreset);
+  const wavOk = wavPresetOk();
   const gemini = setup.list.find((p) => p.id === "gemini");
   const raw: { name: string; done: boolean; warn: boolean; status: string }[] = [
     {
@@ -1757,7 +1772,7 @@ function setupBody(i: number, st: StepState): string {
     if (st !== "warn") return "";
     const lines = [
       state.system?.gpu?.mode !== "hardware" ? t("setup.gpuHelp") : "",
-      !state.system?.wavPreset ? t("home.noWavPreset") : "",
+      !wavPresetOk() ? t("home.noWavPreset") : "",
     ].filter(Boolean);
     return `<div class="small warn-text">${lines.join(" ")}</div>`;
   }
@@ -1880,7 +1895,7 @@ function settings(): string {
   <div class="box small">
     <div class="row"><span>${t("settings.companion")}</span><span class="${okWarn(state.conn === "ok")}">${state.conn === "ok" ? t("settings.running") : t("settings.notConnected")}</span></div>
     <div class="row"><span>${t("settings.gpu")}</span><span class="${okWarn(gpu?.mode === "hardware")}">${gpu?.mode === "hardware" ? t("settings.hardware") : esc(gpu?.mode ?? t("settings.unknown"))}</span></div>
-    <div class="row"><span>${t("settings.wav")}</span><span class="${okWarn(!!state.system?.wavPreset)}">${state.system?.wavPreset ? t("settings.found") : t("settings.notFound")}</span></div>
+    ${host().kind === "premiere" ? `<div class="row"><span>${t("settings.wav")}</span><span class="${okWarn(!!state.system?.wavPreset)}">${state.system?.wavPreset ? t("settings.found") : t("settings.notFound")}</span></div>` : ""}
   </div>
   <div class="link mt" data-act="setup-open">${t("setup.reopenLink")}</div>
   ${versionLine()}
@@ -2214,7 +2229,7 @@ async function readSequence(): Promise<HostSequence | null> {
 
 async function generate() {
   const target = await readSequence();
-  if (!target || !state.seq || !state.system?.wavPreset) return render();
+  if (!target || !state.seq || !wavPresetOk()) return render();
   const range = state.seq.range;
   // the style belongs to the video, also when it was carried over from another sequence
   store(`style:${target.id}`, state.style);
@@ -2231,7 +2246,12 @@ async function generate() {
   render();
   try {
     const prepared = await session.request<ServerMessage>(
-      { type: "job.prepare", projectPath: target.projectPath, sequenceName: target.name },
+      {
+        type: "job.prepare",
+        projectPath: target.projectPath,
+        sequenceName: target.name,
+        ...(target.jobRoot ? { jobRoot: target.jobRoot } : {}),
+      },
       "job.prepared",
     );
     const jobDir = String(prepared.jobDir);
@@ -2242,18 +2262,22 @@ async function generate() {
     const audioPath = narration ?? `${jobDir}/sequence.wav`;
     // the frames, the speech and the picture are the editor's own: an earlier insert over the same range
     // (a second run) is switched off for the exports
+    // where in the sequence the audio file starts: 0 for Premiere's whole-sequence export and a story narration
+    let audioOffset = 0;
     const footage = await host().withoutOurInserts(target, range.startS, range.endS, async () => {
       const frames = mode === "fullscreen" ? [] : await exportFootageFrames(target, range, jobDir);
       if (narration) trace(`job: transcribing the story narration ${narration}`);
       else {
         const audio = await host().exportRangeAudio(target, range.startS, range.endS, audioPath, {
-          wavPreset: state.system!.wavPreset!,
+          wavPreset: state.system?.wavPreset ?? "",
         });
         if (!audio.ok) throw new Error(t("job.exportFailed"));
+        audioOffset = audio.offsetSeconds;
       }
       // the preview of an insert with overlays sits on the range's real picture; optional, the job goes
       // on without it (series parts keep the still frame for now)
-      const preset = state.system?.previewPreset;
+      // Resolve renders the picture with its own settings; Premiere needs its preview preset
+      const preset = host().kind === "premiere" ? state.system?.previewPreset : "resolve";
       if (mode !== "fullscreen" && preset && range.durationS <= LONG_RANGE_SECONDS) {
         if (state.job) state.job.last = t("detail.exportPicture");
         render();
@@ -2275,8 +2299,7 @@ async function generate() {
     const params = {
       audioPath,
       ...(narration ? { scriptPath: narration.replace(/narration\.wav$/, "story.txt") } : {}),
-      rangeStartS: range.startS,
-      rangeEndS: range.endS,
+      ...audioRangeParams(range, audioOffset),
       outDir: jobDir,
       style: state.style,
       mode,
@@ -2297,7 +2320,7 @@ async function generate() {
       ...providerParams(),
     };
     if (range.durationS > LONG_RANGE_SECONDS)
-      return await startParts(target, params, jobDir, footage);
+      return await startParts(target, params, jobDir, footage, audioOffset);
     await submitJob(
       { ...params, stillsOnly: state.settings.review === "on" },
       target,
@@ -2445,7 +2468,13 @@ function partParams(series: Series, i: number): Record<string, unknown> {
     outDir: part.outDir,
     transcriptPath: part.transcriptPath,
     ...(series.frames?.length
-      ? { frames: framesForRange(series.frames, part.startS, part.endS) }
+      ? {
+          frames: framesForRange(
+            series.frames,
+            part.startS + (series.audioOffset ?? 0),
+            part.endS + (series.audioOffset ?? 0),
+          ),
+        }
       : { frames: undefined }),
     part: {
       index: i + 1,
@@ -2529,7 +2558,7 @@ async function placePart(i: number, r: JobResult, target: HostSequence) {
   const placed = await host().placeInsert(
     target,
     { video: r.output, sfx: r.sfxMix },
-    part.startS,
+    part.startS + (series.audioOffset ?? 0),
     r.handlesSeconds,
     r.durationSeconds,
     series.tracks ?? undefined,
@@ -2551,6 +2580,7 @@ async function startParts(
   base: Record<string, unknown>,
   jobDir: string,
   frames: FootageFrame[],
+  audioOffset: number,
 ) {
   if (state.job) state.job.last = t("detail.splitting");
   render();
@@ -2582,6 +2612,7 @@ async function startParts(
     tracks: null,
     phase: "stills",
     frames,
+    audioOffset,
   };
   saveSeries();
   await runSeries();

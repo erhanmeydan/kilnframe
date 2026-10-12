@@ -65,7 +65,11 @@ export interface CompanionOptions {
   /** Whether a job is running or waiting, for the app: it holds off quitting while the companion is busy. */
   onBusy?: (busy: boolean) => void;
   /** Creates a job folder next to the Premiere project and returns its path. */
-  prepareJob?: (projectPath: string | undefined, sequenceName: string) => Promise<string>;
+  prepareJob?: (
+    projectPath: string | undefined,
+    sequenceName: string,
+    jobRoot?: string,
+  ) => Promise<string>;
 }
 
 export interface AppUpdates {
@@ -237,7 +241,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             if (!o.prepareJob) throw new Error("job folders are not supported");
             send({
               type: "job.prepared",
-              jobDir: await o.prepareJob(msg.projectPath, msg.sequenceName),
+              jobDir: await o.prepareJob(msg.projectPath, msg.sequenceName, msg.jobRoot),
             });
             break;
           case "speech.voices": {
