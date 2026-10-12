@@ -421,6 +421,7 @@
   "mismatch.app": "Kilnframe uygulaması bu panelden eski. Yeni sürümü indirip kurun.",
   "mismatch.download": "İndir",
   "mismatch.panel": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Eklentiyi Premiere'e Kur'u seçin, sonra Premiere'i yeniden başlatın.",
+  "mismatch.panelResolve": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Paneli DaVinci Resolve'a Kur'u seçin, sonra paneli Workspace > Workflow Integrations'tan yeniden açın.",
   "story.stopShort": "Durdur",
   "resolve.renderBusy": "DaVinci Resolve 10 dakika sonra hâlâ render yapıyordu. Onun render'ı bitince yeniden deneyin.",
   "resolve.waitingRender": "DaVinci Resolve render yapıyor. Kilnframe onun bitmesini en fazla 10 dakika bekliyor.",

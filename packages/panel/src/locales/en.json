@@ -421,6 +421,7 @@
   "mismatch.app": "The Kilnframe app is older than this panel. Download the new version and install it.",
   "mismatch.download": "Download",
   "mismatch.panel": "This panel is older than the Kilnframe app. In the Kilnframe menu in the menu bar choose Install the Plugin in Premiere, then restart Premiere.",
+  "mismatch.panelResolve": "This panel is older than the Kilnframe app. In the Kilnframe menu in the menu bar choose Install the Panel in DaVinci Resolve, then reopen the panel from Workspace > Workflow Integrations.",
   "story.stopShort": "Stop",
   "resolve.renderBusy": "DaVinci Resolve was still rendering after 10 minutes. Try again when its render is done.",
   "resolve.waitingRender": "DaVinci Resolve is rendering; Kilnframe waits for it to finish, up to 10 minutes.",

@@ -237,3 +237,12 @@ describe("earlier inserts on the timeline", () => {
     );
   });
 });
+
+describe("resolve wording", () => {
+  it("tells a Resolve user how to update the Resolve panel, not the Premiere plugin", () => {
+    for (const l of [en, tr] as Record<string, string>[]) {
+      expect(l["mismatch.panelResolve"]).toMatch(/DaVinci Resolve/);
+      expect(l["mismatch.panelResolve"]).not.toMatch(/Premiere/);
+    }
+  });
+});

@@ -477,7 +477,8 @@ function updateBox(): string {
   if (state.conn !== "ok") return "";
   if (state.mismatch === "app")
     return `<div class="box warn"><div>${t("mismatch.app")}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
-  if (state.mismatch === "panel") return `<div class="box warn">${t("mismatch.panel")}</div>`;
+  if (state.mismatch === "panel")
+    return `<div class="box warn">${t(host().kind === "resolve" ? "mismatch.panelResolve" : "mismatch.panel")}</div>`;
   const u = state.update;
   if (!u || u.status === "none" || u.status === "checking") return "";
   const v = esc(u.version ?? "");
