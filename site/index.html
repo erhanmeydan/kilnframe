@@ -3,15 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kilnframe: animated inserts for Premiere Pro</title>
+    <title>Kilnframe: animated inserts and music for Premiere Pro and DaVinci Resolve</title>
     <meta
       name="description"
-      content="A free, open source plugin for Premiere Pro. Mark a range, pick a style: Kilnframe writes an animation for what you said, renders it on your computer and places it on your timeline with its sound effects."
+      content="A free, open source plugin for Premiere Pro and DaVinci Resolve Studio. Mark a range, pick a style: Kilnframe writes an animation for what you said, renders it on your computer and places it on your timeline with its sound effects. The Music tab scores the whole video."
     />
     <link rel="icon" href="assets/favicon.png" />
     <link rel="alternate" hreflang="en" href="https://kilnframe.com/" />
     <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/" />
-    <meta property="og:title" content="Kilnframe: animated inserts for Premiere Pro" />
+    <meta
+      property="og:title"
+      content="Kilnframe: animated inserts and music for Premiere Pro and DaVinci Resolve"
+    />
     <meta
       property="og:description"
       content="Mark a range, pick a style. The animation lands on your timeline."
@@ -48,9 +51,9 @@
             </div>
             <div>
               <p class="lead">
-                A free plugin for Premiere Pro. Mark a range on your timeline and pick a style:
-                Kilnframe writes an animation for what you said, renders it on your own computer and
-                lays it right above the range, sound effects included.
+                A free plugin for Premiere Pro and DaVinci Resolve Studio. Mark a range on your
+                timeline and pick a style: Kilnframe writes an animation for what you said, renders
+                it on your own computer and lays it right above the range, sound effects included.
               </p>
               <div class="downloads">
                 <a
@@ -71,7 +74,7 @@
               </div>
               <div class="meta tc">
                 <span data-version></span><span>No account</span
-                ><span>Premiere Pro 2026 · a graphics card</span>
+                ><span>Premiere Pro 2026 · Resolve Studio 21.1 · a graphics card</span>
               </div>
             </div>
           </div>
@@ -205,8 +208,8 @@
             <div>
               <h2>Nothing lands on your timeline before you say so.</h2>
               <p>
-                Kilnframe is a panel inside Premiere and a small helper in your menu bar. Four
-                steps, and you approve every scene before a single frame is rendered.
+                Kilnframe is a panel inside Premiere or Resolve and a small helper in your menu bar.
+                Four steps, and you approve every scene before a single frame is rendered.
               </p>
             </div>
           </div>
@@ -430,10 +433,74 @@
         </div>
       </section>
 
+      <section id="music">
+        <div class="wrap story">
+          <div>
+            <span class="tc">06 · MUSIC</span>
+            <h2 style="margin-top: 12px">Music that follows what you say.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              The Music tab scores the whole timeline or a range with Google Lyria, in sections that
+              follow your topics, and places it on its own track.
+            </p>
+            <ol>
+              <li>
+                <span><b>Plan the music:</b> sections by topic, each with its mood and tempo.</span>
+              </li>
+              <li>
+                <span><b>Change what you like:</b> a section's direction, join two, or none.</span>
+              </li>
+              <li>
+                <span><b>Listen with your voice over it,</b> and make any section again.</span>
+              </li>
+              <li>
+                <span
+                  ><b>Place it:</b> one clip per section, ducked under your voice, a real ending at
+                  the last frame.</span
+                >
+              </li>
+            </ol>
+            <p style="color: var(--ink-2); font-size: 14px">
+              Needs a Google Gemini key, about $0.08 per section. Lyria music carries Google's
+              inaudible SynthID watermark.
+            </p>
+          </div>
+          <div>
+            <svg
+              viewBox="0 0 520 220"
+              role="img"
+              aria-label="The music level: about -21 dB while you speak, -15 dB in a pause, rising towards the end"
+              style="width: 100%; height: auto"
+            >
+              <g font-family="var(--mono)" font-size="11" fill="var(--ink-2)">
+                <text x="0" y="16">MUSIC</text>
+                <text x="0" y="214">SPEECH</text>
+                <text x="404" y="16">FINALE</text>
+              </g>
+              <g fill="var(--line)">
+                <rect x="20" y="176" width="120" height="18" rx="4" />
+                <rect x="170" y="176" width="150" height="18" rx="4" />
+                <rect x="350" y="176" width="110" height="18" rx="4" />
+              </g>
+              <path
+                d="M20 110 H140 L146 66 H164 L170 110 H320 L326 66 H344 L350 110 C410 104 440 88 470 76 L500 160"
+                fill="none"
+                stroke="var(--clay)"
+                stroke-width="3"
+                stroke-linejoin="round"
+              />
+              <g font-family="var(--mono)" font-size="11" fill="var(--clay)">
+                <text x="40" y="102">-21 dB</text>
+                <text x="140" y="58">-15 dB</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </section>
+
       <section id="spec">
         <div class="wrap">
           <div class="head">
-            <span class="tc">06 · SPEC SHEET</span>
+            <span class="tc">07 · SPEC SHEET</span>
             <div>
               <h2>Everything it does.</h2>
               <p>What it makes, how it hands it to you, and what it runs on.</p>
@@ -500,8 +567,9 @@
               </dd>
               <dt>Runs on</dt>
               <dd>
-                Premiere Pro 2026 (25.6+). Mac with Apple silicon, Windows 10 and 11, a graphics
-                card. About 2 GB of disk.
+                Premiere Pro 2026 (25.6+) or DaVinci Resolve Studio 21.1+ (the free Resolve loads no
+                plugins). Mac with Apple silicon, Windows 10 and 11, a graphics card. About 2 GB of
+                disk.
               </dd>
               <dt>Updates</dt>
               <dd>
@@ -516,7 +584,7 @@
       <section id="benchmark">
         <div class="wrap">
           <div class="head">
-            <span class="tc">07 · BENCHMARK</span>
+            <span class="tc">08 · BENCHMARK</span>
             <div>
               <h2>Fifteen models, one clip.</h2>
               <p>
@@ -810,7 +878,7 @@
       <section class="band">
         <div class="wrap">
           <div class="head">
-            <span class="tc">08 · YOUR FOOTAGE</span>
+            <span class="tc">09 · YOUR FOOTAGE</span>
             <div>
               <h2>It stays on your computer.</h2>
               <p>
@@ -844,7 +912,7 @@
       <section id="faq">
         <div class="wrap">
           <div class="head">
-            <span class="tc">09 · QUESTIONS</span>
+            <span class="tc">10 · QUESTIONS</span>
             <div><h2>Before you install.</h2></div>
           </div>
           <div class="faq">
@@ -854,6 +922,14 @@
                 Yes. Kilnframe is free and open source under Apache 2.0. The only cost is the AI:
                 the Claude, ChatGPT or Grok plan you already have, an API key you pay per use, or
                 nothing with a local model.
+              </p>
+            </details>
+            <details>
+              <summary>Does it work in DaVinci Resolve?</summary>
+              <p>
+                Yes, in DaVinci Resolve Studio 21.1 or later, on Mac and Windows. The installer puts
+                the panel in Resolve; open it from Workspace, Workflow Integrations, Kilnframe. The
+                free version of Resolve does not load plugins.
               </p>
             </details>
             <details>
@@ -903,8 +979,8 @@
           <span class="tc">FADE OUT</span>
           <h2 style="margin-top: 12px">Mark your first range today.</h2>
           <p>
-            Free, open source, on your own computer. Install, open the panel in Premiere, select a
-            range.
+            Free, open source, on your own computer. Install, open the panel in Premiere or Resolve,
+            select a range.
           </p>
           <div class="downloads">
             <a

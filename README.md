@@ -2,14 +2,14 @@
 
 <h1 align="center">Kilnframe</h1>
 
-<p align="center">Animated inserts for Premiere Pro, made from what you say.<br>
+<p align="center">Animated inserts and music for Premiere Pro and DaVinci Resolve Studio, made from what you say.<br>
 Select a range, pick a style, and a code-made animation with sound effects lands on your timeline.</p>
 
 <p align="center"><a href="#türkçe">Türkçe</a></p>
 
 ---
 
-Kilnframe is a free, open source plugin for Adobe Premiere Pro. You mark an in/out range on the timeline;
+Kilnframe is a free, open source plugin for Adobe Premiere Pro and DaVinci Resolve Studio. You mark an in/out range on the timeline;
 Kilnframe listens to the speech in it, plans scenes that fit what is said (a chart for a number, a diagram
 for a process, a 3D metaphor for an idea, big type for a strong sentence), writes each scene as an
 HTML, CSS and JavaScript animation, renders it on your own computer with
@@ -22,12 +22,15 @@ the range.
   short accent sits over your footage on the side you are not on.
 - **You approve before it renders.** One still per scene; redo a single scene with a note.
 - **Sound effects on their own track,** synthesized, nothing to license.
+- **Music for the whole video.** The Music tab scores the timeline or a range with Google Lyria, in sections
+  that follow your topics, ducks it under your voice and places it on its own track.
 - **Your plan or your key.** Use Claude Code, Codex or Grok with your own subscription, or an API key.
 - **Renders locally.** Your audio and video never leave your computer.
 
 ## Install
 
-You need Premiere Pro 2026 (25.6 or later) and a computer with a GPU.
+You need Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later, and a computer with a
+GPU. The free version of DaVinci Resolve does not load plugins: Resolve needs Studio.
 
 |                                    | Download                                                                                                         |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -36,9 +39,10 @@ You need Premiere Pro 2026 (25.6 or later) and a computer with a GPU.
 
 Intel Macs are not supported yet.
 
-1. Open the installer. It installs the Kilnframe app (a small icon in the menu bar or the system tray) and
-   the Premiere plugin in one go.
-2. Restart Premiere, then open **Window > UXP Plugins > Kilnframe**.
+1. Open the installer. It installs the Kilnframe app (a small icon in the menu bar or the system tray), the
+   Premiere plugin and, when Resolve Studio is installed, the Resolve panel in one go.
+2. Restart Premiere, then open **Window > UXP Plugins > Kilnframe**. In Resolve, restart it and open
+   **Workspace > Workflow Integrations > Kilnframe**.
 
 On Windows, SmartScreen may say it protected your PC, because the installer is not code signed yet. Click
 **More info**, then **Run anyway**. The Mac installer is signed and notarized by Apple.
@@ -84,6 +88,22 @@ Windows Credential Manager), never in a file. Claude and GPT models are marked R
 
 A step-by-step guide with screenshots: [docs/ilk-animasyon.md](docs/ilk-animasyon.md) (Turkish for now).
 
+## Music
+
+1. Open the **Music** tab and choose **Whole Timeline** or **In/Out**. Write what you would like (calm piano,
+   drums at the end) or leave it to the AI.
+2. Press **Plan the Music**. The AI splits the speech into sections by topic, each with its mood, tempo and
+   how it hands over to the next. Change a section's direction, join two, or leave one without music.
+3. Press **Make the Music**. Google Lyria writes one piece per section. This needs a Google Gemini key
+   (settings, Narration and Music) and costs about $0.08 per section on your Google account.
+4. Listen to each section with your voice over it, make any section again with a note, then press
+   **Place on the Timeline**: one clip per section on a new audio track.
+
+The music sits around -21 dB on your audio meter while you speak, comes up in the pauses and
+grows towards the end; set the level in the settings. All Lyria music carries Google's inaudible SynthID
+watermark and its use follows Google's terms. Each job folder keeps a record of what made it
+(`music/music.json`).
+
 ## Styles
 
 | Style               | Look                                                                         |
@@ -108,8 +128,8 @@ see [styles/](styles/).
 
 Only text and a few small stills go to the AI you chose: the transcript, the scene plan, the style's
 description and, for Automatic mode, three frames of the range so the model can see where you stand.
-Your audio and video files stay on your computer. Rendering, speech recognition and sound effects run
-locally.
+For music, the sections' descriptions go to Google Lyria as text. Your audio and video files stay on your
+computer. Rendering, speech recognition and sound effects run locally.
 
 ## Contributing
 
@@ -126,7 +146,7 @@ pnpm check   # typecheck, lint, format check and tests
 | `packages/sfx`       | Sound effect synthesis                                                           |
 | `packages/companion` | Local service the panel talks to (render, transcription, keys, jobs)             |
 | `packages/app`       | The menu bar app that runs the companion, installs the plugin and updates itself |
-| `packages/panel`     | The Premiere Pro UXP panel                                                       |
+| `packages/panel`     | The Premiere Pro UXP panel and the DaVinci Resolve Workflow Integration panel    |
 | `styles/`            | Style presets                                                                    |
 | `vendor/`            | Three.js, GSAP and fonts the animations load (with their licenses)               |
 | `docs/`              | Architecture and notes (mostly Turkish)                                          |
@@ -162,7 +182,7 @@ for Testing, Electron, GSAP (GreenSock's no-charge license) and open source font
 
 ## Türkçe
 
-Kilnframe, Premiere Pro için ücretsiz ve açık kaynak bir eklenti. Timeline'da bir aralık seçersiniz,
+Kilnframe, Premiere Pro ve DaVinci Resolve Studio için ücretsiz ve açık kaynak bir eklenti. Timeline'da bir aralık seçersiniz,
 Kilnframe o aralıktaki konuşmayı dinler ve söylenene uygun sahneler planlar: bir sayı için grafik, bir
 süreç için diyagram, bir fikir için 3D bir metafor, güçlü bir cümle için büyük yazı. Her sahneyi HTML, CSS
 ve JavaScript ile animasyon olarak yazar, sizin bilgisayarınızda render alır ve videoyu ses efektleriyle
@@ -175,13 +195,16 @@ birlikte aralığın üstüne yerleştirir.
 - **Render'dan önce onay.** Her sahneden bir kare gelir, beğenmediğiniz sahneyi bir notla yeniden
   ürettirirsiniz.
 - **Ses efektleri ayrı izde.** Kodla üretilir, lisans derdi yoktur.
+- **Bütün videoya müzik.** Müzik sekmesi timeline'ı ya da bir aralığı Google Lyria ile konulara göre
+  bölüm bölüm müzikler, konuşmanızın altında kısar ve ayrı bir ize yerleştirir.
 - **Kendi aboneliğiniz ya da anahtarınız.** Claude Code, Codex ya da Grok'u kendi planınızla
   kullanabilir ya da bir API anahtarı girebilirsiniz.
 - **Render bilgisayarınızda.** Ses ve video dosyalarınız bilgisayarınızdan çıkmaz.
 
 ### Kurulum
 
-Premiere Pro 2026 (25.6 ya da sonrası) ve ekran kartı olan bir bilgisayar gerekir.
+Premiere Pro 2026 (25.6 ya da sonrası) ya da DaVinci Resolve Studio 21.1 ya da sonrası, ve ekran kartı olan
+bir bilgisayar gerekir. DaVinci Resolve'un ücretsiz sürümü eklenti yüklemez, Resolve için Studio gerekir.
 
 - macOS, Apple silicon (M1 ve sonrası): [Kilnframe-mac.pkg](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg)
 - Windows 10 ya da 11, 64 bit: [Kilnframe-Windows.exe](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe)
@@ -189,8 +212,9 @@ Premiere Pro 2026 (25.6 ya da sonrası) ve ekran kartı olan bir bilgisayar gere
 Intel işlemcili Mac'ler henüz desteklenmiyor.
 
 1. Kurulum dosyasını açın. Kilnframe uygulamasını (menü çubuğunda ya da sistem tepsisinde küçük bir
-   simge) ve Premiere eklentisini birlikte kurar.
-2. Premiere'i yeniden başlatın ve **Window > UXP Plugins > Kilnframe** ile paneli açın.
+   simge), Premiere eklentisini ve Resolve Studio kuruluysa Resolve panelini birlikte kurar.
+2. Premiere'i yeniden başlatın ve **Window > UXP Plugins > Kilnframe** ile paneli açın. Resolve'da
+   Resolve'u yeniden başlatın ve **Workspace > Workflow Integrations > Kilnframe**'i açın.
 
 Windows'ta SmartScreen "Bilgisayarınız korundu" diyebilir, çünkü kurulum dosyası henüz imzalı değil.
 **Ek bilgi**'ye, sonra **Yine de çalıştır**'a basın. Mac kurulumu imzalı ve Apple onaylıdır.
@@ -213,11 +237,29 @@ Build. Claude Code için ücretli bir Claude planı gerekir. Kurulum komutları 
 
 Adım adım, ekran görüntülü rehber: [docs/ilk-animasyon.md](docs/ilk-animasyon.md).
 
+### Müzik
+
+1. **Müzik** sekmesini açın, **Tüm Timeline** ya da **In/Out**'u seçin. İsteğinizi yazın (sakin piyano,
+   finalde davul) ya da yapay zekaya bırakın.
+2. **Müzik Planı Çıkar**'a basın. Yapay zeka konuşmayı konulara göre bölümlere ayırır; her bölümün havası,
+   temposu ve bir sonrakine nasıl geçtiği yazar. Bir bölümün yönünü değiştirebilir, iki bölümü
+   birleştirebilir ya da bir bölümü müziksiz bırakabilirsiniz.
+3. **Müziği Üret**'e basın. Her bölümün müziğini Google Lyria yazar. Bunun için Google Gemini anahtarı
+   gerekir (Ayarlar, Seslendirme ve Müzik); bölüm başına yaklaşık 0,08 dolar, Google hesabınızdan ödenir.
+4. Her bölümü üstünde sesinizle dinleyin, istediğiniz bölümü bir notla yeniden ürettirin, sonra **Timeline'a
+   Yerleştir**'e basın: her bölüm yeni bir ses izinde ayrı bir klip olur.
+
+Siz konuşurken müzik ses göstergesinde yaklaşık -21 dB'de durur, boşluklarda yükselir, finale doğru
+büyür; seviyeyi Ayarlar'dan değiştirebilirsiniz. Lyria'nın bütün müzikleri Google'ın duyulmayan SynthID
+filigranını taşır ve kullanımı Google'ın koşullarına tabidir. Her iş klasöründe müziğin nasıl yapıldığının
+kaydı durur (`music/music.json`).
+
 ### Bilgisayarınızdan ne çıkar
 
 Seçtiğiniz yapay zekaya sadece metin ve birkaç küçük kare gider: konuşmanın yazıya dökülmüş hali, sahne
-planı, stilin tarifi ve Otomatik modda kadrajda nerede durduğunuzu görmesi için aralıktan üç kare. Ses ve
-video dosyalarınız bilgisayarınızda kalır.
+planı, stilin tarifi ve Otomatik modda kadrajda nerede durduğunuzu görmesi için aralıktan üç kare. Müzik
+için bölümlerin tarifleri metin olarak Google Lyria'ya gider. Ses ve video dosyalarınız bilgisayarınızda
+kalır.
 
 ### Lisans
 
