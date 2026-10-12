@@ -138,17 +138,19 @@ export function createResolveBridge(
           Object.values(codecs).find((v) => format[1].test(v));
         if (!id || !(await p.SetCurrentRenderFormatAndCodec(format[0], id))) return false;
       }
-      const ok = await p.SetRenderSettings({
-        SelectAllFrames: false,
-        MarkIn: start + Math.round(startS * rate.fps),
-        MarkOut: start + Math.round(endS * rate.fps) - 1,
-        TargetDir: dirOf(file),
-        CustomName: baseOf(file),
-        ...settings,
-      });
-      if (!ok) return false;
-      // still refused: a few tries with a growing pause, each refused job deleted, never an endless wait
+      // still refused: a few tries with a growing pause, each refused job deleted, never an endless wait.
+      // Resolve 21.1.1 refuses the first start after switching between audio-only and picture renders, and
+      // once refused, every later start until the settings are set again (12 Oct 2026): so they are, each try.
       for (let attempt = 1; attempt <= START_TRIES; attempt++) {
+        const ok = await p.SetRenderSettings({
+          SelectAllFrames: false,
+          MarkIn: start + Math.round(startS * rate.fps),
+          MarkOut: start + Math.round(endS * rate.fps) - 1,
+          TargetDir: dirOf(file),
+          CustomName: baseOf(file),
+          ...settings,
+        });
+        if (!ok) return false;
         job = (await p.AddRenderJob()) as string;
         if (!job) return false;
         if (await p.StartRendering([job], false)) {

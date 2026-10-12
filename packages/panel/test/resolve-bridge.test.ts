@@ -90,6 +90,15 @@ describe("resolve bridge", () => {
     expect(f.log.startRendering).toHaveLength(5);
   });
 
+  it("sets the render settings again before each try: a refused start leaves them stale", async () => {
+    const f = makeFakeResolve({ refuseStarts: 1, staleAfterRefusal: true });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).resolves.toMatchObject({ ok: true });
+    expect(f.log.startRendering).toHaveLength(2);
+    expect(f.log.renderSettings).toHaveLength(2);
+  });
+
   it("adds the job again when Resolve refuses to start it (seen 12 Oct 2026), deleting the refused one", async () => {
     const f = makeFakeResolve({ refuseStarts: 1 });
     const b = bridge(f);

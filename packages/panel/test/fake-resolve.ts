@@ -39,6 +39,8 @@ export interface FakeOptions {
   refuseStarts?: number;
   /** Resolve Studio 21.1.1 refuses StartRendering on the Edit page right after a still export (12 Oct 2026). */
   refuseOffDeliver?: boolean;
+  /** After a refused start, Resolve 21.1.1 refuses every later start until the render settings are set again. */
+  staleAfterRefusal?: boolean;
 }
 
 const track = (items: FakeItem[] = []): FakeTrack => ({ items, enabled: true, locked: false });
@@ -119,6 +121,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
   let stillCalls = 0;
   let refusals = o.refuseStarts ?? 0;
   let settingsChangedOffDeliver = false;
+  let stale = false;
   const started = new Set<string>();
   const folders: { name: string; subs: unknown[] }[] = [];
   const root = { name: "Master", subs: folders };
@@ -273,6 +276,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     // a VideoQuality string makes Resolve 21.1.1 refuse the whole settings dict
     SetRenderSettings: async (s: Record<string, unknown>) => (
       log.renderSettings.push(s),
+      (stale = false),
       typeof s.VideoQuality !== "string"
     ),
     SetCurrentRenderFormatAndCodec: async (f: string, c: string) => (
@@ -285,8 +289,10 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     StartRendering: async (ids: string[]) => {
       log.startRendering.push(ids);
       if (o.refuseOffDeliver && (page !== "deliver" || settingsChangedOffDeliver)) return false;
+      if (stale) return false;
       if (refusals > 0) {
         refusals--;
+        if (o.staleAfterRefusal) stale = true;
         return false;
       }
       started.add(ids[0] as string);
