@@ -1,7 +1,7 @@
 // packages/core/test/music-score-plan.test.ts
 import { describe, expect, it } from "vitest";
 import {
-  planProblems,
+  musicPlanProblems,
   snapPlan,
   splitLong,
   type MusicPlan,
@@ -43,12 +43,12 @@ describe("music plan", () => {
     const p = snapPlan(plan([sec({ startS: 0, endS: 6 }), sec({ startS: 6, endS: 14 })]), [], 14);
     expect(p.sections).toHaveLength(1);
     expect([p.sections[0]!.startS, p.sections[0]!.endS]).toEqual([0, 14]);
-    expect(planProblems(p, 14)).toEqual([]);
+    expect(musicPlanProblems(p, 14)).toEqual([]);
   });
 
   it("names gaps, overlaps and sections outside 20 to 180 s as problems", () => {
     const bad = plan([sec({ startS: 0, endS: 10 }), sec({ startS: 12, endS: 300 })]);
-    const problems = planProblems(bad, 300).join("\n");
+    const problems = musicPlanProblems(bad, 300).join("\n");
     expect(problems).toMatch(/s?1.*20 s/i);
     expect(problems).toMatch(/gap|does not start/i);
     expect(problems).toMatch(/180 s/);

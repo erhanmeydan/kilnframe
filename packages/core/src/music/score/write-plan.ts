@@ -7,7 +7,7 @@ import type { ChatMessage, TextProvider } from "../../providers/types.js";
 import type { Transcript } from "../../schemas/transcript.js";
 import {
   MusicPlanSchema,
-  planProblems,
+  musicPlanProblems,
   snapPlan,
   splitLong,
   type MusicPlan,
@@ -86,7 +86,7 @@ export async function writeMusicPlan(o: {
       const plan = splitLong(
         snapPlan(MusicPlanSchema.parse(extractJson(reply.text)), words, o.durationS),
       );
-      const problems = planProblems(plan, o.durationS);
+      const problems = musicPlanProblems(plan, o.durationS);
       if (!problems.length) return plan;
       last = new Error(problems.join("\n"));
     } catch (err) {

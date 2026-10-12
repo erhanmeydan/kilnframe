@@ -71,7 +71,7 @@ export function snapPlan(plan: MusicPlan, words: Word[], durationS: number): Mus
   };
 }
 
-export function planProblems(plan: MusicPlan, durationS: number): string[] {
+export function musicPlanProblems(plan: MusicPlan, durationS: number): string[] {
   const out: string[] = [];
   const s = plan.sections;
   if (Math.abs(s[0]!.startS) > 0.01) out.push(`The first section does not start at 0.`);
