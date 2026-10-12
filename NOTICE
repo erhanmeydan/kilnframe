@@ -52,10 +52,11 @@ Files loaded by the animations (vendor/)
 three.js 0.186.1                   MIT License (vendor/three/LICENSE)
 GSAP 3.15.0                        GreenSock "Standard No Charge" license, not open source
                                    (vendor/gsap/LICENSE.md, https://gsap.com/standard-license)
-Fonts (15 families)                SIL Open Font License 1.1 (vendor/fonts/<family>/OFL.txt):
+Fonts (16 families)                SIL Open Font License 1.1 (vendor/fonts/<family>/OFL.txt):
                                    Alfa Slab One, Anton, Archivo, Baloo 2, Barlow Condensed,
-                                   Bricolage Grotesque, IBM Plex Mono, Inter, Nunito, Outfit,
-                                   Patrick Hand, Playfair Display, Sora, Source Serif 4, Space Grotesk
+                                   Bricolage Grotesque, IBM Plex Mono, Inter, Nunito, Open Sans (the
+                                   DaVinci Resolve panel), Outfit, Patrick Hand, Playfair Display, Sora,
+                                   Source Serif 4, Space Grotesk
 
 
 Downloaded on first use

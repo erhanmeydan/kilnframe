@@ -29,6 +29,7 @@ const types = {
   ".jpg": "image/jpeg",
   ".svg": "image/svg+xml",
   ".json": "application/json",
+  ".ttf": "font/ttf",
 };
 
 const body = (req) =>
@@ -86,16 +87,22 @@ createServer(async (req, res) => {
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {
       // the built panel page, with the stand-ins loaded before the panel's script
-      const html = readFileSync(join(panel, "dist", "index.html"), "utf8").replace(
+      // ?theme=resolve: the page as the Resolve build dresses it (colours and Open Sans)
+      const resolveLook = url.searchParams.get("theme") === "resolve";
+      let page = readFileSync(join(panel, "dist", "index.html"), "utf8");
+      if (resolveLook) page = (await import("../packages/panel/resolve/theme.mjs")).resolveTheme(page);
+      const html = page.replace(
         '<script defer src="./index.js"></script>',
-        `<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style><script>window.KILNFRAME_DEMO=${JSON.stringify({ project })}</script><script src="/demo/stubs.js"></script><script defer src="./index.js"></script>`,
+        `${resolveLook ? "" : '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style>'}<script>window.KILNFRAME_DEMO=${JSON.stringify({ project })}</script><script src="/demo/stubs.js"></script><script defer src="./index.js"></script>`,
       );
       res.writeHead(200, { "Content-Type": types[".html"] }).end(html);
       return;
     }
     const file = url.pathname.startsWith("/demo/")
       ? join(panel, url.pathname)
-      : join(panel, "dist", normalize(url.pathname));
+      : url.pathname.startsWith("/fonts/")
+        ? join(panel, "dist-resolve", normalize(url.pathname))
+        : join(panel, "dist", normalize(url.pathname));
     if (!file.startsWith(panel) || !existsSync(file) || statSync(file).isDirectory()) {
       res.writeHead(404).end();
       return;
