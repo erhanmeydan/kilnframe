@@ -80,3 +80,4 @@ export interface KilnframeResolveApi extends ResolveBridge {
 export const NO_SEQUENCE = "NO_SEQUENCE";
 export const RENDER_BUSY = "RENDER_BUSY";
 export const PLACE_FAILED = "PLACE_FAILED";
+export const RENDER_FAILED = "RENDER_FAILED";

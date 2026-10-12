@@ -69,6 +69,25 @@ describe("resolve bridge", () => {
     expect(f.log.pages.at(-1)).toBe("edit");
   });
 
+  it("adds the job again when Resolve refuses to start it (seen 12 Oct 2026), deleting the refused one", async () => {
+    const f = makeFakeResolve({ refuseStarts: 1 });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).resolves.toMatchObject({ ok: true });
+    expect(f.log.startRendering).toEqual([["job-1"], ["job-2"]]);
+    expect(f.log.deletedJobs).toEqual(["job-1", "job-2"]);
+  });
+
+  it("gives up with RENDER_FAILED instead of waiting forever when no start works", async () => {
+    const f = makeFakeResolve({ refuseStarts: Infinity });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).rejects.toThrow("RENDER_FAILED");
+    expect(f.log.startRendering).toHaveLength(3);
+    expect(f.log.deletedJobs).toEqual(["job-1", "job-2", "job-3"]);
+    expect(f.log.presets.at(-1)).toBe("delete:Kilnframe Temp");
+  });
+
   it("waits while the user's own render runs, then goes on", async () => {
     const f = makeFakeResolve({ renderingFor: 3 });
     const b = bridge(f);

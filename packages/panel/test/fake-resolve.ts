@@ -35,6 +35,8 @@ export interface FakeOptions {
   lockTopVideoTrackOnAdd?: boolean;
   ourInsertOnV2?: boolean;
   failFirstStill?: boolean;
+  /** StartRendering returns false this many times before it works (Infinity: never). */
+  refuseStarts?: number;
 }
 
 const track = (items: FakeItem[] = []): FakeTrack => ({ items, enabled: true, locked: false });
@@ -113,6 +115,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
   let renderingPolls = o.renderingFor ?? 0;
   let jobs = 0;
   let stillCalls = 0;
+  let refusals = o.refuseStarts ?? 0;
+  const started = new Set<string>();
   const folders: { name: string; subs: unknown[] }[] = [];
   const root = { name: "Master", subs: folders };
 
@@ -267,7 +271,15 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     GetRenderCodecs: async (ext: string) =>
       ext === "mp4" ? { "H.265 Main10": "H265_Main10", "H.264": "H264_Main" } : {},
     AddRenderJob: async () => `job-${++jobs}`,
-    StartRendering: async (ids: string[]) => (log.startRendering.push(ids), true),
+    StartRendering: async (ids: string[]) => {
+      log.startRendering.push(ids);
+      if (refusals > 0) {
+        refusals--;
+        return false;
+      }
+      started.add(ids[0] as string);
+      return true;
+    },
     IsRenderingInProgress: async () => {
       if (renderingPolls > 0) {
         renderingPolls--;
@@ -275,7 +287,10 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       }
       return false;
     },
-    GetRenderJobStatus: async () => ({ JobStatus: "Complete", CompletionPercentage: 100 }),
+    GetRenderJobStatus: async (id: string) =>
+      started.has(id)
+        ? { JobStatus: "Complete", CompletionPercentage: 100 }
+        : { JobStatus: "Ready", CompletionPercentage: 0 },
     DeleteRenderJob: async (id: string) => (log.deletedJobs.push(id), true),
     ExportCurrentFrameAsStill: async (p: string) => {
       stillCalls++;

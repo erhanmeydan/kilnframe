@@ -422,5 +422,6 @@
   "mismatch.download": "İndir",
   "mismatch.panel": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Eklentiyi Premiere'e Kur'u seçin, sonra Premiere'i yeniden başlatın.",
   "story.stopShort": "Durdur",
-  "resolve.renderBusy": "DaVinci Resolve başka bir render yapıyor. Kilnframe onun bitmesini bekliyor; bitince yeniden deneyin."
+  "resolve.renderBusy": "DaVinci Resolve başka bir render yapıyor. Kilnframe onun bitmesini bekliyor; bitince yeniden deneyin.",
+  "resolve.renderFailed": "DaVinci Resolve aralığın render'ını başlatmadı. Yeniden deneyin; tekrar ederse Resolve'u yeniden başlatın."
 }

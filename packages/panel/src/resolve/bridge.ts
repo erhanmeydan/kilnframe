@@ -10,6 +10,7 @@ import {
   NO_SEQUENCE,
   PLACE_FAILED,
   RENDER_BUSY,
+  RENDER_FAILED,
   type HiddenTrack,
   type PlacedTracks,
   type ResolveBridge,
@@ -25,6 +26,8 @@ type R = any;
 const TEMP_PRESET = "Kilnframe Temp";
 const BUSY_WAIT_MS = 10 * 60_000;
 const POLL_MS = 2_000;
+const START_TRIES = 3;
+const READY_LIMIT_MS = 15_000;
 
 const dirOf = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
 const baseOf = (p: string) => p.replace(/^.*[\\/]/, "").replace(/\.[^.]+$/, "");
@@ -132,15 +135,30 @@ export function createResolveBridge(
         ...settings,
       });
       if (!ok) return false;
-      job = (await p.AddRenderJob()) as string;
-      if (!job) return false;
-      await p.StartRendering([job], false);
-      for (;;) {
-        const status = (await p.GetRenderJobStatus(job)) as { JobStatus?: string };
-        if (status?.JobStatus === "Complete") return true;
-        if (status?.JobStatus === "Failed" || status?.JobStatus === "Cancelled") return false;
-        await sleep(POLL_MS / 4);
+      // Resolve has refused to start a job it had just added (StartRendering false, the job left Ready for
+      // good, 12 Oct 2026); a fresh job then renders. So: a few tries, each job deleted, never an endless wait.
+      for (let attempt = 1; attempt <= START_TRIES; attempt++) {
+        job = (await p.AddRenderJob()) as string;
+        if (!job) return false;
+        if (await p.StartRendering([job], false)) {
+          for (let idle = 0; ;) {
+            const status = (await p.GetRenderJobStatus(job)) as {
+              JobStatus?: string;
+              CompletionPercentage?: number;
+            };
+            if (status?.JobStatus === "Complete") return true;
+            if (status?.JobStatus === "Failed" || status?.JobStatus === "Cancelled") return false;
+            // a job that never leaves Ready did not start after all
+            idle = status?.JobStatus === "Ready" ? idle + POLL_MS / 4 : 0;
+            if (idle > READY_LIMIT_MS) break;
+            await sleep(POLL_MS / 4);
+          }
+        }
+        await p.DeleteRenderJob(job);
+        job = null;
+        await sleep(POLL_MS / 2);
       }
+      throw new Error(RENDER_FAILED);
     } finally {
       if (job) await p.DeleteRenderJob(job);
       if (saved) {
