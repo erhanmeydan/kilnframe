@@ -5,9 +5,39 @@ const plan = {
   version: 1 as const,
   world: "w",
   sections: [
-    { id: "s1", title: "A", startS: 0, endS: 40, mood: "m", energy: 2, tempo: 90, prompt: "p", transitionOut: "crossfade" as const },
-    { id: "s2", title: "B", startS: 40, endS: 70, mood: "m", energy: 2, tempo: 90, prompt: "p", transitionOut: "end" as const },
-    { id: "s3", title: "C", startS: 70, endS: 100, mood: "m", energy: 3, tempo: 90, prompt: "p", final: true },
+    {
+      id: "s1",
+      title: "A",
+      startS: 0,
+      endS: 40,
+      mood: "m",
+      energy: 2,
+      tempo: 90,
+      prompt: "p",
+      transitionOut: "crossfade" as const,
+    },
+    {
+      id: "s2",
+      title: "B",
+      startS: 40,
+      endS: 70,
+      mood: "m",
+      energy: 2,
+      tempo: 90,
+      prompt: "p",
+      transitionOut: "end" as const,
+    },
+    {
+      id: "s3",
+      title: "C",
+      startS: 70,
+      endS: 100,
+      mood: "m",
+      energy: 3,
+      tempo: 90,
+      prompt: "p",
+      final: true,
+    },
   ],
 };
 
@@ -28,10 +58,21 @@ describe("music panel", () => {
   });
 
   it("warns when a measured level misses its target by more than 1.5 dB", () => {
-    const ok = { id: "s1", file: "f", clean: "c", preview: null, atS: 0, durationS: 40, measured: { speechDb: -21.4, gapDb: -15.2 } };
+    const ok = {
+      id: "s1",
+      file: "f",
+      clean: "c",
+      preview: null,
+      atS: 0,
+      durationS: 40,
+      measured: { speechDb: -21.4, gapDb: -15.2 },
+    };
     expect(levelNote(ok, -21)).toMatchObject({ speech: "-21.4", gap: "-15.2", warn: false });
     expect(levelNote({ ...ok, measured: { speechDb: -18.9, gapDb: -15 } }, -21).warn).toBe(true);
-    expect(levelNote({ ...ok, measured: { speechDb: null, gapDb: -15.1 } }, -21)).toMatchObject({ speech: null, warn: false });
+    expect(levelNote({ ...ok, measured: { speechDb: null, gapDb: -15.1 } }, -21)).toMatchObject({
+      speech: null,
+      warn: false,
+    });
   });
 
   it("shows section times as minutes and seconds", () => {
