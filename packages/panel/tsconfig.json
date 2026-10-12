@@ -11,5 +11,11 @@
     "types": ["@adobe/premierepro"],
     "resolveJsonModule": true
   },
-  "include": ["index.ts", "src/**/*.ts", "probe/**/*.ts"]
+  "include": [
+    "index.ts",
+    "index-resolve.ts",
+    "src/**/*.ts",
+    "probe/**/*.ts",
+    "../app/node_modules/electron/electron.d.ts"
+  ]
 }

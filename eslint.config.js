@@ -7,6 +7,7 @@ export default tseslint.config(
     ignores: [
       "**/dist/**",
       "**/dist-probe/**",
+      "**/dist-resolve/**",
       "**/node_modules/**",
       "**/vendor/**",
       "out/**",
