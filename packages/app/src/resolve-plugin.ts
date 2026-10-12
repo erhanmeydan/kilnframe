@@ -1,6 +1,6 @@
 // The Kilnframe panel for DaVinci Resolve Studio, installed by this app like the Premiere plugin. Resolve loads
 // Workflow Integration plugins from one folder at start. The plugin needs Blackmagic's WorkflowIntegration.node,
-// which Kilnframe does not ship: it is copied from the user's own Resolve install, so it always matches it.
+// which Kilnframe does not ship: it is copied from the user's own Resolve install, again whenever Resolve updates it.
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
@@ -33,7 +33,28 @@ export function resolvePaths(platform = process.platform): ResolvePaths | null {
 }
 
 export type ResolveInstallState =
-  "no-resolve" | "no-developer-files" | "no-bundle" | "install" | "up-to-date";
+  "no-resolve" | "not-studio" | "no-developer-files" | "no-bundle" | "install" | "up-to-date";
+
+/** Resolve Studio's bundle id; the free version loads no Workflow Integration plugins. */
+const STUDIO_ID = "com.blackmagic-design.DaVinciResolve";
+
+/** The app's bundle id, or null when its Info.plist cannot be read (then nothing is ruled out). */
+function bundleId(app: string): string | null {
+  try {
+    const plist = readFileSync(join(app, "Contents", "Info.plist"), "utf8");
+    return /<key>CFBundleIdentifier<\/key>\s*<string>([^<]+)<\/string>/.exec(plist)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const sameFile = (a: string, b: string): boolean => {
+  try {
+    return readFileSync(a).equals(readFileSync(b));
+  } catch {
+    return false;
+  }
+};
 
 const versionIn = (manifest: string): string | null => {
   try {
@@ -49,11 +70,18 @@ export function resolveInstallState(
   exists: (p: string) => boolean = existsSync,
 ): ResolveInstallState {
   if (!exists(paths.app)) return "no-resolve";
+  const id = bundleId(paths.app);
+  if (id && id !== STUDIO_ID) return "not-studio";
   // without Blackmagic's module the panel cannot start: better none than a broken one in the menu
   if (!exists(paths.developerNode)) return "no-developer-files";
   if (!bundled) return "no-bundle";
-  const installed = versionIn(join(paths.pluginsDir, RESOLVE_PLUGIN_ID, "manifest.xml"));
-  return installed === bundled.version ? "up-to-date" : "install";
+  const target = join(paths.pluginsDir, RESOLVE_PLUGIN_ID);
+  const installed = versionIn(join(target, "manifest.xml"));
+  // a Resolve update brings a new WorkflowIntegration.node; the copy beside the panel must follow it
+  return installed === bundled.version &&
+    sameFile(paths.developerNode, join(target, "WorkflowIntegration.node"))
+    ? "up-to-date"
+    : "install";
 }
 
 /** The panel's version as built into the app (Resources/resolve-panel/manifest.xml). */

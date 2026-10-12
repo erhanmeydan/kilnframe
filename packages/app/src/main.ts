@@ -52,6 +52,8 @@ const text = turkish
       resolveNoDeveloper:
         "DaVinci Resolve Studio'nun geliştirici dosyaları bulunamadı. Resolve Studio'yu blackmagicdesign.com'dan yeniden kurun.",
       resolveFailed: "Resolve paneli kurulamadı, günlüğe bakın.",
+      resolveNotStudio:
+        "Kilnframe paneli DaVinci Resolve Studio gerektirir, ücretsiz sürüm eklenti yüklemiyor.",
       updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
       quit: "Kilnframe'den Çık",
       busyTitle: "Bir animasyon hazırlanıyor.",
@@ -78,6 +80,8 @@ const text = turkish
       resolveNoDeveloper:
         "DaVinci Resolve Studio's developer files were not found. Reinstall Resolve Studio from blackmagicdesign.com.",
       resolveFailed: "The Resolve panel could not be installed, see the log.",
+      resolveNotStudio:
+        "The Kilnframe panel needs DaVinci Resolve Studio; the free version loads no plugins.",
       updateReady: "Version {v} is ready. Update from the panel.",
       quit: "Quit Kilnframe",
       busyTitle: "An animation is being made.",
@@ -289,9 +293,10 @@ function ensureResolvePlugin(force = false) {
   if (!paths || !bundled) return;
   const state = resolveInstallState(paths, bundled);
   if (state === "no-resolve") return;
-  if (state === "no-developer-files") {
-    logLine(`resolve: ${text.resolveNoDeveloper}`);
-    resolveNote = text.resolveNoDeveloper;
+  if (state === "no-developer-files" || state === "not-studio") {
+    const note = state === "not-studio" ? text.resolveNotStudio : text.resolveNoDeveloper;
+    logLine(`resolve: ${note}`);
+    resolveNote = note;
     refreshMenu();
     return;
   }
@@ -309,6 +314,15 @@ function ensureResolvePlugin(force = false) {
   refreshMenu();
 }
 
+/** The menu offers the Resolve panel only where it can be installed: Resolve Studio with its developer files. */
+function resolvePanelInstallable(): boolean {
+  const paths = resolvePaths();
+  const bundled = bundledResolvePanel();
+  if (!paths || !bundled) return false;
+  const state = resolveInstallState(paths, bundled);
+  return state === "install" || state === "up-to-date";
+}
+
 function refreshMenu() {
   if (!tray) return;
   const login = openAtLogin();
@@ -322,7 +336,7 @@ function refreshMenu() {
       { type: "separator" },
       { label: text.log, click: () => void shell.openPath(logFile) },
       ...(bundledPlugin() ? [{ label: text.plugin, click: () => void ensurePlugin(true) }] : []),
-      ...(bundledResolvePanel() && resolvePaths()
+      ...(resolvePanelInstallable()
         ? [{ label: text.resolvePanel, click: () => ensureResolvePlugin(true) }]
         : []),
       {

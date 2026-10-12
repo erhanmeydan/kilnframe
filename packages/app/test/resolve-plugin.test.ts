@@ -10,14 +10,22 @@ import {
 } from "../src/resolve-plugin";
 
 /** A fake machine: an app folder, Resolve's developer files and its plugin folder, all under a temp dir. */
-function machine(o: { resolve?: boolean; developer?: boolean; installed?: string } = {}) {
+function machine(
+  o: { resolve?: boolean; developer?: boolean; installed?: string; bundleId?: string } = {},
+) {
   const root = mkdtempSync(join(tmpdir(), "kf-resolve-"));
   const paths: ResolvePaths = {
     app: join(root, "Applications", "DaVinci Resolve", "DaVinci Resolve.app"),
     developerNode: join(root, "Developer", "SamplePlugin", "WorkflowIntegration.node"),
     pluginsDir: join(root, "Workflow Integration Plugins"),
   };
-  if (o.resolve !== false) mkdirSync(paths.app, { recursive: true });
+  if (o.resolve !== false) {
+    mkdirSync(join(paths.app, "Contents"), { recursive: true });
+    writeFileSync(
+      join(paths.app, "Contents", "Info.plist"),
+      `<plist><dict>\n\t<key>CFBundleIdentifier</key>\n\t<string>${o.bundleId ?? "com.blackmagic-design.DaVinciResolve"}</string>\n</dict></plist>`,
+    );
+  }
   if (o.developer !== false) {
     mkdirSync(join(paths.developerNode, ".."), { recursive: true });
     writeFileSync(paths.developerNode, "native module");
@@ -27,6 +35,7 @@ function machine(o: { resolve?: boolean; developer?: boolean; installed?: string
     mkdirSync(target, { recursive: true });
     writeFileSync(join(target, "manifest.xml"), `<Version>${o.installed}</Version>`);
     writeFileSync(join(target, "stale.js"), "old");
+    writeFileSync(join(target, "WorkflowIntegration.node"), "native module");
   }
   const bundled = join(root, "bundle");
   mkdirSync(bundled, { recursive: true });
@@ -53,6 +62,17 @@ describe("resolve plugin", () => {
   it("does not install a panel that cannot start: no developer files", () => {
     const m = machine({ developer: false });
     expect(resolveInstallState(m.paths, { version: "0.2.0" })).toBe("no-developer-files");
+  });
+
+  it("leaves the free DaVinci Resolve alone: Workflow Integrations need Studio", () => {
+    const m = machine({ bundleId: "com.blackmagic-design.DaVinciResolveLite" });
+    expect(resolveInstallState(m.paths, { version: "0.2.0" })).toBe("not-studio");
+  });
+
+  it("installs again when Resolve was updated and its WorkflowIntegration.node changed", () => {
+    const m = machine({ installed: "0.2.0" });
+    writeFileSync(m.paths.developerNode, "native module of a newer Resolve");
+    expect(resolveInstallState(m.paths, { version: "0.2.0" })).toBe("install");
   });
 
   it("installs when missing or older, skips the same version", () => {
