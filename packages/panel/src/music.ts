@@ -360,8 +360,14 @@ async function musicJob(
 }
 
 async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
+  // busy before the first wait: a second click must not start a second export and model call
+  if (st.stage !== "idle") return;
+  st.stage = "planning";
   const target = await ctx.readSequence();
-  if (!target) return ctx.render();
+  if (!target) {
+    st.stage = "idle";
+    return ctx.render();
+  }
   const inOut = ctx.inOut();
   const range: Range =
     st.scope === "range" && inOut
@@ -465,9 +471,14 @@ async function makeMusic(st: MusicState, ctx: MusicCtx, only?: string[]): Promis
 }
 
 async function placeMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
-  const target = await ctx.readSequence();
-  if (!target || !st.made) return ctx.render();
+  // busy before the first wait: a second click must not place the music on a second track
+  if (st.stage !== "listen" || !st.made) return;
   st.stage = "placing";
+  const target = await ctx.readSequence();
+  if (!target) {
+    st.stage = "listen";
+    return ctx.render();
+  }
   ctx.render();
   try {
     const placed = await ctx.placeClips(

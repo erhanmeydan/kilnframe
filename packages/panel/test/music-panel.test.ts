@@ -157,4 +157,23 @@ describe("music panel", () => {
     const ctx = { esc: (x: string) => x, slider: () => -21 } as never;
     expect(musicBox(st, ctx)).toMatch(/earlier music stays|önceki müzik kaldı/);
   });
+
+  it("starts one plan and one placement only, however often the button is clicked", () => {
+    let reads = 0;
+    const ctx = {
+      readSequence: () => {
+        reads++;
+        return new Promise(() => undefined); // still reading
+      },
+      render: () => undefined,
+    } as never;
+    const st = newMusic();
+    musicAct(st, ctx, "music-plan", "");
+    musicAct(st, ctx, "music-plan", "");
+    expect(reads).toBe(1);
+    const listen = { ...newMusic(), plan, stage: "listen" as const, made: [] };
+    musicAct(listen, ctx, "music-place", "");
+    musicAct(listen, ctx, "music-place", "");
+    expect(reads).toBe(2);
+  });
 });
