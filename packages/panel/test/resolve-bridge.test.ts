@@ -108,6 +108,26 @@ describe("resolve bridge", () => {
     expect(f.log.pages).toEqual(["deliver", "edit", "deliver", "edit", "deliver"]);
   });
 
+  it("stops waiting for Resolve's own render when the editor stops the job", async () => {
+    const f = makeFakeResolve({ renderingFor: 1000 });
+    let waits = 0;
+    const b = createResolveBridge(f.resolve as never, {
+      sleep: async () => {
+        if (++waits === 2) await b.cancelExports();
+      },
+    });
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).rejects.toThrow("EXPORTS_STOPPED");
+    expect(f.log.startRendering).toEqual([]);
+    // a later job is not stopped by it
+    const later = makeFakeResolve();
+    const b2 = createResolveBridge(later.resolve as never, { sleep: async () => undefined });
+    await b2.cancelExports();
+    await expect(b2.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).resolves.toMatchObject({
+      ok: true,
+    });
+  });
+
   it("is patient with a Deliver page that refuses the first starts after opening", async () => {
     const f = makeFakeResolve({ refuseStarts: 4 });
     const b = bridge(f);
@@ -219,6 +239,49 @@ describe("resolve bridge", () => {
       b.placeInsert(seq.id, { video: "/m/Kilnframe/j/insert.mov", sfx: null }, 2, 0.8, 7),
     ).rejects.toThrow("PLACE_FAILED");
     expect(f.project.timeline.tracks.video.flatMap((t) => t.items)).toHaveLength(1);
+    // the tracks opened for it go too
+    expect(f.project.timeline.tracks.video).toHaveLength(1);
+    expect(f.project.timeline.tracks.audio).toHaveLength(1);
+  });
+
+  it("gives an In point back on its own after placing", async () => {
+    const f = makeFakeResolve({ markIn: 50 });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await b.placeInsert(seq.id, { video: "/m/Kilnframe/j/insert.mov", sfx: null }, 2, 0, 3);
+    expect(f.project.timeline.mark).toEqual({ in: 50 });
+  });
+
+  it("puts a story insert on the empty V1 of a timeline it made", async () => {
+    const f = makeFakeResolve();
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await b.createStorySequence(seq.id, "Story", "/m/Kilnframe/s/narration.wav", null);
+    const story = await b.currentSequence();
+    const placed = await b.placeInsert(
+      story.id,
+      { video: "/m/Kilnframe/s/insert.mp4", sfx: "/m/Kilnframe/s/sfx_mix.wav" },
+      0,
+      0,
+      3,
+    );
+    expect(placed).toEqual({ videoTrack: 0, audioTrack: 1 });
+    expect(f.project.current.tracks.video).toHaveLength(1);
+    expect(f.project.current.tracks.video[0]!.items[0]!.path).toBe("/m/Kilnframe/s/insert.mp4");
+  });
+
+  it("leaves no Deliver page behind when hiding fails after leaving it", async () => {
+    const f = makeFakeResolve({ failTrackCount: true });
+    const b = bridge(f);
+    await f.resolve.OpenPage("deliver");
+    const seq = await b.currentSequence().catch(() => null);
+    expect(seq).toBeNull();
+    await expect(b.hideOurInserts("tl-1", 0, 10)).rejects.toThrow("timeline gone");
+    // the editor's Deliver page is back, and nothing is left to send a later job there
+    expect(await f.resolve.GetCurrentPage()).toBe("deliver");
+    await f.resolve.OpenPage("edit");
+    await b.showTracks("tl-1", []);
+    expect(await f.resolve.GetCurrentPage()).toBe("edit");
   });
 
   it("reports PLACE_FAILED and takes the clip away when Resolve slid it off an occupied spot", async () => {

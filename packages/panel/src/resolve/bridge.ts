@@ -7,6 +7,7 @@
 // - Rendering changes the Deliver page's settings and Resolve cannot report them: they are kept as a preset.
 // - Renders, frame exports and appends act on the current timeline: the target is made current for them.
 import {
+  EXPORTS_STOPPED,
   NO_SEQUENCE,
   PLACE_FAILED,
   RENDER_BUSY,
@@ -39,6 +40,9 @@ export function createResolveBridge(
 ): ResolveBridge {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)));
 
+  /** Counts the editor's stops: a wait that sees it change ends. */
+  let stops = 0;
+
   /** The editor's page before a job's exports changed it; showTracks brings it back. */
   let pageBefore: string | null = null;
 
@@ -50,6 +54,32 @@ export function createResolveBridge(
     if ((await resolve.GetCurrentPage()) !== "deliver") return;
     pageBefore ??= "deliver";
     await resolve.OpenPage("edit");
+  }
+
+  /** Switches off the enabled tracks holding our inserts over [startS, endS); off the Deliver page. */
+  function hideOn(id: string, startS: number, endS: number): Promise<HiddenTrack[]> {
+    return onTimeline(id, async (tl) => {
+      await leaveDeliver();
+      const rate = await rateOf(tl);
+      const start = (await tl.GetStartFrame()) as number;
+      const from = start + Math.round(startS * rate.fps);
+      const to = start + Math.round(endS * rate.fps);
+      const hidden: HiddenTrack[] = [];
+      for (const type of ["video", "audio"] as const) {
+        const count = (await tl.GetTrackCount(type)) as number;
+        for (let i = 1; i <= count; i++) {
+          if (!(await tl.GetIsTrackEnabled(type, i))) continue;
+          let ours = false;
+          for (const item of ((await tl.GetItemListInTrack(type, i)) ?? []) as R[]) {
+            if ((await item.GetEnd()) <= from || (await item.GetStart()) >= to) continue;
+            const path = await (await item.GetMediaPoolItem())?.GetClipProperty("File Path");
+            if (typeof path === "string" && isOurInsert(path)) ours = true;
+          }
+          if (ours && (await tl.SetTrackEnable(type, i, false))) hidden.push({ type, index: i });
+        }
+      }
+      return hidden;
+    });
   }
 
   async function project(): Promise<R> {
@@ -84,14 +114,29 @@ export function createResolveBridge(
     throw new Error(NO_SEQUENCE);
   }
 
+  /** The range marks: the video ones when they say anything, else the audio ones. */
+  function markOf(marks: Record<string, { in?: number; out?: number }>): {
+    in?: number;
+    out?: number;
+  } {
+    return marks.video?.in !== undefined || marks.video?.out !== undefined
+      ? marks.video
+      : (marks.audio ?? {});
+  }
+
+  /** Brings back the editor's page a job left, and forgets it. */
+  async function restorePage() {
+    const back = pageBefore;
+    pageBefore = null;
+    if (back && (await resolve.GetCurrentPage()) !== back) await resolve.OpenPage(back);
+  }
+
   async function describe(tl: R, p: R): Promise<ResolveSequence> {
     const s = (await tl.GetSetting()) as Record<string, string>;
     const rate = await rateOf(tl);
     const start = (await tl.GetStartFrame()) as number;
     const end = (await tl.GetEndFrame()) as number;
-    const marks = (await tl.GetMarkInOut()) as Record<string, { in?: number; out?: number }>;
-    const mark =
-      marks.video?.in !== undefined || marks.video?.out !== undefined ? marks.video : marks.audio;
+    const mark = markOf(await tl.GetMarkInOut());
     const length = end - start;
     return {
       id: await tl.GetUniqueId(),
@@ -121,7 +166,9 @@ export function createResolveBridge(
     settings: Record<string, unknown>,
     format?: [string, RegExp],
   ): Promise<boolean> {
+    const stopsBefore = stops;
     for (let waited = 0; await p.IsRenderingInProgress(); waited += POLL_MS) {
+      if (stops !== stopsBefore) throw new Error(EXPORTS_STOPPED);
       if (waited >= BUSY_WAIT_MS) throw new Error(RENDER_BUSY);
       await sleep(POLL_MS);
     }
@@ -306,35 +353,23 @@ export function createResolveBridge(
       });
     },
 
+    async cancelExports() {
+      stops++;
+    },
+
     async isRendering() {
       return Boolean(await (await project()).IsRenderingInProgress());
     },
 
-    hideOurInserts(id, startS, endS) {
-      return onTimeline(id, async (tl) => {
-        await leaveDeliver();
-        const rate = await rateOf(tl);
-        const start = (await tl.GetStartFrame()) as number;
-        const from = start + Math.round(startS * rate.fps);
-        const to = start + Math.round(endS * rate.fps);
-        const hidden: HiddenTrack[] = [];
-        for (const type of ["video", "audio"] as const) {
-          const count = (await tl.GetTrackCount(type)) as number;
-          for (let i = 1; i <= count; i++) {
-            if (!(await tl.GetIsTrackEnabled(type, i))) continue;
-            let ours = false;
-            for (const item of ((await tl.GetItemListInTrack(type, i)) ?? []) as R[]) {
-              if ((await item.GetEnd()) <= from || (await item.GetStart()) >= to) continue;
-              const path = await (await item.GetMediaPoolItem())?.GetClipProperty("File Path");
-              if (typeof path === "string" && isOurInsert(path)) ours = true;
-            }
-            if (ours && (await tl.SetTrackEnable(type, i, false))) hidden.push({ type, index: i });
-          }
-        }
-        return hidden;
-      });
+    async hideOurInserts(id, startS, endS) {
+      try {
+        return await hideOn(id, startS, endS);
+      } catch (err) {
+        // no showTracks follows a failed hide: the page it left comes back now, not at a later job's end
+        await restorePage();
+        throw err;
+      }
     },
-
     showTracks(id, tracks) {
       return onTimeline(id, async (tl) => {
         const back = pageBefore;
@@ -350,9 +385,16 @@ export function createResolveBridge(
       return onTimeline(id, async (tl, p) => {
         const rate = await rateOf(tl);
         const start = (await tl.GetStartFrame()) as number;
-        const marks = (await tl.GetMarkInOut()) as Record<string, { in?: number; out?: number }>;
-        const mark = marks.video ?? marks.audio ?? {};
+        const mark = markOf(await tl.GetMarkInOut());
         const playhead = (await tl.GetCurrentTimecode()) as string;
+        /** Tracks opened for this insert, taken away again when it cannot be placed. */
+        const added: { type: "video" | "audio"; index: number }[] = [];
+        const addTrack = async (type: "video" | "audio") => {
+          await tl.AddTrack(type, ...(type === "audio" ? ["stereo"] : []));
+          const index = (await tl.GetTrackCount(type)) as number;
+          added.push({ type, index });
+          return index;
+        };
         try {
           const [video, sfx] = await importFiles(
             p,
@@ -364,12 +406,14 @@ export function createResolveBridge(
             v = tracks.videoTrack + 1;
             a = tracks.audioTrack + 1;
           } else {
-            // an audio track of our own even without sound effects: a series keeps these tracks, and a
+            // a timeline with one empty video track (a story timeline Kilnframe made) takes the insert on
+            // V1; an audio track of our own even without sound effects: a series keeps these tracks, and a
             // later part's effects must never land on the editor's own audio
-            await tl.AddTrack("video");
-            await tl.AddTrack("audio", "stereo");
-            v = (await tl.GetTrackCount("video")) as number;
-            a = (await tl.GetTrackCount("audio")) as number;
+            const empty =
+              (await tl.GetTrackCount("video")) === 1 &&
+              !((await tl.GetItemListInTrack("video", 1)) ?? []).length;
+            v = empty ? 1 : await addTrack("video");
+            a = await addTrack("audio");
           }
           const handles = Math.round(handlesS * rate.fps);
           const dur = Math.round(durationS * rate.fps);
@@ -383,11 +427,18 @@ export function createResolveBridge(
             trackIndex,
             recordFrame,
           });
-          await append(tl, p, sfx ? [clip(video, 1, v), clip(sfx, 2, a)] : [clip(video, 1, v)]);
+          try {
+            await append(tl, p, sfx ? [clip(video, 1, v), clip(sfx, 2, a)] : [clip(video, 1, v)]);
+          } catch (err) {
+            for (const t of added.reverse()) await tl.DeleteTrack(t.type, t.index);
+            throw err;
+          }
           return { videoTrack: v - 1, audioTrack: a - 1 } satisfies PlacedTracks;
         } finally {
+          // Resolve 21.1.1 takes an In alone; an Out alone it cannot set (it clears both), so that one is lost
           if (mark.in !== undefined && mark.out !== undefined)
             await tl.SetMarkInOut(mark.in, mark.out);
+          else if (mark.in !== undefined) await tl.SetMarkInOut(mark.in);
           await tl.SetCurrentTimecode(playhead);
         }
       });

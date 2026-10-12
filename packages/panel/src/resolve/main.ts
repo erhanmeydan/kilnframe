@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath, sep } from "node:path";
 import { createResolveBridge } from "./bridge";
+import { untilItWorks } from "./once";
 import { kilnframeFile } from "./paths";
 import type { ResolveBridge } from "./api";
 
@@ -20,17 +21,13 @@ interface WorkflowIntegrationModule {
 }
 const WorkflowIntegration = require("./WorkflowIntegration.node") as WorkflowIntegrationModule;
 
-let bridge: Promise<ResolveBridge> | null = null;
-function resolveBridge(): Promise<ResolveBridge> {
-  bridge ??= (async () => {
-    if (!(await WorkflowIntegration.InitializePromise(PLUGIN_ID)))
-      throw new Error(
-        "DaVinci Resolve did not accept the plugin (WorkflowIntegration.InitializePromise).",
-      );
-    return createResolveBridge(await WorkflowIntegration.GetResolvePromise());
-  })();
-  return bridge;
-}
+const resolveBridge = untilItWorks(async (): Promise<ResolveBridge> => {
+  if (!(await WorkflowIntegration.InitializePromise(PLUGIN_ID)))
+    throw new Error(
+      "DaVinci Resolve did not accept the plugin (WorkflowIntegration.InitializePromise).",
+    );
+  return createResolveBridge(await WorkflowIntegration.GetResolvePromise());
+});
 
 const home = homedir();
 /** Files the page may ask about (a story narration in a job folder): anywhere in the home folder. */
@@ -62,6 +59,7 @@ const BRIDGE_CALLS = [
   "placeInsert",
   "createStorySequence",
   "isRendering",
+  "cancelExports",
 ] as const;
 
 // window size, place and always-on-top, kept between sessions
@@ -95,6 +93,7 @@ function register() {
       platform: process.platform === "win32" ? "win" : "mac",
       locale: app.getLocale(),
       pluginVersion: pluginVersion(),
+      onTop: win?.isAlwaysOnTop() ?? readWindowState().onTop,
     };
   });
   for (const m of BRIDGE_CALLS)
@@ -102,6 +101,9 @@ function register() {
       const b = await resolveBridge();
       return (b[m] as (...a: unknown[]) => Promise<unknown>)(...args);
     });
+  ipcMain.handle("kilnframe:setOnTop", (_e, on: boolean) => {
+    win?.setAlwaysOnTop(Boolean(on));
+  });
   ipcMain.handle("kilnframe:pickImages", async (_e, types: string[]) => {
     const r = await dialog.showOpenDialog(win!, {
       properties: ["openFile", "multiSelections"],

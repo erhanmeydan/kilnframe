@@ -38,6 +38,11 @@ describe("resolve theme", () => {
     expect(missingGlyphs(font, "İıŞşĞğÇçÖöÜü0123456789%·")).toEqual([]);
   });
 
+  it("pads the text fields, which Electron, unlike UXP, does not do by itself", () => {
+    expect(resolveTheme(page)).toMatch(/textarea\s*{[^}]*padding:\s*6px 8px/);
+    expect(resolveTheme(page)).toMatch(/\.img-note\s*{[^}]*padding:\s*4px 8px/);
+  });
+
   it("leaves the Premiere page itself alone", () => {
     expect(page).toContain("#5b8cff");
     expect(page).not.toContain("Open Sans");

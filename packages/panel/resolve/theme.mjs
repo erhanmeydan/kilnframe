@@ -74,6 +74,13 @@ const FONT = `
         font-weight: 300 800;
         font-stretch: 75% 100%;
       }
+      /* UXP pads its native fields itself, Electron does not */
+      textarea {
+        padding: 6px 8px;
+      }
+      .img-note {
+        padding: 4px 8px;
+      }
       body,
       button,
       input,

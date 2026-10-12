@@ -3,6 +3,7 @@
 import type { Host, HostSequence } from "./host";
 import { t } from "./i18n";
 import {
+  EXPORTS_STOPPED,
   NO_SEQUENCE,
   PLACE_FAILED,
   RENDER_BUSY,
@@ -14,6 +15,7 @@ import {
 const folderName = (name: string) => name.replace(/[\\/:*?"<>|]/g, "-").trim() || "Resolve";
 
 export function createResolveHost(api: KilnframeResolveApi): Host {
+  let onTop = api.onTop();
   /** The bridge's codes in the panel's words; anything else as it came. */
   const words = async <T>(p: Promise<T>): Promise<T> => {
     try {
@@ -21,6 +23,7 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
     } catch (err) {
       const m = err instanceof Error ? err.message : String(err);
       if (m.includes(NO_SEQUENCE)) throw new Error(t("seq.noSequence"), { cause: err });
+      if (m.includes(EXPORTS_STOPPED)) throw new Error(t("job.stopped"), { cause: err });
       if (m.includes(RENDER_BUSY)) throw new Error(t("resolve.renderBusy"), { cause: err });
       if (m.includes(RENDER_FAILED)) throw new Error(t("resolve.renderFailed"), { cause: err });
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
@@ -57,13 +60,28 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
     async busyNote() {
       return (await api.isRendering().catch(() => false)) ? t("resolve.waitingRender") : null;
     },
+    onTop: {
+      get: () => onTop,
+      set(on) {
+        onTop = on;
+        void api.setOnTop(on).catch(() => undefined);
+      },
+    },
+    cancelExports() {
+      void api.cancelExports().catch(() => undefined);
+    },
     async withoutOurInserts(seq, startS, endS, fn) {
       const hidden = await words(api.hideOurInserts(seq.id, startS, endS));
+      let result: Awaited<ReturnType<typeof fn>>;
       try {
-        return await fn();
-      } finally {
-        await api.showTracks(seq.id, hidden);
+        result = await fn();
+      } catch (err) {
+        // the export's own error is the one the editor needs; a second one from the tracks would hide it
+        await api.showTracks(seq.id, hidden).catch(() => undefined);
+        throw err;
       }
+      await words(api.showTracks(seq.id, hidden));
+      return result;
     },
     placeInsert: (seq, files, atS, handlesS, durationS, tracks) =>
       words(api.placeInsert(seq.id, files, atS, handlesS, durationS, tracks)),

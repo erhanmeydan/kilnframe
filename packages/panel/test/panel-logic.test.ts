@@ -243,6 +243,10 @@ describe("resolve wording", () => {
     for (const l of [en, tr] as Record<string, string>[]) {
       expect(l["mismatch.panelResolve"]).toMatch(/DaVinci Resolve/);
       expect(l["mismatch.panelResolve"]).not.toMatch(/Premiere/);
+      expect(l["settings.versionsDifferResolve"]).toMatch(/DaVinci Resolve/);
+      expect(l["settings.versionsDifferResolve"]).not.toMatch(/Premiere/);
+      for (const k of ["settings.window", "settings.onTopOn", "settings.onTopOff"])
+        expect(l[k], k).toBeTruthy();
     }
   });
 });

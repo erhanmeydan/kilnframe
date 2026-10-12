@@ -55,6 +55,8 @@ export interface ResolveBridge {
     durationS: number,
     tracks?: PlacedTracks,
   ): Promise<PlacedTracks>;
+  /** Ends a wait for Resolve's own render: the export waiting throws EXPORTS_STOPPED. */
+  cancelExports(): Promise<void>;
   /** Whether Resolve is rendering (the editor's own queue): the exports wait for it. */
   isRendering(): Promise<boolean>;
   createStorySequence(
@@ -76,6 +78,9 @@ export interface KilnframeResolveApi extends ResolveBridge {
   platform(): "mac" | "win";
   locale(): string;
   pluginVersion(): string;
+  /** Whether the panel window stays above Resolve, as it opened. */
+  onTop(): boolean;
+  setOnTop(on: boolean): Promise<void>;
 }
 
 /** Error messages the bridge throws; the host turns them into the panel's words. */
@@ -83,3 +88,4 @@ export const NO_SEQUENCE = "NO_SEQUENCE";
 export const RENDER_BUSY = "RENDER_BUSY";
 export const PLACE_FAILED = "PLACE_FAILED";
 export const RENDER_FAILED = "RENDER_FAILED";
+export const EXPORTS_STOPPED = "EXPORTS_STOPPED";
