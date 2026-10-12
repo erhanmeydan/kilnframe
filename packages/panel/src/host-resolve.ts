@@ -39,7 +39,8 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
         id: s.id,
         name: s.name,
         projectPath: "",
-        jobRoot: `${api.homedir()}/Movies/Kilnframe/${folderName(s.projectName)}`,
+        // ~/Movies/Kilnframe on a Mac, Videos\Kilnframe on Windows
+        jobRoot: `${api.homedir().replace(/\\/g, "/")}/${api.platform() === "win" ? "Videos" : "Movies"}/Kilnframe/${folderName(s.projectName)}`,
         fps: s.fps,
         fpsValue: s.fpsValue,
         width: s.width,

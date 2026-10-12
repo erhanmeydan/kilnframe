@@ -2,7 +2,7 @@
 // Workflow Integration plugins from one folder at start. The plugin needs Blackmagic's WorkflowIntegration.node,
 // which Kilnframe does not ship: it is copied from the user's own Resolve install, again whenever Resolve updates it.
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 
 export const RESOLVE_PLUGIN_ID = "com.kilnframe.resolve";
 
@@ -15,8 +15,38 @@ export interface ResolvePaths {
   pluginsDir: string;
 }
 
-export function resolvePaths(platform = process.platform): ResolvePaths | null {
-  if (platform !== "darwin") return null; // Windows follows with its own paths
+export function resolvePaths(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+): ResolvePaths | null {
+  if (platform === "win32") {
+    // Blackmagic's Workflow Integrations README; checked on Resolve 21.1.1 (12 Oct 2026). Everyone may write
+    // under Support, so no admin rights are needed. Studio and the free version cannot be told apart here.
+    const support = win32.join(
+      env.ProgramData ?? env.PROGRAMDATA ?? "C:\\ProgramData",
+      "Blackmagic Design",
+      "DaVinci Resolve",
+      "Support",
+    );
+    return {
+      app: win32.join(
+        env.ProgramFiles ?? env.PROGRAMFILES ?? "C:\\Program Files",
+        "Blackmagic Design",
+        "DaVinci Resolve",
+        "Resolve.exe",
+      ),
+      developerNode: win32.join(
+        support,
+        "Developer",
+        "Workflow Integrations",
+        "Examples",
+        "SamplePlugin",
+        "WorkflowIntegration.node",
+      ),
+      pluginsDir: win32.join(support, "Workflow Integration Plugins"),
+    };
+  }
+  if (platform !== "darwin") return null;
   const support = "/Library/Application Support/Blackmagic Design/DaVinci Resolve";
   return {
     app: "/Applications/DaVinci Resolve/DaVinci Resolve.app",
