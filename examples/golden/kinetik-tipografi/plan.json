@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "topic": "Bilgi sağanağı",
+  "summary": "Kelimeler ekranın üst kenarından yağmur gibi düşüp üst üste yığılıyor; konuşmacı 'sağanak' dediğinde turuncu, geniş bir SAĞANAK kelimesi bu yığının üstüne iniyor.",
+  "style": "kinetik-tipografi",
+  "mode": "fullscreen",
+  "speaker": {
+    "side": "center"
+  },
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "25",
+  "duration_frames": 147,
+  "handles_frames": 20,
+  "assets": [],
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 147,
+      "anchor_words": [
+        "haber",
+        "yağıyor",
+        "bilgiler",
+        "sağanak",
+        "bilgi",
+        "yağışı"
+      ],
+      "visual": "Near black frame with fine grain. Thin bone white vertical rain streaks slide down from the top edge throughout. At 0.98 on 'haber', the word HABER in condensed bone white Archivo Black slides down from the top edge and lands upper left, cropped by the left edge. Three more copies of HABER follow in quick steps down the frame. Each copy is placed one step further right, so they form a staircase, and each sits a little lower. From 2.90 on 'yağıyor' and 3.20 on 'bilgiler', several condensed BİLGİ words drop in fast from the top edge at different x positions. They pile up densely and overlap the HABER stack, filling the upper two thirds of the frame. Everything stays upright and left or edge aligned. At 4.16 on 'sağanak' there is a hard cut: the pile jumps up and leaves through the top edge. One huge SAĞANAK drops in from the top edge and fills the frame width, cropped by the left and right edges. It stretches from condensed to extended width and turns signal orange. At 4.62 on 'bilgi' and 4.90 on 'yağışı', BİLGİ and then YAĞIŞI each rise from behind a mask line under SAĞANAK, in condensed bone white, left aligned, with tight leading. The rain streaks keep falling over the letters. End state: SAĞANAK in orange above BİLGİ YAĞIŞI in bone white, streaks still falling.",
+      "on_screen_text": "SAĞANAK BİLGİ YAĞIŞI",
+      "camera": "hold, then a hard cut to a tighter frame on 'sağanak'",
+      "technique": "kinetic-type",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 24,
+          "type": "hit",
+          "gain_db": -14
+        },
+        {
+          "frame": 45,
+          "type": "swish",
+          "gain_db": -16
+        },
+        {
+          "frame": 72,
+          "type": "hit",
+          "gain_db": -14
+        },
+        {
+          "frame": 80,
+          "type": "hit",
+          "gain_db": -15
+        },
+        {
+          "frame": 104,
+          "type": "punch",
+          "gain_db": -9
+        },
+        {
+          "frame": 122,
+          "type": "hit",
+          "gain_db": -13
+        }
+      ],
+      "mode": "fullscreen"
+    }
+  ]
+}

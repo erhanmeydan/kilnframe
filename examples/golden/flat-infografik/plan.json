@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "topic": "Pipeline fixture: flat-infografik data-viz",
+  "summary": "Hand-written golden data-viz scene for the flat style.",
+  "style": "flat-infografik",
+  "mode": "fullscreen",
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "30000/1001",
+  "duration_frames": 150,
+  "handles_frames": 24,
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 150,
+      "anchor_words": [
+        "yüzde",
+        "yetmiş",
+        "üç"
+      ],
+      "visual": "Teal disc bleeds off the right edge, bars grow, the number counts to 73 percent.",
+      "on_screen_text": "Dönüşüm oranı",
+      "camera": "hold",
+      "technique": "data-viz",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 8,
+          "type": "pop-low",
+          "gain_db": -12
+        },
+        {
+          "frame": 30,
+          "type": "pop",
+          "gain_db": -14
+        },
+        {
+          "frame": 33,
+          "type": "pop",
+          "gain_db": -15
+        },
+        {
+          "frame": 36,
+          "type": "pop",
+          "gain_db": -15
+        },
+        {
+          "frame": 38,
+          "type": "pop",
+          "gain_db": -15
+        },
+        {
+          "frame": 41,
+          "type": "pop",
+          "gain_db": -13
+        },
+        {
+          "frame": 44,
+          "type": "tick",
+          "gain_db": -16
+        },
+        {
+          "frame": 74,
+          "type": "pop",
+          "gain_db": -14
+        },
+        {
+          "frame": 83,
+          "type": "whoosh",
+          "gain_db": -16
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s3</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Outfit";
+          src: url("vendor/fonts/outfit/Outfit-Variable.ttf") format("truetype");
+          font-weight: 100 900;
+          font-style: normal;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s3-bg {
+          position: absolute;
+          inset: 0;
+          background: #eeeae3;
+        }
+        #s3-gl {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s3-head {
+          position: absolute;
+          left: 110px;
+          top: 300px;
+          max-width: 540px;
+          margin: 0;
+          font-family: "Outfit", sans-serif;
+          font-weight: 700;
+          font-size: 92px;
+          line-height: 1.05;
+          letter-spacing: -0.01em;
+          color: #4a5563;
+        }
+        .s3-mask {
+          display: inline-block;
+          overflow: hidden;
+          vertical-align: top;
+          padding: 0.16em 0.04em 0.08em 0;
+          margin: -0.16em 0 -0.08em 0;
+        }
+        .s3-word {
+          display: inline-block;
+        }
+        #s3-grain {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0.06;
+          mix-blend-mode: overlay;
+          pointer-events: none;
+        }
+      </style>
+      <div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+        <div id="s3-bg"></div>
+        <canvas id="s3-gl" width="1920" height="1080"></canvas>
+        <h1 id="s3-head"><span class="s3-mask"><span class="s3-word" id="s3-w1">NOBODY</span></span> <span class="s3-mask"><span class="s3-word" id="s3-w2">ASKS</span></span></h1>
+        <canvas id="s3-grain" width="1920" height="1080"></canvas>
+      </div>
+      <script type="module">
+        import * as THREE from "three";
+        import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        const buildPromise = build();
+        window.__hf.buildReady["s3"] = buildPromise;
+
+        function mulberry32(a) {
+          return function () {
+            a |= 0;
+            a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        async function build() {
+          await document.fonts.load('700 92px "Outfit"');
+
+          const W = 1920, H = 1080, DUR = 3.418;
+          const C = {
+            bg: 0xeeeae3,
+            sage: 0x8fa79a,
+            accent: 0xc9775a,
+            slate: 0x4a5563,
+            light: 0xf5f2ec,
+          };
+
+          /* ---------- renderer ---------- */
+          THREE.ColorManagement.enabled = false;
+          const canvas = document.getElementById("s3-gl");
+          const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            preserveDrawingBuffer: true,
+            alpha: false,
+          });
+          renderer.setPixelRatio(1);
+          renderer.setSize(W, H, false);
+          renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+          renderer.setClearColor(C.bg, 1);
+          renderer.shadowMap.enabled = true;
+          renderer.shadowMap.type = THREE.PCFShadowMap;
+
+          const scene = new THREE.Scene();
+
+          /* ---------- light: top 1.0, left 0.82, right 0.62 ---------- */
+          const Lraw = new THREE.Vector3(0.12, 0.5, 0.32);
+          const LI = Lraw.length();
+          const Ldir = Lraw.clone().normalize();
+          scene.add(new THREE.AmbientLight(0xffffff, 0.5 * Math.PI));
+          const sun = new THREE.DirectionalLight(0xffffff, LI * Math.PI);
+          const sunTarget = new THREE.Vector3(0, 0, -0.8);
+          sun.position.copy(Ldir).multiplyScalar(20).add(sunTarget);
+          sun.target.position.copy(sunTarget);
+          scene.add(sun);
+          scene.add(sun.target);
+          sun.castShadow = true;
+          sun.shadow.mapSize.set(1024, 1024);
+          const sc = sun.shadow.camera;
+          sc.left = -7; sc.right = 7; sc.top = 7; sc.bottom = -7;
+          sc.near = 1; sc.far = 50;
+          sc.updateProjectionMatrix();
+          sun.shadow.radius = 4;
+          sun.shadow.bias = -0.0008;
+
+          /* ---------- helpers ---------- */
+          const mats = {};
+          const mat = (hex) =>
+            mats[hex] || (mats[hex] = new THREE.MeshLambertMaterial({ color: hex, flatShading: true }));
+          function box(w, h, d, hex, x, y, z, r = 0.025, parent = scene, cast = true) {
+            const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, r), mat(hex));
+            m.position.set(x, y, z);
+            m.castShadow = cast;
+            m.receiveShadow = false;
+            parent.add(m);
+            return m;
+          }
+          const shMat = new THREE.ShadowMaterial({ color: 0x2c3540, opacity: 0.14 });
+          function shadowPlane(w, d, x, y, z) {
+            const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), shMat);
+            m.rotation.x = -Math.PI / 2;
+            m.position.set(x, y, z);
+            m.receiveShadow = true;
+            scene.add(m);
+          }
+
+          /* ---------- tiles ---------- */
+          // audience tile: x -2.75..2.75, z -0.8..3.4
+          box(5.5, 0.5, 4.2, C.sage, 0, -0.25, 1.3, 0.04, scene, false);
+          shadowPlane(5.42, 4.12, 0, 0.003, 1.3);
+          // podium tile: x -1.3..1.3, z -4.8..-2.2 (back right on screen)
+          box(2.6, 0.5, 2.6, C.sage, 0, -0.25, -3.5, 0.04, scene, false);
+          shadowPlane(2.52, 2.52, 0, 0.003, -3.5);
+
+          /* ---------- podium + professor ---------- */
+          box(1.9, 0.2, 1.9, C.slate, 0, 0.1, -3.5, 0.03, scene, false);
+          shadowPlane(1.84, 1.84, 0, 0.203, -3.5);
+          // professor
+          const FZ = -3.85;
+          box(0.6, 1.0, 0.4, C.slate, 0, 0.7, FZ, 0.03);
+          box(0.46, 0.46, 0.46, C.light, 0, 1.43, FZ, 0.03);
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 28), mat(C.accent));
+          band.position.set(0, 1.71, FZ);
+          band.castShadow = true;
+          scene.add(band);
+          box(0.74, 0.06, 0.74, C.accent, 0, 1.79, FZ, 0.012);
+          const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 10), mat(C.accent));
+          tassel.position.set(0.3, 1.61, FZ + 0.3);
+          tassel.castShadow = true;
+          scene.add(tassel);
+          box(0.07, 0.08, 0.07, C.accent, 0.3, 1.44, FZ + 0.3, 0.012);
+          // lectern
+          box(0.86, 0.82, 0.46, C.light, 0, 0.61, -3.05, 0.025);
+          box(0.98, 0.06, 0.6, C.slate, 0, 1.05, -3.05, 0.015);
+
+          /* ---------- question mark geometry ---------- */
+          const R = 0.3, r = 0.14, cy = 0.65, sw = 0.16, yb = 0.23;
+          const qs = new THREE.Shape();
+          qs.moveTo(-R, cy);
+          qs.absarc(0, cy, R, Math.PI, -Math.PI / 2, true);
+          qs.lineTo(0, yb);
+          qs.lineTo(-sw, yb);
+          qs.lineTo(-sw, cy - r);
+          qs.lineTo(0, cy - r);
+          qs.absarc(0, cy, r, -Math.PI / 2, Math.PI, false);
+          qs.lineTo(-R, cy);
+          const qGeo = new THREE.ExtrudeGeometry(qs, {
+            depth: 0.12,
+            bevelEnabled: true,
+            bevelThickness: 0.012,
+            bevelSize: 0.012,
+            bevelSegments: 1,
+            curveSegments: 22,
+          });
+          qGeo.translate(sw / 2, 0, -0.06);
+          const qDotGeo = new RoundedBoxGeometry(sw + 0.02, sw + 0.02, 0.144, 2, 0.015);
+          const Q_SCALE = 0.72;
+          const Q_H = 0.95 * Q_SCALE;
+
+          /* ---------- audience ---------- */
+          const COLS_X = [-1.95, -0.65, 0.65, 1.95];
+          const ROWS_Z = [0, 1.3, 2.6];
+          const CUBE = 0.66;
+          const audience = [];
+          ROWS_Z.forEach((z, ri) => {
+            COLS_X.forEach((x, ci) => {
+              const g = new THREE.Group();
+              g.position.set(x, 0, z);
+              scene.add(g);
+              box(CUBE, CUBE, CUBE, C.slate, 0, CUBE / 2, 0, 0.03, g);
+              const q = new THREE.Group();
+              q.scale.setScalar(Q_SCALE);
+              const qm = new THREE.Mesh(qGeo, mat(C.accent));
+              qm.castShadow = true;
+              q.add(qm);
+              const qd = new THREE.Mesh(qDotGeo, mat(C.accent));
+              qd.position.set(0, (sw + 0.02) / 2, 0);
+              qd.castShadow = true;
+              q.add(qd);
+              g.add(q);
+              audience.push({ g, q, ri, ci });
+            });
+          });
+
+          /* ---------- camera (true isometric, pan + zoom only) ---------- */
+          const cam = new THREE.OrthographicCamera(-W / 2, W / 2, H / 2, -H / 2, 1, 300);
+          const VIEW = new THREE.Vector3(1, 1, 1).normalize();
+          const RV = new THREE.Vector3(1, 0, -1).normalize();
+          const UV = new THREE.Vector3(-1, 2, -1).normalize();
+          const targetFor = (wp, ox, oy, ppu) =>
+            wp.clone().addScaledVector(RV, -ox / ppu).addScaledVector(UV, oy / ppu);
+
+          const fitPts = [];
+          const corners = (x0, x1, y0, y1, z0, z1) => {
+            for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) fitPts.push(new THREE.Vector3(x, y, z));
+          };
+          corners(-2.75, 2.75, -0.5, 0, -0.8, 3.4);
+          corners(-1.3, 1.3, -0.5, 0, -4.8, -2.2);
+          corners(-0.37, 0.37, 1.82, 1.82, FZ - 0.37, FZ + 0.37);
+          corners(-2.2, 2.2, 1.62, 1.62, -0.1, 2.7);
+          let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+          for (const p of fitPts) {
+            const sx = p.dot(RV), sy = p.dot(UV);
+            mnx = Math.min(mnx, sx); mxx = Math.max(mxx, sx);
+            mny = Math.min(mny, sy); mxy = Math.max(mxy, sy);
+          }
+          const ppuE = Math.min(1000 / (mxx - mnx), 760 / (mxy - mny));
+          const wCenter = new THREE.Vector3()
+            .addScaledVector(RV, (mnx + mxx) / 2)
+            .addScaledVector(UV, (mny + mxy) / 2);
+          const TE = targetFor(wCenter, 1235 - W / 2, 555 - H / 2, ppuE);
+          const ppuS = ppuE * 1.75;
+          const TS = targetFor(new THREE.Vector3(0, 1.0, -3.6), 1235 - W / 2, 520 - H / 2, ppuS);
+          const camT = new THREE.Vector3();
+
+          /* ---------- motion curves ---------- */
+          const clamp01 = (v) => Math.max(0, Math.min(1, v));
+          const p3o = (p) => 1 - Math.pow(1 - p, 3);
+
+          function dropY(t, t0) {
+            const tau = t - t0;
+            if (tau < 0) return null;
+            const TF = 0.3, HH = 6;
+            if (tau < TF) {
+              const p = tau / TF;
+              return HH * (1 - p * p);
+            }
+            const tb = tau - TF, TB = 0.17;
+            if (tb < TB) return 0.09 * Math.sin((Math.PI * tb) / TB);
+            return 0;
+          }
+
+          const Y0 = -0.1, Y1 = CUBE + 0.22, YS = -0.14;
+          const T_HALT = 0.61;
+          function qY(t, ri) {
+            const ts = 0.29 + ri * 0.07;
+            const ss = 1.35 + ri * 0.18, sd = 0.35;
+            if (t < ts) return Y0;
+            if (t < T_HALT) {
+              const p = (t - ts) / (T_HALT - ts);
+              return Y0 + (Y1 - Y0) * (0.45 * p + 0.55 * p * p);
+            }
+            if (t < ss) {
+              const tau = t - T_HALT;
+              return Y1 + 0.12 * Math.sin((tau * 2 * Math.PI) / 0.2) * Math.exp(-tau * 16);
+            }
+            if (t < ss + sd) {
+              const p = (t - ss) / sd;
+              return Y1 + (YS - Y1) * p * p;
+            }
+            return YS;
+          }
+
+          /* ---------- grain ---------- */
+          const gc = document.getElementById("s3-grain");
+          const gx = gc.getContext("2d");
+          const grng = mulberry32(31);
+          const pats = [];
+          for (let k = 0; k < 4; k++) {
+            const c = document.createElement("canvas");
+            c.width = c.height = 256;
+            const cx = c.getContext("2d");
+            const id = cx.createImageData(256, 256);
+            for (let i = 0; i < 256 * 256; i++) {
+              const v = Math.floor(grng() * 255);
+              id.data[i * 4] = v;
+              id.data[i * 4 + 1] = v;
+              id.data[i * 4 + 2] = v;
+              id.data[i * 4 + 3] = 255;
+            }
+            cx.putImageData(id, 0, 0);
+            pats.push(gx.createPattern(c, "repeat"));
+          }
+          function drawGrain(t) {
+            const f = Math.floor(t * 30);
+            const rr = mulberry32(f * 9973 + 7);
+            const ox = Math.floor(rr() * 256), oy = Math.floor(rr() * 256);
+            gx.clearRect(0, 0, W, H);
+            gx.save();
+            gx.translate(-ox, -oy);
+            gx.fillStyle = pats[f % 4];
+            gx.fillRect(0, 0, W + 256, H + 256);
+            gx.restore();
+          }
+
+          /* ---------- frame ---------- */
+          function draw(t) {
+            const p = p3o(clamp01(t / 1.25));
+            camT.copy(TS).lerp(TE, p);
+            const ppu = Math.exp(Math.log(ppuS) + (Math.log(ppuE) - Math.log(ppuS)) * p) * (1 - 0.012 * (t / DUR));
+            cam.zoom = ppu;
+            cam.position.copy(camT).addScaledVector(VIEW, 100);
+            cam.up.set(0, 1, 0);
+            cam.lookAt(camT);
+            cam.updateProjectionMatrix();
+
+            for (const a of audience) {
+              const y = dropY(t, a.ri * 0.09 + a.ci * 0.02);
+              if (y === null) {
+                a.g.visible = false;
+                continue;
+              }
+              a.g.visible = true;
+              a.g.position.y = y;
+              const qy = qY(t, a.ri);
+              a.q.position.y = qy;
+              a.q.visible = qy > YS + 0.001;
+            }
+
+            renderer.render(scene, cam);
+            drawGrain(t);
+          }
+
+          /* ---------- timeline ---------- */
+          const tl = gsap.timeline({ paused: true });
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() {
+              return this._t;
+            },
+            set(v) {
+              if (v !== this._t) {
+                this._t = v;
+                draw(v);
+              }
+            },
+          });
+          tl.fromTo(driver, { t: 0 }, { t: DUR, duration: DUR, ease: "none" }, 0);
+
+          tl.fromTo(
+            "#s3-w1",
+            { yPercent: 118 },
+            { yPercent: 0, duration: 0.55, ease: "back.out(1.4)" },
+            0.01
+          );
+          tl.fromTo(
+            "#s3-w2",
+            { yPercent: 118 },
+            { yPercent: 0, duration: 0.55, ease: "back.out(1.4)" },
+            T_HALT
+          );
+
+          draw(0);
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s3"] = tl;
+        }
+      </script>
+    </template>
+  </body>
+</html>

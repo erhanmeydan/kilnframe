@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Space Grotesk";
+          src: url("vendor/fonts/space-grotesk/SpaceGrotesk-Variable.ttf") format("truetype");
+          font-weight: 300 700;
+        }
+        @font-face {
+          font-family: "IBM Plex Mono";
+          src: url("vendor/fonts/ibm-plex-mono/IBMPlexMono-Regular.ttf") format("truetype");
+          font-weight: 400;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #1f3a5a;
+        }
+        #s1-paper {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+          opacity: 0.35;
+        }
+        #s1-svg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s1-headline {
+          position: absolute;
+          left: 144px;
+          top: 372px;
+          max-width: 480px;
+          margin: 0;
+          font-family: "Space Grotesk", sans-serif;
+          font-weight: 500;
+          font-size: 88px;
+          line-height: 1.1;
+          letter-spacing: -0.01em;
+          color: #e8eef2;
+        }
+        .s1-word {
+          display: inline-block;
+          white-space: nowrap;
+        }
+        .s1-ch {
+          opacity: 0;
+        }
+        .s1-num {
+          font-family: "Space Grotesk", sans-serif;
+          font-weight: 500;
+          font-size: 144px;
+          fill: none;
+          stroke: #e3a445;
+          stroke-width: 2;
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: "tnum" 1;
+        }
+        .s1-mono {
+          font-family: "IBM Plex Mono", monospace;
+          font-weight: 400;
+          font-size: 26px;
+          fill: #e8eef2;
+          letter-spacing: 0.04em;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg">
+          <svg id="s1-paper" viewBox="0 0 1920 1080">
+            <defs>
+              <filter id="s1-paperf" filterUnits="userSpaceOnUse" x="0" y="0" width="1920" height="1080">
+                <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" seed="17" />
+                <feColorMatrix type="matrix" values="0 0 0 0 0.91  0 0 0 0 0.93  0 0 0 0 0.95  0.5 0 0 0 -0.15" />
+              </filter>
+            </defs>
+            <rect x="0" y="0" width="1920" height="1080" filter="url(#s1-paperf)" />
+          </svg>
+        </div>
+
+        <svg id="s1-svg" viewBox="0 0 1920 1080">
+          <defs id="s1-defs">
+            <pattern id="s1-gmin" width="36" height="36" patternUnits="userSpaceOnUse">
+              <rect x="0" y="0" width="36" height="1" fill="rgba(232,238,242,0.10)" />
+              <rect x="0" y="1" width="1" height="35" fill="rgba(232,238,242,0.10)" />
+            </pattern>
+            <pattern id="s1-gmaj" width="180" height="180" patternUnits="userSpaceOnUse">
+              <rect x="0" y="0" width="180" height="1" fill="rgba(232,238,242,0.09)" />
+              <rect x="0" y="1" width="1" height="179" fill="rgba(232,238,242,0.09)" />
+            </pattern>
+            <filter id="s1-chalk" x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="17" result="s1n" />
+              <feDisplacementMap in="SourceGraphic" in2="s1n" scale="1.6" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+            <clipPath id="s1-cp-moonhalf" clipPathUnits="userSpaceOnUse">
+              <path d="M1620 428 A40 40 0 0 1 1620 508 Z" />
+            </clipPath>
+          </defs>
+          <g id="s1-world">
+            <rect x="-252" y="0" width="2448" height="1080" fill="url(#s1-gmin)" />
+            <rect x="-252" y="0" width="2448" height="1080" fill="url(#s1-gmaj)" />
+            <g id="s1-draw" filter="url(#s1-chalk)"></g>
+          </g>
+          <g id="s1-fixed" filter="url(#s1-chalk)"></g>
+        </svg>
+
+        <h1 id="s1-headline"></h1>
+      </div>
+      <script type="module">
+        const DUR = 9.794;
+        window.__timelines = window.__timelines || {};
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        const buildPromise = build();
+        window.__hf.buildReady["s1"] = buildPromise;
+
+        async function build() {
+          const tl = gsap.timeline({ paused: true });
+          try {
+            await Promise.all([
+              document.fonts.load('500 88px "Space Grotesk"'),
+              document.fonts.load('500 144px "Space Grotesk"'),
+              document.fonts.load('400 26px "IBM Plex Mono"'),
+            ]);
+          } catch (e) {
+            console.error(e);
+          }
+          try {
+            construct(tl);
+          } catch (e) {
+            console.error(e);
+          }
+          // hold to the end
+          tl.to({ _d: 0 }, { _d: 1, duration: DUR, ease: "none" }, 0);
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s1"] = tl;
+          return tl;
+        }
+
+        function construct(tl) {
+          const NS = "http://www.w3.org/2000/svg";
+          const $ = (id) => document.getElementById(id);
+          const LINE = "#E8EEF2";
+          const AMB = "#E3A445";
+          const W_OBJ = 2.5;
+          const W_CON = 1.25;
+          const CY = 468;
+          const EX = 936, ER = 144;
+          const MX = 1620, MR = 40;
+          const DIMY = 792;
+          const STEP = 72;
+          const MID = (EX + MX) / 2;
+          const HALF = (MX - EX) / 2;
+
+          const world = $("s1-world");
+          const draw = $("s1-draw");
+          const fixed = $("s1-fixed");
+          const defs = $("s1-defs");
+
+          function el(tag, attrs, parent) {
+            const e = document.createElementNS(NS, tag);
+            for (const k in attrs) e.setAttribute(k, attrs[k]);
+            (parent || draw).appendChild(e);
+            return e;
+          }
+          const stroke = (w, extra) =>
+            Object.assign({ fill: "none", stroke: LINE, "stroke-width": w, "stroke-linecap": "butt", "stroke-linejoin": "miter" }, extra || {});
+
+          function drawOn(e, at, dur, ease) {
+            e.setAttribute("pathLength", "1");
+            e.setAttribute("stroke-dasharray", "1 2");
+            e.setAttribute("stroke-dashoffset", "1");
+            tl.fromTo(e, { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: dur, ease: ease || "power2.inOut" }, at);
+          }
+          let cpn = 0;
+          function clipRect(x, y, w, h) {
+            const id = "s1-cp" + cpn++;
+            const cp = el("clipPath", { id, clipPathUnits: "userSpaceOnUse" }, defs);
+            const r = el("rect", { x, y, width: w, height: h }, cp);
+            return { id, r };
+          }
+          function revealV(parent, x, cy, half, at, dur) {
+            const c = clipRect(x - 10, cy, 20, 0);
+            el("line", stroke(W_CON, { x1: x, y1: cy - half, x2: x, y2: cy + half, "stroke-dasharray": "18 6 3 6", "clip-path": `url(#${c.id})` }), parent);
+            tl.fromTo(c.r, { attr: { y: cy, height: 0 } }, { attr: { y: cy - half, height: half * 2 }, duration: dur, ease: "power2.inOut" }, at);
+          }
+          const cross = (x, y, s) => `M${x - s} ${y} H${x + s} M${x} ${y - s} V${y + s}`;
+
+          // ---------- 1. construction: horizontal center line ----------
+          const clc = clipRect(700, CY - 28, 0, 56);
+          el("line", stroke(W_CON, { x1: 700, y1: CY, x2: 2010, y2: CY, "stroke-dasharray": "18 6 3 6", "clip-path": `url(#${clc.id})` }));
+          tl.fromTo(clc.r, { attr: { width: 0 } }, { attr: { width: 1320 }, duration: 0.6, ease: "power2.inOut" }, 0.02);
+
+          // ---------- 2. Earth: center mark, center line, outline, continents ----------
+          revealV(draw, EX, CY, ER + 20, 0.64, 0.28);
+          const eMark = el("path", stroke(1.6, { d: cross(EX, CY, 11) }));
+          drawOn(eMark, 0.64, 0.16, "power1.out");
+
+          const earth = el("circle", stroke(W_OBJ, { cx: EX, cy: CY, r: ER, transform: `rotate(-90 ${EX} ${CY})` }));
+          drawOn(earth, 0.7, 0.55);
+
+          const D = Math.PI / 180, LAT0 = 15 * D, LON0 = 12 * D, PR = ER - 1;
+          function proj(lon, lat) {
+            const p = lat * D, dl = lon * D - LON0;
+            let x = Math.cos(p) * Math.sin(dl);
+            let y = Math.cos(LAT0) * Math.sin(p) - Math.sin(LAT0) * Math.cos(p) * Math.cos(dl);
+            const c = Math.sin(LAT0) * Math.sin(p) + Math.cos(LAT0) * Math.cos(p) * Math.cos(dl);
+            if (c < 0) {
+              const n = Math.hypot(x, y) || 1;
+              x /= n;
+              y /= n;
+            }
+            return [EX + PR * x, CY - PR * y];
+          }
+          function contPath(a) {
+            const pts = [];
+            for (let i = 0; i < a.length - 2; i += 2) {
+              const lo0 = a[i], la0 = a[i + 1], lo1 = a[i + 2], la1 = a[i + 3];
+              const n = Math.max(1, Math.ceil(Math.max(Math.abs(lo1 - lo0), Math.abs(la1 - la0)) / 1.5));
+              for (let k = 0; k < n; k++) {
+                const f = k / n;
+                pts.push(proj(lo0 + (lo1 - lo0) * f, la0 + (la1 - la0) * f));
+              }
+            }
+            pts.push(proj(a[a.length - 2], a[a.length - 1]));
+            return "M" + pts.map((p) => p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" L") + " Z";
+          }
+          const CONT = [
+            [-6,36,-10,30,-13,27,-17,21,-17,15,-15,11,-13,8,-8,4.5,-3,5,2,6,6,4.5,9,4,9.5,1,9,-1,12,-5,13,-9,13,-12,12,-17,14,-22,15,-27,17,-29,18,-33,20,-35,25,-34,28,-33,31,-29,33,-26,35,-24,35,-20,37,-17,40,-15,40,-10,39,-6,40,-3,42,0,45,2,48,5,51,10,51,12,44,11,43,12,39,16,37,20,35,24,34,28,32.5,30,32,31,29,31,25,32,20,31,19,30,15,32,11,33,10,37,5,37,0,36,-6,36],
+            [-5.6,36,-9,37,-9,43,-2,43.5,-1,46,-4.5,48,-1.5,49.5,2,51,4,52,5,53.4,8,54,8.5,57,10.5,57.7,10.5,55,12,54.3,14,54,18,54.8,21,55,21,57,24,57.5,23.5,59.5,28,60,22,60.5,21.5,63,25,65.5,22,66,17,62,19,60,18,59,16,56.2,12.5,56,11,58.5,9,58,6,58.2,5,61,7,63,13,66,15,68.5,20,70,26,71,31,70,33,69,41,67,44,68.5,53,68.5,60,69.5,69,72.5,73,68,80,72,87,74.5,100,77,115,74,130,60,130,40,120,25,109,12,105,9,103,1.5,100,7,98,15,94,17,92,22,87,21.5,80,15,80,10,77,8,73,16,72.5,21,68,24,62,25,57,25.5,56.5,27,52,28,50,30,48,29.5,50,26.5,52,24,56,26,57,23.5,59.5,22.5,57,19,55,17,52,16,45,13,43,13,42.5,15,40,20,37,24,35,28,35,29.5,34,31.5,35.5,33.5,36,36,32,36.5,28,36.7,26,39,26.5,40.5,26,40.8,23,40.5,24,38,22,36.5,21,38.5,19.5,41.5,15.5,44,13.5,45.5,12.3,45,14,42,16,41.5,18.5,40,16.5,38,15.6,38,16,39.5,12.5,41.8,10.5,43,8.5,44.3,6,43,3.5,43.3,3,42,0,39.5,-0.5,38,-2,36.7,-5.6,36],
+            [-35,-5,-37,-10,-39,-15,-40,-20,-42,-23,-44,-23,-48,-26,-48.5,-28,-53,-33,-58,-34.5,-57,-38,-62,-39,-65,-42,-65,-45,-68,-47,-69,-51,-68.5,-53,-72,-54,-75,-50,-73,-40,-71.5,-30,-70.5,-18,-76,-14,-81,-6,-80,-2,-77,4,-77.5,8,-76,9,-72,12,-67,10.6,-62,10.6,-60,8.5,-57,6,-52,5,-50,1.5,-48,-1,-44,-2.5,-40,-3,-35,-5],
+            [-73,78,-60,82,-30,83.5,-20,82,-18,77,-20,72,-22,70,-27,68.5,-32,68,-40,65,-43,60,-48,61,-50,64,-53,67,-54,70,-56,73,-58,76,-66,76.5,-73,78],
+            [-97,27,-90,29.5,-84,30,-82.5,27,-81,25.2,-80,27,-81,31,-77,35,-76,38,-74,40.5,-70,41.6,-70,43.5,-66,44.8,-64,45.5,-61,45.5,-60,46.5,-64.5,49,-60,50.3,-56,52,-60,55.5,-62,57.5,-65,60,-70,59,-78,62.5,-80,64,-90,68,-100,70,-100,50,-100,35,-97,27],
+            [27.5,42,28,43.5,29.5,45,30.5,46.5,33,46,33,44.5,35.5,45,37,45.3,38,47,39,47,38,46,37.5,45,38,44.5,40,43.3,41.5,41.6,38,41,35,42,33,42,31,41.2,29,41.2,27.5,42],
+            [47,44,47.5,45.5,49,46.5,51.5,47,53,46.5,53,45,51,44.5,51,43.5,52.5,42,53,41,54,40.5,53.5,38,53.5,37,51,36.7,49,37.6,49.3,39.5,49.5,40.5,48.5,41.8,47.5,42.8,47,44],
+            [-5.6,50.1,-3,50.6,0,50.8,1.4,51.3,1.7,52.7,0.3,53.4,-0.3,54.2,-1.5,55,-2,56,-1.8,57.6,-3.5,57.7,-3,58.6,-5,58.6,-5.6,57.5,-6.2,56.5,-5.5,55.5,-4.8,54.8,-3.4,54.4,-3,53.3,-4.6,52.8,-4.2,51.6,-5.3,51.7,-4.5,51.2,-5.6,50.1],
+            [-6,52.2,-6.1,53.4,-6,54.1,-7.5,55.2,-8.5,54.5,-10,54.2,-9.5,53,-10,51.6,-8,51.6,-6,52.2],
+            [-22.5,64,-18,63.4,-14.5,64.4,-13.6,65.2,-15,66.3,-18,66.1,-22,66.4,-24,65.5,-22.5,64],
+            [44,-25,47,-25,48.5,-20,49.5,-15,49.2,-12,47.5,-14,44.5,-16,43.5,-22,44,-25],
+            [80,10,81.8,7.5,81,6,80,6.5,79.8,8,80,10],
+          ];
+          const contG = el("g", {});
+          CONT.forEach((a, i) => {
+            const p = el("path", stroke(1.5, { d: contPath(a), "stroke-linejoin": "round" }), contG);
+            drawOn(p, 0.96 + i * 0.045, 0.5);
+          });
+
+          // ---------- 3. Moon ----------
+          const mMark = el("path", stroke(1.6, { d: cross(MX, CY, 9) }));
+          drawOn(mMark, 0.68, 0.14, "power1.out");
+          const ghost = el("circle", stroke(W_CON, { cx: MX, cy: CY, r: MR, "stroke-dasharray": "7 5" }));
+          ghost.style.opacity = "0";
+
+          const moonG = el("g", { id: "s1-moon" });
+          revealV(moonG, MX, CY, MR + 18, 0.68, 0.22);
+          const moon = el("circle", stroke(W_OBJ, { cx: MX, cy: CY, r: MR, transform: `rotate(-90 ${MX} ${CY})` }), moonG);
+          drawOn(moon, 1.18, 0.3);
+          const hatchG = el("g", { "clip-path": "url(#s1-cp-moonhalf)" }, moonG);
+          const HS = 10 * Math.SQRT2;
+          let hi = 0;
+          for (let k = MX + CY - MR + 6; k <= MX + CY + MR * Math.SQRT2; k += HS) {
+            const xa = MX - 2, xb = MX + MR + 2;
+            const h = el("line", stroke(W_CON, { x1: xa, y1: k - xa, x2: xb, y2: k - xb }), hatchG);
+            drawOn(h, 1.4 + hi * 0.035, 0.18, "power1.inOut");
+            hi++;
+          }
+          const mMark2 = el("path", stroke(1.6, { d: cross(MX, CY, 9) }), moonG);
+          mMark2.style.opacity = "0";
+          const ext4 = el("line", stroke(W_CON, { x1: MX, y1: 404, x2: MX, y2: 334 }), moonG);
+          drawOn(ext4, 7.0, 0.18, "power1.out");
+
+          // ---------- 4. extension lines ----------
+          const ext1 = el("line", stroke(W_CON, { x1: EX, y1: CY + ER + 8, x2: EX, y2: DIMY + 18 }));
+          const ext2 = el("line", stroke(W_CON, { x1: MX, y1: CY + MR + 8, x2: MX, y2: DIMY + 18 }));
+          drawOn(ext1, 1.74, 0.32);
+          drawOn(ext2, 1.74, 0.36);
+          const ext3 = el("line", stroke(W_CON, { x1: MX, y1: 404, x2: MX, y2: 334 }));
+          drawOn(ext3, 7.0, 0.18, "power1.out");
+
+          // ---------- 5. main dimension (amber), grows from the midpoint ----------
+          const d1G = el("g", {});
+          d1G.style.opacity = "0";
+          const d1 = el("line", { x1: MID, y1: DIMY, x2: MID, y2: DIMY, stroke: AMB, "stroke-width": 2 }, d1G);
+          const a1 = el("polygon", { fill: AMB, points: "" }, d1G);
+          const a2 = el("polygon", { fill: AMB, points: "" }, d1G);
+          const dim1 = { _p: -1 };
+          Object.defineProperty(dim1, "p", {
+            get() { return this._p; },
+            set(v) {
+              if (v === this._p) return;
+              this._p = v;
+              const xl = MID - v * HALF, xr = MID + v * HALF;
+              d1G.style.opacity = v > 0.001 ? "1" : "0";
+              d1.setAttribute("x1", xl);
+              d1.setAttribute("x2", xr);
+              a1.setAttribute("points", `${xl},${DIMY} ${xl + 16},${DIMY - 5.5} ${xl + 16},${DIMY + 5.5}`);
+              a2.setAttribute("points", `${xr},${DIMY} ${xr - 16},${DIMY - 5.5} ${xr - 16},${DIMY + 5.5}`);
+            },
+          });
+          dim1.p = 0;
+          tl.fromTo(dim1, { p: 0 }, { p: 1, duration: 0.5, ease: "power2.inOut" }, 2.56);
+
+          // ---------- 6. outlined number + KM ----------
+          const num = el("text", { class: "s1-num", y: DIMY - 24, "text-anchor": "end" });
+          const km = el("text", { class: "s1-mono", y: DIMY - 24, "text-anchor": "start" });
+          const kmChars = [];
+          for (const ch of "KM".trim()) {
+            const ts = el("tspan", { "fill-opacity": 0 }, km);
+            ts.textContent = ch;
+            kmChars.push(ts);
+          }
+          num.textContent = "384.000";
+          let w = num.getComputedTextLength() || 520;
+          const kw = km.getComputedTextLength() || 34;
+          const GAP = 14, AVAIL = MX - EX - 90;
+          if (w + GAP + kw > AVAIL) {
+            num.style.fontSize = Math.floor(144 * (AVAIL - GAP - kw) / w) + "px";
+            w = num.getComputedTextLength() || AVAIL - GAP - kw;
+          }
+          const left = MID - (w + GAP + kw) / 2;
+          num.setAttribute("x", left + w);
+          km.setAttribute("x", left + w + GAP);
+          num.style.opacity = "0";
+
+          const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+          const ctr = { _v: -1 };
+          Object.defineProperty(ctr, "value", {
+            get() { return this._v; },
+            set(v) {
+              const r = Math.round(v);
+              if (r !== this._v) {
+                this._v = r;
+                num.textContent = fmt(r);
+              }
+            },
+          });
+          ctr.value = 0;
+          tl.set(num, { opacity: 1 }, 2.56);
+          tl.fromTo(ctr, { value: 0 }, { value: 384000, duration: 1.1, ease: "power2.out" }, 2.56);
+          kmChars.forEach((ts, i) => tl.set(ts, { attr: { "fill-opacity": 1 } }, 4.1 + i * 0.07));
+
+          // ---------- 7. headline (fixed, left third) ----------
+          const rule = el("line", stroke(W_CON, { x1: 144, y1: CY, x2: 612, y2: CY }), fixed);
+          drawOn(rule, 4.4, 0.3);
+          const head = $("s1-headline");
+          const words = "384 BİN KM".trim().split(/\s+/);
+          const headChars = [];
+          words.forEach((wd, wi) => {
+            const ws = document.createElement("span");
+            ws.className = "s1-word";
+            for (const ch of wd) {
+              const s = document.createElement("span");
+              s.className = "s1-ch";
+              s.textContent = ch;
+              ws.appendChild(s);
+              headChars.push(s);
+            }
+            head.appendChild(ws);
+            if (wi < words.length - 1) head.appendChild(document.createTextNode(" "));
+          });
+          headChars.forEach((s, i) => tl.set(s, { opacity: 1 }, 4.64 + i * 0.06));
+
+          // ---------- 8. the Moon steps away: drift dimension ----------
+          const D2Y = 352;
+          const d2G = el("g", {});
+          d2G.style.opacity = "0";
+          const d2 = el("line", { x1: MX - 30, y1: D2Y, x2: MX + 30, y2: D2Y, stroke: AMB, "stroke-width": 2 }, d2G);
+          el("polygon", { fill: AMB, points: `${MX},${D2Y} ${MX - 14},${D2Y - 5} ${MX - 14},${D2Y + 5}` }, d2G);
+          const a4 = el("polygon", { fill: AMB, points: "" }, d2G);
+
+          const mv = { _x: -1 };
+          Object.defineProperty(mv, "x", {
+            get() { return this._x; },
+            set(v) {
+              if (v === this._x) return;
+              this._x = v;
+              moonG.setAttribute("transform", `translate(${v.toFixed(2)} 0)`);
+              const xr = MX + v;
+              d2G.style.opacity = v > 0.5 ? "1" : "0";
+              d2.setAttribute("x2", xr + 30);
+              a4.setAttribute("points", `${xr},${D2Y} ${xr + 14},${D2Y - 5} ${xr + 14},${D2Y + 5}`);
+            },
+          });
+          mv.x = 0;
+          tl.set(ghost, { opacity: 1 }, 7.0);
+          tl.set(mMark2, { opacity: 1 }, 7.0);
+          tl.fromTo(mv, { x: 0 }, { x: STEP, duration: 0.75, ease: "power2.inOut" }, 7.0);
+
+          const lbl = el("text", { class: "s1-mono", x: MX + STEP / 2, y: 322, "text-anchor": "middle" });
+          const lblChars = [];
+          for (const ch of "YILDA BİRKAÇ CM".trim()) {
+            const ts = el("tspan", { "fill-opacity": 0 }, lbl);
+            ts.textContent = ch;
+            if (ch !== " ") lblChars.push(ts);
+          }
+          lblChars.forEach((ts, i) => tl.set(ts, { attr: { "fill-opacity": 1 } }, 7.52 + i * 0.04));
+
+          // ---------- 9. camera: precise pan right along the center line ----------
+          const cam = { _x: 1 };
+          Object.defineProperty(cam, "x", {
+            get() { return this._x; },
+            set(v) {
+              if (v === this._x) return;
+              this._x = v;
+              world.setAttribute("transform", `translate(${v.toFixed(2)} 0)`);
+            },
+          });
+          cam.x = 0;
+          tl.fromTo(cam, { x: 0 }, { x: -STEP, duration: 1.7, ease: "power2.inOut" }, 7.05);
+        }
+      </script>
+    </template>
+  </body>
+</html>

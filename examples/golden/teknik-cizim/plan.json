@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "topic": "Ayın uzaklaşması, gelgitler ve büyük çarpışmanın yankısı",
+  "summary": "A blueprint drawing measures the Earth to Moon distance and its yearly drift, shows the Moon's pull raising the ocean bulge that drives the tides, and ends on a shoreline wave whose ripples are traced back to the 4.5 billion year old impact.",
+  "style": "teknik-cizim",
+  "mode": "fullscreen",
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "254016000000/10587056659",
+  "duration_frames": 579,
+  "handles_frames": 19,
+  "assets": [],
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 235,
+      "anchor_words": [
+        "Bugün",
+        "384",
+        "bin",
+        "kilometre",
+        "uzakta",
+        "birkaç",
+        "santimetre",
+        "uzaklaşıyor"
+      ],
+      "visual": "Continues the blueprint world from part 1. On the right two thirds a dashed horizontal center line runs across the grid. At 0.64 center marks appear, then the Earth draws on as a front view outline circle with continent contours on the left of that area. The Moon follows as a smaller outline circle on the far right, with 45 degree hatching on its far half. At 1.74 vertical extension lines drop from both centers. At 2.56 an amber dimension line with arrowheads grows outward from the midpoint to both extension lines, and an outlined Space Grotesk number counts up from 0 to 384 000 above it. The KM label types on at 4.10. The headline types on in the empty left third. At 7.00 the Moon slides right along the center line by a small step. A second small amber dimension line opens at the old Moon center and grows to the new position. The IBM Plex Mono label 'YILDA BİRKAÇ CM' types on at 7.52. The drawing ends with the Moon resting at its new position and both dimensions visible.",
+      "on_screen_text": "384 BİN KM",
+      "camera": "hold on the full drawing, then a precise slow pan right along the center line to follow the Moon's step at 7.0",
+      "technique": "data-viz",
+      "assets": [],
+      "transition_out": "zoom into the Earth outline, which becomes the next drawing",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 16,
+          "type": "pen",
+          "gain_db": -16
+        },
+        {
+          "frame": 61,
+          "type": "ruler",
+          "gain_db": -11
+        },
+        {
+          "frame": 98,
+          "type": "blip",
+          "gain_db": -14
+        },
+        {
+          "frame": 167,
+          "type": "slide",
+          "gain_db": -15
+        },
+        {
+          "frame": 180,
+          "type": "ruler",
+          "gain_db": -13
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "start_frame": 235,
+      "end_frame": 374,
+      "anchor_words": [
+        "çekimi",
+        "okyanusları",
+        "kabartıyor",
+        "gelgitleri",
+        "yönetiyor"
+      ],
+      "visual": "The Earth fills the center right as a large front view outline with a dashed center line and a center mark. A thin concentric ocean shell outline traces close around it. On the far right edge sits a partial Moon outline. At 10.58 an amber right angle circuit line with junction dots runs from the Moon's center mark to the Earth's center, and a short bright amber signal dash travels along it. At 12.14 the ocean shell stretches into an ellipse along the center line, bulging toward the Moon and on the opposite side, and the bulge area gets 45 degree hatching. Small dimension lines grow from the old shell to the new bulge on both sides. At 13.8 the Earth outline rotates a quarter turn under the fixed bulge. An outlined marker on the coastline passes through the bulge, and its IBM Plex Mono label 'YÜKSEK SU' types on. The headline sits in the left third. End state: the elliptical bulge, amber pull line, and both dimension marks.",
+      "on_screen_text": "GELGİTLER",
+      "camera": "slow precise zoom in toward the near bulge, aligned to the center line",
+      "technique": "diagram",
+      "assets": [],
+      "transition_out": "zoom into the coastline marker on the bulge, which becomes the shoreline drawing",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 253,
+          "type": "blip",
+          "gain_db": -13
+        },
+        {
+          "frame": 291,
+          "type": "pen",
+          "gain_db": -12
+        },
+        {
+          "frame": 331,
+          "type": "slide",
+          "gain_db": -15
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "start_frame": 374,
+      "end_frame": 579,
+      "anchor_words": [
+        "Kıyıya",
+        "vuran",
+        "dalga",
+        "4,5",
+        "milyar",
+        "yıl",
+        "çarpışmanın",
+        "yankısı"
+      ],
+      "visual": "A side profile drawing of a shoreline on the right. A sloped beach line has hatching below it, and a single wave profile outline draws on and breaks onto the slope at 17.3. A dashed horizontal time axis then extends leftward from the wave into the middle of the frame. At its far end a small outline drawing reappears from part 1: two circles touching, with a center mark at the contact point. At 18.32 an amber dimension line grows from the wave back to the impact mark, and the outlined Space Grotesk value '4,5 MİLYAR YIL' counts and types on above it. At 20.98 a short bright amber signal dash leaves the impact point and travels along the line to the wave. At 22.26 thin concentric ripple arcs expand from the impact point and repeat at the wave as matching arcs on the water. The last arc settles at 23.78. End state: impact mark, amber dimension line, and the wave with echo arcs. The headline stays in the left third.",
+      "on_screen_text": "ÇARPIŞMANIN YANKISI",
+      "camera": "hold on the shoreline, then a precise pan left along the time axis to frame impact and wave together at 18.3, hold to the end",
+      "technique": "kinetic-type",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 383,
+          "type": "pen",
+          "gain_db": -16
+        },
+        {
+          "frame": 415,
+          "type": "slide",
+          "gain_db": -13
+        },
+        {
+          "frame": 439,
+          "type": "ruler",
+          "gain_db": -10
+        },
+        {
+          "frame": 503,
+          "type": "blip",
+          "gain_db": -12
+        },
+        {
+          "frame": 560,
+          "type": "pen",
+          "gain_db": -17
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s3</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Nunito";
+          src: url("vendor/fonts/nunito/Nunito-Variable.ttf") format("truetype");
+          font-weight: 200 1000;
+          font-style: normal;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s3-bg {
+          position: absolute;
+          inset: 0;
+          background: #efe6d2;
+        }
+        #s3-fiber {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s3-defs {
+          position: absolute;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+        }
+        #s3-block {
+          position: absolute;
+          left: 72px;
+          top: 500px;
+          width: 936px;
+        }
+        .s3-line {
+          display: flex;
+          align-items: flex-end;
+          width: max-content;
+          white-space: nowrap;
+        }
+        #s3-l1 {
+          font-size: 168px;
+        }
+        #s3-l2 {
+          font-size: 104px;
+          margin-top: 20px;
+        }
+        .s3-word {
+          display: inline-block;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          line-height: 1.12;
+          letter-spacing: 0;
+          white-space: nowrap;
+        }
+        #s3-w2a {
+          margin-right: 0.3em;
+        }
+        .s3-ch {
+          display: inline-block;
+          margin-right: 0.025em;
+        }
+        .s3-chi {
+          display: inline-block;
+          filter: url(#s3-paper);
+        }
+        #s3-crane-wrap {
+          flex: none;
+          width: 1em;
+          margin-left: 0.16em;
+          margin-bottom: 0.235em;
+        }
+        #s3-crane {
+          transform-origin: 50% 100%;
+        }
+        #s3-crane svg {
+          display: block;
+          width: 100%;
+          height: auto;
+          filter: url(#s3-paper);
+        }
+      </style>
+      <div id="root" data-composition-id="s3" data-width="1080" data-height="1920">
+        <div id="s3-bg">
+          <svg id="s3-fiber" viewBox="0 0 1080 1920" preserveAspectRatio="none">
+            <filter id="s3-bgfiber" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="f" />
+              <feColorMatrix
+                in="f"
+                type="matrix"
+                values="0 0 0 0 0.36  0 0 0 0 0.29  0 0 0 0 0.18  2.2 0 0 0 -0.95"
+                result="dk"
+              />
+              <feColorMatrix
+                in="f"
+                type="matrix"
+                values="0 0 0 0 1  0 0 0 0 0.98  0 0 0 0 0.93  -2.2 0 0 0 1.15"
+                result="lt"
+              />
+              <feMerge><feMergeNode in="dk" /><feMergeNode in="lt" /></feMerge>
+            </filter>
+            <rect x="0" y="0" width="1080" height="1920" filter="url(#s3-bgfiber)" opacity="0.2" />
+          </svg>
+        </div>
+
+        <svg id="s3-defs" aria-hidden="true">
+          <filter id="s3-paper" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="6" result="en" />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="en"
+              scale="2.6"
+              xChannelSelector="R"
+              yChannelSelector="G"
+              result="cut"
+            />
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fib" />
+            <feColorMatrix
+              in="fib"
+              type="matrix"
+              values="0 0 0 0 0.18  0 0 0 0 0.13  0 0 0 0 0.06  2.4 0 0 0 -1.05"
+              result="dark"
+            />
+            <feColorMatrix
+              in="fib"
+              type="matrix"
+              values="0 0 0 0 1  0 0 0 0 0.97  0 0 0 0 0.9  -2.4 0 0 0 1.25"
+              result="light"
+            />
+            <feComposite in="dark" in2="cut" operator="in" result="darkIn" />
+            <feComposite in="light" in2="cut" operator="in" result="lightIn" />
+            <feComponentTransfer in="darkIn" result="darkSoft">
+              <feFuncA type="linear" slope="0.35" />
+            </feComponentTransfer>
+            <feComponentTransfer in="lightIn" result="lightSoft">
+              <feFuncA type="linear" slope="0.3" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode in="cut" />
+              <feMergeNode in="darkSoft" />
+              <feMergeNode in="lightSoft" />
+            </feMerge>
+          </filter>
+        </svg>
+
+        <div id="s3-block">
+          <div id="s3-l1" class="s3-line">
+            <span id="s3-w1" class="s3-word"></span>
+            <div id="s3-crane-wrap">
+              <div id="s3-crane">
+                <svg viewBox="0 0 220 142" xmlns="http://www.w3.org/2000/svg">
+                  <polygon points="96,100 58,14 120,96" fill="#DCCBA8" />
+                  <polygon points="64,108 10,34 94,102" fill="#EADDC2" />
+                  <polygon points="126,104 192,36 152,110" fill="#F3EBDA" />
+                  <polygon points="190,34 214,50 186,46" fill="#E3D4B6" />
+                  <polygon points="64,108 112,98 112,140" fill="#EADDC2" />
+                  <polygon points="112,98 160,110 112,140" fill="#DCCBA8" />
+                  <polygon points="98,104 150,4 130,100" fill="#F3EBDA" />
+                  <polygon points="130,100 150,4 140,102" fill="#E3D4B6" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div id="s3-l2" class="s3-line">
+            <span id="s3-w2a" class="s3-word"></span>
+            <span id="s3-w2b" class="s3-word"></span>
+          </div>
+        </div>
+      </div>
+      <script type="module">
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+
+        const buildPromise = (async () => {
+          await document.fonts.load('900 168px "Nunito"');
+
+          const DUR = 4.71;
+          const FH = 1920;
+          const FW = 1080;
+          const SAFE_L = 72;
+          const SAFE_W = 936;
+          const BLOCK_TOP = 500;
+
+          function mulberry32(a) {
+            return function () {
+              a |= 0;
+              a = (a + 0x6d2b79f5) | 0;
+              let t = Math.imul(a ^ (a >>> 15), 1 | a);
+              t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+          }
+          const rand = mulberry32(6);
+          const sr = (a) => (rand() * 2 - 1) * a;
+
+          const block = document.getElementById("s3-block");
+          const l1 = document.getElementById("s3-l1");
+          const l2 = document.getElementById("s3-l2");
+          const w1 = document.getElementById("s3-w1");
+          const w2a = document.getElementById("s3-w2a");
+          const w2b = document.getElementById("s3-w2b");
+          const craneWrap = document.getElementById("s3-crane-wrap");
+          const crane = document.getElementById("s3-crane");
+
+          // paper layer shadow: contact shadow + soft cast shadow, grows on lift
+          function shadow(l) {
+            const k = Math.max(0, l);
+            const y = 4 + 11 * k;
+            const b = 7 + 15 * k;
+            const a = 0.3 - 0.07 * Math.min(1.3, k);
+            const cy = 1 + k;
+            const cb = 1.2 + 1.5 * k;
+            const ca = 0.34 * (1 - 0.55 * Math.min(1, k));
+            return (
+              "drop-shadow(0px " + cy.toFixed(2) + "px " + cb.toFixed(2) + "px rgba(60,48,30," + ca.toFixed(3) + ")) " +
+              "drop-shadow(0px " + y.toFixed(2) + "px " + b.toFixed(2) + "px rgba(60,48,30," + a.toFixed(3) + "))"
+            );
+          }
+
+          function mkProxy(onChange) {
+            const p = { _v: 0 };
+            Object.defineProperty(p, "v", {
+              get() {
+                return this._v;
+              },
+              set(v) {
+                if (v !== this._v) {
+                  this._v = v;
+                  onChange();
+                }
+              },
+            });
+            return p;
+          }
+
+          // back.out(1.3) with overshoot capped in pixels so neighbours never collide
+          function backOut(p, c) {
+            const u = p - 1;
+            return 1 + (c + 1) * u * u * u + c * u * u;
+          }
+          function paperEase(dist, capPx) {
+            const k = Math.min(1, capPx / (0.0617 * Math.max(1, Math.abs(dist))));
+            return (p) => {
+              if (p >= 1) return 1;
+              const f = backOut(p, 1.3);
+              return f > 1 ? 1 + (f - 1) * k : f;
+            };
+          }
+
+          function split(wordEl, text, color) {
+            return Array.from(text.trim()).map((ch) => {
+              const o = document.createElement("span");
+              o.className = "s3-ch";
+              const i = document.createElement("span");
+              i.className = "s3-chi";
+              i.style.color = color;
+              i.textContent = ch;
+              o.appendChild(i);
+              wordEl.appendChild(o);
+              return { el: o, rEnd: sr(1.2), yEnd: sr(2), p: null };
+            });
+          }
+
+          const L1 = split(w1, "ORİGAMİ", "#C89B4A");
+          const LA = split(w2a, "SIRRI", "#6E7A4F");
+          const LB = split(w2b, "BASİT", "#6E7A4F");
+
+          // fit lines into the safe width (layout px, unaffected by host scaling)
+          function fit(line, base) {
+            line.style.fontSize = base + "px";
+            for (let n = 0; n < 2; n++) {
+              const w = line.offsetWidth;
+              if (w > SAFE_W) {
+                const cur = parseFloat(line.style.fontSize);
+                line.style.fontSize = ((cur * SAFE_W) / w - 0.5).toFixed(2) + "px";
+              }
+            }
+          }
+          fit(l1, 168);
+          fit(l2, 104);
+
+          // lift proxies
+          const G1 = mkProxy(() => paintLine1());
+          const C = mkProxy(() => paintCrane());
+          const PA = mkProxy(() => LA.forEach((o) => (o.el.style.filter = shadow(PA._v))));
+          const PB = mkProxy(() => LB.forEach((o) => (o.el.style.filter = shadow(PB._v))));
+          L1.forEach((o) => {
+            o.p = mkProxy(() => {
+              o.el.style.filter = shadow(o.p._v + G1._v);
+            });
+          });
+          function paintCrane() {
+            crane.style.filter = shadow(C._v + G1._v);
+          }
+          function paintLine1() {
+            L1.forEach((o) => (o.el.style.filter = shadow(o.p._v + G1._v)));
+            paintCrane();
+          }
+          paintLine1();
+          LA.forEach((o) => (o.el.style.filter = shadow(0)));
+          LB.forEach((o) => (o.el.style.filter = shadow(0)));
+
+          // static hand-cut tilt on line 2 letters
+          LA.concat(LB).forEach((o) => gsap.set(o.el, { rotation: o.rEnd, y: o.yEnd }));
+
+          // measurements
+          const shift = l2.offsetTop + l2.offsetHeight - l1.offsetHeight;
+          const riseDist = FH - (BLOCK_TOP + shift) + 80;
+          const xA = -(SAFE_L + w2a.offsetLeft + w2a.offsetWidth + 80);
+          const xB = FW - (SAFE_L + w2b.offsetLeft) + 80;
+
+          const tl = gsap.timeline({ paused: true });
+
+          // block starts low (line 1 alone), lifts later to make room for line 2
+          tl.fromTo(block, { y: shift }, { y: 0, duration: 0.6, ease: paperEase(shift, 9) }, 3.1);
+
+          // crane: already sitting on the sheet, lifts on "Adı"
+          tl.fromTo(C, { v: 0 }, { v: 1, duration: 0.22, ease: "power2.out" }, 0.37);
+          tl.to(C, { v: 0, duration: 0.45, ease: "power2.out" }, 0.62);
+          tl.fromTo(craneWrap, { y: 0 }, { y: -22, duration: 0.22, ease: "power2.out" }, 0.37);
+          tl.to(craneWrap, { y: 0, duration: 0.5, ease: paperEase(22, 4) }, 0.62);
+
+          // ORİGAMİ: each cut letter slides up from below the frame in its own column
+          L1.forEach((o, i) => {
+            const st = 0.85 + i * 0.052;
+            const rFrom = o.rEnd + sr(6);
+            tl.fromTo(
+              o.el,
+              { y: riseDist + i * 14, rotation: rFrom },
+              { y: o.yEnd, rotation: o.rEnd, duration: 0.55, ease: paperEase(riseDist, 14) },
+              st
+            );
+            tl.fromTo(o.p, { v: 1.3 }, { v: 0, duration: 0.32, ease: "power2.in" }, st);
+          });
+
+          // "Origaminin": the word layer lifts, rises, settles
+          tl.fromTo(G1, { v: 0 }, { v: 1, duration: 0.3, ease: "power2.out" }, 2.71);
+          tl.to(G1, { v: 0, duration: 0.45, ease: "power2.out" }, 3.55);
+
+          // SIRRI slides in from the left, lands on "sırrı"
+          tl.fromTo(
+            w2a,
+            { x: xA, rotation: -3 },
+            { x: 0, rotation: 0, duration: 0.55, ease: paperEase(xA, 12) },
+            3.31
+          );
+          tl.fromTo(PA, { v: 1.2 }, { v: 0, duration: 0.3, ease: "power2.in" }, 3.31);
+
+          // BASİT closes the line from the right, lands on "basit"
+          tl.fromTo(
+            w2b,
+            { x: xB, rotation: 3 },
+            { x: 0, rotation: 0, duration: 0.55, ease: paperEase(xB, 12) },
+            3.75
+          );
+          tl.fromTo(PB, { v: 1.2 }, { v: 0, duration: 0.3, ease: "power2.in" }, 3.75);
+
+          // crane sway, pure function of time
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() {
+              return this._t;
+            },
+            set(v) {
+              if (v !== this._t) {
+                this._t = v;
+                const r = 1.6 * Math.sin(v * 2.2 + 0.5) + 0.5 * Math.sin(v * 5.1 + 1.3);
+                crane.style.transform = "rotate(" + r.toFixed(3) + "deg)";
+              }
+            },
+          });
+          tl.fromTo(driver, { t: 0 }, { t: DUR, duration: DUR, ease: "none" }, 0);
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s3"] = tl;
+        })();
+
+        window.__hf.buildReady["s3"] = buildPromise;
+      </script>
+    </template>
+  </body>
+</html>

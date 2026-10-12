@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Outfit";
+          src: url("vendor/fonts/outfit/Outfit-Variable.ttf") format("truetype");
+          font-weight: 100 900;
+          font-style: normal;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background-color: #eeeae3;
+          background-repeat: repeat;
+          background-size: 512px 512px;
+        }
+        #s1-canvas {
+          position: absolute;
+          z-index: 1;
+          left: 640px;
+          top: 0;
+          width: 1280px;
+          height: 1080px;
+          display: block;
+        }
+        #s1-head {
+          position: absolute;
+          z-index: 10;
+          left: 132px;
+          top: 436px;
+          max-width: 480px;
+        }
+        .s1-rule {
+          width: 72px;
+          height: 6px;
+          background: #4a5563;
+          margin-bottom: 26px;
+        }
+        .s1-title {
+          position: relative;
+          z-index: 10;
+          margin: 0;
+          font-family: "Outfit", sans-serif;
+          font-weight: 700;
+          font-size: 96px;
+          line-height: 1.05;
+          letter-spacing: -0.01em;
+          color: #4a5563;
+        }
+        .s1-mask {
+          display: block;
+          overflow: hidden;
+          padding-top: 0.16em;
+          margin-top: -0.16em;
+          padding-bottom: 0.04em;
+        }
+        .s1-word {
+          display: inline-block;
+        }
+        .s1-accent {
+          color: #b4603f;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <canvas id="s1-canvas" width="1280" height="1080"></canvas>
+        <div id="s1-head" data-layout-allow-occlusion>
+          <div class="s1-rule" id="s1-rule"></div>
+          <h1 class="s1-title" data-layout-allow-occlusion>
+            <span class="s1-mask" data-layout-allow-occlusion
+              ><span class="s1-word" id="s1-w1" data-layout-allow-occlusion>KNOW</span></span
+            >
+            <span class="s1-mask" data-layout-allow-occlusion
+              ><span class="s1-word s1-accent" id="s1-w2" data-layout-allow-occlusion>NOTHING</span></span
+            >
+          </h1>
+        </div>
+      </div>
+      <script type="module">
+        import * as THREE from "three";
+        import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+
+        const W = 1920;
+        const H = 1080;
+        const CX0 = 640;
+        const CW = W - CX0;
+        const D = 4.251;
+
+        window.__timelines = window.__timelines || {};
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        const buildPromise = build();
+        window.__hf.buildReady["s1"] = buildPromise;
+
+        function mulberry32(a) {
+          return function () {
+            a |= 0;
+            a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+        const p3o = (p) => 1 - Math.pow(1 - p, 3);
+        const p2io = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+        const sio = (p) => -(Math.cos(Math.PI * p) - 1) / 2;
+
+        function dropY(t, land, fall, h) {
+          if (t >= land) return 0;
+          const p = clamp01((t - (land - fall)) / fall);
+          return h * (1 - p * p);
+        }
+        function squash(t, land, A) {
+          const s = t - land;
+          if (s <= 0) return 0;
+          return A * Math.sin(s * 20) * Math.exp(-7 * s);
+        }
+        function tileY(t) {
+          const L = 0.083;
+          if (t < L) {
+            const p = t / L;
+            return 1.1 * (1 - p * p);
+          }
+          const s = t - L;
+          return -0.07 * Math.sin(s * 16) * Math.exp(-6 * s);
+        }
+        function flipAngle(t, start, dur) {
+          const s = t - start;
+          if (s <= 0) return 0;
+          if (s < dur) return Math.PI * p2io(s / dur);
+          const s2 = s - dur;
+          return Math.PI - 0.1 * Math.sin(s2 * 18) * Math.exp(-8 * s2);
+        }
+
+        async function build() {
+          await document.fonts.load('700 96px "Outfit"');
+
+          THREE.ColorManagement.enabled = false;
+
+          const canvas = document.getElementById("s1-canvas");
+          const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            preserveDrawingBuffer: true,
+            alpha: true,
+          });
+          renderer.setPixelRatio(1);
+          renderer.setSize(CW, H, false);
+          renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+          renderer.setClearColor(0x000000, 0);
+
+          const scene = new THREE.Scene();
+          const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
+          camera.position.set(40, 40, 40);
+          camera.up.set(0, 1, 0);
+          camera.lookAt(0, 0, 0);
+
+          // flat per-face tone: top 1.0, left (+Z) 0.82, right (+X) 0.62
+          function flatMat(hex) {
+            return new THREE.ShaderMaterial({
+              uniforms: { uColor: { value: new THREE.Color(hex) } },
+              vertexShader: `
+                varying vec3 vN;
+                void main() {
+                  vN = normalize(mat3(modelMatrix) * normal);
+                  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+                }`,
+              fragmentShader: `
+                uniform vec3 uColor;
+                varying vec3 vN;
+                void main() {
+                  vec3 n = normalize(vN);
+                  float tone = 0.5 + 0.5 * n.y + 0.32 * n.z + 0.12 * n.x;
+                  tone = clamp(tone, 0.5, 1.0);
+                  gl_FragColor = vec4(uColor * tone, 1.0);
+                }`,
+            });
+          }
+          const M = {
+            sage: flatMat(0x8fa79a),
+            slate: flatMat(0x4a5563),
+            light: flatMat(0xf5f2ec),
+            accent: flatMat(0xc9775a),
+          };
+
+          function rbox(w, h, d, r, mat, x0, y0, z0) {
+            const g = new RoundedBoxGeometry(w, h, d, 3, r);
+            g.translate(x0 + w / 2, y0 + h / 2, z0 + d / 2);
+            return new THREE.Mesh(g, mat);
+          }
+          function pbox(w, h, d, mat, x0, y0, z0) {
+            const g = new THREE.BoxGeometry(w, h, d);
+            g.translate(x0 + w / 2, y0 + h / 2, z0 + d / 2);
+            return new THREE.Mesh(g, mat);
+          }
+
+          // soft contact shadow textures (built once)
+          function makeTex(drawFn) {
+            const c = document.createElement("canvas");
+            c.width = 256;
+            c.height = 256;
+            const x = c.getContext("2d");
+            drawFn(x);
+            const tex = new THREE.CanvasTexture(c);
+            tex.needsUpdate = true;
+            return tex;
+          }
+          const circleTex = makeTex((x) => {
+            const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+            g.addColorStop(0, "rgba(255,255,255,1)");
+            g.addColorStop(0.45, "rgba(255,255,255,0.75)");
+            g.addColorStop(1, "rgba(255,255,255,0)");
+            x.fillStyle = g;
+            x.fillRect(0, 0, 256, 256);
+          });
+          const rectTex = makeTex((x) => {
+            x.filter = "blur(14px)";
+            x.fillStyle = "#ffffff";
+            x.fillRect(38, 38, 180, 180);
+          });
+          function shadowPlane(tex) {
+            const m = new THREE.MeshBasicMaterial({
+              map: tex,
+              color: 0x4a5563,
+              transparent: true,
+              opacity: 0,
+              depthWrite: false,
+            });
+            const geo = new THREE.PlaneGeometry(1, 1);
+            geo.rotateX(-Math.PI / 2);
+            const mesh = new THREE.Mesh(geo, m);
+            mesh.renderOrder = 1;
+            return mesh;
+          }
+
+          // world (moves with the tile)
+          const world = new THREE.Group();
+          scene.add(world);
+
+          // tile 6 x 6 grid units, top face at y = 0
+          const tile = rbox(6, 0.6, 6, 0.05, M.sage, -3, -0.6, -3);
+          world.add(tile);
+
+          // figure
+          const BODY_H = 1.0;
+          const bodyGeo = new THREE.CylinderGeometry(0.32, 0.32, BODY_H, 64, 1);
+          bodyGeo.translate(0, BODY_H / 2, 0);
+          const body = new THREE.Group();
+          body.add(new THREE.Mesh(bodyGeo, M.slate));
+          world.add(body);
+
+          const head = new THREE.Group();
+          head.add(rbox(0.56, 0.56, 0.56, 0.05, M.slate, -0.28, 0, -0.28));
+          world.add(head);
+
+          const FIG = { x: -1, z: 1 };
+          const figShadow = shadowPlane(circleTex);
+          world.add(figShadow);
+
+          // book: local coords x 0..2, spine at z = 0, near half z 0..1.5
+          const bookRoot = new THREE.Group();
+          world.add(bookRoot);
+          const bookInner = new THREE.Group();
+          bookInner.position.set(-1, 0, -0.75);
+          bookRoot.add(bookInner);
+
+          bookInner.add(rbox(2, 0.06, 1.5, 0.02, M.slate, 0, 0, 0));
+          bookInner.add(rbox(1.92, 0.2, 1.43, 0.015, M.light, 0.04, 0.06, 0.03));
+
+          const PIV = 0.26;
+          const mainPivot = new THREE.Group();
+          mainPivot.position.set(0, PIV, 0);
+          mainPivot.add(rbox(1.92, 0.16, 1.43, 0.015, M.light, 0.04, 0.04, 0.03));
+          mainPivot.add(rbox(2, 0.06, 1.5, 0.02, M.slate, 0, 0.2, 0));
+          bookInner.add(mainPivot);
+
+          const leaf2 = new THREE.Group();
+          leaf2.position.set(0, PIV, 0);
+          leaf2.add(pbox(1.92, 0.02, 1.43, M.light, 0.04, 0.02, 0.03));
+          bookInner.add(leaf2);
+
+          const leaf1 = new THREE.Group();
+          leaf1.position.set(0, PIV, 0);
+          leaf1.add(pbox(1.92, 0.02, 1.43, M.light, 0.04, 0.0, 0.03));
+          bookInner.add(leaf1);
+
+          const bookShadow = shadowPlane(rectTex);
+          world.add(bookShadow);
+
+          // terracotta empty square on the near page, laid along the iso axes
+          const SQ = { x0: 0.6, x1: 1.4, z0: 0.35, z1: 1.15, th: 0.07, h: 0.025, y: PIV };
+          const segs = [];
+          {
+            const { x0, x1, z0, z1, th, h, y } = SQ;
+            const L = x1 - x0 + th;
+            const gA = new THREE.BoxGeometry(1, h, th);
+            gA.translate(0.5, h / 2, 0);
+            const gB = new THREE.BoxGeometry(th, h, 1);
+            gB.translate(0, h / 2, 0.5);
+            const gC = new THREE.BoxGeometry(1, h, th);
+            gC.translate(-0.5, h / 2, 0);
+            const gD = new THREE.BoxGeometry(th, h, 1);
+            gD.translate(0, h / 2, -0.5);
+            const defs = [
+              { g: gA, p: [x0 - th / 2, y, z0], axis: "x" },
+              { g: gB, p: [x1, y, z0 - th / 2], axis: "z" },
+              { g: gC, p: [x1 + th / 2, y, z1], axis: "x" },
+              { g: gD, p: [x0, y, z1 + th / 2], axis: "z" },
+            ];
+            defs.forEach((d) => {
+              const m = new THREE.Mesh(d.g, M.accent);
+              m.position.set(d.p[0], d.p[1], d.p[2]);
+              m.visible = false;
+              bookInner.add(m);
+              segs.push({ mesh: m, axis: d.axis, len: L });
+            });
+          }
+
+          // paper grain: seeded tile painted into the background layer, offset per frame
+          const bgEl = document.getElementById("s1-bg");
+          const rand = mulberry32(20261007);
+          {
+            const gc = document.createElement("canvas");
+            gc.width = 256;
+            gc.height = 256;
+            const gx = gc.getContext("2d");
+            const img = gx.createImageData(256, 256);
+            const d = img.data;
+            for (let i = 0; i < 256 * 256; i++) {
+              const r = rand();
+              d[i * 4] = 52;
+              d[i * 4 + 1] = 56;
+              d[i * 4 + 2] = 62;
+              d[i * 4 + 3] = r > 0.5 ? ((r - 0.5) * 2 * 14) | 0 : 0;
+            }
+            gx.putImageData(img, 0, 0);
+            bgEl.style.backgroundImage = `url(${gc.toDataURL("image/png")})`;
+          }
+          const grainOffsets = [];
+          for (let k = 0; k < 3; k++) {
+            grainOffsets.push([Math.floor(rand() * 256) * 2, Math.floor(rand() * 256) * 2]);
+          }
+          let lastGrain = -1;
+
+          // timings (scene seconds)
+          const T = {
+            bodyLand: 0.38,
+            headLand: 0.6,
+            bookLand: 0.82,
+            fall: 0.3,
+            mainStart: 2.06,
+            mainDur: 0.46,
+            leaf2Start: 2.13,
+            leaf1Start: 2.19,
+            leafDur: 0.44,
+            sqStart: 2.71,
+            sqStep: 0.14,
+            sqDur: 0.17,
+          };
+          const DROP_H = 10;
+
+          // camera anchor: tile centre sits at frame pixel (1215, 565); zoom along the grid
+          const AX = 1215 - CX0;
+          const AY = 565;
+
+          function draw(t) {
+            const ppu = 120 + 8 * sio(clamp01(t / D));
+            camera.left = -AX / ppu;
+            camera.right = (CW - AX) / ppu;
+            camera.top = AY / ppu;
+            camera.bottom = -(H - AY) / ppu;
+            camera.updateProjectionMatrix();
+
+            world.position.y = tileY(t);
+
+            // figure body
+            const bVis = t >= T.bodyLand - T.fall;
+            body.visible = bVis;
+            const bY = dropY(t, T.bodyLand, T.fall, DROP_H);
+            const bSq = squash(t, T.bodyLand, 0.14);
+            body.position.set(FIG.x, bY, FIG.z);
+            body.scale.set(1 + 0.45 * bSq, 1 - bSq, 1 + 0.45 * bSq);
+
+            // head
+            head.visible = t >= T.headLand - T.fall;
+            const hY = dropY(t, T.headLand, T.fall, DROP_H);
+            const hSq = squash(t, T.headLand, 0.16);
+            head.position.set(FIG.x, BODY_H * (1 - bSq) + hY, FIG.z);
+            head.scale.set(1 + 0.45 * hSq, 1 - hSq, 1 + 0.45 * hSq);
+
+            const fk = bVis ? clamp01(1 - bY / 4) : 0;
+            figShadow.material.opacity = 0.16 * fk;
+            const fs = 1.05 * (0.6 + 0.4 * fk);
+            figShadow.scale.set(fs, 1, fs);
+            figShadow.position.set(FIG.x + 0.06, 0.004, FIG.z + 0.03);
+
+            // book
+            const kVis = t >= T.bookLand - T.fall;
+            bookRoot.visible = kVis;
+            const kY = dropY(t, T.bookLand, T.fall, DROP_H);
+            const kSq = squash(t, T.bookLand, 0.18);
+            bookRoot.position.set(1, kY, 0.75);
+            bookRoot.scale.set(1 + 0.3 * kSq, 1 - kSq, 1 + 0.3 * kSq);
+
+            const aMain = flipAngle(t, T.mainStart, T.mainDur);
+            mainPivot.rotation.x = -aMain;
+            leaf2.rotation.x = -flipAngle(t, T.leaf2Start, T.leafDur);
+            leaf1.rotation.x = -flipAngle(t, T.leaf1Start, T.leafDur);
+
+            const open = clamp01(aMain / Math.PI);
+            const kk = kVis ? clamp01(1 - kY / 4) : 0;
+            const zLen = 1.5 + 1.5 * open;
+            const zC = 0.75 - 0.75 * open;
+            bookShadow.material.opacity = 0.17 * kk;
+            const ks = 0.6 + 0.4 * kk;
+            bookShadow.scale.set((2.08 / 0.7) * ks, 1, ((zLen + 0.08) / 0.7) * ks);
+            bookShadow.position.set(1.06, 0.004, zC + 0.04);
+
+            // square outline, segment by segment
+            segs.forEach((s, i) => {
+              const p = clamp01((t - (T.sqStart + i * T.sqStep)) / T.sqDur);
+              const g = p3o(p);
+              s.mesh.visible = g > 0.001;
+              const l = Math.max(g * s.len, 0.0001);
+              if (s.axis === "x") s.mesh.scale.set(l, 1, 1);
+              else s.mesh.scale.set(1, 1, l);
+            });
+
+            renderer.render(scene, camera);
+
+            const gi = Math.floor(t * 30) % 3;
+            if (gi !== lastGrain) {
+              const o = grainOffsets[gi];
+              bgEl.style.backgroundPosition = `${o[0]}px ${o[1]}px`;
+              lastGrain = gi;
+            }
+          }
+
+          const tl = gsap.timeline({ paused: true });
+
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() {
+              return this._t;
+            },
+            set(v) {
+              if (v !== this._t) {
+                this._t = v;
+                draw(v);
+              }
+            },
+          });
+          tl.fromTo(driver, { t: 0 }, { t: D, duration: D, ease: "none" }, 0);
+
+          const rule = document.getElementById("s1-rule");
+          const w1 = document.getElementById("s1-w1");
+          const w2 = document.getElementById("s1-w2");
+
+          tl.fromTo(
+            rule,
+            { scaleX: 0, transformOrigin: "0% 50%" },
+            { scaleX: 1, transformOrigin: "0% 50%", duration: 0.5, ease: "power3.out" },
+            1.96
+          );
+          tl.fromTo(w1, { yPercent: 118 }, { yPercent: 0, duration: 0.55, ease: "back.out(1.4)" }, 2.08);
+          tl.fromTo(w2, { yPercent: 118 }, { yPercent: 0, duration: 0.55, ease: "back.out(1.4)" }, 2.64);
+
+          draw(0);
+          driver._t = 0;
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s1"] = tl;
+          return tl;
+        }
+      </script>
+    </template>
+  </body>
+</html>

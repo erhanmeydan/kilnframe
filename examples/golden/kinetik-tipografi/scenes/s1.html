@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Archivo";
+          font-weight: 100 900;
+          font-stretch: 62% 125%;
+          src: url("vendor/fonts/archivo/Archivo-Variable.ttf") format("truetype");
+        }
+
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #1c1c1c;
+        }
+        /* One family, two widths: 62 for every word, 125 only for the hero. */
+        .s1-type {
+          --wdth: 62;
+          position: absolute;
+          left: 0;
+          top: 0;
+          font-family: "Archivo", sans-serif;
+          font-weight: 900;
+          font-variation-settings:
+            "wght" 900,
+            "wdth" var(--wdth);
+          font-kerning: normal;
+          line-height: 1;
+          white-space: nowrap;
+          color: #ede6d8;
+        }
+        .s1-layer {
+          position: absolute;
+          inset: 0;
+        }
+        /* Masks start well above the cap height so the dots of İ and the breve of Ğ stay whole. */
+        .s1-mask {
+          position: absolute;
+          left: 0;
+          right: 0;
+          overflow: hidden;
+        }
+        #s1-rain,
+        #s1-grain {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+        }
+        #s1-grain {
+          opacity: 0.04;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+
+        <!-- the pile: a HABER staircase, then BİLGİ words raining onto it (intentional layering) -->
+        <div id="s1-pile" class="s1-layer">
+          <div id="s1-h1" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>HABER</div>
+          <div id="s1-h2" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>HABER</div>
+          <div id="s1-h3" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>HABER</div>
+          <div id="s1-h4" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>HABER</div>
+          <div id="s1-b1" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+          <div id="s1-b2" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+          <div id="s1-b3" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+          <div id="s1-b4" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+          <div id="s1-b5" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+          <div id="s1-b6" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+          <div id="s1-b7" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+          <div id="s1-b8" class="s1-type s1-cut" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+        </div>
+
+        <!-- the tight frame after the cut; the rain canvas falls over the letters on purpose -->
+        <div id="s1-hero" class="s1-layer">
+          <div id="s1-sag" class="s1-type" data-layout-allow-overflow data-layout-allow-occlusion data-layout-allow-overlap>SAĞANAK</div>
+        </div>
+        <div id="s1-m1" class="s1-mask">
+          <div id="s1-l1" class="s1-type" data-layout-allow-occlusion data-layout-allow-overlap>BİLGİ</div>
+        </div>
+        <div id="s1-m2" class="s1-mask">
+          <div id="s1-l2" class="s1-type" data-layout-allow-occlusion data-layout-allow-overlap>YAĞIŞI</div>
+        </div>
+
+        <canvas id="s1-rain" width="1920" height="1080"></canvas>
+        <canvas id="s1-grain" width="1920" height="1080"></canvas>
+      </div>
+      <script type="module">
+        const DURATION = 5.88;
+        const W = 1920;
+        const H = 1080;
+        const PAL = { bg: "#1C1C1C", type: "#EDE6D8", accent: "#E0633A" };
+
+        function mulberry32(seed) {
+          return function () {
+            seed |= 0;
+            seed = (seed + 0x6d2b79f5) | 0;
+            let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        // Static fine grain (tokens.surface.grain, seed 5)
+        {
+          const g = document.getElementById("s1-grain").getContext("2d");
+          const img = g.createImageData(W, H);
+          const rnd = mulberry32(5);
+          for (let i = 0; i < img.data.length; i += 4) {
+            const v = rnd() < 0.5 ? 0 : 255;
+            img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+            img.data[i + 3] = 255;
+          }
+          g.putImageData(img, 0, 0);
+        }
+
+        // Rain: thin bone white streaks, a pure function of time.
+        // A light drizzle from the start, denser on "üzerimize", a downpour on "sağanak".
+        const rc = document.getElementById("s1-rain").getContext("2d");
+        const rr = mulberry32(41);
+        const streaks = [];
+        function addStreaks(n, t0, spread, entering) {
+          for (let i = 0; i < n; i++) {
+            const wr = rr();
+            streaks.push({
+              x: Math.floor(rr() * W),
+              sp: 1700 + rr() * 1100,
+              len: 50 + rr() * 200,
+              w: wr < 0.18 ? 3 : wr < 0.6 ? 2 : 1,
+              a: 0.18 + rr() * 0.42,
+              t0: t0 + rr() * spread,
+              ph: entering ? 0 : rr(),
+              gap: 120 + rr() * 700,
+            });
+          }
+        }
+        addStreaks(30, -1, 0, false);
+        addStreaks(16, 2.42, 0.4, true);
+        addStreaks(46, 4.16, 0.35, true);
+
+        function drawRain(t) {
+          rc.clearRect(0, 0, W, H);
+          for (const s of streaks) {
+            if (t < s.t0) continue;
+            const cycle = H + s.len + s.gap;
+            const y = (((t - s.t0) * s.sp + s.ph * cycle) % cycle) - s.len;
+            if (y > H) continue;
+            const grad = rc.createLinearGradient(0, y, 0, y + s.len);
+            grad.addColorStop(0, "rgba(237,230,216,0)");
+            grad.addColorStop(1, `rgba(237,230,216,${s.a.toFixed(3)})`);
+            rc.fillStyle = grad;
+            rc.fillRect(s.x, y, s.w, s.len);
+          }
+        }
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["s1"] = document.fonts.load('900 120px "Archivo"').then(() => {
+          // Vertical metrics in em, measured from the font itself.
+          const mc = document.createElement("canvas").getContext("2d");
+          mc.font = '900 1000px "Archivo"';
+          const mH = mc.measureText("H");
+          const capH = mH.actualBoundingBoxAscent / 1000 || 0.72;
+          const markH = Math.max(capH + 0.12, mc.measureText("İĞÖÜ").actualBoundingBoxAscent / 1000 || 0.93);
+          const cedD = mc.measureText("ŞÇ").actualBoundingBoxDescent / 1000 || 0.2;
+          const asc = mH.fontBoundingBoxAscent / 1000 || 0.9;
+          const desc = mH.fontBoundingBoxDescent / 1000 || 0.21;
+          const baseOff = (1 - (asc + desc)) / 2 + asc; // baseline from box top, line-height 1
+          const inkTop = baseOff - capH; // cap top from box top
+          const markExtra = markH - capH;
+
+          // Place a word by its cap top; returns the box top.
+          function place(el, size, left, capTop, offsetTop = 0) {
+            const top = capTop - inkTop * size - offsetTop;
+            el.style.fontSize = size + "px";
+            el.style.left = left + "px";
+            el.style.top = top + "px";
+            return top;
+          }
+
+          // Cut-out halo: every pile word sits on its own sliver of black, so overlaps stay clean.
+          const halo = Array.from({ length: 16 }, (_, i) => {
+            const a = (i / 16) * Math.PI * 2;
+            return `${(Math.cos(a) * 8).toFixed(1)}px ${(Math.sin(a) * 8).toFixed(1)}px 0 ${PAL.bg}`;
+          }).join(",");
+          document.querySelectorAll(".s1-cut").forEach((el) => (el.style.textShadow = halo));
+
+          const tl = gsap.timeline({ paused: true });
+
+          // HABER staircase: one step right and one step down each time.
+          const HABER_SIZE = 250;
+          const habers = [
+            { id: "s1-h1", t: 0.98, x: -70, cap: 100 },
+            { id: "s1-h2", t: 1.22, x: 330, cap: 255 },
+            { id: "s1-h3", t: 1.5, x: 730, cap: 410 },
+            { id: "s1-h4", t: 1.8, x: 1130, cap: 565 },
+          ];
+          for (const h of habers) {
+            const el = document.getElementById(h.id);
+            const top = place(el, HABER_SIZE, h.x, h.cap);
+            tl.fromTo(el, { y: -(top + HABER_SIZE + 40) }, { y: 0, duration: 0.45, ease: "expo.out" }, h.t);
+          }
+
+          // BİLGİ downpour: fast drops at scattered x positions, piling over the stack.
+          const bilgis = [
+            { id: "s1-b1", t: 2.9, s: 300, x: 150, cap: 330 },
+            { id: "s1-b2", t: 2.96, s: 230, x: 1240, cap: 92 },
+            { id: "s1-b3", t: 3.02, s: 210, x: -50, cap: 560 },
+            { id: "s1-b4", t: 3.2, s: 340, x: 700, cap: 300 },
+            { id: "s1-b5", t: 3.26, s: 260, x: 1430, cap: 430 },
+            { id: "s1-b6", t: 3.33, s: 190, x: 470, cap: 112 },
+            { id: "s1-b7", t: 3.42, s: 250, x: 1000, cap: 560 },
+            { id: "s1-b8", t: 3.54, s: 220, x: 380, cap: 590 },
+          ];
+          for (const b of bilgis) {
+            const el = document.getElementById(b.id);
+            const top = place(el, b.s, b.x, b.cap);
+            tl.fromTo(el, { y: -(top + b.s + 40) }, { y: 0, duration: 0.36, ease: "expo.out" }, b.t);
+          }
+
+          // Hard cut on "sağanak": the whole pile jumps out through the top edge.
+          tl.fromTo("#s1-pile", { y: 0 }, { y: -1200, duration: 0.26, ease: "expo.in" }, 3.9);
+          tl.set("#s1-pile", { opacity: 0 }, 4.17);
+
+          // SAĞANAK: sized so its extended width overflows both frame edges.
+          const sag = document.getElementById("s1-sag");
+          sag.style.setProperty("--wdth", "125");
+          sag.style.fontSize = "200px";
+          const w125 = sag.offsetWidth;
+          sag.style.setProperty("--wdth", "62");
+          const LEFT = -36;
+          const sagSize = w125 > 0 ? Math.min(440, Math.max(260, ((W - LEFT + 104) / w125) * 200)) : 345;
+          const sagCap = Math.max(118, markExtra * sagSize + 52);
+          const sagTop = place(sag, sagSize, LEFT, sagCap);
+          const sagBase = sagCap + capH * sagSize;
+
+          tl.fromTo(sag, { y: -(sagTop + sagSize + 60) }, { y: 0, duration: 0.45, ease: "expo.out" }, 4.12);
+          tl.fromTo(sag, { "--wdth": 62 }, { "--wdth": 125, duration: 0.6, ease: "power3.inOut" }, 4.24);
+          tl.set(sag, { color: PAL.accent }, 4.24);
+
+          // BİLGİ / YAĞIŞI: two condensed lines under the hero, each rising from its mask line.
+          const S2 = Math.min(330, Math.max(200, (940 - sagBase - 52) / (2 * markH + 0.04)));
+          const LX = 110;
+
+          const m1 = document.getElementById("s1-m1");
+          const m1Top = sagBase + 18;
+          const l1Cap = m1Top + markExtra * S2 + 12;
+          const l1Base = l1Cap + capH * S2;
+          const m1H = l1Base + 0.04 * S2 + 6 - m1Top;
+          m1.style.top = m1Top + "px";
+          m1.style.height = m1H + "px";
+          place(document.getElementById("s1-l1"), S2, LX, l1Cap, m1Top);
+
+          const m2 = document.getElementById("s1-m2");
+          const m2Top = l1Base + 0.04 * S2 + 10;
+          const l2Cap = m2Top + markExtra * S2 + 12;
+          const l2Base = l2Cap + capH * S2;
+          const m2H = l2Base + cedD * S2 + 14 - m2Top;
+          m2.style.top = m2Top + "px";
+          m2.style.height = m2H + "px";
+          place(document.getElementById("s1-l2"), S2, LX, l2Cap, m2Top);
+
+          tl.fromTo("#s1-l1", { y: m1H + 20 }, { y: 0, duration: 0.45, ease: "expo.out" }, 4.62);
+          tl.fromTo("#s1-l2", { y: m2H + 20 }, { y: 0, duration: 0.45, ease: "expo.out" }, 4.88);
+
+          // Rain driver: redraws the streaks for each frame's time.
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() {
+              return this._t;
+            },
+            set(v) {
+              if (v !== this._t) {
+                this._t = v;
+                drawRain(v);
+              }
+            },
+          });
+          tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+          drawRain(0);
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s1"] = tl;
+          return true;
+        });
+      </script>
+    </template>
+  </body>
+</html>

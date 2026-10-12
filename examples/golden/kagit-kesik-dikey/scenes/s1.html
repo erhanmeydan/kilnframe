@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Nunito";
+          font-weight: 200 1000;
+          src: url("vendor/fonts/nunito/Nunito-Variable.ttf") format("truetype");
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #efe6d2;
+        }
+        #s1-cam {
+          position: absolute;
+          inset: 0;
+          display: block;
+          width: 100%;
+          height: 100%;
+        }
+        #s1-stage {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s1-headline {
+          position: absolute;
+          left: 100px;
+          top: 240px;
+          max-width: 560px;
+          margin: 0;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          font-size: 160px;
+          line-height: 1.14;
+          letter-spacing: 0.01em;
+          color: #6e7a4f;
+        }
+        .s1-word {
+          display: block;
+          width: fit-content;
+          white-space: nowrap;
+        }
+        .s1-word + .s1-word {
+          margin-top: 6px;
+        }
+        .s1-word-accent {
+          color: #c89b4a;
+        }
+        .s1-letter {
+          display: inline-block;
+          filter: url(#s1-paper-type);
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1080" data-height="1920">
+        <div id="s1-bg"></div>
+        <div id="s1-cam">
+          <svg id="s1-stage" viewBox="0 0 1080 1920">
+            <defs>
+              <!-- cream sheet: fine fiber only -->
+              <filter
+                id="s1-fiber-bg"
+                filterUnits="userSpaceOnUse"
+                x="-80"
+                y="-120"
+                width="1240"
+                height="2160"
+                color-interpolation-filters="sRGB"
+              >
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+                <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+                <feComposite
+                  in="SourceGraphic"
+                  in2="fiberGray"
+                  operator="arithmetic"
+                  k1="0"
+                  k2="1"
+                  k3="0.14"
+                  k4="-0.07"
+                />
+              </filter>
+              <!-- the paper sheet: irregular cut edge, fiber, shadow driven from the timeline -->
+              <filter
+                id="s1-paper-lift"
+                x="-25%"
+                y="-25%"
+                width="150%"
+                height="170%"
+                color-interpolation-filters="sRGB"
+              >
+                <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="3" result="edge" />
+                <feDisplacementMap
+                  in="SourceGraphic"
+                  in2="edge"
+                  scale="2.4"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                  result="cut"
+                />
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+                <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+                <feComposite
+                  in="cut"
+                  in2="fiberGray"
+                  operator="arithmetic"
+                  k1="0"
+                  k2="1"
+                  k3="0.16"
+                  k4="-0.08"
+                  result="tex"
+                />
+                <feComposite in="tex" in2="cut" operator="in" result="paper" />
+                <feDropShadow
+                  id="s1-lift-shadow"
+                  dx="0"
+                  dy="4.2"
+                  stdDeviation="4.2"
+                  flood-color="rgb(60,48,30)"
+                  flood-opacity="0.28"
+                />
+              </filter>
+              <!-- cut paper letters -->
+              <filter
+                id="s1-paper-type"
+                x="-15%"
+                y="-15%"
+                width="130%"
+                height="140%"
+                color-interpolation-filters="sRGB"
+              >
+                <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="edge" />
+                <feDisplacementMap
+                  in="SourceGraphic"
+                  in2="edge"
+                  scale="2.2"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                  result="cut"
+                />
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+                <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+                <feComposite
+                  in="cut"
+                  in2="fiberGray"
+                  operator="arithmetic"
+                  k1="0"
+                  k2="1"
+                  k3="0.16"
+                  k4="-0.08"
+                  result="tex"
+                />
+                <feComposite in="tex" in2="cut" operator="in" result="paper" />
+                <feDropShadow dx="0" dy="3.6" stdDeviation="3.2" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+              </filter>
+            </defs>
+
+            <rect x="-80" y="-120" width="1240" height="2160" fill="#EFE6D2" filter="url(#s1-fiber-bg)" />
+
+            <!-- after the cut: the offcut strip below, the clean square on top -->
+            <rect
+              id="s1-strip"
+              x="240"
+              y="1440"
+              width="600"
+              height="180"
+              rx="2"
+              fill="#F3EBDA"
+              filter="url(#s1-paper-lift)"
+            />
+            <rect
+              id="s1-square"
+              x="240"
+              y="840"
+              width="600"
+              height="600"
+              rx="2"
+              fill="#F3EBDA"
+              filter="url(#s1-paper-lift)"
+            />
+            <!-- the sheet as it arrives -->
+            <rect
+              id="s1-sheet-full"
+              x="240"
+              y="840"
+              width="600"
+              height="780"
+              rx="2"
+              fill="#F3EBDA"
+              filter="url(#s1-paper-lift)"
+            />
+          </svg>
+
+          <div id="s1-headline">
+            <span class="s1-word" data-text="BİR"></span>
+            <span class="s1-word s1-word-accent" data-text="KARE"></span>
+          </div>
+        </div>
+      </div>
+      <script type="module">
+        const DURATION = 3.376;
+        const ENTER = { duration: 0.55, ease: "back.out(1.3)" };
+
+        const cam = document.getElementById("s1-cam");
+        const sheetFull = document.getElementById("s1-sheet-full");
+        const square = document.getElementById("s1-square");
+        const strip = document.getElementById("s1-strip");
+        const liftShadow = document.getElementById("s1-lift-shadow");
+
+        // Square center, used for the lift on "kare".
+        const CX = 540;
+        const CY = 1140;
+
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+        const smooth = (v) => {
+          const x = clamp01(v);
+          return x * x * (3 - 2 * x);
+        };
+
+        // While sliding the sheet rides a little high; on landing its shadow blooms, then settles.
+        function landLift(t) {
+          if (t < 0.82) return 0.35 + 0.65 * smooth((t - 0.5) / 0.32);
+          return 1 - smooth((t - 0.82) / 0.5);
+        }
+        // On "kare" the square lifts once: shadow grows and softens, then settles.
+        function kareLift(t) {
+          return Math.min(smooth((t - 2.26) / 0.26), 1 - smooth((t - 2.7) / 0.5));
+        }
+
+        function draw(t) {
+          const k2 = kareLift(t);
+          const k = Math.max(landLift(t), k2);
+          liftShadow.setAttribute("dy", (4.2 + 12 * k).toFixed(2));
+          liftShadow.setAttribute("stdDeviation", (4.2 + 10 * k).toFixed(2));
+          liftShadow.setAttribute("flood-opacity", (0.28 - 0.07 * k).toFixed(3));
+          const s = 1 + 0.012 * k2;
+          const dy = -7 * k2;
+          square.setAttribute(
+            "transform",
+            `translate(${CX} ${(CY + dy).toFixed(2)}) scale(${s.toFixed(4)}) translate(${-CX} ${-CY})`,
+          );
+        }
+
+        const driver = { _t: -1 };
+        Object.defineProperty(driver, "t", {
+          get() {
+            return this._t;
+          },
+          set(v) {
+            if (v !== this._t) {
+              this._t = v;
+              draw(v);
+            }
+          },
+        });
+
+        // Each word is cut into paper letters; the word travels as one strip so letters never cross.
+        function splitLetters() {
+          const words = Array.from(document.querySelectorAll("#s1-headline .s1-word"));
+          words.forEach((w) => {
+            const text = (w.getAttribute("data-text") || "").trim();
+            w.textContent = "";
+            Array.from(text).forEach((ch) => {
+              const span = document.createElement("span");
+              span.className = "s1-letter";
+              span.textContent = ch;
+              w.appendChild(span);
+            });
+          });
+          return words;
+        }
+
+        async function build() {
+          await document.fonts.load('900 160px "Nunito"');
+          const [birWord, kareWord] = splitLetters();
+
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+
+          // very slow push in
+          tl.fromTo(
+            cam,
+            { scale: 1 },
+            { scale: 1.035, duration: DURATION, ease: "none", transformOrigin: "50% 60%" },
+            0,
+          );
+
+          // "Bir kâğıt": the sheet slides up from the bottom edge and lands with a small overshoot
+          gsap.set(sheetFull, { transformOrigin: "50% 50%" });
+          tl.fromTo(
+            sheetFull,
+            { y: 1180, rotation: 4 },
+            { y: 0, rotation: 0, duration: 0.7, ease: "back.out(1.3)" },
+            0.46,
+          );
+
+          // "bir": the cut paper word slides in from the left edge on its own line
+          tl.fromTo(birWord, { x: -900 }, { x: 0, ...ENTER }, 1.8);
+
+          // "kare": the sheet is cut, the offcut drops away, a clean square stays
+          tl.fromTo(sheetFull, { opacity: 1 }, { opacity: 0, duration: 0.001, ease: "none" }, 2.2);
+          tl.fromTo([square, strip], { opacity: 0 }, { opacity: 1, duration: 0.001, ease: "none" }, 2.2);
+          gsap.set(strip, { transformOrigin: "50% 0%" });
+          tl.fromTo(strip, { y: 0, x: 0, rotation: 0 }, { y: 16, duration: 0.12, ease: "power2.out" }, 2.2);
+          tl.fromTo(
+            strip,
+            { y: 16, x: 0, rotation: 0 },
+            { y: 900, x: 60, rotation: 9, duration: 0.45, ease: "power2.in", immediateRender: false },
+            2.34,
+          );
+
+          // "kare": the ochre word slides in on the line below
+          tl.fromTo(kareWord, { x: -900 }, { x: 0, ...ENTER }, 2.0);
+
+          driver.t = 0;
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s1"] = tl;
+          return true;
+        }
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        const buildPromise = build();
+        window.__hf.buildReady["s1"] = buildPromise;
+      </script>
+    </template>
+  </body>
+</html>

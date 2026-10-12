@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s6</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Nunito";
+          font-weight: 200 1000;
+          src: url("vendor/fonts/nunito/Nunito-Variable.ttf") format("truetype");
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s6-bg {
+          position: absolute;
+          inset: 0;
+          background: #efe6d2;
+        }
+        #s6-sheet {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+        #s6-headline {
+          position: absolute;
+          left: 88px;
+          top: 190px;
+          max-width: 860px;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          font-size: 104px;
+          line-height: 1.1;
+          letter-spacing: 1px;
+        }
+        .s6-word {
+          display: block;
+          width: max-content;
+          filter: url(#s6-type);
+        }
+        #s6-w1 {
+          color: #6e7a4f;
+        }
+        #s6-w2 {
+          color: #c89b4a;
+        }
+      </style>
+      <div id="root" data-composition-id="s6" data-width="1080" data-height="1920">
+        <div id="s6-bg"></div>
+        <svg id="s6-sheet" viewBox="0 0 1080 1920">
+          <defs id="s6-defs">
+            <!-- background sheet: fiber only -->
+            <filter id="s6-fiber" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="SourceGraphic" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.1" k4="-0.05" result="tex" />
+              <feComposite in="tex" in2="SourceGraphic" operator="in" />
+            </filter>
+            <!-- paper layers: irregular cut edge, fine fiber, soft drop shadow (deeper layers cast more) -->
+            <filter id="s6-p0" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="2" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s6-p0-sh" dx="0" dy="3" stdDeviation="3" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s6-p1" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="3" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s6-p1-sh" dx="0" dy="3" stdDeviation="3" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s6-p2" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s6-p2-sh" dx="0" dy="4.2" stdDeviation="4.2" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s6-p3" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="5" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s6-p3-sh" dx="0" dy="5.9" stdDeviation="5.9" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s6-tile" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="8" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s6-tile-sh" dx="0" dy="3" stdDeviation="3" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s6-tile-up" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="9" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s6-tile-up-sh" dx="0" dy="6.5" stdDeviation="5.5" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s6-type" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s6-type-sh" dx="0" dy="4.2" stdDeviation="4.2" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+          </defs>
+          <rect id="s6-paper" x="0" y="0" width="1080" height="1920" fill="#EFE6D2" filter="url(#s6-fiber)" />
+          <g id="s6-world">
+            <g id="s6-stars"></g>
+            <g id="s6-craft">
+              <g id="s6-fins">
+                <path d="M472 1660 C446 1740 404 1810 398 1890 L398 2005 L472 1940 Z" fill="#6E7A4F" filter="url(#s6-p1)" />
+                <path d="M728 1660 C754 1740 796 1810 802 1890 L802 2005 L728 1940 Z" fill="#6E7A4F" filter="url(#s6-p1)" />
+                <path d="M548 1912 H652 L676 1972 H524 Z" fill="#7A93A8" filter="url(#s6-p1)" />
+              </g>
+              <rect id="s6-interior" x="512" y="1160" width="176" height="580" fill="#4F6B85" filter="url(#s6-p1)" />
+              <g id="s6-mirror"></g>
+              <path
+                id="s6-body"
+                fill="#F3EBDA"
+                fill-rule="evenodd"
+                filter="url(#s6-p2)"
+                d="M470 1100 H730 V1920 H470 Z
+                   M522 1248 A78 78 0 0 1 678 1248 V1652 A78 78 0 0 1 522 1652 Z"
+              />
+              <rect id="s6-strip" x="706" y="1100" width="24" height="820" fill="#7A93A8" filter="url(#s6-p2)" />
+              <rect id="s6-band" x="470" y="1780" width="260" height="42" fill="#6E7A4F" filter="url(#s6-p2)" />
+              <path
+                id="s6-rim"
+                fill="#7A93A8"
+                fill-rule="evenodd"
+                filter="url(#s6-p3)"
+                d="M506 1248 A94 94 0 0 1 694 1248 V1652 A94 94 0 0 1 506 1652 Z
+                   M522 1248 A78 78 0 0 1 678 1248 V1652 A78 78 0 0 1 522 1652 Z"
+              />
+              <path
+                id="s6-cone"
+                fill="#C89B4A"
+                filter="url(#s6-p3)"
+                d="M460 1114 C466 1000 530 884 600 840 C670 884 734 1000 740 1114 Z"
+              />
+            </g>
+          </g>
+        </svg>
+        <div id="s6-headline">
+          <span class="s6-word" id="s6-w1">KATLANARAK</span>
+          <span class="s6-word" id="s6-w2">SIĞDI</span>
+        </div>
+      </div>
+      <script type="module">
+        const DUR = 3.418;
+        const NS = "http://www.w3.org/2000/svg";
+
+        // Small cut paper stars in the world layer, so the tilt reads.
+        const stars = document.getElementById("s6-stars");
+        [
+          [905, 690, 15, "#6E7A4F"],
+          [868, 1330, 20, "#7A93A8"],
+          [952, 1890, 13, "#7A93A8"],
+          [210, 1790, 16, "#6E7A4F"],
+          [172, 1150, 11, "#7A93A8"],
+        ].forEach(([x, y, r, c]) => {
+          const k = r * 0.2;
+          const p = document.createElementNS(NS, "path");
+          p.setAttribute(
+            "d",
+            `M${x} ${y - r} Q${x + k} ${y - k} ${x + r} ${y} Q${x + k} ${y + k} ${x} ${y + r} Q${x - k} ${y + k} ${x - r} ${y} Q${x - k} ${y - k} ${x} ${y - r} Z`,
+          );
+          p.setAttribute("fill", c);
+          p.setAttribute("filter", "url(#s6-p0)");
+          stars.appendChild(p);
+        });
+
+        // The 18 tile mirror: flat top hexagons, ring of radius 2 without the centre.
+        const R = 56;
+        const HH = Math.sqrt(3) * R;
+        const RR = R * 0.92;
+        const mirror = document.getElementById("s6-mirror");
+        const TILES = [];
+        for (let q = -2; q <= 2; q++) {
+          for (let r = -2; r <= 2; r++) {
+            const s = -q - r;
+            if (Math.max(Math.abs(q), Math.abs(r), Math.abs(s)) > 2) continue;
+            if (q === 0 && r === 0) continue;
+            const el = document.createElementNS(NS, "polygon");
+            mirror.appendChild(el);
+            TILES.push({ q, cx: 1.5 * R * q, cy: HH * (r + q / 2), el, idx: TILES.length });
+          }
+        }
+        const ANG = [0, 1, 2, 3, 4, 5].map((k) => [Math.cos((k * Math.PI) / 3), Math.sin((k * Math.PI) / 3)]);
+
+        const world = document.getElementById("s6-world");
+        const craft = document.getElementById("s6-craft");
+        const RF = [
+          [document.getElementById("s6-p1-sh"), 3],
+          [document.getElementById("s6-p2-sh"), 4.2],
+          [document.getElementById("s6-p3-sh"), 5.9],
+        ].map(([el, b]) => ({ el, b }));
+        const tileSh = document.getElementById("s6-tile-sh");
+
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+        const seg = (t, a, b) => clamp01((t - a) / (b - a));
+        const eBack = gsap.parseEase("back.out(1.3)");
+        const eDesc = gsap.parseEase("back.out(1.1)");
+        const eIO = gsap.parseEase("power2.inOut");
+        const eOut = gsap.parseEase("power2.out");
+        const eSine = gsap.parseEase("sine.inOut");
+
+        function draw(t) {
+          // slow camera tilt down, following the mirror into the rocket
+          const cam = 360 * eSine(seg(t, 0.9, 2.9));
+          world.setAttribute("transform", `translate(0 ${(-cam).toFixed(2)})`);
+
+          // the closed rocket lifts once, its shadows grow and soften, then it settles
+          const kR = eOut(seg(t, 2.9, 3.17)) * (1 - eIO(seg(t, 3.17, 3.418)));
+          craft.setAttribute("transform", `translate(0 ${(-44 * kR).toFixed(2)})`);
+          RF.forEach(({ el, b }) => {
+            el.setAttribute("dy", (b * (1 + 1.7 * kR)).toFixed(2));
+            el.setAttribute("stdDeviation", (b * (1 + 1.5 * kR)).toFixed(2));
+            el.setAttribute("flood-opacity", (0.28 - 0.07 * kR).toFixed(3));
+          });
+
+          // mirror: settles smaller, lifts on "içine", folds, slides down into the fairing
+          const ms = 1.35 - 0.35 * eBack(seg(t, 0, 0.55));
+          const km = eOut(seg(t, 1.22, 1.45)) * (1 - eIO(seg(t, 1.58, 1.82)));
+          const d = eDesc(seg(t, 2.08, 2.46));
+          const my = 770 + 680 * d - 16 * km;
+          mirror.setAttribute("transform", `translate(600 ${my.toFixed(2)}) scale(${ms.toFixed(4)})`);
+          tileSh.setAttribute("dy", (3 + 5 * km).toFixed(2));
+          tileSh.setAttribute("stdDeviation", (3 + 4 * km).toFixed(2));
+          tileSh.setAttribute("flood-opacity", (0.28 - 0.06 * km).toFixed(3));
+
+          const p1 = eIO(seg(t, 1.76, 2.04));
+          const p2 = eIO(seg(t, 1.96, 2.24));
+          const c1 = Math.cos(Math.PI * p1);
+          const c2 = Math.cos(Math.PI * p2);
+
+          const order = TILES.map((tile) => {
+            const aq = Math.abs(tile.q);
+            const sg = Math.sign(tile.q);
+            const H1 = sg * 1.5 * R * 1.5; // between columns 1 and 2
+            const H2 = sg * 1.5 * R * 0.5; // between columns 0 and 1
+            const pts = ANG.map(([ca, sa]) => {
+              let x = tile.cx + RR * ca;
+              if (aq === 2) x = H1 + (x - H1) * c1;
+              if (aq >= 1) x = H2 + (x - H2) * c2;
+              return x.toFixed(2) + "," + (tile.cy + RR * sa).toFixed(2);
+            }).join(" ");
+            const face = (aq === 2 ? c1 : 1) * (aq >= 1 ? c2 : 1);
+            const flipping = (aq === 2 && p1 > 0 && p1 < 1) || (aq >= 1 && p2 > 0 && p2 < 1);
+            let depth = 0;
+            if (aq === 1) depth = p2 >= 0.5 ? 2 : 0;
+            if (aq === 2) depth = p1 < 0.5 ? 0 : p2 < 0.5 ? 1 : 1.5;
+            tile.el.setAttribute("points", pts);
+            tile.el.setAttribute("fill", face >= 0 ? "#C89B4A" : "#6E7A4F");
+            tile.el.setAttribute("filter", flipping ? "url(#s6-tile-up)" : "url(#s6-tile)");
+            return { tile, depth: flipping ? depth - 0.1 : depth };
+          });
+          order.sort((a, b) => b.depth - a.depth || a.tile.idx - b.tile.idx);
+          order.forEach(({ tile }) => mirror.appendChild(tile.el));
+        }
+
+        const driver = { _t: -1 };
+        Object.defineProperty(driver, "t", {
+          get() {
+            return this._t;
+          },
+          set(v) {
+            if (v !== this._t) {
+              this._t = v;
+              draw(v);
+            }
+          },
+        });
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["s6"] = document.fonts.load('900 104px "Nunito"').then(() => {
+          const tl = gsap.timeline({ paused: true });
+          const ENTER = { duration: 0.55, ease: "back.out(1.3)" };
+          tl.fromTo(driver, { t: 0 }, { t: DUR, duration: DUR, ease: "none" }, 0);
+
+          // fairing assembled back to front, sliding up from the bottom edge
+          ["#s6-fins", "#s6-interior", "#s6-body", "#s6-strip", "#s6-band", "#s6-rim"].forEach((sel, i) => {
+            tl.fromTo(sel, { y: 840 }, { y: 0, ...ENTER }, 0.08 + i * 0.07);
+          });
+
+          // headline words slide in as cut paper layers
+          tl.fromTo("#s6-w1", { x: -980 }, { x: 0, ...ENTER }, 1.76);
+          tl.fromTo("#s6-w2", { x: -980 }, { x: 0, ...ENTER }, 2.42);
+
+          // ochre nose cone drops on top and lands with a small bounce
+          tl.fromTo("#s6-cone", { y: -1000 }, { y: 0, duration: 0.22, ease: "power2.in" }, 2.24);
+          tl.to("#s6-cone", { y: -12, duration: 0.11, ease: "power1.out" }, 2.46);
+          tl.to("#s6-cone", { y: 0, duration: 0.13, ease: "power1.in" }, 2.57);
+
+          draw(0);
+          driver._t = 0;
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s6"] = tl;
+          return true;
+        });
+      </script>
+    </template>
+  </body>
+</html>

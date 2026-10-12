@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "topic": "Bilgi yağışı",
+  "summary": "Daily news cards stack up beside the speaker, then the frame floods with falling ink drops as the speech's downpour-of-information metaphor, ending on the words BİLGİ YAĞIŞI over a small figure.",
+  "style": "retro-risograf",
+  "mode": "overlay",
+  "speaker": {
+    "side": "center"
+  },
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "25",
+  "duration_frames": 147,
+  "handles_frames": 20,
+  "assets": [],
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 45,
+      "anchor_words": [
+        "Her gün",
+        "yeni",
+        "haber"
+      ],
+      "visual": "Right column, vertically centred beside the speaker: three small newspaper pictogram cards (teal blocks with a red halftone masthead bar) print onto the paper one by one at 0.3 s, 0.7 s and 1.0 s, each teal layer landing a few pixels off its red layer, stacking top to bottom; a mustard dot ticks under the stack with each card. End state: a three-card stack, headline HER GÜN YENİ HABER printed above it in two offset inks.",
+      "on_screen_text": "HER GÜN YENİ HABER",
+      "camera": "hold",
+      "technique": "motion-2d",
+      "assets": [],
+      "transition_out": "paper slide",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 7,
+          "type": "print",
+          "gain_db": -12
+        },
+        {
+          "frame": 25,
+          "type": "print",
+          "gain_db": -14
+        }
+      ],
+      "mode": "overlay"
+    },
+    {
+      "id": "s2",
+      "start_frame": 45,
+      "end_frame": 147,
+      "anchor_words": [
+        "üzerimize",
+        "yağıyor",
+        "sağanak",
+        "yağışı"
+      ],
+      "visual": "Full frame on new paper: a flat pictogram figure (mustard circle head, teal rounded-rectangle body) stands bottom centre; teal and red ink drops fall from the top edge at growing density, each landing with a small splatter and building a coarse halftone puddle along the bottom edge; the registration wobbles on the heaviest hits around 3.0 s; at 4.9 s the words BİLGİ YAĞIŞI print across the top in two offset inks with YAĞIŞI overprinting in red. End state: continuous downpour over the small figure, puddle a third full.",
+      "on_screen_text": "BİLGİ YAĞIŞI",
+      "camera": "slow tilt down with the falling drops, then hold on the figure",
+      "technique": "particles",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 46,
+          "type": "rustle",
+          "gain_db": -14
+        },
+        {
+          "frame": 75,
+          "type": "print",
+          "gain_db": -10
+        },
+        {
+          "frame": 123,
+          "type": "print",
+          "gain_db": -8
+        }
+      ],
+      "mode": "fullscreen"
+    }
+  ]
+}

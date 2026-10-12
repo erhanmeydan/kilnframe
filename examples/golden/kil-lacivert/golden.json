@@ -1,0 +1,16 @@
+{
+  "name": "kil-lacivert",
+  "style": "kil-lacivert",
+  "format": "landscape",
+  "modes": ["fullscreen"],
+  "times": [2.35, 5],
+  "noise": {
+    "mean": 1.88,
+    "changed": 0.0015
+  },
+  "threshold": {
+    "mean": 5.64,
+    "changed": 0.0045000000000000005
+  },
+  "renderMs": 21598
+}

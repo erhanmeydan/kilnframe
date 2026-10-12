@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s7</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Nunito";
+          src: url("vendor/fonts/nunito/Nunito-Variable.ttf") format("truetype");
+          font-weight: 200 1000;
+          font-style: normal;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s7-bg {
+          position: absolute;
+          inset: 0;
+          background: #efe6d2;
+        }
+        #s7-canvas {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s7-defs {
+          position: absolute;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+        }
+        #s7-head {
+          position: absolute;
+          left: 84px;
+          top: 196px;
+          width: 900px;
+          max-width: 900px;
+          margin: 0;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          font-size: 104px;
+          line-height: 1.1;
+          letter-spacing: 0.005em;
+          white-space: normal;
+        }
+        .s7-w {
+          display: inline-block;
+          transform-origin: 0% 100%;
+          filter: url(#s7-paper) drop-shadow(2px 6px 4px rgba(16, 24, 38, 0.45));
+        }
+        #s7-w1 {
+          color: #f3ebda;
+        }
+        #s7-w2 {
+          color: #c89b4a;
+        }
+        #s7-grain {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0.08;
+          mix-blend-mode: multiply;
+          pointer-events: none;
+        }
+      </style>
+      <div id="root" data-composition-id="s7" data-width="1080" data-height="1920">
+        <div id="s7-bg"></div>
+        <canvas id="s7-canvas" width="1080" height="1920"></canvas>
+        <svg id="s7-defs" width="0" height="0" aria-hidden="true">
+          <defs>
+            <filter id="s7-paper" x="-6%" y="-12%" width="112%" height="134%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="6" result="s7warp" />
+              <feDisplacementMap in="SourceGraphic" in2="s7warp" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="s7cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="s7fib" />
+              <feColorMatrix in="s7fib" type="matrix" values="0 0 0 0 0.22  0 0 0 0 0.18  0 0 0 0 0.12  0.38 0 0 0 -0.1" result="s7fibA" />
+              <feComposite in="s7fibA" in2="s7cut" operator="in" result="s7fibIn" />
+              <feMerge>
+                <feMergeNode in="s7cut" />
+                <feMergeNode in="s7fibIn" />
+              </feMerge>
+            </filter>
+          </defs>
+        </svg>
+        <div id="s7-head"><span id="s7-w1" class="s7-w">KANATLARINI</span> <span id="s7-w2" class="s7-w">YAYDI</span></div>
+        <svg id="s7-grain" viewBox="0 0 1080 1920" preserveAspectRatio="none" aria-hidden="true">
+          <filter id="s7-fib" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <rect width="1080" height="1920" filter="url(#s7-fib)" />
+        </svg>
+      </div>
+      <script type="module">
+        import * as THREE from "three";
+
+        const W = 1080;
+        const H = 1920;
+        const D = 4.876;
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__timelines = window.__timelines || {};
+
+        const COL = {
+          cream: "#EFE6D2",
+          ochre: "#C89B4A",
+          olive: "#6E7A4F",
+          dusty: "#7A93A8",
+          deep: "#4F6B85",
+          light: "#F3EBDA",
+          facet: "#E2D5BA",
+        };
+
+        function mulberry32(a) {
+          return function () {
+            a |= 0;
+            a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        const cl = (v) => Math.min(1, Math.max(0, v));
+        const backOut = (p, s = 1.3) => {
+          const q = p - 1;
+          return 1 + (s + 1) * q * q * q + s * q * q;
+        };
+        const eOutCubic = (p) => 1 - Math.pow(1 - p, 3);
+        const eInOutSine = (p) => -(Math.cos(Math.PI * p) - 1) / 2;
+        const eInOutCubic = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+
+        function setupThree() {
+          const canvas = document.getElementById("s7-canvas");
+          const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            preserveDrawingBuffer: true,
+            alpha: false,
+          });
+          renderer.setPixelRatio(1);
+          renderer.setSize(W, H, false);
+          renderer.setClearColor(COL.cream, 1);
+          renderer.shadowMap.enabled = true;
+          renderer.shadowMap.type = THREE.PCFShadowMap;
+
+          const scene = new THREE.Scene();
+          const CAM_Y = -40;
+          const cam = new THREE.OrthographicCamera(-W / 2, W / 2, H / 2, -H / 2, 1, 3000);
+          cam.position.set(0, CAM_Y, 1500);
+          cam.lookAt(0, CAM_Y, 0);
+
+          // Flat paper light: strong ambient, one soft shadow caster from above front
+          const amb = new THREE.AmbientLight(new THREE.Color(1, 0.955, 0.9), 0.64);
+          scene.add(amb);
+          const sun = new THREE.DirectionalLight(new THREE.Color(1, 1, 1), 0.4);
+          const dir = new THREE.Vector3(-0.08, 0.3, 1).normalize();
+          sun.target.position.set(0, CAM_Y, 0);
+          sun.position.copy(dir).multiplyScalar(1500).add(new THREE.Vector3(0, CAM_Y, 0));
+          sun.castShadow = true;
+          sun.shadow.mapSize.set(1024, 1024);
+          sun.shadow.camera.left = -700;
+          sun.shadow.camera.right = 700;
+          sun.shadow.camera.top = 1250;
+          sun.shadow.camera.bottom = -1250;
+          sun.shadow.camera.near = 1000;
+          sun.shadow.camera.far = 2000;
+          sun.shadow.bias = -0.0006;
+          sun.shadow.radius = 3;
+          scene.add(sun);
+          scene.add(sun.target);
+
+          // Paper fiber texture (seeded)
+          const fc = document.createElement("canvas");
+          fc.width = 512;
+          fc.height = 512;
+          const fg = fc.getContext("2d");
+          const fr = mulberry32(6);
+          const img = fg.createImageData(512, 512);
+          for (let i = 0; i < 512 * 512; i++) {
+            const v = 247 + (fr() - 0.5) * 9;
+            img.data[i * 4] = v;
+            img.data[i * 4 + 1] = v;
+            img.data[i * 4 + 2] = v;
+            img.data[i * 4 + 3] = 255;
+          }
+          fg.putImageData(img, 0, 0);
+          fg.lineCap = "round";
+          for (let i = 0; i < 1500; i++) {
+            const x = fr() * 512;
+            const y = fr() * 512;
+            const a = fr() * Math.PI * 2;
+            const len = 4 + fr() * 14;
+            const bend = (fr() - 0.5) * 6;
+            fg.strokeStyle = fr() < 0.5 ? "rgba(255,255,255,0.4)" : "rgba(110,100,80,0.10)";
+            fg.lineWidth = 0.6 + fr() * 0.5;
+            fg.beginPath();
+            fg.moveTo(x, y);
+            fg.quadraticCurveTo(
+              x + Math.cos(a) * len * 0.5 - Math.sin(a) * bend,
+              y + Math.sin(a) * len * 0.5 + Math.cos(a) * bend,
+              x + Math.cos(a) * len,
+              y + Math.sin(a) * len
+            );
+            fg.stroke();
+          }
+          const fiber = new THREE.CanvasTexture(fc);
+          fiber.wrapS = THREE.RepeatWrapping;
+          fiber.wrapT = THREE.RepeatWrapping;
+          fiber.repeat.set(1 / 512, 1 / 512);
+
+          const mats = {};
+          for (const k of Object.keys(COL)) {
+            mats[k] = new THREE.MeshLambertMaterial({ color: COL[k], map: fiber });
+          }
+
+          // Irregular cut edges
+          const rr = mulberry32(1206);
+          function rough(pts, amp, step) {
+            const out = [];
+            const n = pts.length;
+            for (let i = 0; i < n; i++) {
+              const a = pts[i];
+              const b = pts[(i + 1) % n];
+              const dx = b[0] - a[0];
+              const dy = b[1] - a[1];
+              const len = Math.hypot(dx, dy) || 1;
+              const nx = -dy / len;
+              const ny = dx / len;
+              const segs = Math.max(1, Math.ceil(len / step));
+              for (let s = 0; s < segs; s++) {
+                const f = s / segs;
+                const j = (rr() * 2 - 1) * amp * (s === 0 ? 0.4 : 1);
+                out.push(new THREE.Vector2(a[0] + dx * f + nx * j, a[1] + dy * f + ny * j));
+              }
+            }
+            return out;
+          }
+          const hexPts = (cx, cy, r) => {
+            const p = [];
+            for (let i = 0; i < 6; i++) {
+              const a = (i * Math.PI) / 3;
+              p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+            }
+            return p;
+          };
+          const circlePts = (cx, cy, r) => {
+            const n = Math.max(14, Math.ceil((Math.PI * 2 * r) / 8));
+            const p = [];
+            for (let i = 0; i < n; i++) {
+              const a = (i / n) * Math.PI * 2;
+              p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+            }
+            return p;
+          };
+          const starPts = (cx, cy, ro, ri, n, rot) => {
+            const p = [];
+            for (let i = 0; i < n * 2; i++) {
+              const r = i % 2 ? ri : ro;
+              const a = rot + (i * Math.PI) / n + Math.PI / 2;
+              p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+            }
+            return p;
+          };
+          const shift = (pts, ox, oy) => pts.map((q) => [q[0] + ox, q[1] + oy]);
+          const mirrorX = (pts) => pts.map((q) => [-q[0], q[1]]).reverse();
+
+          function slab(shape, depth, mat, z) {
+            const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 4 });
+            const m = new THREE.Mesh(g, mat);
+            m.position.z = z;
+            m.castShadow = true;
+            m.receiveShadow = true;
+            return m;
+          }
+          const paper = (pts, amp, step, depth, mat, z) => slab(new THREE.Shape(rough(pts, amp, step)), depth, mat, z);
+
+          // Back: cream sheet
+          const creamGeo = new THREE.ShapeGeometry(
+            new THREE.Shape([
+              new THREE.Vector2(-900, -1400),
+              new THREE.Vector2(900, -1400),
+              new THREE.Vector2(900, 1400),
+              new THREE.Vector2(-900, 1400),
+            ])
+          );
+          const cream = new THREE.Mesh(creamGeo, mats.cream);
+          cream.position.z = -1;
+          cream.receiveShadow = true;
+          scene.add(cream);
+
+          // Deep blue paper space with star cut outs
+          const spaceShape = new THREE.Shape([
+            new THREE.Vector2(-800, -1300),
+            new THREE.Vector2(800, -1300),
+            new THREE.Vector2(800, 1300),
+            new THREE.Vector2(-800, 1300),
+          ]);
+          const sr = mulberry32(77);
+          const stars = [
+            { x: -430, y: -270, t: 0, r: 26 },
+            { x: 400, y: 610, t: 0, r: 21 },
+            { x: -330, y: -620, t: 0, r: 17 },
+          ];
+          let tries = 0;
+          while (stars.length < 36 && tries < 4000) {
+            tries++;
+            const x = -560 + sr() * 1120;
+            const y = -1040 + sr() * 2080;
+            if (x < 390 && y > 450 && y < 800) continue;
+            let ok = true;
+            for (const s of stars) if (Math.hypot(s.x - x, s.y - y) < 96) ok = false;
+            if (!ok) continue;
+            const u = sr();
+            if (u < 0.55) stars.push({ x, y, t: 0, r: 10 + sr() * 12 });
+            else if (u < 0.82) stars.push({ x, y, t: 1, r: 8 + sr() * 6 });
+            else stars.push({ x, y, t: 2, r: 3.5 + sr() * 2.5 });
+          }
+          for (const s of stars) {
+            let pts;
+            if (s.t === 0) pts = starPts(s.x, s.y, s.r, s.r * 0.3, 4, 0);
+            else if (s.t === 1) pts = starPts(s.x, s.y, s.r, s.r * 0.45, 5, sr() * 0.6);
+            else pts = circlePts(s.x, s.y, s.r);
+            spaceShape.holes.push(new THREE.Path(rough(pts, 0.45, 6)));
+          }
+          scene.add(slab(spaceShape, 10, mats.deep, 0));
+
+          // Dusty blue planet with crater cut outs
+          const planetShape = new THREE.Shape(rough(circlePts(330, -1010, 360), 1.2, 12));
+          for (const c of [
+            [215, -735, 30],
+            [420, -790, 20],
+            [300, -862, 14],
+          ]) {
+            planetShape.holes.push(new THREE.Path(rough(circlePts(c[0], c[1], c[2]), 0.6, 6)));
+          }
+          scene.add(slab(planetShape, 6, mats.dusty, 10));
+
+          const MY = -60;
+
+          // Crane (light paper, behind the mirror)
+          const craneG = new THREE.Group();
+          scene.add(craneG);
+          craneG.add(paper([[0, 150], [40, 20], [0, -150], [-40, 20]], 1, 10, 3, mats.light, 35));
+          craneG.add(paper([[-15, 90], [15, 90], [9, 392], [-44, 428], [-5, 382]], 0.9, 10, 3, mats.light, 35));
+          craneG.add(paper([[-14, -80], [14, -80], [0, -430]], 0.9, 10, 3, mats.light, 35));
+          const wingPts = [[0, 60], [430, 170], [0, -120]];
+          const facetPts = [[0, -20], [430, 170], [0, -120]];
+          const wingR = new THREE.Group();
+          wingR.position.set(16, 40, 0);
+          wingR.add(paper(wingPts, 1.1, 12, 2, mats.light, 31));
+          wingR.add(paper(facetPts, 1.0, 12, 1.5, mats.facet, 33.5));
+          const wingL = new THREE.Group();
+          wingL.position.set(-16, 40, 0);
+          wingL.add(paper(mirrorX(wingPts), 1.1, 12, 2, mats.light, 31));
+          wingL.add(paper(mirrorX(facetPts), 1.0, 12, 1.5, mats.facet, 33.5));
+          craneG.add(wingR, wingL);
+          const WCL = 1.02;
+
+          // Mirror: 18 ochre hexes on olive backing, side columns hinged
+          const R = 70;
+          const S3 = Math.sqrt(3);
+          const rows = {
+            0: [-2, -1, 1, 2].map((k) => k * S3 * R),
+            1: [-1.5, -0.5, 0.5, 1.5].map((k) => k * S3 * R),
+            2: [-1, 0, 1].map((k) => k * S3 * R),
+          };
+          const mirrorG = new THREE.Group();
+          scene.add(mirrorG);
+          function addHex(parent, cx, cy) {
+            parent.add(paper(hexPts(cx, cy, R * 1.05), 0.8, 12, 3, mats.olive, 0));
+            parent.add(paper(hexPts(cx, cy, R * 0.89), 1.0, 10, 3, mats.ochre, 6));
+          }
+          for (const c of [-1, 0, 1]) for (const y of rows[Math.abs(c)]) addHex(mirrorG, 1.5 * R * c, y);
+          const HINGE = 2.25 * R;
+          const hingeR = new THREE.Group();
+          hingeR.position.set(HINGE, 0, 0);
+          const hingeL = new THREE.Group();
+          hingeL.position.set(-HINGE, 0, 0);
+          for (const y of rows[2]) {
+            addHex(hingeR, 3 * R - HINGE, y);
+            addHex(hingeL, -3 * R + HINGE, y);
+          }
+          mirrorG.add(hingeR, hingeL);
+          const TH1 = 0.95;
+
+          // Rocket fairing halves
+          const fairPts = [[-215, -950], [-215, 170]];
+          for (let i = 1; i <= 18; i++) {
+            const s = i / 18;
+            const x = -215 * Math.pow(Math.cos((s * Math.PI) / 2), 0.75);
+            fairPts.push([Math.min(x, -3), 170 + 430 * s]);
+          }
+          fairPts.push([-3, -950]);
+          const bandPts = [[-215, -520], [-3, -520], [-3, -462], [-215, -462]];
+          function makeFairing(pts, band, px) {
+            const g = new THREE.Group();
+            g.position.set(px, -950, 88);
+            g.add(paper(shift(pts, -px, 950), 1.2, 14, 4, mats.light, 0));
+            g.add(paper(shift(band, -px, 950), 1.0, 12, 2, mats.dusty, 4.5));
+            scene.add(g);
+            return g;
+          }
+          const fairL = makeFairing(fairPts, bandPts, -110);
+          const fairR = makeFairing(mirrorX(fairPts), mirrorX(bandPts), 110);
+
+          const ph = mulberry32(31);
+          const ph1 = ph() * 6.28;
+          const ph2 = ph() * 6.28;
+          const ph3 = ph() * 6.28;
+          const ph4 = ph() * 6.28;
+
+          function lift(t) {
+            const p = (t - 4.28) / 0.55;
+            if (p <= 0 || p >= 1) return 0;
+            return p < 0.35 ? eOutCubic(p / 0.35) : 1 - eInOutSine((p - 0.35) / 0.65);
+          }
+
+          return function draw(t) {
+            // camera: slow pull back, mostly as the wings open
+            cam.zoom = 1.22 - 0.04 * (t / D) - 0.18 * eInOutCubic(cl((t - 3.3) / 1.5));
+            cam.updateProjectionMatrix();
+
+            // fairing halves slide away to the edges
+            const pf = cl((t - 0.22) / 0.55);
+            const ef = pf * pf;
+            const crack = 6 * eOutCubic(cl(t / 0.22));
+            fairL.position.x = -110 - crack - 780 * ef;
+            fairR.position.x = 110 + crack + 780 * ef;
+            fairL.rotation.z = 0.24 * ef;
+            fairR.rotation.z = -0.24 * ef;
+            fairL.position.z = fairR.position.z = 88 + 14 * ef;
+            fairL.visible = fairR.visible = pf < 1;
+
+            // mirror side columns
+            let th = Math.PI;
+            if (t >= 0.8) th = Math.PI + (TH1 - Math.PI) * backOut(cl((t - 0.8) / 0.62));
+            if (t >= 3.58) th = TH1 * (1 - backOut(cl((t - 3.58) / 0.65)));
+            const sway = cl((t - 1.35) / 0.4);
+            hingeR.rotation.y = th + 0.028 * Math.sin(2.3 * t + ph1) * sway;
+            hingeL.rotation.y = -(th + 0.028 * Math.sin(2.1 * t + ph2) * sway);
+
+            const l = lift(t);
+            mirrorG.position.set(0, MY + 4 * Math.sin(1.6 * t + ph3) + 16 * l, 60 + 24 * l);
+            mirrorG.scale.setScalar(1 + 0.03 * l);
+
+            // crane slides up behind, then spreads its wings
+            const pc = cl((t - 2.62) / 0.6);
+            craneG.visible = t >= 2.62;
+            craneG.position.set(0, MY - 1500 * (1 - backOut(pc)) + 10 * l, 8 * l);
+            const k = t < 3.58 ? 1 : 1 - backOut(cl((t - 3.58) / 0.65));
+            const ws = 0.012 * Math.sin(1.9 * t + ph4) * cl((t - 4.1) / 0.3);
+            wingR.rotation.z = WCL * k + ws;
+            wingL.rotation.z = -(WCL * k + ws);
+
+            renderer.render(scene, cam);
+          };
+        }
+
+        async function build() {
+          try {
+            await document.fonts.load('900 104px "Nunito"');
+          } catch (e) {
+            console.error(e);
+          }
+
+          let draw = function () {};
+          try {
+            draw = setupThree();
+          } catch (e) {
+            console.error(e);
+          }
+
+          const tl = gsap.timeline({ paused: true });
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() {
+              return this._t;
+            },
+            set(v) {
+              if (v !== this._t) {
+                this._t = v;
+                draw(v);
+              }
+            },
+          });
+          tl.fromTo(driver, { t: 0 }, { t: D, duration: D, ease: "none" }, 0);
+
+          const w1 = document.getElementById("s7-w1");
+          const w2 = document.getElementById("s7-w2");
+          tl.fromTo(w1, { x: -1150, rotation: -5 }, { x: 0, rotation: 0, duration: 0.55, ease: "back.out(1.3)" }, 3.56);
+          tl.fromTo(w2, { x: -1150, rotation: -5 }, { x: 0, rotation: 0, duration: 0.55, ease: "back.out(1.3)" }, 4.22);
+
+          draw(0);
+          window.__timelines["s7"] = tl;
+          return tl;
+        }
+
+        const buildPromise = build();
+        window.__hf.buildReady["s7"] = buildPromise;
+      </script>
+    </template>
+  </body>
+</html>

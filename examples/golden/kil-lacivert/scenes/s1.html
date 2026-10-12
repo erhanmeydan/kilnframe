@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Barlow Condensed";
+          font-weight: 800;
+          src: url("vendor/fonts/barlow-condensed/BarlowCondensed-ExtraBold.ttf") format("truetype");
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: #262b55;
+          z-index: 0;
+        }
+        #s1-gl,
+        #s1-grain {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+          pointer-events: none;
+        }
+        #s1-gl {
+          z-index: 1;
+        }
+        #s1-glow {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+          background: radial-gradient(
+            circle at 94% 4%,
+            rgba(242, 165, 65, 0.26) 0%,
+            rgba(242, 165, 65, 0.08) 22%,
+            rgba(242, 165, 65, 0) 42%
+          );
+        }
+        #s1-vignette {
+          position: absolute;
+          inset: 0;
+          z-index: 3;
+          pointer-events: none;
+          background: radial-gradient(
+            ellipse 78% 72% at 60% 48%,
+            rgba(18, 21, 46, 0) 52%,
+            rgba(18, 21, 46, 0.55) 100%
+          );
+        }
+        #s1-grain {
+          z-index: 4;
+        }
+        #s1-headline {
+          position: absolute;
+          z-index: 10;
+          left: 110px;
+          top: 340px;
+          max-width: 760px;
+          font-family: "Barlow Condensed", sans-serif;
+          font-weight: 800;
+          font-size: 112px;
+          line-height: 1.1;
+          letter-spacing: 0.005em;
+          color: #ecdcc0;
+        }
+        .s1-hl-mask {
+          display: inline-block;
+          overflow: hidden;
+          padding: 0.32em 0.2em 0.18em;
+          margin: -0.32em -0.2em -0.18em;
+          vertical-align: top;
+        }
+        .s1-hl-word {
+          display: inline-block;
+          text-shadow: 0 6px 22px rgba(18, 21, 46, 0.6);
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <canvas id="s1-gl" width="1920" height="1080"></canvas>
+        <div id="s1-glow"></div>
+        <div id="s1-vignette"></div>
+        <canvas id="s1-grain" width="1920" height="1080"></canvas>
+        <div id="s1-headline" data-layout-allow-occlusion><span class="s1-hl-mask" data-layout-allow-occlusion><span class="s1-hl-word" data-layout-allow-occlusion>BİLGİ</span></span> <span class="s1-hl-mask" data-layout-allow-occlusion><span class="s1-hl-word" data-layout-allow-occlusion>SAĞANAĞI</span></span></div>
+      </div>
+      <script type="module">
+        import * as THREE from "three";
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+
+        const PAL = {
+          navy: "#353C72",
+          navyD: "#262B55",
+          navyDD: "#12152E",
+          cream: "#ECDCC0",
+          creamPress: "#CDB792",
+          amber: "#F2A541",
+          mustard: "#C99333",
+        };
+        const W = 1920;
+        const H = 1080;
+        const DURATION = 5.88;
+        const FPS = 30;
+        const FX = 1.6;
+        const FZ = 0;
+
+        // ---------- helpers ----------
+        const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+        const seg = (t, t0, t1) => clamp((t - t0) / (t1 - t0));
+        const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+        const easeIn = (p) => p * p * p;
+        const easeOutBack = (p) => {
+          const c1 = 1.70158;
+          const c3 = c1 + 1;
+          return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2);
+        };
+        function mulberry(seed) {
+          return function () {
+            seed |= 0;
+            seed = (seed + 0x6d2b79f5) | 0;
+            let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        // merge geometries (position, normal, uv) without addons
+        function mergeGeos(list) {
+          const parts = list.map((g) => (g.index ? g.toNonIndexed() : g));
+          let n = 0;
+          parts.forEach((p) => (n += p.attributes.position.count));
+          const pos = new Float32Array(n * 3);
+          const nor = new Float32Array(n * 3);
+          const uv = new Float32Array(n * 2);
+          let o = 0;
+          for (const p of parts) {
+            if (!p.attributes.normal) p.computeVertexNormals();
+            const c = p.attributes.position.count;
+            pos.set(p.attributes.position.array.subarray(0, c * 3), o * 3);
+            nor.set(p.attributes.normal.array.subarray(0, c * 3), o * 3);
+            if (p.attributes.uv) uv.set(p.attributes.uv.array.subarray(0, c * 2), o * 2);
+            o += c;
+          }
+          const g = new THREE.BufferGeometry();
+          g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+          g.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+          g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+          return g;
+        }
+
+        // ---------- procedural clay surface ----------
+        function clayBumpCanvas(seed) {
+          const size = 512;
+          const c = document.createElement("canvas");
+          c.width = c.height = size;
+          const g = c.getContext("2d");
+          const rnd = mulberry(seed);
+          g.fillStyle = "rgb(128,128,128)";
+          g.fillRect(0, 0, size, size);
+          for (let i = 0; i < 280; i++) {
+            const x = rnd() * size;
+            const y = rnd() * size;
+            const r = 6 + rnd() * 26;
+            const v = Math.round(128 + (rnd() - 0.5) * 34);
+            const grad = g.createRadialGradient(x, y, 0, x, y, r);
+            grad.addColorStop(0, `rgba(${v},${v},${v},0.55)`);
+            grad.addColorStop(1, `rgba(${v},${v},${v},0)`);
+            g.fillStyle = grad;
+            g.fillRect(x - r, y - r, r * 2, r * 2);
+          }
+          g.lineWidth = 2.6;
+          for (let i = 0; i < 10; i++) {
+            const cx = rnd() * size;
+            const cy = rnd() * size;
+            const a0 = rnd() * Math.PI * 2;
+            const span = 0.9 + rnd() * 1.6;
+            for (let k = 0; k < 14; k++) {
+              const r = 8 + k * 6;
+              const v = k % 2 ? 150 : 106;
+              g.strokeStyle = `rgba(${v},${v},${v},0.35)`;
+              g.beginPath();
+              g.arc(cx, cy, r, a0, a0 + span);
+              g.stroke();
+            }
+          }
+          return c;
+        }
+        const bumpCanvas = clayBumpCanvas(11);
+        function bumpTex(rx, ry) {
+          const tex = new THREE.CanvasTexture(bumpCanvas);
+          tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+          tex.colorSpace = THREE.NoColorSpace;
+          tex.repeat.set(rx, ry);
+          return tex;
+        }
+        const bumpObj = bumpTex(0.55, 0.55);
+        const bumpFig = bumpTex(2.2, 1.4);
+        const bumpFloor = bumpTex(1, 1);
+
+        const matCache = {};
+        function clay(hex, tex = bumpObj, scale = 0.45) {
+          const k = hex + tex.uuid;
+          if (!matCache[k]) {
+            matCache[k] = new THREE.MeshStandardMaterial({
+              color: hex,
+              roughness: 0.92,
+              metalness: 0,
+              bumpMap: tex,
+              bumpScale: scale,
+            });
+          }
+          return matCache[k];
+        }
+
+        function roundedRectShape(w, h, r, cx = 0, cy = 0) {
+          const s = new THREE.Shape();
+          const x = cx - w / 2;
+          const y = cy - h / 2;
+          s.moveTo(x + r, y);
+          s.lineTo(x + w - r, y);
+          s.quadraticCurveTo(x + w, y, x + w, y + r);
+          s.lineTo(x + w, y + h - r);
+          s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          s.lineTo(x + r, y + h);
+          s.quadraticCurveTo(x, y + h, x, y + h - r);
+          s.lineTo(x, y + r);
+          s.quadraticCurveTo(x, y, x + r, y);
+          return s;
+        }
+        // flat lying slab, centred on y = 0, thickness = depth + 2 * bevel
+        function slabGeo(shape, depth, bevel, segs = 4) {
+          const g = new THREE.ExtrudeGeometry(shape, {
+            depth,
+            bevelEnabled: true,
+            bevelThickness: bevel,
+            bevelSize: bevel,
+            bevelSegments: segs,
+            curveSegments: 10,
+          });
+          g.translate(0, 0, -depth / 2);
+          g.rotateX(-Math.PI / 2);
+          return g;
+        }
+
+        // ---------- renderer, scene, camera ----------
+        const canvas = document.getElementById("s1-gl");
+        const renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: true,
+          preserveDrawingBuffer: true,
+        });
+        renderer.setPixelRatio(1);
+        renderer.setSize(W, H, false);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.NoToneMapping;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(PAL.navyDD);
+        scene.fog = new THREE.Fog("#20254D", 16, 40);
+        const camera = new THREE.PerspectiveCamera(30, W / H, 0.1, 120);
+
+        // ---------- clay cyclorama: floor bends softly into the back wall ----------
+        function cycGeometry() {
+          const Rr = 4;
+          const front = 30;
+          const back = -6;
+          const top = 34;
+          const xh = 45;
+          const pts = [];
+          for (let i = 0; i <= 12; i++) pts.push([0, front + (back - front) * (i / 12)]);
+          for (let i = 1; i <= 28; i++) {
+            const f = (i / 28) * Math.PI * 0.5;
+            pts.push([Rr - Rr * Math.cos(f), back - Rr * Math.sin(f)]);
+          }
+          for (let i = 1; i <= 10; i++) pts.push([Rr + (top - Rr) * (i / 10), back - Rr]);
+          const pos = [];
+          const uv = [];
+          const idx = [];
+          let s = 0;
+          for (let i = 0; i < pts.length; i++) {
+            if (i > 0) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+            pos.push(-xh, pts[i][0], pts[i][1], xh, pts[i][0], pts[i][1]);
+            uv.push(-xh * 0.16, s * 0.16, xh * 0.16, s * 0.16);
+          }
+          for (let i = 0; i < pts.length - 1; i++) {
+            const a = 2 * i;
+            const b = a + 1;
+            const c = a + 2;
+            const d = a + 3;
+            idx.push(a, b, c, b, d, c);
+          }
+          const g = new THREE.BufferGeometry();
+          g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+          g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+          g.setIndex(idx);
+          g.computeVertexNormals();
+          return g;
+        }
+        const cyc = new THREE.Mesh(
+          cycGeometry(),
+          new THREE.MeshStandardMaterial({
+            color: "#2F3570",
+            roughness: 1,
+            metalness: 0,
+            bumpMap: bumpFloor,
+            bumpScale: 0.25,
+          }),
+        );
+        cyc.receiveShadow = true;
+        scene.add(cyc);
+
+        // ---------- lights ----------
+        const key = new THREE.SpotLight("#FFD29A", 150, 34, 0.6, 0.6, 1.5);
+        key.position.set(7.5, 9, 7.5);
+        key.target.position.set(FX, 0.6, FZ);
+        key.castShadow = true;
+        key.shadow.mapSize.set(1024, 1024);
+        key.shadow.bias = -0.0004;
+        key.shadow.normalBias = 0.02;
+        key.shadow.radius = 5;
+        key.shadow.camera.near = 2;
+        key.shadow.camera.far = 40;
+        scene.add(key, key.target);
+        scene.add(new THREE.HemisphereLight("#B7C3FF", "#3A2A1A", 1.1));
+        const rim = new THREE.DirectionalLight("#9AA6FF", 0.55);
+        rim.position.set(-6, 4, -6);
+        scene.add(rim);
+
+        // ---------- the clay figure ----------
+        const figure = new THREE.Group();
+        figure.position.set(FX, 0, FZ);
+        figure.rotation.y = -0.35;
+        scene.add(figure);
+        const torso = new THREE.Group();
+        figure.add(torso);
+        const profile = [
+          [0, 0], [0.3, 0.0], [0.4, 0.03], [0.44, 0.1], [0.45, 0.22], [0.44, 0.4],
+          [0.41, 0.6], [0.37, 0.8], [0.31, 0.98], [0.24, 1.1], [0.15, 1.19], [0.06, 1.24], [0, 1.25],
+        ].map((p) => new THREE.Vector2(p[0], p[1]));
+        const bodyMesh = new THREE.Mesh(new THREE.LatheGeometry(profile, 44), clay(PAL.cream, bumpFig, 0.4));
+        bodyMesh.castShadow = bodyMesh.receiveShadow = true;
+        torso.add(bodyMesh);
+        const headPivot = new THREE.Group();
+        headPivot.position.y = 1.2;
+        torso.add(headPivot);
+        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 36, 26), clay(PAL.cream, bumpFig, 0.4));
+        headMesh.scale.set(0.96, 1.1, 0.96);
+        headMesh.position.y = 0.34;
+        headMesh.castShadow = headMesh.receiveShadow = true;
+        headPivot.add(headMesh);
+        const armGeo = new THREE.CapsuleGeometry(0.08, 0.34, 6, 14);
+        const arms = [-1, 1].map((side) => {
+          const pivot = new THREE.Group();
+          pivot.position.set(0.33 * side, 0.95, 0);
+          const m = new THREE.Mesh(armGeo, clay(PAL.cream, bumpFig, 0.4));
+          m.position.y = -0.25;
+          m.castShadow = m.receiveShadow = true;
+          pivot.add(m);
+          torso.add(pivot);
+          return { pivot, side };
+        });
+
+        // ---------- falling objects: geometry ----------
+        const CARD = { hx: 0.52, hz: 0.38, th: 0.14 };
+        const BUB = { hx: 0.36, hz: 0.31, th: 0.22 };
+        const cardGeo = slabGeo(roundedRectShape(0.95, 0.68, 0.11), 0.06, 0.04, 5);
+        const lineGeo = mergeGeos([
+          slabGeo(roundedRectShape(0.46, 0.055, 0.027, 0.15, 0.16), 0.012, 0.012, 3),
+          slabGeo(roundedRectShape(0.78, 0.055, 0.027, -0.01, -0.03), 0.012, 0.012, 3),
+          slabGeo(roundedRectShape(0.6, 0.055, 0.027, -0.1, -0.18), 0.012, 0.012, 3),
+        ]);
+        lineGeo.translate(0, 0.074, 0);
+        const blockGeo = slabGeo(roundedRectShape(0.24, 0.17, 0.05, -0.28, 0.16), 0.02, 0.02, 3);
+        blockGeo.translate(0, 0.082, 0);
+
+        const tail = new THREE.Shape();
+        tail.moveTo(-0.22, -0.12);
+        tail.lineTo(-0.03, -0.14);
+        tail.lineTo(-0.28, -0.34);
+        tail.closePath();
+        const bubGeo = mergeGeos([
+          slabGeo(roundedRectShape(0.64, 0.46, 0.17, 0, 0.04), 0.12, 0.05, 5),
+          slabGeo(tail, 0.12, 0.05, 5),
+        ]);
+        const dotList = [-0.15, 0, 0.15].map((x) => {
+          const g = new THREE.SphereGeometry(0.052, 14, 10);
+          g.scale(1, 0.55, 1);
+          g.translate(x, 0.11, -0.04);
+          return g;
+        });
+        const dotGeo = mergeGeos(dotList);
+
+        const pebGeo = new THREE.SphereGeometry(0.17, 22, 16);
+        {
+          const pos = pebGeo.attributes.position;
+          const v = new THREE.Vector3();
+          for (let i = 0; i < pos.count; i++) {
+            v.fromBufferAttribute(pos, i).normalize();
+            const d =
+              1 +
+              0.08 * Math.sin(v.x * 5.1 + 1.3) * Math.sin(v.y * 4.3 + 0.7) +
+              0.05 * Math.sin(v.z * 7.7 + v.x * 3.1);
+            pos.setXYZ(i, v.x * 0.17 * d, v.y * 0.17 * d * 0.78, v.z * 0.17 * d);
+          }
+          pebGeo.computeVertexNormals();
+        }
+
+        // ---------- falling objects: seeded choreography ----------
+        const rng = mulberry(9157);
+        const R = (a, b) => a + (b - a) * rng();
+        const objs = [];
+
+        function pilePos(type) {
+          const rmin = type === 0 ? 0.72 : type === 1 ? 0.64 : 0.55;
+          for (let k = 0; k < 14; k++) {
+            const th = R(0, Math.PI * 2);
+            const r = rmin + (2.05 - rmin) * Math.pow(rng(), 1.35);
+            const x = FX + Math.cos(th) * r;
+            const z = FZ + Math.sin(th) * r * 0.9;
+            if (x > 0.6) return { x, z, th, pile: true };
+          }
+          return { x: FX + 0.9, z: 0.6, th: 0.6, pile: true };
+        }
+        function fieldPos() {
+          for (let k = 0; k < 20; k++) {
+            const x = R(0.8, 4.9);
+            const z = R(-4.6, 1.3);
+            if (Math.hypot(x - FX, z - FZ) > 1.4) return { x, z, th: Math.atan2(z - FZ, x - FX), pile: false };
+          }
+          return { x: 4.2, z: -2.4, th: 0, pile: false };
+        }
+        function make(type, tL, F, pos, s, extra = {}) {
+          const o = { type, tL, F, x: pos.x, z: pos.z, s, pile: pos.pile, th: pos.th };
+          if (type === 2) {
+            o.rx = R(-0.35, 0.35);
+            o.ry = R(0, Math.PI * 2);
+            o.rz = R(-0.35, 0.35);
+            o.wx = R(-6, 6);
+            o.wy = R(-4, 4);
+            o.wz = R(-6, 6);
+          } else {
+            o.ry = pos.pile ? -pos.th - Math.PI / 2 + R(-0.5, 0.5) : R(0, Math.PI * 2);
+            o.rx = pos.pile ? -R(0.1, 0.45) : R(-0.08, 0.08);
+            o.rz = R(-0.2, 0.2);
+            o.wx = R(-3.2, 3.2);
+            o.wy = R(-2.5, 2.5);
+            o.wz = R(-3.2, 3.2);
+          }
+          o.dx = R(-0.25, 0.25);
+          o.dz = R(-0.2, 0.2);
+          o.hTop = 7.2 + R(0, 1);
+          Object.assign(o, extra);
+          objs.push(o);
+        }
+
+        // first cards, one by one
+        const calm = { wx: 1.1, wy: 0.8, wz: -0.9, dx: 0, dz: 0, hTop: 6.2 };
+        make(0, 1.02, 0.55, { x: FX + 0.95, z: 0.35, th: 0.35, pile: true }, 1.05, { ...calm, ry: 0.35, rx: 0.03, rz: -0.03 });
+        make(0, 1.86, 0.55, { x: FX - 0.85, z: 0.45, th: 2.6, pile: true }, 1.0, { ...calm, ry: -0.5, rx: 0.02, rz: 0.02, wx: -1.2 });
+        make(0, 1.98, 0.55, { x: FX + 1.08, z: 0.18, th: 0.2, pile: true }, 0.95, { ...calm, ry: 0.9, rx: -0.06, rz: 0.12 });
+
+        // faster stream on "yağıyor"
+        const streamTypes = [0, 2, 1, 0, 2, 0, 1, 2, 0, 0, 1, 2, 0, 1, 0, 2];
+        streamTypes.forEach((type, i) => {
+          const tL = 3.1 + 1.0 * Math.pow(i / (streamTypes.length - 1), 0.75);
+          const s = type === 2 ? R(0.8, 1.25) : R(0.85, 1.05);
+          make(type, tL, 0.5, pilePos(type), s);
+        });
+
+        // the big card on "sağanak"
+        make(0, 4.16, 0.6, { x: FX + 0.78, z: 0.78, th: 0.75, pile: true }, 1.3, {
+          ry: -0.25, rx: -0.2, rz: 0.08, wx: 1.4, wy: 0.6, wz: -1.0, dx: 0, dz: 0, hTop: 6.8,
+        });
+
+        // the downpour
+        const NC = 112;
+        for (let k = 0; k < NC; k++) {
+          const tL = 4.22 + 2.7 * Math.pow(k / (NC - 1), 1.1);
+          const u = rng();
+          const type = u < 0.5 ? 0 : u < 0.74 ? 1 : 2;
+          const pos = rng() < 0.72 ? pilePos(type) : fieldPos();
+          const s = type === 2 ? R(0.75, 1.3) : R(0.82, 1.08);
+          make(type, tL, R(0.72, 0.92), pos, s);
+        }
+
+        // stacking: each object rests on what landed before it
+        objs.sort((a, b) => a.tL - b.tL);
+        for (let i = 0; i < objs.length; i++) {
+          const o = objs[i];
+          o.fr = (o.type === 0 ? 0.5 : o.type === 1 ? 0.38 : 0.18) * o.s;
+          let sup = 0;
+          for (let j = 0; j < i; j++) {
+            const p = objs[j];
+            const d = Math.hypot(o.x - p.x, o.z - p.z);
+            const reach = o.fr + p.fr;
+            if (d < reach) sup = Math.max(sup, p.top - 0.45 * Math.max(0, d - 0.3 * reach));
+          }
+          if (o.pile) {
+            const r = Math.hypot(o.x - FX, o.z - FZ);
+            const minH = 0.82 * seg(o.tL, 4.2, 5.95) * clamp(1 - (r - 0.55) / 1.6);
+            const cap = Math.max(0.2, 1.05 * Math.pow(clamp(1 - (r - 0.55) / 1.75), 1.1));
+            sup = Math.min(Math.max(sup, minH), cap);
+          } else {
+            sup = Math.min(sup, 0.3);
+          }
+          o.yLand = sup;
+          if (o.type !== 2) {
+            const tf = 0.1 + 0.9 * clamp(sup / 0.3);
+            o.rx *= tf;
+            o.rz *= tf;
+            const D = o.type === 0 ? CARD : BUB;
+            o.ext = o.s * (D.th + 2 * D.hx * Math.abs(Math.sin(o.rz)) + 2 * D.hz * Math.abs(Math.sin(o.rx)));
+            o.top = sup + o.ext * 0.7;
+          } else {
+            o.ext = 0.27 * o.s;
+            o.top = sup + o.ext * 0.85;
+          }
+          o.H = o.hTop - (o.yLand + o.ext / 2);
+        }
+        const counts = [0, 0, 0];
+        objs.forEach((o) => {
+          o.idx = counts[o.type]++;
+        });
+
+        function instanced(geo, mat, n) {
+          const m = new THREE.InstancedMesh(geo, mat, n);
+          m.castShadow = m.receiveShadow = true;
+          m.frustumCulled = false;
+          m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+          scene.add(m);
+          return m;
+        }
+        const cardBodyMat = new THREE.MeshStandardMaterial({
+          color: PAL.cream, roughness: 0.92, metalness: 0, bumpMap: bumpObj, bumpScale: 0.45,
+        });
+        const cardBody = instanced(cardGeo, cardBodyMat, counts[0]);
+        const cardLines = instanced(lineGeo, clay(PAL.creamPress), counts[0]);
+        const cardBlock = instanced(blockGeo, clay(PAL.amber), counts[0]);
+        const bubBody = instanced(bubGeo, clay(PAL.mustard), counts[1]);
+        const bubDots = instanced(dotGeo, clay(PAL.cream), counts[1]);
+        const pebbles = instanced(pebGeo, clay(PAL.amber), counts[2]);
+        {
+          const crng = mulberry(77);
+          const col = new THREE.Color();
+          for (let i = 0; i < counts[0]; i++) {
+            const v = 0.93 + crng() * 0.07;
+            col.setRGB(v, v * 0.995, v * 0.98);
+            cardBody.setColorAt(i, col);
+          }
+          cardBody.instanceColor.needsUpdate = true;
+        }
+        const byType = [[cardBody, cardLines, cardBlock], [bubBody, bubDots], [pebbles]];
+
+        // ---------- accent burst of amber clay strokes ----------
+        const burst = new THREE.Group();
+        burst.position.set(FX, 1.58, FZ + 0.35);
+        scene.add(burst);
+        const strokeGeo = new THREE.CapsuleGeometry(0.05, 0.24, 6, 12);
+        const strokes = [];
+        for (let i = 0; i < 8; i++) {
+          const a = Math.PI * (-0.06 + (i / 7) * 1.12);
+          const m = new THREE.Mesh(strokeGeo, clay(PAL.amber));
+          m.rotation.z = a - Math.PI / 2;
+          m.castShadow = true;
+          burst.add(m);
+          strokes.push({ m, a, k: 0.9 + (0.2 * ((i * 7) % 3)) / 2 });
+        }
+
+        // ---------- film grain ----------
+        const grainCanvas = document.getElementById("s1-grain");
+        const gctx = grainCanvas.getContext("2d");
+        const tile = document.createElement("canvas");
+        tile.width = tile.height = 256;
+        {
+          const tctx = tile.getContext("2d");
+          const img = tctx.createImageData(256, 256);
+          const rnd = mulberry(7);
+          for (let i = 0; i < img.data.length; i += 4) {
+            const v = rnd() < 0.5 ? 0 : 255;
+            img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+            img.data[i + 3] = Math.floor(rnd() * 33);
+          }
+          tctx.putImageData(img, 0, 0);
+        }
+        const grainPattern = gctx.createPattern(tile, "repeat");
+        function drawGrain(t) {
+          const rnd = mulberry(1000 + Math.round(t * FPS));
+          gctx.clearRect(0, 0, W, H);
+          gctx.save();
+          gctx.translate(-Math.floor(rnd() * 256), -Math.floor(rnd() * 256));
+          gctx.fillStyle = grainPattern;
+          gctx.fillRect(0, 0, W + 256, H + 256);
+          gctx.restore();
+        }
+
+        // ---------- frame from time ----------
+        const E = new THREE.Euler(0, 0, 0, "YXZ");
+        const Q = new THREE.Quaternion();
+        const M = new THREE.Matrix4();
+        const SQ = new THREE.Matrix4();
+        const V0 = new THREE.Vector3();
+        const SB = new THREE.Vector3();
+        const HID = new THREE.Matrix4().makeScale(0, 0, 0);
+
+        function objMatrix(o, t) {
+          const ts = o.tL - o.F;
+          if (t < ts) return false;
+          const p = (t - ts) / o.F;
+          let x = o.x;
+          let z = o.z;
+          let rx = o.rx;
+          let ry = o.ry;
+          let rz = o.rz;
+          let yc;
+          let sy;
+          if (p < 1) {
+            const k = 1 - p;
+            yc = o.yLand + o.ext / 2 + o.H * (1 - Math.pow(p, 1.7));
+            sy = 1 + 0.07 * p;
+            rx += k * o.wx;
+            ry += k * o.wy;
+            rz += k * o.wz;
+            x += k * o.dx;
+            z += k * o.dz;
+          } else {
+            const q = t - o.tL;
+            sy = 1 - 0.17 * Math.exp(-7 * q) * Math.cos(2 * Math.PI * 1.25 * q);
+            yc = o.yLand + (o.ext * sy) / 2;
+          }
+          E.set(rx, ry, rz);
+          Q.setFromEuler(E);
+          SB.setScalar(o.s);
+          M.compose(V0, Q, SB);
+          const sxz = 1 / Math.sqrt(sy);
+          SQ.makeScale(sxz, sy, sxz);
+          M.premultiply(SQ);
+          M.setPosition(x, yc, z);
+          return true;
+        }
+
+        const flinchAt = [1.02, 1.86, 1.98, 4.16];
+        function renderAt(t) {
+          // falling and landed objects
+          for (const o of objs) {
+            const vis = objMatrix(o, t);
+            for (const mesh of byType[o.type]) mesh.setMatrixAt(o.idx, vis ? M : HID);
+          }
+          for (const list of byType) for (const mesh of list) mesh.instanceMatrix.needsUpdate = true;
+
+          // figure: small flinch on each landing, then looks up into the downpour
+          let fl = 0;
+          for (const te of flinchAt) {
+            if (t >= te) {
+              const q = t - te;
+              fl += (te > 4 ? 0.06 : 0.035) * Math.exp(-8 * q) * Math.cos(2 * Math.PI * 1.6 * q);
+            }
+          }
+          const sy = 1 - fl;
+          torso.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
+          const up = easeInOut(seg(t, 4.22, 4.78));
+          headPivot.rotation.x = -0.55 * up;
+          torso.rotation.x = -0.1 * up;
+          for (const a of arms) a.pivot.rotation.z = a.side * (0.26 + 0.7 * up);
+
+          // amber clay strokes burst around the figure
+          const pop = easeOutBack(seg(t, 4.2, 4.36));
+          const out = easeIn(seg(t, 4.72, 4.98));
+          const bs = pop * (1 - out);
+          burst.visible = bs > 0.001;
+          const rad = 0.62 + 0.24 * seg(t, 4.2, 4.98);
+          for (const s of strokes) {
+            s.m.position.set(Math.cos(s.a) * rad * 1.05, Math.sin(s.a) * rad, 0);
+            s.m.scale.setScalar(Math.max(bs * s.k, 0.001));
+          }
+
+          // slow push in, downward tilt as the pile rises
+          const push = easeInOut(seg(t, 0, DURATION));
+          const tilt = easeInOut(seg(t, 3.95, 5.7));
+          const cx = 0.2 + 0.7 * push;
+          camera.position.set(cx, 2.0 + 0.15 * push + 0.55 * tilt, 13.4 - 2.2 * push);
+          camera.lookAt(cx + 0.05, 1.05 - 0.12 * tilt, 0);
+
+          renderer.render(scene, camera);
+          drawGrain(t);
+        }
+
+        // ---------- timeline ----------
+        window.__hf.buildReady["s1"] = document.fonts
+          .load('800 112px "Barlow Condensed"')
+          .then(() => {
+            const driver = { _t: -1 };
+            Object.defineProperty(driver, "t", {
+              get() {
+                return this._t;
+              },
+              set(v) {
+                if (v === this._t) return;
+                this._t = v;
+                renderAt(v);
+              },
+            });
+            const tl = gsap.timeline({ paused: true });
+            tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+            const words = document.querySelectorAll("#s1-headline .s1-hl-word");
+            tl.fromTo(
+              words,
+              { yPercent: 118 },
+              { yPercent: 0, duration: 0.5, ease: "power3.out", stagger: 0.14 },
+              4.16,
+            );
+            renderAt(0);
+            window.__timelines = window.__timelines || {};
+            window.__timelines["s1"] = tl;
+            return true;
+          });
+      </script>
+    </template>
+  </body>
+</html>

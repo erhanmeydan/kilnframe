@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s5</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Nunito";
+          src: url("vendor/fonts/nunito/Nunito-Variable.ttf") format("truetype");
+          font-weight: 200 1000;
+          font-style: normal;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s5-bg {
+          position: absolute;
+          inset: 0;
+        }
+        #s5-bg svg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        .s5-defs {
+          position: absolute;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+        }
+        .s5-layer {
+          position: absolute;
+          inset: 0;
+        }
+        .s5-layer > svg {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1080px;
+          height: 1920px;
+          overflow: visible;
+          display: block;
+        }
+        .s5-tile {
+          position: absolute;
+          width: 240px;
+          height: 240px;
+        }
+        .s5-tile svg {
+          width: 240px;
+          height: 240px;
+          display: block;
+          overflow: visible;
+        }
+        #s5-count {
+          position: absolute;
+          left: 72px;
+          top: 150px;
+        }
+        .s5-count-ink {
+          display: block;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          font-size: 260px;
+          line-height: 1.05;
+          letter-spacing: -0.02em;
+          color: #c89b4a;
+          font-variant-numeric: tabular-nums;
+          filter: url(#s5-paper);
+          white-space: nowrap;
+        }
+        #s5-head {
+          position: absolute;
+          left: 72px;
+          top: 432px;
+          max-width: 600px;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          font-size: 104px;
+          line-height: 1.08;
+          color: #f3ebda;
+          letter-spacing: 0.005em;
+        }
+        .s5-word {
+          display: inline-block;
+          filter: drop-shadow(0px 3px 6px rgba(60, 48, 30, 0.28));
+        }
+        .s5-word-ink {
+          display: inline-block;
+          filter: url(#s5-paper);
+          padding: 0.06em 0.02em 0.1em;
+        }
+      </style>
+      <div id="root" data-composition-id="s5" data-width="1080" data-height="1920">
+        <svg class="s5-defs" aria-hidden="true">
+          <defs>
+            <filter id="s5-paper" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="6" result="warp" />
+              <feDisplacementMap in="SourceGraphic" in2="warp" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="noise" />
+              <feColorMatrix in="noise" type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 0 1" result="gray" />
+              <feComposite in="cut" in2="gray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" />
+            </filter>
+            <filter id="s5-fiberBg" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="noise" />
+              <feColorMatrix in="noise" type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 0 1" result="gray" />
+              <feComposite in="SourceGraphic" in2="gray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="SourceGraphic" operator="in" />
+            </filter>
+          </defs>
+        </svg>
+
+        <div id="s5-bg">
+          <svg viewBox="0 0 1080 1920" preserveAspectRatio="none">
+            <rect x="0" y="0" width="1080" height="1920" fill="#7A93A8" filter="url(#s5-fiberBg)" />
+          </svg>
+        </div>
+
+        <div id="s5-count"><span id="s5-count-ink" class="s5-count-ink">0</span></div>
+
+        <div id="s5-head"><span class="s5-word"><span class="s5-word-ink">PARÇALI</span></span> <span class="s5-word"><span class="s5-word-ink">AYNA</span></span></div>
+
+        <div id="s5-push" class="s5-layer">
+          <div id="s5-lift" class="s5-layer">
+            <div id="s5-rise" class="s5-layer">
+              <div id="s5-hole" class="s5-layer">
+                <svg viewBox="0 0 1080 1920"><g id="s5-hole-g" filter="url(#s5-paper)"></g></svg>
+              </div>
+              <div id="s5-plate" class="s5-layer">
+                <svg viewBox="0 0 1080 1920"><g id="s5-plate-g" filter="url(#s5-paper)"></g></svg>
+              </div>
+            </div>
+            <div id="s5-tiles" class="s5-layer"></div>
+          </div>
+        </div>
+      </div>
+      <script type="module">
+        const D = 3.793;
+
+        async function buildScene() {
+          try {
+            await document.fonts.load('900 260px "Nunito"');
+            await document.fonts.load('900 104px "Nunito"');
+          } catch (e) {
+            /* font load errors must not block timeline registration */
+          }
+
+          const NS = "http://www.w3.org/2000/svg";
+          const C = {
+            ochre: ["#C89B4A", "#C4964A", "#CCA054"],
+            olive: "#6E7A4F",
+            deepBlue: "#4F6B85",
+          };
+
+          function mulberry32(a) {
+            return function () {
+              a |= 0;
+              a = (a + 0x6d2b79f5) | 0;
+              let t = Math.imul(a ^ (a >>> 15), 1 | a);
+              t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+          }
+          const rand = mulberry32(6);
+
+          // rounded, slightly irregular flat-top hexagon path
+          function hexPath(cx, cy, r, round, jit) {
+            const v = [];
+            for (let i = 0; i < 6; i++) {
+              const a = (i * Math.PI) / 3;
+              const rr = r + (rand() * 2 - 1) * jit;
+              v.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+            }
+            const toward = (c, p, k) => {
+              const dx = p[0] - c[0], dy = p[1] - c[1];
+              const l = Math.hypot(dx, dy);
+              return [c[0] + (dx * k) / l, c[1] + (dy * k) / l];
+            };
+            const f = (p) => p[0].toFixed(2) + " " + p[1].toFixed(2);
+            let d = "";
+            for (let i = 0; i < 6; i++) {
+              const p = v[(i + 5) % 6], c = v[i], n = v[(i + 1) % 6];
+              const a1 = toward(c, p, round), b1 = toward(c, n, round);
+              d += (i === 0 ? "M" : "L") + f(a1) + " Q" + f(c) + " " + f(b1) + " ";
+            }
+            return d + "Z";
+          }
+
+          function shadowProxy(el, mult, h0) {
+            const p = { _h: -1 };
+            Object.defineProperty(p, "h", {
+              get() { return this._h; },
+              set(h) {
+                if (h === this._h) return;
+                this._h = h;
+                const hh = Math.max(0, h);
+                const dy = 3 * mult + 20 * hh;
+                const bl = 6 * mult + 22 * hh;
+                const al = 0.28 - 0.07 * Math.min(1, hh);
+                el.style.filter = `drop-shadow(0px ${dy.toFixed(2)}px ${bl.toFixed(2)}px rgba(60,48,30,${al.toFixed(3)}))`;
+              },
+            });
+            p.h = h0;
+            return p;
+          }
+
+          // honeycomb geometry
+          const R = 100;
+          const MX = 560, MY = 1225;
+          const cells = [];
+          for (let q = -2; q <= 2; q++) {
+            for (let r = -2; r <= 2; r++) {
+              const k = Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r));
+              if (k > 2) continue;
+              const x = MX + 1.5 * R * q;
+              const y = MY + Math.sqrt(3) * R * (r + q / 2);
+              let ang = Math.atan2(x - MX, -(y - MY));
+              if (ang < 0) ang += Math.PI * 2;
+              cells.push({ q, r, k, x, y, ang });
+            }
+          }
+          const TWO = Math.PI * 2;
+          const inner = cells.filter((c) => c.k === 1).sort((a, b) => a.ang - b.ang);
+          const outerKey = (c) => (((c.ang - Math.PI - 0.001) % TWO) + TWO) % TWO;
+          const outer = cells.filter((c) => c.k === 2).sort((a, b) => outerKey(a) - outerKey(b));
+          const order = inner.concat(outer); // 18 tiles, last = bottom tile
+          const center = cells.find((c) => c.k === 0);
+
+          // deep blue layer under the hole
+          const holeG = document.getElementById("s5-hole-g");
+          const hp = document.createElementNS(NS, "path");
+          hp.setAttribute("d", hexPath(center.x, center.y, R + 6, 6, 0.6));
+          hp.setAttribute("fill", C.deepBlue);
+          holeG.appendChild(hp);
+
+          // olive plate with a hexagonal hole in the middle
+          const plateG = document.getElementById("s5-plate-g");
+          order.forEach((c) => {
+            const p = document.createElementNS(NS, "path");
+            p.setAttribute("d", hexPath(c.x, c.y, R + 3, 5, 0.8));
+            p.setAttribute("fill", C.olive);
+            plateG.appendChild(p);
+          });
+
+          // ochre tiles
+          const tilesWrap = document.getElementById("s5-tiles");
+          const tiles = order.map((c) => {
+            const div = document.createElement("div");
+            div.className = "s5-tile";
+            div.style.left = c.x - 120 + "px";
+            div.style.top = c.y - 120 + "px";
+            const svg = document.createElementNS(NS, "svg");
+            svg.setAttribute("viewBox", "-120 -120 240 240");
+            const p = document.createElementNS(NS, "path");
+            p.setAttribute("d", hexPath(0, 0, R - 9, 7, 1.2));
+            p.setAttribute("fill", C.ochre[Math.floor(rand() * 3)]);
+            p.setAttribute("filter", "url(#s5-paper)");
+            svg.appendChild(p);
+            div.appendChild(svg);
+            tilesWrap.appendChild(div);
+            return {
+              el: div,
+              cell: c,
+              rot0: (rand() * 2 - 1) * 12,
+              rot1: (rand() * 2 - 1) * 1.2,
+              xOff: (rand() * 2 - 1) * 40,
+            };
+          });
+
+          const riseEl = document.getElementById("s5-rise");
+          const liftEl = document.getElementById("s5-lift");
+          const pushEl = document.getElementById("s5-push");
+          const plateShadow = shadowProxy(document.getElementById("s5-plate"), 1, 0);
+          const holeShadowEl = document.getElementById("s5-hole");
+          holeShadowEl.style.filter = "drop-shadow(0px 1px 2px rgba(60,48,30,0.2))";
+          const countEl = document.getElementById("s5-count");
+          const countShadow = shadowProxy(countEl, 1, 0);
+          const countInk = document.getElementById("s5-count-ink");
+          const counter = { _v: -1 };
+          Object.defineProperty(counter, "value", {
+            get() { return this._v; },
+            set(v) {
+              const n = Math.round(v);
+              if (n !== this._v) {
+                this._v = n;
+                countInk.textContent = String(n);
+              }
+            },
+          });
+          counter.value = 0;
+
+          const tl = gsap.timeline({ paused: true });
+
+          // plate and its deep blue under layer rise from below
+          tl.fromTo(riseEl, { y: 1100 }, { y: 0, duration: 0.55, ease: "back.out(1.3)" }, 0);
+
+          // headline words slide in from the left
+          const words = document.querySelectorAll("#s5-head .s5-word");
+          words.forEach((w, i) => {
+            tl.fromTo(w, { x: -1000 }, { x: 0, duration: 0.55, ease: "back.out(1.3)" }, 0.08 + i * 0.07);
+          });
+
+          // number card slides in
+          tl.fromTo(countEl, { x: -720 }, { x: 0, duration: 0.55, ease: "back.out(1.3)" }, 0.4);
+
+          // tiles drop in one by one, counter ticks on each landing
+          const DUR = 0.44;
+          const START0 = 0.36;
+          const LAND_K = 0.43; // back.out(1.3) first reaches rest at ~43%
+          const STEP = (2.71 - (START0 + LAND_K * DUR)) / 17;
+          tiles.forEach((t, i) => {
+            const st = START0 + i * STEP;
+            const sh = shadowProxy(t.el, 1.4, 1.2);
+            const fall = -(t.cell.y + 260);
+            tl.fromTo(
+              t.el,
+              { y: fall, x: t.xOff, rotation: t.rot0 },
+              { y: 0, x: 0, rotation: t.rot1, duration: DUR, ease: "back.out(1.3)" },
+              st
+            );
+            tl.fromTo(sh, { h: 1.2 }, { h: 0, duration: DUR * LAND_K, ease: "power2.in" }, st);
+            tl.set(counter, { value: i + 1 }, st + LAND_K * DUR);
+          });
+
+          // the 18 lands on "sekiz": number lifts once
+          const T18 = 2.71;
+          tl.fromTo(countShadow, { h: 0 }, { h: 0.8, duration: 0.14, ease: "power2.out" }, T18);
+          tl.to(countShadow, { h: 0, duration: 0.4, ease: "power2.inOut" }, T18 + 0.14);
+          tl.fromTo(countInk, { y: 0 }, { y: -10, duration: 0.14, ease: "power2.out" }, T18);
+          tl.to(countInk, { y: 0, duration: 0.4, ease: "back.out(1.3)" }, T18 + 0.14);
+
+          // slight push in on the final tile
+          const last = order[order.length - 1];
+          const origin = `${last.x}px ${last.y}px`;
+          tl.fromTo(
+            pushEl,
+            { scale: 1, transformOrigin: origin },
+            { scale: 1.04, transformOrigin: origin, duration: D - 2.2, ease: "sine.inOut" },
+            2.2
+          );
+
+          // "parçalı": the whole mirror lifts once, shadow grows, then settles
+          const TL = 3.07;
+          tl.fromTo(liftEl, { y: 0 }, { y: -20, duration: 0.22, ease: "power2.out" }, TL);
+          tl.to(liftEl, { y: 0, duration: 0.48, ease: "back.out(1.3)" }, TL + 0.22);
+          tl.fromTo(plateShadow, { h: 0 }, { h: 1, duration: 0.22, ease: "power2.out" }, TL);
+          tl.to(plateShadow, { h: 0, duration: 0.48, ease: "power2.inOut" }, TL + 0.22);
+
+          // hold to the scene end
+          tl.to({}, { duration: 0.001 }, D - 0.001);
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s5"] = tl;
+          return tl;
+        }
+
+        const buildPromise = buildScene();
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["s5"] = buildPromise;
+      </script>
+    </template>
+  </body>
+</html>

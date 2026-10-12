@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "topic": "Bilgi yağmuru",
+  "summary": "Bir bulut, üzerine yağan haber kartlarını çizer ve altında 'BİLGİ YAĞMURU' yazısı belirir.",
+  "style": "beyaz-tahta",
+  "mode": "overlay",
+  "speaker": {
+    "side": "center"
+  },
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "25",
+  "duration_frames": 147,
+  "handles_frames": 20,
+  "assets": [],
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 147,
+      "anchor_words": [
+        "Her gün yeni bir haber çıkıyor",
+        "üzerimize yağıyor bilgiler",
+        "sağanak bilgi yağışı"
+      ],
+      "visual": "Transparent background, black marker strokes only, in a narrow column on the right edge of the frame (about x 1600 to 1900), clear of the centred speaker. At 0.24 s a cloud outline is drawn at the top of the column, in a few strokes. From 0.98 s ('haber') a small newspaper card is drawn under the cloud: a rectangle with a scribbled headline and two scribbled text lines. From 1.82 s ('Üzerimize') the card is followed by three more small cards and short slanted rain strokes. They are drawn one after another down the column, staggered at 2.42 s, 2.90 s and 3.20 s ('yağıyor bilgiler'). Each card has 45 degree hatching on one corner. Below the cards, a small stick figure holding a tiny umbrella is drawn, ending at 3.54 s. At 4.16 s ('sağanak') the handwritten words 'BİLGİ YAĞMURU' are written letter by letter from left to right under the figure, in two lines. At 4.90 s ('yağışı') a muted red underline is drawn under 'YAĞMURU'. At 5.36 s a small red arrow curves from the cloud down toward the figure. Drawn lines never move once drawn. End state: cloud, cards, figure, text and the red accents all stay on screen.",
+      "on_screen_text": "BİLGİ YAĞMURU",
+      "camera": "hold",
+      "technique": "svg-draw",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 7,
+          "type": "marker",
+          "gain_db": -14
+        },
+        {
+          "frame": 45,
+          "type": "marker-short",
+          "gain_db": -15
+        },
+        {
+          "frame": 105,
+          "type": "marker",
+          "gain_db": -13
+        },
+        {
+          "frame": 122,
+          "type": "tap",
+          "gain_db": -12
+        }
+      ],
+      "mode": "overlay"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "flat-infografik",
+  "style": "flat-infografik",
+  "format": "landscape",
+  "modes": ["fullscreen"],
+  "times": [2, 4.25],
+  "noise": {
+    "mean": 0,
+    "changed": 0
+  },
+  "threshold": {
+    "mean": 0.5,
+    "changed": 0.002
+  },
+  "renderMs": 16111
+}

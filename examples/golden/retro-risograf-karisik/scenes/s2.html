@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s2</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Bricolage Grotesque";
+          src: url("vendor/fonts/bricolage-grotesque/BricolageGrotesque-Variable.ttf") format("truetype");
+          font-weight: 100 900;
+          font-style: normal;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s2-bg {
+          position: absolute;
+          inset: 0;
+          background-color: #f1e9d8;
+          background-size: 256px 256px;
+        }
+        #s2-fig {
+          position: absolute;
+          left: 840px;
+          top: 646px;
+          width: 240px;
+          height: 330px;
+          overflow: visible;
+          mix-blend-mode: multiply;
+        }
+        #s2-figBack,
+        #s2-figFront,
+        #s2-figDots {
+          opacity: 0;
+        }
+        #s2-figBack rect {
+          mix-blend-mode: multiply;
+        }
+        #s2-figFront {
+          mix-blend-mode: multiply;
+        }
+        #s2-figDots {
+          mix-blend-mode: multiply;
+        }
+        #s2-rain {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          mix-blend-mode: multiply;
+        }
+        #s2-specks {
+          position: absolute;
+          inset: 0;
+          background-size: 256px 256px;
+          pointer-events: none;
+        }
+        #s2-titleWrap {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+        }
+        #s2-title {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 104px;
+          height: 170px;
+        }
+        .s2-tlayer {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 0;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          gap: 0.3em;
+          font-family: "Bricolage Grotesque", sans-serif;
+          font-weight: 800;
+          font-size: 118px;
+          line-height: 1.12;
+          letter-spacing: -0.005em;
+          white-space: nowrap;
+          mix-blend-mode: multiply;
+        }
+        .s2-tw {
+          display: inline-block;
+          opacity: 0;
+        }
+        /* headline inks: only token teal and token red, both pass AA on paper */
+        #s2-tback .s2-tB {
+          color: #d2553f;
+        }
+        #s2-tback .s2-tY {
+          color: #2f7a78;
+        }
+        #s2-tfront .s2-tB {
+          color: #2f7a78;
+        }
+        #s2-tfront .s2-tY {
+          color: #d2553f;
+        }
+      </style>
+      <div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+        <div id="s2-bg"></div>
+        <svg id="s2-fig" viewBox="0 0 240 330" aria-hidden="true">
+          <defs>
+            <pattern id="s2-htp" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <circle cx="3" cy="3" r="3.1" fill="rgb(50,134,142)"></circle>
+            </pattern>
+          </defs>
+          <g id="s2-figBack">
+            <circle cx="127" cy="126" r="47" fill="rgb(222,93,74)"></circle>
+            <rect x="89" y="167" width="76" height="152" rx="28" fill="rgb(237,193,89)"></rect>
+          </g>
+          <g id="s2-figFront">
+            <rect x="82" y="160" width="76" height="152" rx="28" fill="rgb(50,134,142)"></rect>
+            <circle cx="120" cy="118" r="47" fill="rgb(237,193,89)"></circle>
+            <circle id="s2-figDots" cx="119" cy="117" r="40" fill="url(#s2-htp)"></circle>
+          </g>
+        </svg>
+        <canvas id="s2-rain"></canvas>
+        <div id="s2-specks" data-layout-allow-occlusion="true"></div>
+        <div id="s2-titleWrap" data-layout-allow-overlap="true" data-layout-allow-occlusion="true">
+          <div id="s2-title">
+            <div class="s2-tlayer" id="s2-tback" data-layout-allow-overlap="true" data-layout-allow-occlusion="true"><span class="s2-tw s2-tB" id="s2-twB-b" data-layout-allow-overlap="true" data-layout-allow-occlusion="true">BİLGİ</span><span class="s2-tw s2-tY" id="s2-twY-b" data-layout-allow-overlap="true" data-layout-allow-occlusion="true">YAĞIŞI</span></div>
+            <div class="s2-tlayer" id="s2-tfront" data-layout-allow-overlap="true" data-layout-allow-occlusion="true"><span class="s2-tw s2-tB" id="s2-twB-f" data-layout-allow-overlap="true" data-layout-allow-occlusion="true">BİLGİ</span><span class="s2-tw s2-tY" id="s2-twY-f" data-layout-allow-overlap="true" data-layout-allow-occlusion="true">YAĞIŞI</span></div>
+          </div>
+        </div>
+      </div>
+      <script type="module">
+        const SCENE = "s2", W = 1920, H = 1080, DUR = 4.08, TAU = Math.PI * 2;
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        let __done;
+        window.__hf.buildReady[SCENE] = new Promise((r) => { __done = r; });
+
+        const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+        const ss = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+        function mulberry32(a) {
+          return function () {
+            a |= 0; a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+        const $ = (id) => document.getElementById(id);
+        const bgEl = $("s2-bg"), figEl = $("s2-fig"), cv = $("s2-rain"),
+          backLayer = $("s2-tback"), frontLayer = $("s2-tfront"), specksEl = $("s2-specks"),
+          titleEl = $("s2-title");
+        cv.width = W; cv.height = H;
+        const ctx = cv.getContext("2d");
+
+        // compensated ink colours: element is blended multiply over cream paper,
+        // so these resolve to the exact token inks on paper
+        const C_TEAL = "rgb(50,134,142)", C_RED = "rgb(222,93,74)", C_MUST = "rgb(237,193,89)";
+
+        function makeTile(seed, paint) {
+          const s = 256, c = document.createElement("canvas");
+          c.width = c.height = s;
+          const g = c.getContext("2d");
+          paint(g, s, mulberry32(seed));
+          return c.toDataURL("image/png");
+        }
+        bgEl.style.backgroundImage = "url(" + makeTile(4, (g, s, r) => {
+          for (let i = 0; i < 1600; i++) {
+            g.fillStyle = "rgba(96,76,54," + (0.16 + r() * 0.28).toFixed(3) + ")";
+            g.beginPath(); g.arc(r() * s, r() * s, 0.5 + r(), 0, TAU); g.fill();
+          }
+          for (let i = 0; i < 70; i++) {
+            g.fillStyle = "rgba(96,76,54," + (0.08 + r() * 0.12).toFixed(3) + ")";
+            g.beginPath(); g.arc(r() * s, r() * s, 1.5 + r() * 1.3, 0, TAU); g.fill();
+          }
+        }) + ")";
+        specksEl.style.backgroundImage = "url(" + makeTile(9, (g, s, r) => {
+          for (let i = 0; i < 980; i++) {
+            g.fillStyle = "rgba(241,233,216," + (0.5 + r() * 0.45).toFixed(3) + ")";
+            g.beginPath(); g.arc(r() * s, r() * s, 0.6 + r() * 1.3, 0, TAU); g.fill();
+          }
+          for (let i = 0; i < 80; i++) {
+            g.fillStyle = "rgba(241,233,216," + (0.35 + r() * 0.3).toFixed(3) + ")";
+            g.beginPath(); g.arc(r() * s, r() * s, 1.8 + r() * 1.5, 0, TAU); g.fill();
+          }
+        }) + ")";
+
+        // ink grain for the headline: a self mask on the title block (opaque tile,
+        // tiny specks erased), so the type keeps its texture without any overlay
+        // element sitting on top of the words
+        const grainURL = makeTile(12, (g, s, r) => {
+          g.fillStyle = "#ffffff";
+          g.fillRect(0, 0, s, s);
+          g.globalCompositeOperation = "destination-out";
+          for (let i = 0; i < 700; i++) {
+            g.fillStyle = "rgba(0,0,0," + (0.25 + r() * 0.45).toFixed(3) + ")";
+            g.beginPath(); g.arc(r() * s, r() * s, 0.5 + r() * 0.8, 0, TAU); g.fill();
+          }
+        });
+        titleEl.style.webkitMaskImage = "url(" + grainURL + ")";
+        titleEl.style.maskImage = "url(" + grainURL + ")";
+        titleEl.style.webkitMaskSize = "256px 256px";
+        titleEl.style.maskSize = "256px 256px";
+
+        // rising halftone puddle
+        const puddleH = (t) => 2 + 133 * Math.pow(ss((t - 1.2) / 2.85), 1.4);
+        const wave = (x) => 4.5 * Math.sin(x * 0.012 + 2.0) + 3.0 * Math.sin(x * 0.031 + 5.1);
+        const pTop = (x, t) => H - puddleH(t) + wave(x);
+
+        // seeded rain: every drop is a pure function of time
+        const rnd = mulberry32(7);
+        const xAt = (d, t) => d.x0 + d.amp * Math.sin(d.fr * (t - d.s) + d.ph);
+        const drops = [];
+        let tt = 0.30;
+        while (tt < DUR - 0.06 && drops.length < 170) {
+          const rate = 3 + 31 * ss((tt - 0.30) / 2.75); // growing density
+          tt += -Math.log(1 - rnd()) / rate;
+          if (tt >= DUR - 0.06) break;
+          const d = {
+            s: tt, x0: 80 + rnd() * (W - 160), spd: 950 + rnd() * 450,
+            len: 24 + rnd() * 24, w: 7 + rnd() * 5,
+            amp: 3 + rnd() * 6, fr: 1.5 + rnd() * 2.5, ph: rnd() * TAU,
+            col: rnd() < 0.7 ? C_TEAL : C_RED, hero: false
+          };
+          const yb = (t2) => -70 + (t2 - d.s) * d.spd + d.len;
+          let found = -1;
+          for (let q = 1; q <= 320; q++) {
+            const tq = d.s + q / 60;
+            if (tq > DUR + 1.2) break;
+            if (yb(tq) >= pTop(xAt(d, tq), tq)) { found = tq; break; }
+          }
+          if (found > 0) {
+            let a0 = found - 1 / 60, b = found;
+            for (let k = 0; k < 16; k++) {
+              const m = (a0 + b) / 2;
+              if (yb(m) >= pTop(xAt(d, m), m)) b = m; else a0 = m;
+            }
+            d.lt = (a0 + b) / 2;
+          } else {
+            d.lt = d.s + Math.max(0.1, H - puddleH(DUR) + 70 - d.len) / d.spd;
+          }
+          d.xl = xAt(d, Math.min(d.lt, DUR));
+          d.ly = d.lt <= DUR ? pTop(d.xl, d.lt) : H - puddleH(DUR) + wave(d.xl);
+          const n = 4 + ((rnd() * 3) | 0);
+          d.sp = [];
+          for (let k = 0; k < n; k++) {
+            const dir = -Math.PI / 2 + (rnd() * 2 - 1) * 1.15, sp = 140 + rnd() * 180;
+            d.sp.push({ vx: Math.cos(dir) * sp, vy: -Math.sin(dir) * sp, life: 0.30 + rnd() * 0.13, r: 2.2 + rnd() * 2.1, dl: rnd() * 0.04 });
+          }
+          d.plop = d.w * (1.1 + rnd() * 0.8);
+          drops.push(d);
+        }
+        // accent drops landing on the print cues (1.2s, 3.12s)
+        const heroes = [
+          { lt: 1.20, x0: 905, spd: 1250, w: 17, len: 74, col: C_TEAL, hero: true, amp: 5, fr: 2.2, ph: 0.8 },
+          { lt: 3.12, x0: 1150, spd: 1250, w: 18, len: 78, col: C_RED, hero: true, amp: 6, fr: 1.8, ph: 2.1 }
+        ];
+        for (const h of heroes) {
+          h.xl = h.x0; h.ly = pTop(h.x0, h.lt); h.sp = [];
+          for (let k = 0; k < 10; k++) {
+            const dir = -Math.PI / 2 + (rnd() * 2 - 1) * 1.25, sp = 200 + rnd() * 200;
+            h.sp.push({ vx: Math.cos(dir) * sp, vy: -Math.sin(dir) * sp, life: 0.38 + rnd() * 0.18, r: 2.6 + rnd() * 2.2, dl: rnd() * 0.05 });
+          }
+          h.plop = h.w * 1.6;
+          drops.push(h);
+        }
+
+        function inkDrop(x, y, d) {
+          const r = d.w / 2;
+          ctx.fillStyle = d.col;
+          ctx.beginPath();
+          ctx.arc(x, y + r, r, Math.PI, 0);
+          ctx.lineTo(x + r, y + d.len - r);
+          ctx.arc(x, y + d.len - r, r, 0, Math.PI);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(x, y + d.len - r * 0.4, d.w * 0.62, 0, TAU);
+          ctx.fill();
+        }
+        function drawDrops(t) {
+          for (const d of drops) {
+            if (d.hero) {
+              const t0 = d.lt - (d.ly + 80 - d.len) / d.spd;
+              if (t < t0 || t >= d.lt) continue;
+              const yb = d.ly - (d.lt - t) * d.spd;
+              inkDrop(d.x0 + d.amp * Math.sin(d.fr * t + d.ph), yb - d.len, d);
+            } else {
+              if (t < d.s || t >= d.lt) continue;
+              const age = t - d.s;
+              inkDrop(xAt(d, t), -70 + age * d.spd, d);
+            }
+          }
+        }
+        function drawSplashes(t) {
+          for (const d of drops) {
+            if (d.lt > 1e8 || t < d.lt) continue;
+            const a = t - d.lt;
+            if (a < 0.45) {
+              const p = a / 0.45, rx = d.plop * (0.35 + 0.65 * p);
+              ctx.globalAlpha = 0.9 * (1 - p * p);
+              ctx.fillStyle = d.col;
+              ctx.beginPath(); ctx.ellipse(d.xl, d.ly + 1, rx, rx * 0.3, 0, 0, TAU); ctx.fill();
+              ctx.globalAlpha = 1;
+            }
+            for (const sk of d.sp) {
+              const sa = a - sk.dl;
+              if (sa < 0 || sa > sk.life) continue;
+              const u = sa / sk.life;
+              const px = d.xl + sk.vx * sa, py = d.ly - sk.vy * sa + 575 * sa * sa;
+              if (py > d.ly + 4) continue;
+              ctx.globalAlpha = Math.pow(1 - u, 1.4);
+              ctx.fillStyle = d.col;
+              ctx.beginPath(); ctx.arc(px, py, sk.r * (1 - 0.45 * u), 0, TAU); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            if (d.hero && a < 0.62) {
+              const p = a / 0.62, rx = 12 + 115 * p;
+              ctx.globalAlpha = 1 - p;
+              ctx.strokeStyle = d.col;
+              ctx.lineWidth = 3.6 * (1 - p) + 1.2;
+              ctx.beginPath(); ctx.ellipse(d.xl, d.ly + 2, rx, rx * 0.3, 0, 0, TAU); ctx.stroke();
+              ctx.globalAlpha = 1;
+            }
+          }
+        }
+        function drawPuddle(t) {
+          ctx.fillStyle = C_RED;
+          ctx.beginPath();
+          ctx.moveTo(-36, H + 70);
+          for (let x = -30; x <= W + 30; x += 16) ctx.lineTo(x + 6, pTop(x, t) + 6);
+          ctx.lineTo(W + 36, H + 70);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = C_TEAL;
+          const k = 12 / Math.SQRT2; // coarse halftone, 12px pitch at 45 degrees
+          const mMin = Math.floor((H - 115) / k) - 1, mMax = Math.floor((H + 10) / k);
+          for (let m = mMin; m <= mMax; m++) {
+            const y = m * k;
+            const i0 = Math.ceil((m - 18 / k) / 2), i1 = Math.floor((m + (W + 18) / k) / 2);
+            for (let i = i0; i <= i1; i++) {
+              const x = (2 * i - m) * k;
+              if (y > pTop(x, t) + 1.5) {
+                ctx.beginPath(); ctx.arc(x, y, 5.0, 0, TAU); ctx.fill();
+              }
+            }
+          }
+          ctx.fillRect(-36, H - 14, W + 72, 52);
+        }
+
+        // seeded registration wobble, spiking on the heavy hits
+        function wob(t) {
+          const g = (c, s) => Math.exp(-((t - c) * (t - c)) / (s * s));
+          const a = 7.5 * g(3.12, 0.30) * Math.sin((t - 3.12) * 30 + 1.1)
+            + 3.4 * g(1.20, 0.24) * Math.sin((t - 1.20) * 36 + 0.5)
+            + 1.1 * Math.sin(t * 6.7 + 2.0);
+          return { x: a, y: a * 0.5 + 1.2 * Math.sin(t * 8.3 + 0.6) };
+        }
+
+        const driver = { _t: -1 };
+        Object.defineProperty(driver, "t", {
+          get() { return this._t; },
+          set(v) { if (v !== this._t) { this._t = v; drawFrame(v); } }
+        });
+        function drawFrame(t) {
+          const w = wob(t);
+          const tilt = -26 * (0.5 - 0.5 * Math.cos(Math.PI * clamp(t / 2.6, 0, 1)));
+          figEl.style.transform = "translate(" + (w.x * 0.85).toFixed(2) + "px," + (w.y * 0.85 + tilt).toFixed(2) + "px)";
+          const tx = (w.x * 0.55).toFixed(2), ty = (w.y * 0.55).toFixed(2);
+          backLayer.style.transform = "translate(" + tx + "px," + ty + "px)";
+          frontLayer.style.transform = "translate(" + tx + "px," + ty + "px)";
+          ctx.clearRect(0, 0, W, H);
+          ctx.save();
+          ctx.translate(w.x, w.y * 0.9 + tilt);
+          ctx.globalCompositeOperation = "multiply";
+          drawPuddle(t);
+          drawSplashes(t);
+          drawDrops(t);
+          ctx.restore();
+        }
+
+        await document.fonts.load('800 118px "Bricolage Grotesque"', "BİLGİ YAĞIŞI");
+
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo(driver, { t: 0 }, { t: DUR, duration: DUR, ease: "none" }, 0);
+
+        // the figure prints onto the page, pass by pass
+        tl.fromTo("#s2-figBack", { x: -20, y: -14, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.10);
+        tl.fromTo("#s2-figFront", { x: -13, y: -9, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.17);
+        tl.fromTo("#s2-figDots", { x: -8, opacity: 0 }, { x: 0, opacity: 1, duration: 0.34, ease: "power2.out" }, 0.27);
+
+        function printWord(bEl, fEl, wt) {
+          tl.fromTo(bEl, { x: -26, y: -18, opacity: 0 }, { x: 7, y: 6, opacity: 1, duration: 0.40, ease: "power3.out" }, wt - 0.40);
+          tl.fromTo(fEl, { x: -16, y: -11, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.40, ease: "power3.out" }, wt - 0.32);
+        }
+        printWord($("s2-twB-b"), $("s2-twB-f"), 2.82);
+        printWord($("s2-twY-b"), $("s2-twY-f"), 3.10);
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines[SCENE] = tl;
+        __done();
+      </script>
+    </template>
+  </body>
+</html>

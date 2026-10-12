@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s2</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Nunito";
+          font-weight: 200 1000;
+          src: url("vendor/fonts/nunito/Nunito-Variable.ttf") format("truetype");
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s2-bg {
+          position: absolute;
+          inset: 0;
+          background: #efe6d2;
+        }
+        #s2-sheet {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s2-headline {
+          position: absolute;
+          left: 96px;
+          top: 240px;
+          max-width: 760px;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          font-size: 124px;
+          line-height: 1.1;
+          letter-spacing: 0.01em;
+          color: #6e7a4f;
+          white-space: nowrap;
+        }
+        .s2-ch {
+          display: inline-block;
+          filter: url(#s2-paper-3);
+        }
+        #s2-strip {
+          position: absolute;
+          left: 102px;
+          top: 404px;
+          width: 150px;
+          height: 20px;
+          border-radius: 10px;
+          background: #7a93a8;
+          filter: url(#s2-paper-2);
+        }
+      </style>
+      <div id="root" data-composition-id="s2" data-width="1080" data-height="1920">
+        <div id="s2-bg"></div>
+        <svg id="s2-sheet" viewBox="0 0 1080 1920">
+          <defs id="s2-defs"></defs>
+          <g id="s2-cam">
+            <!-- sun, the back layer -->
+            <g class="s2-lift" data-lift="5" data-bob="0">
+              <circle id="s2-sun" cx="660" cy="1120" r="310" fill="#C89B4A" filter="url(#s2-paper-2)" />
+            </g>
+            <!-- small cranes behind -->
+            <g transform="translate(880 640) scale(0.42)">
+              <g class="s2-lift" data-lift="22" data-bob="8"><g id="s2-cb-holder"></g></g>
+            </g>
+            <g transform="translate(200 900) scale(0.32)">
+              <g class="s2-lift" data-lift="26" data-bob="9"><g id="s2-cc-holder"></g></g>
+            </g>
+            <!-- hills, back to front -->
+            <g class="s2-lift" data-lift="4" data-bob="0">
+              <path
+                id="s2-hill-1"
+                fill="#8A956A"
+                filter="url(#s2-paper-1)"
+                d="M -40 1980 L -40 1420 C 120 1340, 300 1330, 460 1390 C 600 1440, 720 1300, 900 1290 C 1000 1285, 1080 1320, 1120 1340 L 1120 1980 Z"
+              />
+            </g>
+            <g class="s2-lift" data-lift="6" data-bob="0">
+              <path
+                id="s2-hill-2"
+                fill="#6E7A4F"
+                filter="url(#s2-paper-2)"
+                d="M -40 1980 L -40 1540 C 140 1480, 280 1470, 420 1510 C 560 1550, 700 1560, 840 1490 C 940 1440, 1040 1450, 1120 1480 L 1120 1980 Z"
+              />
+            </g>
+            <g id="s2-flowers"></g>
+            <g class="s2-lift" data-lift="8" data-bob="0">
+              <path
+                id="s2-hill-3"
+                fill="#5F6B44"
+                filter="url(#s2-paper-3)"
+                d="M -40 1980 L -40 1660 C 160 1600, 360 1610, 560 1660 C 720 1700, 900 1640, 1120 1610 L 1120 1980 Z"
+              />
+            </g>
+            <!-- the paper square from s1, folded on 'kareden' -->
+            <g transform="translate(620 1040)">
+              <g class="s2-lift" data-lift="12" data-bob="0">
+                <g id="s2-tri">
+                  <path id="s2-sq" d="M -170 -170 H 170 V 170 H -170 Z" fill="#F3EBDA" filter="url(#s2-paper-3)" />
+                  <path id="s2-base1" d="M 170 -170 L 170 170 L -170 170 Z" fill="#F3EBDA" filter="url(#s2-paper-3)" opacity="0" />
+                  <g id="s2-flap1-wrap" filter="url(#s2-paper-4)" opacity="0">
+                    <path id="s2-flap1" d="M -170 -170 L 170 -170 L -170 170 Z" fill="#F3EBDA" />
+                  </g>
+                  <path id="s2-half2s" d="M 0 0 L -170 170 L 170 170 Z" fill="#E7DBC2" filter="url(#s2-paper-3)" opacity="0" />
+                  <g id="s2-half2m-wrap" filter="url(#s2-paper-4)" opacity="0">
+                    <path id="s2-half2m" d="M 0 0 L 170 -170 L 170 170 Z" fill="#E7DBC2" />
+                  </g>
+                </g>
+              </g>
+            </g>
+            <!-- the main crane, top layer -->
+            <g transform="translate(630 1135) scale(1.08)">
+              <g class="s2-lift" data-lift="14" data-bob="3"><g id="s2-ca-holder"></g></g>
+            </g>
+          </g>
+        </svg>
+        <div id="s2-headline">JAPONYA</div>
+        <div id="s2-strip"></div>
+      </div>
+      <script type="module">
+        const D = 6.794;
+
+        function mulberry32(a) {
+          return function () {
+            a |= 0;
+            a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+        const rand = mulberry32(90210);
+
+        // ---------- paper filters (fiber, irregular edge, layered shadow) ----------
+        const FILTERS = [
+          ["paper-1", 3, 3],
+          ["paper-2", 4, 4.2],
+          ["paper-3", 5, 5.9],
+          ["paper-4", 7, 8.2],
+        ];
+        document.getElementById("s2-defs").innerHTML = FILTERS.map(
+          ([key, seed, d]) => `
+          <filter id="s2-${key}" x="-25%" y="-25%" width="150%" height="160%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="${seed}" result="edge"/>
+            <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut"/>
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber"/>
+            <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray"/>
+            <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex"/>
+            <feComposite in="tex" in2="cut" operator="in" result="paper"/>
+            <feDropShadow dx="0" dy="${d}" stdDeviation="${d}" flood-color="rgb(60,48,30)" flood-opacity="0.28" data-base="${d}"/>
+          </filter>`,
+        ).join("");
+
+        // ---------- cranes ----------
+        function crane(k, c) {
+          return `
+          <g id="s2-${k}-in">
+            <g id="s2-${k}-fw-sway"><path id="s2-${k}-fw" d="M -5 -14 L 72 -6 L 175 -275 Z" fill="${c.shade}" filter="url(#${c.f1})"/></g>
+            <path id="s2-${k}-tail" d="M 52 8 L 96 2 L 232 -168 Z" fill="${c.mid}" filter="url(#${c.f1})"/>
+            <path id="s2-${k}-neck" d="M -78 8 L -36 14 L -198 -172 Z M -214 -180 L -186 -160 L -256 -128 Z" fill="${c.light}" filter="url(#${c.f1})"/>
+            <path d="M -86 4 L 0 -22 L 96 4 L 6 64 Z" fill="${c.light}" filter="url(#${c.f2})"/>
+            <path d="M -86 4 L 96 4 L 6 64 Z" fill="${c.shade}" filter="url(#${c.f2})"/>
+            <g id="s2-${k}-nw-sway"><g id="s2-${k}-nw">
+              <path d="M -64 2 L 58 -2 L 30 -318 Z" fill="${c.light}" filter="url(#${c.f3})"/>
+              <path d="M -64 2 L -2 0 L 30 -318 Z" fill="${c.mid}" filter="url(#${c.f3})"/>
+            </g></g>
+          </g>`;
+        }
+        const LIGHT = { light: "#F3EBDA", mid: "#EAE0CB", shade: "#DCCFB3", f1: "s2-paper-3", f2: "s2-paper-3", f3: "s2-paper-4" };
+        const BLUE = { light: "#7A93A8", mid: "#7189A0", shade: "#67819A", f1: "s2-paper-2", f2: "s2-paper-2", f3: "s2-paper-3" };
+        document.getElementById("s2-ca-holder").innerHTML = crane("ca", LIGHT);
+        document.getElementById("s2-cb-holder").innerHTML = crane("cb", BLUE);
+        document.getElementById("s2-cc-holder").innerHTML = crane("cc", BLUE);
+
+        // ---------- flowers ----------
+        function petals(R) {
+          let d = "";
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            const cx = Math.cos(a) * 0.52 * R;
+            const cy = Math.sin(a) * 0.52 * R;
+            const A = 0.5 * R;
+            const B = 0.3 * R;
+            for (let k = 0; k <= 28; k++) {
+              const u = (k / 28) * Math.PI * 2;
+              const lx = Math.cos(u) * A;
+              const ly = Math.sin(u) * B;
+              const x = cx + lx * Math.cos(a) - ly * Math.sin(a);
+              const y = cy + lx * Math.sin(a) + ly * Math.cos(a);
+              d += (k ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1) + " ";
+            }
+            d += "Z ";
+          }
+          return d;
+        }
+        function circ(r) {
+          return `M ${r} 0 A ${r} ${r} 0 1 0 ${-r} 0 A ${r} ${r} 0 1 0 ${r} 0 Z `;
+        }
+        const FLOWERS = [
+          { key: "fl-1", x: 165, y: 1700, H: 250, R: 78, petal: "#7A93A8", ring: "#C89B4A", leaf: 1, rot: 8 },
+          { key: "fl-2", x: 350, y: 1700, H: 190, R: 58, petal: "#C89B4A", ring: "#7A93A8", leaf: -1, rot: -12 },
+          { key: "fl-3", x: 912, y: 1720, H: 260, R: 84, petal: "#7A93A8", ring: "#C89B4A", leaf: -1, rot: 20 },
+        ];
+        document.getElementById("s2-flowers").innerHTML = FLOWERS.map((f) => {
+          const ly = -f.H * 0.42;
+          return `
+          <g transform="translate(${f.x} ${f.y})">
+            <g class="s2-lift" data-lift="10" data-bob="0">
+              <g id="s2-${f.key}"><g id="s2-${f.key}-sway">
+                <path d="M -6 0 L -6 ${-f.H} L 6 ${-f.H} L 6 0 Z" fill="#8A956A" filter="url(#s2-paper-1)"/>
+                <path transform="scale(${f.leaf} 1)" d="M 4 ${ly} C 40 ${ly - 46}, 80 ${ly - 40}, 96 ${ly - 30} C 70 ${ly + 2}, 34 ${ly + 8}, 4 ${ly} Z" fill="#8A956A" filter="url(#s2-paper-1)"/>
+                <g transform="translate(0 ${-f.H}) rotate(${f.rot})">
+                  <path d="${petals(f.R)}" fill="${f.petal}" filter="url(#s2-paper-2)"/>
+                  <circle r="${(0.34 * f.R).toFixed(1)}" fill="#4F6B85" filter="url(#s2-paper-1)"/>
+                  <path d="${circ(0.37 * f.R) + circ(0.17 * f.R)}" fill-rule="evenodd" fill="${f.ring}" filter="url(#s2-paper-3)"/>
+                </g>
+              </g></g>
+            </g>
+          </g>`;
+        }).join("");
+
+        // ---------- headline letters ----------
+        const head = document.getElementById("s2-headline");
+        const word = head.textContent.trim();
+        head.textContent = "";
+        for (const ch of word) {
+          const s = document.createElement("span");
+          s.className = "s2-ch";
+          s.textContent = ch;
+          head.appendChild(s);
+        }
+
+        // ---------- time driven drawing ----------
+        const cam = document.getElementById("s2-cam");
+        const sq = document.getElementById("s2-sq");
+        const base1 = document.getElementById("s2-base1");
+        const flap1W = document.getElementById("s2-flap1-wrap");
+        const flap1 = document.getElementById("s2-flap1");
+        const half2s = document.getElementById("s2-half2s");
+        const half2mW = document.getElementById("s2-half2m-wrap");
+        const half2m = document.getElementById("s2-half2m");
+        const shadows = Array.from(document.querySelectorAll("#s2-defs feDropShadow")).map((el) => ({
+          el,
+          b: parseFloat(el.getAttribute("data-base")),
+        }));
+        const lifts = Array.from(document.querySelectorAll(".s2-lift")).map((el) => ({
+          el,
+          lift: parseFloat(el.getAttribute("data-lift")),
+          bob: parseFloat(el.getAttribute("data-bob")),
+          ph: rand() * Math.PI * 2,
+          fr: 1.3 + rand() * 0.5,
+        }));
+        const sways = [];
+        ["ca", "cb", "cc"].forEach((k, i) => {
+          const amp = i === 0 ? 2.4 : 3.4;
+          sways.push({ el: document.getElementById("s2-" + k + "-nw-sway"), amp, fr: 2.0 + rand() * 0.6, ph: rand() * 6.28, px: 0, py: 0 });
+          sways.push({ el: document.getElementById("s2-" + k + "-fw-sway"), amp: amp * 0.8, fr: 1.8 + rand() * 0.6, ph: rand() * 6.28, px: 34, py: -10 });
+        });
+        FLOWERS.forEach((f) => {
+          sways.push({ el: document.getElementById("s2-" + f.key + "-sway"), amp: 1.6, fr: 1.2 + rand() * 0.5, ph: rand() * 6.28, px: 0, py: 0 });
+        });
+
+        const FRONT = "#F3EBDA";
+        const BACK = "#E7DBC2";
+        const F1 = [2.7, 3.02];
+        const F2 = [3.08, 3.4];
+        const LIFT0 = 5.66;
+        const seg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+        const io = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+        const sm = (x) => x * x * (3 - 2 * x);
+
+        function draw(t) {
+          // slow push in toward the crane
+          const c = seg(t, 0, D);
+          const s = 1 + 0.06 * (0.5 - 0.5 * Math.cos(Math.PI * c));
+          cam.setAttribute("transform", `translate(630 1080) scale(${s.toFixed(5)}) translate(-630 -1080)`);
+
+          // two diagonal paper folds
+          const p1 = io(seg(t, F1[0], F1[1]));
+          const p2 = io(seg(t, F2[0], F2[1]));
+          const phase0 = t < F1[0];
+          const phase1 = t >= F1[0] && t < F1[1];
+          const phase2 = t >= F1[1];
+          sq.setAttribute("opacity", phase0 ? 1 : 0);
+          base1.setAttribute("opacity", phase1 ? 1 : 0);
+          flap1W.setAttribute("opacity", phase1 ? 1 : 0);
+          half2s.setAttribute("opacity", phase2 ? 1 : 0);
+          half2mW.setAttribute("opacity", phase2 ? 1 : 0);
+          const s1 = Math.cos(Math.PI * p1);
+          flap1.setAttribute("transform", `rotate(-45) scale(1 ${s1.toFixed(4)}) rotate(45)`);
+          flap1.setAttribute("fill", s1 < 0 ? BACK : FRONT);
+          const s2 = Math.cos(Math.PI * p2);
+          half2m.setAttribute("transform", `rotate(45) scale(1 ${s2.toFixed(4)}) rotate(-45)`);
+
+          // seeded small sways
+          for (const w of sways) {
+            const a = w.amp * Math.sin(t * w.fr + w.ph);
+            w.el.setAttribute("transform", `rotate(${a.toFixed(3)} ${w.px} ${w.py})`);
+          }
+
+          // 'doğuyor': every layer lifts once, shadows grow and soften, then settle
+          const e = sm(seg(t, LIFT0, LIFT0 + 0.3)) * (1 - sm(seg(t, LIFT0 + 0.5, LIFT0 + 0.95)));
+          for (const sh of shadows) {
+            sh.el.setAttribute("dy", (sh.b * (1 + 1.3 * e)).toFixed(2));
+            sh.el.setAttribute("stdDeviation", (sh.b * (1 + 1.6 * e)).toFixed(2));
+            sh.el.setAttribute("flood-opacity", (0.28 - 0.07 * e).toFixed(3));
+          }
+          for (const l of lifts) {
+            const bob = l.bob * Math.sin(t * l.fr + l.ph);
+            l.el.setAttribute("transform", `translate(0 ${(bob - l.lift * e).toFixed(2)})`);
+          }
+        }
+
+        const driver = { _t: -1 };
+        Object.defineProperty(driver, "t", {
+          get() {
+            return this._t;
+          },
+          set(v) {
+            if (v !== this._t) {
+              this._t = v;
+              draw(v);
+            }
+          },
+        });
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        const buildPromise = document.fonts.load('900 124px "Nunito"').then(() => {
+          driver.t = 0;
+          const tl = gsap.timeline({ paused: true });
+          const ENTER = { duration: 0.55, ease: "back.out(1.3)" };
+          tl.fromTo(driver, { t: 0 }, { t: D, duration: D, ease: "none" }, 0);
+
+          // hills slide up from below, back to front
+          ["#s2-hill-1", "#s2-hill-2", "#s2-hill-3"].forEach((sel, i) => {
+            tl.fromTo(sel, { y: 700 }, { y: 0, ...ENTER }, 0.05 + i * 0.07);
+          });
+
+          // headline: cut paper letters slide in on 'Japonya'da'
+          tl.fromTo(".s2-ch", { x: -820 }, { x: 0, ...ENTER, stagger: 0.05 }, 0.3);
+
+          // the sun rises from behind the hills
+          tl.fromTo("#s2-sun", { y: 1200 }, { y: 0, duration: 1.05, ease: "back.out(1.3)" }, 0.4);
+
+          // small strip on 'yüzyıllardır'
+          tl.fromTo("#s2-strip", { x: -420 }, { x: 0, ...ENTER }, 1.62);
+
+          // 'turnalar': the folded triangle flips shut, the crane flips open
+          tl.fromTo("#s2-tri", { scaleX: 1, transformOrigin: "50% 50%" }, { scaleX: 0, transformOrigin: "50% 50%", duration: 0.12, ease: "power2.in" }, 3.66);
+          tl.fromTo("#s2-ca-in", { scaleX: 0, transformOrigin: "50% 60%" }, { scaleX: 1, transformOrigin: "50% 60%", duration: 0.4, ease: "back.out(1.3)" }, 3.78);
+          tl.fromTo("#s2-ca-neck", { scale: 0, transformOrigin: "100% 100%" }, { scale: 1, transformOrigin: "100% 100%", ...ENTER }, 3.84);
+          tl.fromTo("#s2-ca-fw", { scaleY: 0, transformOrigin: "50% 100%" }, { scaleY: 1, transformOrigin: "50% 100%", ...ENTER }, 3.86);
+          tl.fromTo("#s2-ca-tail", { scale: 0, transformOrigin: "0% 100%" }, { scale: 1, transformOrigin: "0% 100%", ...ENTER }, 3.9);
+          tl.fromTo("#s2-ca-nw", { scaleY: 0, transformOrigin: "50% 100%" }, { scaleY: 1, transformOrigin: "50% 100%", ...ENTER }, 3.94);
+
+          // two smaller cranes slide in behind
+          tl.fromTo("#s2-cb-in", { x: 1000 }, { x: 0, duration: 0.6, ease: "back.out(1.3)" }, 4.12);
+          tl.fromTo("#s2-cc-in", { x: -1200 }, { x: 0, duration: 0.6, ease: "back.out(1.3)" }, 4.26);
+
+          // 'çiçekler': flowers flip up from behind the hills, one by one
+          FLOWERS.forEach((f, i) => {
+            tl.fromTo(
+              "#s2-" + f.key,
+              { scaleY: 0, transformOrigin: "50% 100%" },
+              { scaleY: 1, transformOrigin: "50% 100%", ...ENTER },
+              4.96 + i * 0.18,
+            );
+          });
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s2"] = tl;
+          return true;
+        });
+        window.__hf.buildReady["s2"] = buildPromise;
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s1</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Patrick Hand";
+          src: url("vendor/fonts/patrick-hand/PatrickHand-Regular.ttf") format("truetype");
+          font-weight: 400;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s1-bg {
+          position: absolute;
+          inset: 0;
+          background: transparent;
+        }
+        #s1-plate {
+          position: absolute;
+          left: 1440px;
+          top: 80px;
+          width: 370px;
+          height: 892px;
+          background: #f4f1ea;
+          border-radius: 10px;
+        }
+        #s1-draw {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1920px;
+          height: 1080px;
+        }
+        #s1-write {
+          position: absolute;
+          left: 1470px;
+          top: 770px;
+          width: 340px;
+          font-family: "Patrick Hand", sans-serif;
+          font-size: 70px;
+          line-height: 91px;
+          color: #1f1f1f;
+        }
+        .s1-word {
+          display: inline-block;
+          white-space: nowrap;
+        }
+        .s1-ch {
+          display: inline-block;
+        }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-bg"></div>
+        <div id="s1-plate"></div>
+        <svg id="s1-draw" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" fill="none"></svg>
+        <div id="s1-write">BİLGİ YAĞMURU</div>
+      </div>
+      <script type="module">
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+
+        const build = async () => {
+          await document.fonts.load('400 70px "Patrick Hand"');
+
+          const INK = "#1F1F1F";
+          const RED = "#C2493D";
+          const NS = "http://www.w3.org/2000/svg";
+          const layer = document.getElementById("s1-draw");
+          const tl = gsap.timeline({ paused: true });
+
+          function mulberry32(a) {
+            return function () {
+              a |= 0;
+              a = (a + 0x6d2b79f5) | 0;
+              let t = Math.imul(a ^ (a >>> 15), 1 | a);
+              t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+          }
+          const rnd = mulberry32(21);
+          const J = (a) => (rnd() - 0.5) * 2 * a;
+          const f1 = (n) => n.toFixed(1);
+
+          // wobbly polyline through points
+          function poly(pts, step = 22, amp = 1.3) {
+            const out = [pts[0]];
+            for (let i = 0; i < pts.length - 1; i++) {
+              const a = pts[i], b = pts[i + 1];
+              const dx = b[0] - a[0], dy = b[1] - a[1];
+              const len = Math.hypot(dx, dy) || 1;
+              const k = Math.max(1, Math.round(len / step));
+              const nx = -dy / len, ny = dx / len;
+              for (let j = 1; j <= k; j++) {
+                const t = j / k;
+                const e = j < k ? J(amp) : J(amp * 0.4);
+                out.push([a[0] + dx * t + nx * e, a[1] + dy * t + ny * e]);
+              }
+            }
+            return out.map((p, i) => (i ? "L" : "M") + f1(p[0]) + " " + f1(p[1])).join(" ");
+          }
+          function jp(str, a = 1.5) {
+            return str.replace(/-?\d+(\.\d+)?/g, (m) => f1(+m + J(a)));
+          }
+          function circle(cx, cy, r) {
+            const pts = [];
+            const n = 22;
+            const a0 = -1.75, a1 = a0 + Math.PI * 2 + 0.2;
+            for (let i = 0; i <= n; i++) {
+              const a = a0 + ((a1 - a0) * i) / n;
+              const rr = r + J(1);
+              pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]);
+            }
+            return pts.map((p, i) => (i ? "L" : "M") + f1(p[0]) + " " + f1(p[1])).join(" ");
+          }
+          function scribble(x1, x2, y, amp, step) {
+            const pts = [];
+            let s = 1;
+            for (let x = x1; x <= x2; x += step) {
+              pts.push([x, y + s * amp]);
+              s = -s;
+            }
+            return poly(pts, 100, 0.6);
+          }
+
+          function mk(d, color = INK, w = 6.5) {
+            const p = document.createElementNS(NS, "path");
+            p.setAttribute("d", d);
+            p.setAttribute("stroke", color);
+            p.setAttribute("stroke-width", w);
+            p.setAttribute("stroke-linecap", "round");
+            p.setAttribute("stroke-linejoin", "round");
+            p.setAttribute("fill", "none");
+            p.style.opacity = 0;
+            layer.appendChild(p);
+            const L = p.getTotalLength() + 1;
+            p.setAttribute("stroke-dasharray", L);
+            p._len = L;
+            return p;
+          }
+
+          function seq(els, t0, total, ease = "power1.inOut") {
+            const sum = els.reduce((s, e) => s + e._len, 0);
+            let t = t0;
+            els.forEach((e) => {
+              const d = (total * e._len) / sum;
+              tl.set(e, { opacity: 1 }, t);
+              tl.fromTo(e, { strokeDashoffset: e._len }, { strokeDashoffset: 0, duration: d, ease }, t);
+              t += d;
+            });
+            return t;
+          }
+
+          // ---------- plate (paper sheet wiped on) ----------
+          tl.fromTo(
+            "#s1-plate",
+            { clipPath: "inset(0% 0% 100% 0%)" },
+            { clipPath: "inset(0% 0% 0% 0%)", duration: 0.22, ease: "power2.out" },
+            0
+          );
+
+          // ---------- cloud ----------
+          const cloudOutline = mk(
+            jp("M1546 214 C1510 214 1504 170 1542 166 C1536 126 1596 114 1614 146 C1632 106 1698 112 1702 152 C1746 146 1762 200 1722 214 L1538 213")
+          );
+          const cloudD1 = mk(jp("M1566 196 Q1580 182 1600 190", 1), INK, 6);
+          const cloudD2 = mk(jp("M1652 190 Q1672 176 1692 188", 1), INK, 6);
+          seq([cloudOutline, cloudD1, cloudD2], 0.24, 0.7);
+
+          // ---------- cards ----------
+          function card(i, x, y, t0, B) {
+            const w = 190, h = 72;
+            const outline = mk(
+              poly([[x - 3, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y - 3]], 24, 1.3)
+            );
+            const squig = mk(scribble(x + 14, x + 112, y + 20, 5, 9), INK, 6);
+            const l1 = mk(scribble(x + 14, x + 146, y + 41, 2, 9), INK, 5);
+            const l2 = mk(scribble(x + 14, x + 98, y + 57, 2, 9), INK, 5);
+            const R = x + w, T = y, S = 30;
+            const fold = mk(poly([[R - S, T], [R, T + S]], 40, 0.5), INK, 5);
+            let hd = "";
+            const dc = 10.5;
+            for (let c = R + T - S + dc; c < R + T + S - 4; c += dc) {
+              let p1;
+              if (c <= R + T) p1 = [c - T, T];
+              else p1 = [R, c - R];
+              const x2 = (c - T + R - S) / 2;
+              const y2 = T + x2 - (R - S);
+              hd += `M${f1(p1[0])} ${f1(p1[1])} L${f1(x2)} ${f1(y2)} `;
+            }
+            const hatch = mk(hd, INK, 3.5);
+            // rain beside the card, on the open side
+            const even = i % 2 === 0;
+            const rain = [];
+            for (let k = 0; k < 3; k++) {
+              const sx = even ? 1692 + k * 22 : 1480 + k * 22;
+              const sy = y + 8 + (k % 2) * 14 + J(2);
+              rain.push(mk(poly([[sx, sy], [sx - 9, sy + 24]], 40, 0.6), INK, 5));
+            }
+            let t = t0;
+            t = seq([outline], t, B * 0.4);
+            t = seq([squig], t, B * 0.14);
+            t = seq([l1, l2], t, B * 0.2);
+            t = seq([fold], t, B * 0.04);
+            t = seq([hatch], t, B * 0.1, "none");
+            seq(rain, t, B * 0.12);
+          }
+          const X0 = 1470, X1 = 1535, PITCH = 86, Y0 = 234;
+          card(0, X0, Y0, 0.98, 0.72);
+          card(1, X1, Y0 + PITCH, 1.82, 0.56);
+          card(2, X0, Y0 + PITCH * 2, 2.42, 0.44);
+          card(3, X1, Y0 + PITCH * 3, 2.9, 0.29);
+
+          // ---------- stick figure with umbrella ----------
+          const cx = 1630, top = 592, fx = cx - 32, hy = top + 80;
+          const canopy = mk(jp(`M${cx - 70} ${top + 38} Q${cx} ${top - 38} ${cx + 70} ${top + 38}`, 1.2));
+          const scal = mk(
+            jp(`M${cx - 70} ${top + 38} Q${cx - 35} ${top + 50} ${cx} ${top + 38} Q${cx + 35} ${top + 50} ${cx + 70} ${top + 38}`, 1),
+            INK,
+            6
+          );
+          const pole = mk(jp(`M${cx} ${top + 38} L${cx} ${top + 108} Q${cx} ${top + 124} ${cx - 14} ${top + 120}`, 1));
+          const head = mk(circle(fx, hy, 14));
+          const body = mk(poly([[fx, hy + 14], [fx, top + 146]], 30, 1));
+          const arm1 = mk(poly([[fx, hy + 26], [cx, top + 108]], 30, 1));
+          const arm2 = mk(poly([[fx, hy + 26], [fx - 26, hy + 50]], 30, 1));
+          const leg1 = mk(poly([[fx, top + 146], [fx - 20, top + 176]], 30, 1));
+          const leg2 = mk(poly([[fx, top + 146], [fx + 20, top + 176]], 30, 1));
+          seq([canopy, scal, pole, head, body, arm1, arm2, leg1, leg2], 3.2, 0.34);
+
+          // ---------- handwriting (one text block, wraps into two lines) ----------
+          const wr = document.getElementById("s1-write");
+          const words = wr.textContent.trim().split(/\s+/);
+          wr.textContent = "";
+          const letters = [];
+          const wordEls = [];
+          words.forEach((wd, wi) => {
+            const ws = document.createElement("span");
+            ws.className = "s1-word";
+            for (const ch of wd) {
+              const s = document.createElement("span");
+              s.className = "s1-ch";
+              s.textContent = ch;
+              s.style.transform = `translateY(${f1(J(1.6))}px) rotate(${f1(J(1.4))}deg)`;
+              ws.appendChild(s);
+              letters.push(s);
+            }
+            wr.appendChild(ws);
+            if (wi < words.length - 1) wr.appendChild(document.createTextNode(" "));
+            wordEls.push(ws);
+          });
+          const w2 = wordEls[wordEls.length - 1].offsetWidth;
+          const LPS = 16.5;
+          letters.forEach((s, i) => {
+            tl.fromTo(
+              s,
+              { clipPath: "inset(-40% 100% -40% 0%)" },
+              { clipPath: "inset(-40% -10% -40% -10%)", duration: 0.1, ease: "none" },
+              4.16 + i / LPS
+            );
+          });
+
+          // ---------- red underline ----------
+          const ux0 = 1470 - 6, ux1 = 1470 + w2 + 10, uy = 946;
+          const under = mk(poly([[ux0, uy + 1], [(ux0 + ux1) / 2, uy + 4], [ux1, uy - 2]], 40, 1), RED, 6.5);
+          seq([under], 4.9, 0.3);
+
+          // ---------- red arrow from cloud to figure ----------
+          const shaft = mk(jp("M1748 160 C1806 180 1806 500 1736 628", 1.2), RED, 6.5);
+          const ex = 1736, ey = 628;
+          const dir = [-0.48, 0.877];
+          const back = [-dir[0], -dir[1]];
+          const rot = (v, a) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)];
+          const a1 = rot(back, 0.52), a2 = rot(back, -0.52);
+          const head2 = mk(
+            `M${f1(ex + a1[0] * 24)} ${f1(ey + a1[1] * 24)} L${ex} ${ey} L${f1(ex + a2[0] * 24)} ${f1(ey + a2[1] * 24)}`,
+            RED,
+            6.5
+          );
+          seq([shaft], 5.36, 0.36);
+          seq([head2], 5.72, 0.12);
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s1"] = tl;
+        };
+
+        window.__hf.buildReady["s1"] = build();
+      </script>
+    </template>
+  </body>
+</html>

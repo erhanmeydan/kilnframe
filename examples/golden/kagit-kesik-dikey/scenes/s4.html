@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s4</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Nunito";
+          font-weight: 200 1000;
+          src: url("vendor/fonts/nunito/Nunito-Variable.ttf") format("truetype");
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s4-bg {
+          position: absolute;
+          inset: 0;
+          background: #efe6d2;
+        }
+        #s4-svg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+        #s4-headline {
+          position: absolute;
+          left: 96px;
+          top: 214px;
+          max-width: 760px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          font-family: "Nunito", sans-serif;
+          font-weight: 900;
+          font-size: 104px;
+          line-height: 1.4;
+          color: #6e7a4f;
+        }
+        .s4-word {
+          display: block;
+          width: max-content;
+          line-height: 1.4;
+          filter: url(#s4-f-text);
+        }
+        .s4-word-accent {
+          color: #c89b4a;
+        }
+      </style>
+      <div id="root" data-composition-id="s4" data-width="1080" data-height="1920">
+        <div id="s4-bg"></div>
+        <svg id="s4-svg" viewBox="0 0 1080 1920">
+          <defs>
+            <filter id="s4-f-fiber" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="SourceGraphic" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="SourceGraphic" operator="in" />
+            </filter>
+            <filter id="s4-f-p1" x="-10%" y="-20%" width="120%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="3" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s4-f-text" x="-10%" y="-10%" width="120%" height="135%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow dx="0" dy="4.2" stdDeviation="4.2" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s4-f-static" filterUnits="userSpaceOnUse" x="-140" y="-1020" width="880" height="1180" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s4-ds-static" dx="0" dy="3" stdDeviation="3" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s4-f-flap" filterUnits="userSpaceOnUse" x="-140" y="-1020" width="880" height="1180" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="9" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s4-ds-flap" dx="0" dy="4.2" stdDeviation="4.2" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+            <filter id="s4-f-tray" x="-15%" y="-20%" width="130%" height="150%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="5" result="edge" />
+              <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="cut" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="6" result="fiber" />
+              <feColorMatrix in="fiber" type="saturate" values="0" result="fiberGray" />
+              <feComposite in="cut" in2="fiberGray" operator="arithmetic" k1="0" k2="1" k3="0.16" k4="-0.08" result="tex" />
+              <feComposite in="tex" in2="cut" operator="in" result="paper" />
+              <feDropShadow id="s4-ds-tray" dx="0" dy="4.2" stdDeviation="4.2" flood-color="rgb(60,48,30)" flood-opacity="0.28" />
+            </filter>
+          </defs>
+
+          <rect id="s4-fiber" x="0" y="0" width="1080" height="1920" fill="#EFE6D2" filter="url(#s4-f-fiber)" />
+
+          <!-- olive shelf strip the tray stands on -->
+          <g id="s4-shelf">
+            <rect x="540" y="1628" width="620" height="34" rx="17" fill="#6E7A4F" filter="url(#s4-f-p1)" />
+          </g>
+
+          <!-- tray inner back wall, seen through the opening -->
+          <g id="s4-tray-back">
+            <rect x="636" y="1380" width="308" height="238" fill="#4F6B85" filter="url(#s4-f-p1)" />
+          </g>
+
+          <!-- the ochre sheet: static stack plus the folding flap -->
+          <g id="s4-sheet">
+            <rect id="s4-static" x="0" y="-880" width="600" height="880" fill="#C89B4A" filter="url(#s4-f-static)" />
+            <rect id="s4-flap" x="0" y="0" width="0" height="0" fill="#C89B4A" opacity="0" filter="url(#s4-f-flap)" />
+          </g>
+
+          <!-- tray front: a cut paper U with a handle slot -->
+          <g id="s4-tray-front">
+            <path
+              fill="#7A93A8"
+              fill-rule="evenodd"
+              filter="url(#s4-f-tray)"
+              d="M606 1382 Q606 1376 612 1376 H634 Q640 1376 640 1382 V1480 H940 V1382 Q940 1376 946 1376 H968 Q974 1376 974 1382 V1618 Q974 1630 962 1630 H618 Q606 1630 606 1618 Z
+                 M730 1528 H850 A13 13 0 0 1 850 1554 H730 A13 13 0 0 1 730 1528 Z"
+            />
+          </g>
+        </svg>
+        <div id="s4-headline">
+          <span id="s4-w1" class="s4-word">KÜÇÜK</span>
+          <span id="s4-w2" class="s4-word">ALANA</span>
+          <span id="s4-w3" class="s4-word s4-word-accent">SIĞDIRMAK</span>
+        </div>
+      </div>
+      <script type="module">
+        const DURATION = 4.21;
+
+        const sheet = document.getElementById("s4-sheet");
+        const staticEl = document.getElementById("s4-static");
+        const flapEl = document.getElementById("s4-flap");
+        const dsStatic = document.getElementById("s4-ds-static");
+        const dsFlap = document.getElementById("s4-ds-flap");
+        const dsTray = document.getElementById("s4-ds-tray");
+        const shelf = document.getElementById("s4-shelf");
+        const trayBack = document.getElementById("s4-tray-back");
+        const trayFront = document.getElementById("s4-tray-front");
+
+        const E_BACK = gsap.parseEase("back.out(1.3)");
+        const E_IO = gsap.parseEase("power2.inOut");
+        const E_IN = gsap.parseEase("power2.in");
+        const E_OUT = gsap.parseEase("power2.out");
+        const E_SINE = gsap.parseEase("sine.inOut");
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+        const prog = (t, a, d) => clamp01((t - a) / d);
+
+        // sheet in local units, origin at its bottom left corner; final block is 300 x 220
+        const STATES = [
+          [0, -880, 600, 880],
+          [0, -440, 600, 440],
+          [0, -440, 300, 440],
+          [0, -220, 300, 220],
+        ];
+        const FOLDS = [
+          { a: 0.96, d: 0.4 },
+          { a: 1.4, d: 0.38 },
+          { a: 1.8, d: 0.36 },
+        ];
+        const OCHRE = [200, 155, 74];
+        const OCHRE_D = [162, 120, 54];
+
+        function setRect(el, x, y, w, h) {
+          el.setAttribute("x", x.toFixed(2));
+          el.setAttribute("y", y.toFixed(2));
+          el.setAttribute("width", Math.max(0, w).toFixed(2));
+          el.setAttribute("height", Math.max(0, h).toFixed(2));
+        }
+        function setShadow(el, dy, sd, op) {
+          el.setAttribute("dy", dy.toFixed(2));
+          el.setAttribute("stdDeviation", sd.toFixed(2));
+          el.setAttribute("flood-opacity", op.toFixed(3));
+        }
+
+        function draw(t) {
+          // tray assembled from the right, back to front
+          const es = E_BACK(prog(t, 0.59, 0.55));
+          const eb = E_BACK(prog(t, 0.66, 0.55));
+          const ef = E_BACK(prog(t, 0.73, 0.55));
+          // tray lift after the block lands
+          const L = E_OUT(prog(t, 2.72, 0.18)) * (1 - E_IO(prog(t, 2.9, 0.5)));
+          const trayLift = -14 * L;
+          shelf.setAttribute("transform", `translate(${(560 * (1 - es)).toFixed(2)} 0)`);
+          trayBack.setAttribute("transform", `translate(${(560 * (1 - eb)).toFixed(2)} ${trayLift.toFixed(2)})`);
+          trayFront.setAttribute("transform", `translate(${(560 * (1 - ef)).toFixed(2)} ${trayLift.toFixed(2)})`);
+          setShadow(dsTray, 4.2 + 8 * L, 4.2 + 7 * L, 0.28 - 0.06 * L);
+
+          // sheet slides in from the left
+          const pIn = prog(t, 0.14, 0.55);
+          const inX = -1150 * (1 - E_BACK(pIn));
+          const liftIn = 1 - prog(t, 0.4, 0.35);
+
+          // camera pull back while folding
+          const k = 1.28 - 0.28 * E_SINE(prog(t, 0.96, 1.3));
+
+          // folds
+          let done = 0;
+          let active = -1;
+          let p = 0;
+          FOLDS.forEach((f, i) => {
+            if (t >= f.a + f.d) done = i + 1;
+            else if (t >= f.a && active < 0) {
+              active = i;
+              p = (t - f.a) / f.d;
+            }
+          });
+          const st = active >= 0 ? STATES[active + 1] : STATES[done];
+          setRect(staticEl, st[0], st[1], st[2], st[3]);
+
+          if (active >= 0) {
+            const e = E_IO(p);
+            const c = Math.cos(Math.PI * e);
+            let x, y, w, h;
+            if (active === 0) {
+              const y1 = -440, y2 = -440 - 440 * c;
+              x = 0; w = 600; y = Math.min(y1, y2); h = Math.abs(y2 - y1);
+            } else if (active === 1) {
+              const x1 = 300, x2 = 300 + 300 * c;
+              y = -440; h = 440; x = Math.min(x1, x2); w = Math.abs(x2 - x1);
+            } else {
+              const y1 = -220, y2 = -220 - 220 * c;
+              x = 0; w = 300; y = Math.min(y1, y2); h = Math.abs(y2 - y1);
+            }
+            setRect(flapEl, x, y, w, h);
+            flapEl.setAttribute("opacity", "1");
+            const m = (1 - Math.abs(c)) * 0.6;
+            const col = OCHRE.map((v, j) => Math.round(v + (OCHRE_D[j] - v) * m));
+            flapEl.setAttribute("fill", `rgb(${col[0]},${col[1]},${col[2]})`);
+            const fb = 3 * Math.pow(1.4, done + 1);
+            const fl = Math.sin(Math.PI * e);
+            setShadow(dsFlap, (fb + 12 * fl) / k, (fb + 9 * fl) / k, 0.28 - 0.08 * fl);
+          } else {
+            setRect(flapEl, 0, 0, 0, 0);
+            flapEl.setAttribute("opacity", "0");
+          }
+
+          // slide to the tray, then drop in
+          const pS = prog(t, 2.26, 0.34);
+          const dP = prog(t, 2.6, 0.11);
+          const liftB = prog(t, 2.26, 0.14) * (1 - dP);
+          const lift = Math.max(liftIn, liftB);
+          const base = 3 * Math.pow(1.4, done);
+          setShadow(dsStatic, (base + 14 * lift) / k, (base + 10 * lift) / k, 0.28 - 0.08 * lift);
+
+          const ax = 150 + 490 * E_IO(pS) + inX;
+          const ay = 1290 - 50 * Math.sin(Math.PI * pS) + 310 * E_IN(dP) + trayLift;
+          const rot = 3 * Math.sin(Math.PI * pS);
+          sheet.setAttribute(
+            "transform",
+            `translate(${ax.toFixed(2)} ${ay.toFixed(2)}) rotate(${rot.toFixed(3)} 150 -110) scale(${k.toFixed(4)})`,
+          );
+        }
+
+        const driver = { _t: -1 };
+        Object.defineProperty(driver, "t", {
+          get() {
+            return this._t;
+          },
+          set(v) {
+            if (v !== this._t) {
+              this._t = v;
+              draw(v);
+            }
+          },
+        });
+
+        async function build() {
+          await document.fonts.load('900 104px "Nunito"');
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+          const ENTER = { x: 0, duration: 0.55, ease: "back.out(1.3)" };
+          tl.fromTo("#s4-w1", { x: -900 }, { ...ENTER }, 1.8);
+          tl.fromTo("#s4-w2", { x: -900 }, { ...ENTER }, 2.24);
+          tl.fromTo("#s4-w3", { x: -1000 }, { ...ENTER }, 2.6);
+          driver.t = 0;
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s4"] = tl;
+          return true;
+        }
+
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["s4"] = build();
+      </script>
+    </template>
+  </body>
+</html>

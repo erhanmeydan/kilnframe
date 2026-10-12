@@ -1,0 +1,16 @@
+{
+  "name": "izometrik",
+  "style": "izometrik",
+  "format": "landscape",
+  "modes": ["fullscreen"],
+  "times": [1.7, 3.61, 5.22, 6.31, 8.04, 9.57],
+  "noise": {
+    "mean": 0.2,
+    "changed": 0
+  },
+  "threshold": {
+    "mean": 0.6000000000000001,
+    "changed": 0.002
+  },
+  "renderMs": 28193
+}

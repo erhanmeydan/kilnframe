@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s2</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Space Grotesk";
+          src: url("vendor/fonts/space-grotesk/SpaceGrotesk-Variable.ttf") format("truetype");
+          font-weight: 300 700;
+        }
+        @font-face {
+          font-family: "IBM Plex Mono";
+          src: url("vendor/fonts/ibm-plex-mono/IBMPlexMono-Regular.ttf") format("truetype");
+          font-weight: 400;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s2-bg {
+          position: absolute;
+          inset: 0;
+          background: #1f3a5a;
+        }
+        #s2-paper,
+        #s2-cam,
+        #s2-head {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+        #s2-cam svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+        }
+        .s2-obj {
+          fill: none;
+          stroke: #e8eef2;
+          stroke-width: 2.5;
+          stroke-linecap: butt;
+          stroke-linejoin: miter;
+        }
+        .s2-thin {
+          stroke-width: 1.7;
+        }
+        .s2-con {
+          fill: none;
+          stroke: rgba(232, 238, 242, 0.78);
+          stroke-width: 1.25;
+          stroke-linecap: butt;
+          stroke-linejoin: miter;
+        }
+        .s2-cl {
+          stroke-dasharray: 18 6 3 6;
+        }
+        .s2-ghost {
+          stroke-dasharray: 8 6;
+        }
+        .s2-amb {
+          fill: none;
+          stroke: #e3a445;
+          stroke-width: 2.5;
+          stroke-linecap: butt;
+          stroke-linejoin: miter;
+        }
+        .s2-sig {
+          fill: none;
+          stroke: #e3a445;
+          stroke-width: 6;
+          stroke-linecap: butt;
+          stroke-linejoin: miter;
+        }
+        .s2-dot {
+          fill: #e3a445;
+        }
+        .s2-arrow {
+          fill: #e8eef2;
+        }
+        .s2-title {
+          font-family: "Space Grotesk";
+          font-weight: 500;
+          font-size: 88px;
+          letter-spacing: 2px;
+          fill: #e8eef2;
+        }
+        .s2-mono {
+          font-family: "IBM Plex Mono";
+          font-weight: 400;
+          font-size: 26px;
+          letter-spacing: 1px;
+          fill: #e8eef2;
+        }
+      </style>
+      <div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+        <div id="s2-bg">
+          <svg id="s2-paper" viewBox="0 0 1920 1080" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <filter id="s2-paperf" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" seed="17" />
+              <feColorMatrix type="matrix" values="0 0 0 0 0.91  0 0 0 0 0.93  0 0 0 0 0.95  0.1 0 0 0 -0.035" />
+            </filter>
+            <rect x="0" y="0" width="1920" height="1080" filter="url(#s2-paperf)" />
+          </svg>
+        </div>
+
+        <div id="s2-cam">
+          <svg id="s2-svg" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="s2-gmin" patternUnits="userSpaceOnUse" width="36" height="36">
+                <path d="M0 0.5H36M0.5 0V36" stroke="rgba(232,238,242,0.10)" stroke-width="1" fill="none" />
+              </pattern>
+              <pattern id="s2-gmaj" patternUnits="userSpaceOnUse" width="180" height="180" patternTransform="translate(72 36)">
+                <path d="M0 0.5H180M0.5 0V180" stroke="rgba(232,238,242,0.09)" stroke-width="1" fill="none" />
+              </pattern>
+              <pattern id="s2-hatch" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
+                <line x1="6" y1="0" x2="6" y2="12" stroke="#E8EEF2" stroke-width="1.25" />
+              </pattern>
+              <mask id="s2-bmask" maskUnits="userSpaceOnUse" x="0" y="0" width="1920" height="1080">
+                <ellipse id="s2-mell" cx="1152" cy="576" rx="240" ry="240" fill="#fff" />
+                <circle cx="1152" cy="576" r="241.5" fill="#000" />
+              </mask>
+              <filter id="s2-chalk" filterUnits="userSpaceOnUse" x="-60" y="-60" width="2040" height="1200" color-interpolation-filters="sRGB">
+                <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="17" result="n1" />
+                <feDisplacementMap in="SourceGraphic" in2="n1" scale="1.6" xChannelSelector="R" yChannelSelector="G" result="d1" />
+                <feTurbulence type="fractalNoise" baseFrequency="1.9" numOctaves="1" seed="23" result="n2" />
+                <feColorMatrix in="n2" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -0.7 0 0 0 1.3" result="a1" />
+                <feComposite in="d1" in2="a1" operator="in" />
+              </filter>
+            </defs>
+
+            <rect x="0" y="0" width="1920" height="1080" fill="url(#s2-gmin)" />
+            <rect x="0" y="0" width="1920" height="1080" fill="url(#s2-gmaj)" />
+
+            <g id="s2-draw" filter="url(#s2-chalk)">
+              <!-- bulge hatching -->
+              <rect x="700" y="280" width="900" height="600" fill="url(#s2-hatch)" mask="url(#s2-bmask)" />
+              <circle id="s2-ghost" class="s2-con s2-ghost" cx="1152" cy="576" r="240" style="opacity: 0" />
+
+              <!-- construction: centre lines and centre marks -->
+              <line id="s2-cl-l" class="s2-con s2-cl" x1="1152" y1="576" x2="1152" y2="576" />
+              <line id="s2-cl-r" class="s2-con s2-cl" x1="1152" y1="576" x2="1152" y2="576" />
+              <line id="s2-cv-u" class="s2-con s2-cl" x1="1152" y1="576" x2="1152" y2="576" />
+              <line id="s2-cv-d" class="s2-con s2-cl" x1="1152" y1="576" x2="1152" y2="576" />
+              <line id="s2-mv-u" class="s2-con s2-cl" x1="1800" y1="576" x2="1800" y2="576" />
+              <line id="s2-mv-d" class="s2-con s2-cl" x1="1800" y1="576" x2="1800" y2="576" />
+              <path id="s2-cm-e" class="s2-con" d="M1136 576H1168M1152 560V592" />
+              <path id="s2-cm-m" class="s2-con" d="M1786 576H1814M1800 562V590" />
+
+              <!-- Earth -->
+              <circle id="s2-earth" class="s2-obj" cx="1152" cy="576" r="216" transform="rotate(-90 1152 576)" />
+              <g id="s2-rot"></g>
+              <ellipse id="s2-shell" class="s2-obj s2-thin" cx="1152" cy="576" rx="240" ry="240" />
+
+              <!-- Moon (partial, cut by the frame) -->
+              <circle id="s2-moon" class="s2-obj" cx="1800" cy="576" r="144" transform="rotate(180 1800 576)" />
+              <circle id="s2-cr1" class="s2-con" cx="1758" cy="516" r="16" />
+              <circle id="s2-cr2" class="s2-con" cx="1838" cy="646" r="22" />
+              <circle id="s2-cr3" class="s2-con" cx="1772" cy="664" r="9" />
+
+              <!-- dimensions: right (above) -->
+              <line id="s2-ex-r1" class="s2-con" x1="1392" y1="564" x2="1392" y2="564" />
+              <line id="s2-ex-r2" class="s2-con" x1="1476" y1="564" x2="1476" y2="564" />
+              <line id="s2-dm-r1" class="s2-con" x1="1392" y1="324" x2="1392" y2="324" />
+              <line id="s2-dm-r2" class="s2-con" x1="1476" y1="324" x2="1476" y2="324" />
+              <polygon id="s2-ar-r1" class="s2-arrow" points="1392,324 1404,320 1404,328" style="opacity: 0" />
+              <polygon id="s2-ar-r2" class="s2-arrow" points="1476,324 1464,320 1464,328" style="opacity: 0" />
+              <!-- dimensions: left (below) -->
+              <line id="s2-ex-l1" class="s2-con" x1="912" y1="588" x2="912" y2="588" />
+              <line id="s2-ex-l2" class="s2-con" x1="828" y1="588" x2="828" y2="588" />
+              <line id="s2-dm-l1" class="s2-con" x1="828" y1="828" x2="828" y2="828" />
+              <line id="s2-dm-l2" class="s2-con" x1="912" y1="828" x2="912" y2="828" />
+              <polygon id="s2-ar-l1" class="s2-arrow" points="828,828 840,824 840,832" style="opacity: 0" />
+              <polygon id="s2-ar-l2" class="s2-arrow" points="912,828 900,824 900,832" style="opacity: 0" />
+
+              <!-- annotation leader -->
+              <path id="s2-leader" class="s2-con" d="M0 0" />
+
+              <!-- amber pull circuit -->
+              <path id="s2-circ" class="s2-amb" d="M1800 576H1620V504H1512V576H1152" />
+              <path id="s2-sig" class="s2-sig" d="M1800 576H1620V504H1512V576H1152" />
+              <circle id="s2-dt0" class="s2-dot" cx="1800" cy="576" r="0" />
+              <circle id="s2-dt1" class="s2-dot" cx="1620" cy="576" r="0" />
+              <circle id="s2-dt2" class="s2-dot" cx="1512" cy="576" r="0" />
+              <circle id="s2-dt3" class="s2-dot" cx="1152" cy="576" r="0" />
+            </g>
+
+            <text id="s2-label" class="s2-mono" x="0" y="0"></text>
+          </svg>
+        </div>
+
+        <svg id="s2-head" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <clipPath id="s2-tclip">
+              <rect id="s2-tclip-r" x="130" y="420" width="0" height="230" />
+            </clipPath>
+          </defs>
+          <g filter="url(#s2-chalk)">
+            <text id="s2-title" class="s2-title" x="144" y="576" clip-path="url(#s2-tclip)">GELGİTLER</text>
+            <line id="s2-rule" class="s2-con" x1="144" y1="612" x2="144" y2="612" />
+            <line id="s2-rt1" class="s2-con" x1="144" y1="603" x2="144" y2="621" style="opacity: 0" />
+            <line id="s2-rt2" class="s2-con" x1="144" y1="603" x2="144" y2="621" style="opacity: 0" />
+          </g>
+        </svg>
+      </div>
+      <script type="module">
+        window.__timelines = window.__timelines || {};
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+
+        const NS = "http://www.w3.org/2000/svg";
+        const $ = (id) => document.getElementById(id);
+        const DURATION = 5.793;
+
+        function mulberry32(a) {
+          return function () {
+            a |= 0;
+            a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+        const f2 = (v) => v.toFixed(2);
+        function closedPath(pts) {
+          const n = pts.length;
+          let d = `M${f2(pts[0][0])} ${f2(pts[0][1])}`;
+          for (let i = 0; i < n; i++) {
+            const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+            const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+            const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+            d += ` C${f2(c1[0])} ${f2(c1[1])} ${f2(c2[0])} ${f2(c2[1])} ${f2(p2[0])} ${f2(p2[1])}`;
+          }
+          return d + " Z";
+        }
+        function mk(tag, attrs, parent) {
+          const el = document.createElementNS(NS, tag);
+          for (const k in attrs) el.setAttribute(k, attrs[k]);
+          parent.appendChild(el);
+          return el;
+        }
+        // inverse of power2.inOut, to time events to a fraction of a drawn path
+        function invP2(fr) {
+          return fr < 0.5 ? Math.sqrt(fr / 2) : 1 - Math.sqrt((1 - fr) / 2);
+        }
+        function safeLen(el, fallback) {
+          let L = 0;
+          try {
+            L = el.getTotalLength();
+          } catch (e) {
+            L = 0;
+          }
+          return L > 0 ? L : fallback;
+        }
+
+        async function build() {
+          try {
+            await Promise.all([
+              document.fonts.load('500 88px "Space Grotesk"'),
+              document.fonts.load('400 26px "IBM Plex Mono"'),
+            ]);
+          } catch (e) {
+            /* fonts are local; continue with the build */
+          }
+
+          const tl = gsap.timeline({ paused: true });
+
+          try {
+            const CX = 1152, CY = 576, RE = 216;
+            const rnd = mulberry32(17);
+
+            const draw = (el, at, dur, ease = "power2.inOut") => {
+              const L = safeLen(el, 1000);
+              el.style.strokeDasharray = `${L} ${L + 4}`;
+              tl.fromTo(el, { strokeDashoffset: L }, { strokeDashoffset: 0, duration: dur, ease }, at);
+              return L;
+            };
+            const grow = (el, from, to, at, dur, ease = "power2.inOut") => {
+              tl.fromTo(el, { attr: from }, { attr: to, duration: dur, ease }, at);
+            };
+
+            /* ---------- camera: slow zoom toward the near bulge on the centre line ---------- */
+            const cam = $("s2-cam");
+            gsap.set(cam, { transformOrigin: "76.875% 53.333%" });
+            tl.fromTo(cam, { scale: 1 }, { scale: 1.15, duration: DURATION, ease: "power1.inOut" }, 0);
+
+            /* ---------- headline ---------- */
+            const title = $("s2-title");
+            let tw = 0;
+            try {
+              tw = title.getComputedTextLength();
+            } catch (e) {
+              tw = 0;
+            }
+            if (!(tw > 0)) tw = 500;
+            const rule = $("s2-rule");
+            grow(rule, { x2: 144 }, { x2: 144 + tw }, 0.05, 0.42);
+            $("s2-rt2").setAttribute("x1", 144 + tw);
+            $("s2-rt2").setAttribute("x2", 144 + tw);
+            tl.set([$("s2-rt1"), $("s2-rt2")], { opacity: 1 }, 0.47);
+            grow($("s2-tclip-r"), { width: 0 }, { width: tw + 30 }, 0.27, 0.55);
+
+            /* ---------- construction lines first ---------- */
+            grow($("s2-cl-l"), { x2: CX }, { x2: CX - 384 }, 0, 0.36);
+            grow($("s2-cl-r"), { x2: CX }, { x2: 1920 }, 0, 0.42);
+            grow($("s2-cv-u"), { y2: CY }, { y2: CY - 270 }, 0.04, 0.3);
+            grow($("s2-cv-d"), { y2: CY }, { y2: CY + 270 }, 0.04, 0.3);
+            draw($("s2-cm-e"), 0.04, 0.14, "none");
+            grow($("s2-mv-u"), { y2: CY }, { y2: CY - 180 }, 0.26, 0.26);
+            grow($("s2-mv-d"), { y2: CY }, { y2: CY + 180 }, 0.26, 0.26);
+            draw($("s2-cm-m"), 0.24, 0.12, "none");
+
+            /* ---------- outlines ---------- */
+            draw($("s2-earth"), 0.12, 0.55);
+            draw($("s2-moon"), 0.3, 0.48);
+            draw($("s2-cr1"), 0.62, 0.18);
+            draw($("s2-cr2"), 0.68, 0.18);
+            draw($("s2-cr3"), 0.74, 0.14);
+
+            /* rotating Earth detail: rim ticks, coastlines, marker */
+            const rotG = $("s2-rot");
+            for (let i = 0; i < 24; i++) {
+              const a = (i * 15 * Math.PI) / 180;
+              const major = i % 6 === 3;
+              const r1 = RE - (major ? 16 : 9);
+              const tk = mk("line", {
+                class: "s2-con",
+                x1: f2(CX + r1 * Math.cos(a)), y1: f2(CY + r1 * Math.sin(a)),
+                x2: f2(CX + RE * Math.cos(a)), y2: f2(CY + RE * Math.sin(a)),
+              }, rotG);
+              draw(tk, 0.48 + i * 0.012, 0.1, "none");
+            }
+
+            const lands = [
+              [-90, 140, 44],
+              [20, 112, 60],
+              [140, 134, 44],
+              [-160, 108, 38],
+              [75, 176, 13],
+            ];
+            let markerD = 180;
+            lands.forEach(([ang, dist, size], k) => {
+              const ph = [rnd() * 6.283, rnd() * 6.283, rnd() * 6.283];
+              const rf = (th) =>
+                size * (1 + 0.2 * Math.sin(2 * th + ph[0]) + 0.12 * Math.sin(3 * th + ph[1]) + 0.06 * Math.sin(5 * th + ph[2]));
+              const a = (ang * Math.PI) / 180;
+              const lx = CX + dist * Math.cos(a), ly = CY + dist * Math.sin(a);
+              const N = 16, pts = [];
+              for (let i = 0; i < N; i++) {
+                const th = (i / N) * Math.PI * 2;
+                const r = rf(th);
+                pts.push([lx + r * Math.cos(th), ly + r * Math.sin(th)]);
+              }
+              if (k === 0) markerD = dist + rf(1.5 * Math.PI);
+              const p = mk("path", { class: "s2-obj", d: closedPath(pts) }, rotG);
+              draw(p, 0.38 + k * 0.08, 0.45);
+            });
+
+            // coastline marker (on landmass 1, outermost point, starts at the top)
+            const mxL = CX, myL = CY - markerD;
+            const mCirc = mk("circle", { class: "s2-obj", cx: f2(mxL), cy: f2(myL), r: 9, transform: `rotate(-90 ${f2(mxL)} ${f2(myL)})` }, rotG);
+            draw(mCirc, 3.86, 0.2, "power2.out");
+            const mTicks = mk("path", {
+              class: "s2-con",
+              d: `M${f2(mxL - 19)} ${f2(myL)}H${f2(mxL - 12)}M${f2(mxL + 12)} ${f2(myL)}H${f2(mxL + 19)}M${f2(mxL)} ${f2(myL - 19)}V${f2(myL - 12)}M${f2(mxL)} ${f2(myL + 12)}V${f2(myL + 19)}`,
+              style: "opacity:0",
+            }, rotG);
+            tl.set(mTicks, { opacity: 1 }, 4.04);
+
+            // quarter turn under the fixed bulge (gelgitleri)
+            tl.fromTo(rotG, { rotation: 0, svgOrigin: `${CX} ${CY}` }, { rotation: 90, svgOrigin: `${CX} ${CY}`, duration: 0.95, ease: "power2.inOut" }, 4.05);
+
+            /* ---------- amber pull circuit (çekimi) ---------- */
+            const circ = $("s2-circ");
+            const CL = draw(circ, 0.79, 0.46);
+            const dotAt = (id, frac) => {
+              tl.fromTo($(id), { attr: { r: 0 } }, { attr: { r: 5 }, duration: 0.12, ease: "power2.out" }, 0.79 + 0.46 * invP2(Math.min(1, frac)));
+            };
+            dotAt("s2-dt0", 0);
+            dotAt("s2-dt1", 180 / CL);
+            dotAt("s2-dt2", 432 / CL);
+            dotAt("s2-dt3", 0.985);
+
+            // travelling signal dash
+            const sig = $("s2-sig");
+            const SL = safeLen(sig, 792);
+            sig.style.strokeDasharray = `44 ${SL + 200}`;
+            const sigTimes = [1.26, 1.9, 3.0, 4.42, 5.24];
+            sigTimes.forEach((t0, i) => {
+              tl.fromTo(sig, { strokeDashoffset: 44 }, { strokeDashoffset: -SL - 2, duration: 0.5, ease: "none", immediateRender: i === 0 }, t0);
+            });
+
+            /* ---------- ocean shell (okyanusları) ---------- */
+            const shell = $("s2-shell");
+            draw(shell, 1.57, 0.5);
+            tl.set(shell, { strokeDasharray: "none" }, 2.12);
+
+            /* ---------- bulge (kabartıyor) ---------- */
+            tl.set($("s2-ghost"), { opacity: 1 }, 2.35);
+            tl.fromTo([shell, $("s2-mell")], { attr: { rx: 240, ry: 240 } }, { attr: { rx: 324, ry: 232 }, duration: 0.8, ease: "power2.inOut" }, 2.35);
+
+            /* ---------- dimensions: extension lines, then lines meet in the middle ---------- */
+            grow($("s2-ex-r1"), { y2: 564 }, { y2: 312 }, 2.95, 0.24);
+            grow($("s2-ex-r2"), { y2: 564 }, { y2: 312 }, 2.99, 0.24);
+            grow($("s2-ex-l1"), { y2: 588 }, { y2: 840 }, 3.03, 0.24);
+            grow($("s2-ex-l2"), { y2: 588 }, { y2: 840 }, 3.07, 0.24);
+            tl.set([$("s2-ar-r1"), $("s2-ar-r2")], { opacity: 1 }, 3.22);
+            grow($("s2-dm-r1"), { x2: 1392 }, { x2: 1434 }, 3.22, 0.26, "power2.out");
+            grow($("s2-dm-r2"), { x2: 1476 }, { x2: 1434 }, 3.22, 0.26, "power2.out");
+            tl.set([$("s2-ar-l1"), $("s2-ar-l2")], { opacity: 1 }, 3.3);
+            grow($("s2-dm-l1"), { x2: 828 }, { x2: 870 }, 3.3, 0.26, "power2.out");
+            grow($("s2-dm-l2"), { x2: 912 }, { x2: 870 }, 3.3, 0.26, "power2.out");
+
+            /* ---------- annotation: YÜKSEK SU ---------- */
+            const mxW = CX + markerD; // marker position after the quarter turn
+            const leader = $("s2-leader");
+            leader.setAttribute("d", `M${f2(mxW + 7)} ${CY + 7}L${f2(mxW + 132)} ${CY + 132}H${f2(mxW + 322)}`);
+            draw(leader, 4.95, 0.2, "power2.out");
+            const label = $("s2-label");
+            label.setAttribute("x", f2(mxW + 142));
+            label.setAttribute("y", CY + 122);
+            const LABEL = "YÜKSEK SU".trim();
+            const TYPE_AT = 5.12, PER_CHAR = 0.045;
+
+            /* ---------- time driver for typed text ---------- */
+            let shown = -1;
+            const render = (t) => {
+              const n = Math.max(0, Math.min(LABEL.length, Math.floor((t - TYPE_AT) / PER_CHAR) + 1));
+              const k = t < TYPE_AT ? 0 : n;
+              if (k !== shown) {
+                shown = k;
+                label.textContent = LABEL.slice(0, k);
+              }
+            };
+            const driver = { _t: -1 };
+            Object.defineProperty(driver, "t", {
+              get() {
+                return this._t;
+              },
+              set(v) {
+                if (v !== this._t) {
+                  this._t = v;
+                  render(v);
+                }
+              },
+            });
+            render(0);
+            tl.fromTo(driver, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+          } catch (err) {
+            console.error("s2 build error", err);
+          }
+
+          // pad the timeline to the full scene duration
+          tl.set({}, {}, DURATION);
+
+          window.__timelines["s2"] = tl;
+          return tl;
+        }
+
+        const buildPromise = build();
+        window.__hf.buildReady["s2"] = buildPromise;
+      </script>
+    </template>
+  </body>
+</html>

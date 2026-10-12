@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "topic": "Expertise by title, not knowledge",
+  "summary": "A small block figure who knows nothing gets a professor's cap and podium, and the audience's questions sink back into the floor.",
+  "style": "izometrik",
+  "mode": "fullscreen",
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "254016000000/10587056659",
+  "duration_frames": 242,
+  "handles_frames": 19,
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 102,
+      "anchor_words": [
+        "know",
+        "nothing",
+        "topic"
+      ],
+      "visual": "On the right two thirds, a sage tile drops into place. On it stand a small slate figure (a cylinder body with a cube head) and, beside it, a warm light open book block. At 'know' (2.16) the book's pages flip open flat, and they are blank. At 'nothing' (2.72) a small terracotta empty square outline is drawn on the open pages along the isometric axes, segment by segment. End state: the figure stands beside the open blank book. Flat Outfit headline on the left.",
+      "on_screen_text": "KNOW NOTHING",
+      "camera": "hold, slight zoom in along the grid",
+      "technique": "three-3d",
+      "assets": [],
+      "transition_out": "pan along the grid to the next tile",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 2,
+          "type": "thud",
+          "gain_db": -14
+        },
+        {
+          "frame": 65,
+          "type": "wood-click",
+          "gain_db": -12
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "start_frame": 102,
+      "end_frame": 160,
+      "anchor_words": [
+        "get yourself made",
+        "professor"
+      ],
+      "visual": "The camera pans one tile right with the figure. At 'get' (4.28) a slate podium box extrudes up out of the tile and the figure snaps onto its top with a small overshoot. On 'professor' (5.28) a flat terracotta mortarboard (a thin square slab on a short cylinder) drops onto the figure's head and snaps into place. Then a warm light nameplate block rises on the front face of the podium. End state: the capped figure stands on the podium.",
+      "on_screen_text": "PROFESSOR",
+      "camera": "slide right with the figure, then hold",
+      "technique": "three-3d",
+      "assets": [],
+      "transition_out": "pan along the grid to the next tile",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 103,
+          "type": "whoosh",
+          "gain_db": -16
+        },
+        {
+          "frame": 110,
+          "type": "rise",
+          "gain_db": -14
+        },
+        {
+          "frame": 127,
+          "type": "wood-click",
+          "gain_db": -10
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "start_frame": 160,
+      "end_frame": 242,
+      "anchor_words": [
+        "nobody",
+        "ever ask",
+        "actually know"
+      ],
+      "visual": "The camera zooms out along the grid. The podium tile is now at the back right, and in front of it a 3 by 4 grid of small slate audience cubes drops in row by row. Above each audience cube a small extruded terracotta question mark rises (6.7 to 7.3). At 'ask' (7.28) all the question marks halt in place. At 'actually' (8.02) they sink back into the cubes one row at a time, and the cubes stay still. End state: a quiet audience grid, with only the capped professor on the podium keeping its terracotta accent.",
+      "on_screen_text": "NOBODY ASKS",
+      "camera": "zoom out along the grid, then hold",
+      "technique": "three-3d",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 161,
+          "type": "thud",
+          "gain_db": -14
+        },
+        {
+          "frame": 167,
+          "type": "rise",
+          "gain_db": -16
+        },
+        {
+          "frame": 193,
+          "type": "wood-click",
+          "gain_db": -12
+        }
+      ]
+    }
+  ]
+}

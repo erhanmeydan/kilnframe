@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s2</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Outfit";
+          src: url("vendor/fonts/outfit/Outfit-Variable.ttf") format("truetype");
+          font-weight: 100 900;
+          font-style: normal;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s2-bg {
+          position: absolute;
+          inset: 0;
+          background: #eeeae3;
+        }
+        #s2-canvas {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        #s2-grain {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0.05;
+          mix-blend-mode: overlay;
+          pointer-events: none;
+        }
+        #s2-head {
+          position: absolute;
+          left: 150px;
+          top: 436px;
+          max-width: 640px;
+        }
+        #s2-rule {
+          width: 64px;
+          height: 8px;
+          background: #4a5563;
+          margin-bottom: 22px;
+        }
+        #s2-mask {
+          overflow: hidden;
+          padding: 0.16em 0.12em 0.08em 0;
+          margin-top: -0.16em;
+          font-family: "Outfit", sans-serif;
+          font-weight: 700;
+          font-size: 92px;
+          line-height: 1.08;
+          letter-spacing: 0.01em;
+          color: #4a5563;
+          white-space: nowrap;
+        }
+        .s2-ch {
+          display: inline-block;
+        }
+      </style>
+      <div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+        <div id="s2-bg"></div>
+        <canvas id="s2-canvas"></canvas>
+        <canvas id="s2-grain" width="960" height="540"></canvas>
+        <div id="s2-head">
+          <div id="s2-rule"></div>
+          <div id="s2-mask" data-text="PROFESSOR"></div>
+        </div>
+      </div>
+      <script type="module">
+        import * as THREE from "three";
+        import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+
+        const W = 1920;
+        const H = 1080;
+        const DUR = 2.417;
+
+        window.__timelines = window.__timelines || {};
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        const buildPromise = build();
+        window.__hf.buildReady["s2"] = buildPromise;
+
+        function mulberry32(a) {
+          return function () {
+            a |= 0;
+            a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+        const clamp01 = (x) => Math.max(0, Math.min(1, x));
+        const lerp = (a, b, k) => a + (b - a) * k;
+        const inOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+        const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+        const outQuad = (x) => 1 - (1 - x) * (1 - x);
+        const smooth = (x) => x * x * (3 - 2 * x);
+        const backOut = (x, s = 1.4) => {
+          const u = x - 1;
+          return 1 + (s + 1) * u * u * u + s * u * u;
+        };
+
+        async function build() {
+          try {
+            await document.fonts.load('700 92px "Outfit"');
+          } catch (e) {
+            /* font load failure must not block registration */
+          }
+
+          // ---------- headline letters ----------
+          const mask = document.getElementById("s2-mask");
+          const text = mask.dataset.text.trim();
+          mask.textContent = "";
+          const chars = [];
+          for (const c of text) {
+            const s = document.createElement("span");
+            s.className = "s2-ch";
+            s.textContent = c;
+            mask.appendChild(s);
+            chars.push(s);
+          }
+
+          // ---------- renderer ----------
+          const COL = {
+            bg: "#EEEAE3",
+            sage: "#8FA79A",
+            accent: "#C9775A",
+            slate: "#4A5563",
+            light: "#F5F2EC",
+          };
+          const canvas = document.getElementById("s2-canvas");
+          const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            preserveDrawingBuffer: true,
+            alpha: false,
+          });
+          renderer.setPixelRatio(1);
+          renderer.setSize(W, H, false);
+          renderer.setClearColor(new THREE.Color(COL.bg), 1);
+          renderer.shadowMap.enabled = true;
+          renderer.shadowMap.type = THREE.PCFShadowMap;
+          renderer.localClippingEnabled = true;
+
+          const scene = new THREE.Scene();
+
+          const PPU = 170;
+          const vw = W / PPU;
+          const vh = H / PPU;
+          const camera = new THREE.OrthographicCamera(-vw / 2, vw / 2, vh / 2, -vh / 2, 1, 120);
+          const ISO = new THREE.Vector3(1, 1, 1).normalize().multiplyScalar(40);
+          const RIGHT = new THREE.Vector3(1, 0, -1).normalize();
+          const UP = new THREE.Vector3(-1, 2, -1).normalize();
+          const offX = (1240 - 960) / PPU;
+          const offY = (540 - 650) / PPU;
+          const targetFor = (P) => P.clone().addScaledVector(RIGHT, -offX).addScaledVector(UP, -offY);
+
+          // flat face tones: top 1.0, left 0.82, right 0.62 (perceptual)
+          const amb = new THREE.AmbientLight(0xffffff, 0.3 * Math.PI);
+          scene.add(amb);
+          const LDIR = new THREE.Vector3(0.0626, 0.8947, 0.4422).normalize();
+          const sun = new THREE.DirectionalLight(0xffffff, 0.7824 * Math.PI);
+          const lightCenter = new THREE.Vector3(0, 0, -2.5);
+          sun.position.copy(lightCenter).addScaledVector(LDIR, 30);
+          sun.target.position.copy(lightCenter);
+          sun.castShadow = true;
+          sun.shadow.mapSize.set(1024, 1024);
+          sun.shadow.camera.left = -7;
+          sun.shadow.camera.right = 7;
+          sun.shadow.camera.top = 7;
+          sun.shadow.camera.bottom = -7;
+          sun.shadow.camera.near = 1;
+          sun.shadow.camera.far = 70;
+          sun.shadow.bias = -0.0006;
+          sun.shadow.normalBias = 0.02;
+          sun.shadow.radius = 6;
+          scene.add(sun);
+          scene.add(sun.target);
+
+          const clip = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.001);
+          const lam = (c, clipped) => {
+            const m = new THREE.MeshLambertMaterial({ color: c });
+            if (clipped) m.clippingPlanes = [clip];
+            return m;
+          };
+
+          const mSage = lam(COL.sage, false);
+          const mSlate = lam(COL.slate, false);
+          const mSlateC = lam(COL.slate, true);
+          const mLight = lam(COL.light, false);
+          const mLightC = lam(COL.light, true);
+          const mAccent = lam(COL.accent, false);
+          const mShadow = new THREE.ShadowMaterial({ color: 0x2b3138, opacity: 0.15 });
+          const mShadowC = new THREE.ShadowMaterial({ color: 0x2b3138, opacity: 0.15 });
+          mShadowC.clippingPlanes = [clip];
+
+          // ---------- tiles ----------
+          const PA = new THREE.Vector3(0, 0, 0);
+          const PB = new THREE.Vector3(0, 0, -5);
+          const tileGeo = new RoundedBoxGeometry(3, 0.4, 3, 2, 0.03);
+          const shadowPlaneGeo = new THREE.PlaneGeometry(2.96, 2.96);
+          for (const P of [PA, PB]) {
+            const tile = new THREE.Mesh(tileGeo, mSage);
+            tile.position.set(P.x, -0.2, P.z);
+            scene.add(tile);
+            const sp = new THREE.Mesh(shadowPlaneGeo, mShadow);
+            sp.rotation.x = -Math.PI / 2;
+            sp.position.set(P.x, 0.004, P.z);
+            sp.receiveShadow = true;
+            scene.add(sp);
+          }
+
+          // ---------- podium ----------
+          const pod = new THREE.Group();
+          pod.position.set(PB.x, -1.56, PB.z);
+          scene.add(pod);
+          const podBody = new THREE.Mesh(new RoundedBoxGeometry(0.9, 1.42, 0.9, 2, 0.03), mSlateC);
+          podBody.position.y = 0.71;
+          podBody.castShadow = true;
+          pod.add(podBody);
+          const podLip = new THREE.Mesh(new RoundedBoxGeometry(1.0, 0.08, 1.0, 2, 0.02), mSlateC);
+          podLip.position.y = 1.46;
+          podLip.castShadow = true;
+          pod.add(podLip);
+          const podShadow = new THREE.Mesh(new THREE.PlaneGeometry(0.98, 0.98), mShadowC);
+          podShadow.rotation.x = -Math.PI / 2;
+          podShadow.position.y = 1.504;
+          podShadow.receiveShadow = true;
+          pod.add(podShadow);
+
+          // ---------- nameplate ----------
+          const plate = new THREE.Group();
+          plate.position.set(PB.x, -0.3, PB.z + 0.45 + 0.03);
+          scene.add(plate);
+          const plateBox = new THREE.Mesh(new RoundedBoxGeometry(0.72, 0.34, 0.06, 2, 0.012), mLightC);
+          plateBox.castShadow = true;
+          plate.add(plateBox);
+          const bar1 = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.055, 0.012), mSlateC);
+          bar1.position.set(0, 0.045, 0.034);
+          plate.add(bar1);
+          const bar2 = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.012), mSlateC);
+          bar2.position.set(-0.09, -0.065, 0.034);
+          plate.add(bar2);
+
+          // ---------- figure ----------
+          const fig = new THREE.Group();
+          scene.add(fig);
+          const body = new THREE.Mesh(new RoundedBoxGeometry(0.52, 0.7, 0.52, 2, 0.06), mLight);
+          body.position.y = 0.35;
+          body.castShadow = true;
+          fig.add(body);
+          const head = new THREE.Mesh(new RoundedBoxGeometry(0.4, 0.4, 0.4, 2, 0.06), mLight);
+          head.position.y = 0.95;
+          head.castShadow = true;
+          fig.add(head);
+
+          // ---------- mortarboard ----------
+          const capRest = 1.15;
+          const cap = new THREE.Group();
+          cap.position.y = capRest + 4;
+          cap.visible = false;
+          fig.add(cap);
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.12, 40), mAccent);
+          band.position.y = 0.04;
+          band.castShadow = true;
+          cap.add(band);
+          const slab = new THREE.Mesh(new RoundedBoxGeometry(0.82, 0.06, 0.82, 2, 0.015), mAccent);
+          slab.position.y = 0.13;
+          slab.castShadow = true;
+          cap.add(slab);
+          const button = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 24), mSlate);
+          button.position.y = 0.175;
+          cap.add(button);
+          const cord = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.014, 0.4), mSlate);
+          cord.position.set(0, 0.167, 0.2);
+          cap.add(cord);
+          const tassel = new THREE.Mesh(new RoundedBoxGeometry(0.05, 0.22, 0.05, 1, 0.01), mSlate);
+          tassel.position.set(0, 0.05, 0.4);
+          tassel.castShadow = true;
+          cap.add(tassel);
+
+          // ---------- grain ----------
+          const gcv = document.getElementById("s2-grain");
+          const gctx = gcv.getContext("2d");
+          const grainFrames = [];
+          const rnd = mulberry32(20417);
+          for (let f = 0; f < 6; f++) {
+            const img = gctx.createImageData(960, 540);
+            const d = img.data;
+            for (let i = 0; i < d.length; i += 4) {
+              const v = 128 + (rnd() - 0.5) * 200;
+              d[i] = v;
+              d[i + 1] = v;
+              d[i + 2] = v;
+              d[i + 3] = 255;
+            }
+            grainFrames.push(img);
+          }
+          let lastGrain = -1;
+
+          // ---------- timing ----------
+          const PAN0 = 0.04, PAN1 = 0.64;
+          const HOP0 = 0.08, HOP1 = 0.62;
+          const POD0 = 0.33, POD1 = 0.78;
+          const CAP0 = 0.8, CAPLAND = 1.042;
+          const PLATE0 = 1.31, PLATE1 = 1.86;
+
+          const P = new THREE.Vector3();
+
+          function draw(t) {
+            // camera pans one tile along the grid
+            const pc = inOutCubic(clamp01((t - PAN0) / (PAN1 - PAN0)));
+            P.lerpVectors(PA, PB, pc);
+            const tgt = targetFor(P);
+            camera.position.copy(tgt).add(ISO);
+            camera.lookAt(tgt);
+
+            // podium extrudes out of the tile
+            const pe = outCubic(clamp01((t - POD0) / (POD1 - POD0)));
+            const podOff = -1.56 * (1 - pe);
+            pod.position.y = podOff;
+            const podTop = Math.max(0, 1.5 + podOff);
+
+            // figure hop
+            let fz, fy, sy;
+            if (t < HOP0) {
+              fz = PA.z;
+              fy = 0;
+              sy = 1 - 0.12 * outQuad(clamp01(t / HOP0));
+            } else if (t < HOP1) {
+              const p = (t - HOP0) / (HOP1 - HOP0);
+              const hp = 0.6 * p + 0.4 * smooth(p);
+              fz = lerp(PA.z, PB.z, hp);
+              fy = lerp(0, podTop, p) + 2.3 * 4 * p * (1 - p);
+              sy = p < 0.2 ? lerp(0.88, 1.07, outCubic(p / 0.2)) : lerp(1.07, 1.0, (p - 0.2) / 0.8);
+            } else {
+              fz = PB.z;
+              fy = podTop;
+              const tau = t - HOP1;
+              sy = 1 - 0.16 * Math.exp(-9 * tau) * Math.cos(19 * tau);
+            }
+
+            // mortarboard drop and snap
+            if (t < CAP0) {
+              cap.visible = false;
+              cap.position.y = capRest + 4;
+            } else {
+              cap.visible = true;
+              let off;
+              if (t < CAPLAND) {
+                const u = (t - CAP0) / (CAPLAND - CAP0);
+                off = 3.4 * (1 - u * u);
+              } else {
+                const tc = t - CAPLAND;
+                off = 0.09 * Math.exp(-8 * tc) * Math.abs(Math.sin(16 * tc));
+                sy *= 1 - 0.06 * Math.exp(-10 * tc) * Math.cos(20 * tc);
+              }
+              cap.position.y = capRest + off;
+            }
+
+            fig.position.set(PA.x, fy, fz);
+            const sxz = 1 / Math.sqrt(sy);
+            fig.scale.set(sxz, sy, sxz);
+
+            // nameplate rises on the front face
+            const ne = backOut(clamp01((t - PLATE0) / (PLATE1 - PLATE0)));
+            plate.position.y = lerp(-0.3, 1.0, ne);
+
+            renderer.render(scene, camera);
+
+            const gi = Math.floor(t * 24) % grainFrames.length;
+            if (gi !== lastGrain) {
+              lastGrain = gi;
+              gctx.putImageData(grainFrames[gi], 0, 0);
+            }
+          }
+
+          draw(0);
+
+          // ---------- timeline ----------
+          const tl = gsap.timeline({ paused: true });
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() {
+              return this._t;
+            },
+            set(v) {
+              if (v !== this._t) {
+                this._t = v;
+                draw(v);
+              }
+            },
+          });
+          tl.fromTo(driver, { t: 0 }, { t: DUR, duration: DUR, ease: "none" }, 0);
+
+          tl.fromTo(
+            document.getElementById("s2-rule"),
+            { scaleX: 0, transformOrigin: "0% 50%" },
+            { scaleX: 1, duration: 0.5, ease: "power3.out" },
+            0.98
+          );
+          tl.fromTo(
+            chars,
+            { yPercent: 118 },
+            { yPercent: 0, duration: 0.55, ease: "back.out(1.4)", stagger: 0.035 },
+            1.03
+          );
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s2"] = tl;
+          return tl;
+        }
+      </script>
+    </template>
+  </body>
+</html>

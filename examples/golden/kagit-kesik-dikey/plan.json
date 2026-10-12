@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "topic": "Origami and the James Webb Space Telescope",
+  "summary": "A paper square becomes origami cranes and flowers, and the same folding idea packs the James Webb telescope's 18 part mirror into a rocket and opens it in space like a bird.",
+  "style": "kagit-kesik",
+  "mode": "fullscreen",
+  "format": "portrait",
+  "width": 1080,
+  "height": 1920,
+  "fps": "254016000000/10587056659",
+  "duration_frames": 748,
+  "handles_frames": 19,
+  "assets": [],
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 81,
+      "anchor_words": [
+        "Bir",
+        "kâğıt",
+        "bir",
+        "kare"
+      ],
+      "visual": "Empty cream sheet. At 0.5 a light paper sheet slides in from the bottom edge and settles centered in the lower two thirds with a small overshoot. Its shadow grows and softens as it lands. At 2.2 the sheet's cut edges trim it into a clean square, and the square lifts once on 'kare': its shadow grows, then settles. The headline appears in the top left area as cut paper letters sliding in. End state: one paper square on the cream sheet with the headline above it.",
+      "on_screen_text": "BİR KARE",
+      "camera": "hold, very slow push in",
+      "technique": "motion-2d",
+      "assets": [],
+      "transition_out": "paper sheet slide",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 11,
+          "type": "slide",
+          "gain_db": -14
+        },
+        {
+          "frame": 20,
+          "type": "tap",
+          "gain_db": -12
+        },
+        {
+          "frame": 53,
+          "type": "tap",
+          "gain_db": -11
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "start_frame": 81,
+      "end_frame": 244,
+      "anchor_words": [
+        "Japonya'da",
+        "yüzyıllardır",
+        "kareden",
+        "turnalar",
+        "çiçekler",
+        "doğuyor"
+      ],
+      "visual": "Back to front assembly. At 3.7 a large ochre paper disc, the sun, rises from behind a row of olive paper hill layers at the bottom. The paper square from s1 sits in front of the disc. At 6.1 on 'kareden' the square folds diagonally in two quick paper flips. At 7.2 on 'turnalar' it becomes a light paper crane, and two more cranes slide in behind it at smaller scale, their wings swaying a little. At 8.4 on 'çiçekler' three dusty blue and ochre cut paper flowers flip up from behind the hills one by one. At 9.0 on 'doğuyor' all pieces lift together once. End state: a paper diorama with the sun disc, hills, cranes and flowers. The headline sits top left.",
+      "on_screen_text": "JAPONYA",
+      "camera": "slow push in toward the crane",
+      "technique": "motion-2d",
+      "assets": [],
+      "transition_out": "paper sheet slide",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 91,
+          "type": "slide",
+          "gain_db": -14
+        },
+        {
+          "frame": 148,
+          "type": "rustle",
+          "gain_db": -15
+        },
+        {
+          "frame": 173,
+          "type": "tap",
+          "gain_db": -12
+        },
+        {
+          "frame": 201,
+          "type": "tap",
+          "gain_db": -13
+        },
+        {
+          "frame": 239,
+          "type": "whoosh",
+          "gain_db": -12
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "start_frame": 244,
+      "end_frame": 357,
+      "anchor_words": [
+        "Adı",
+        "origami",
+        "Origaminin",
+        "sırrı",
+        "basit"
+      ],
+      "visual": "Kinetic paper type on the cream sheet, left aligned in the upper half. At 11.26 the word 'ORİGAMİ' slides in letter by letter as cut ochre paper letters. Each letter lands with a small overshoot and its own shadow. A small light paper crane from s2 sits beside the word. At 13.72 the word lifts up and stops. Below it the words 'SIRRI BASİT' slide in from the left as olive paper letters, with 'BASİT' landing last at 14.16. End state: two lines of cut paper type.",
+      "on_screen_text": "ORİGAMİ SIRRI BASİT",
+      "camera": "hold",
+      "technique": "kinetic-type",
+      "assets": [],
+      "transition_out": "paper sheet slide",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 271,
+          "type": "slide",
+          "gain_db": -12
+        },
+        {
+          "frame": 278,
+          "type": "tap",
+          "gain_db": -11
+        },
+        {
+          "frame": 340,
+          "type": "tap",
+          "gain_db": -12
+        },
+        {
+          "frame": 353,
+          "type": "whoosh",
+          "gain_db": -13
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "start_frame": 357,
+      "end_frame": 458,
+      "anchor_words": [
+        "Büyük",
+        "bir",
+        "şeyi",
+        "küçük",
+        "alana",
+        "sığdırmak"
+      ],
+      "visual": "At 15.2 on 'Büyük' a large ochre paper sheet slides in and fills most of the frame. A small dusty blue cut paper box outline, an open tray, sits at the bottom right. Starting at 15.84 on 'şeyi' the sheet folds in half, then in half again, then once more. These are three flips with the shadow growing on each fold, and the sheet gets smaller each time. At 17.14 the folded block slides to the tray. At 17.5 on 'sığdırmak' it drops into the tray and fits exactly, and the tray lifts once. End state: a small folded ochre block sitting snugly inside the blue tray, with the headline top left.",
+      "on_screen_text": "KÜÇÜK ALANA SIĞDIRMAK",
+      "camera": "slow pull back as the sheet shrinks, then hold",
+      "technique": "motion-2d",
+      "assets": [],
+      "transition_out": "paper sheet slide",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 365,
+          "type": "slide",
+          "gain_db": -13
+        },
+        {
+          "frame": 383,
+          "type": "rustle",
+          "gain_db": -15
+        },
+        {
+          "frame": 400,
+          "type": "rustle",
+          "gain_db": -15
+        },
+        {
+          "frame": 422,
+          "type": "tap",
+          "gain_db": -10
+        },
+        {
+          "frame": 453,
+          "type": "whoosh",
+          "gain_db": -12
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "start_frame": 458,
+      "end_frame": 549,
+      "anchor_words": [
+        "James",
+        "Webb",
+        "Uzay",
+        "Teleskobu'nun",
+        "on",
+        "sekiz",
+        "parçalı",
+        "aynası"
+      ],
+      "visual": "Pictogram count. The background is a dusty blue paper sheet. Starting at 19.4, hexagonal ochre paper tiles drop in one by one from above. They build the honeycomb shape of the telescope mirror in the center: a ring of tiles around a central hexagonal hole that shows the deeper blue layer below. A cut paper number above the mirror counts up with each tile, and the 18th tile lands at 22.16 on 'sekiz' with the number at 18. At 22.62 on 'parçalı' the whole mirror lifts once and its shadow grows. End state: the 18 tile mirror with the number 18 and the headline in the top left.",
+      "on_screen_text": "18 PARÇALI AYNA",
+      "camera": "hold, slight push in on the final tile",
+      "technique": "data-viz",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 465,
+          "type": "slide",
+          "gain_db": -15
+        },
+        {
+          "frame": 532,
+          "type": "tap",
+          "gain_db": -10
+        },
+        {
+          "frame": 543,
+          "type": "rustle",
+          "gain_db": -16
+        }
+      ]
+    },
+    {
+      "id": "s6",
+      "start_frame": 549,
+      "end_frame": 631,
+      "anchor_words": [
+        "roketin",
+        "içine",
+        "katlanarak",
+        "sığdı"
+      ],
+      "visual": "Same mirror, smaller, in the center. A tall light paper rocket fairing slides up from the bottom edge. Its front layer has a cut out window showing the inside. At 24.64 on 'katlanarak' the mirror's left and right columns of tiles fold back behind the center column like paper wings, in two flips. The narrow folded mirror then slides down into the fairing. At 25.3 on 'sığdı' an ochre nose cone layer drops on top and closes the rocket, which lifts once. End state: a closed paper rocket with the folded mirror visible through the window.",
+      "on_screen_text": "KATLANARAK SIĞDI",
+      "camera": "slow tilt down following the mirror into the rocket",
+      "technique": "motion-2d",
+      "assets": [],
+      "transition_out": "paper sheet slide",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 551,
+          "type": "slide",
+          "gain_db": -14
+        },
+        {
+          "frame": 592,
+          "type": "rustle",
+          "gain_db": -14
+        },
+        {
+          "frame": 608,
+          "type": "tap",
+          "gain_db": -10
+        },
+        {
+          "frame": 626,
+          "type": "whoosh",
+          "gain_db": -12
+        }
+      ]
+    },
+    {
+      "id": "s7",
+      "start_frame": 631,
+      "end_frame": 748,
+      "anchor_words": [
+        "Uzayda",
+        "açıldı",
+        "kâğıt",
+        "bir",
+        "kuş",
+        "gibi",
+        "kanatlarını",
+        "yaydı"
+      ],
+      "visual": "Shallow layered paper diorama. The back layer is deeper blue paper space with small cut out stars that reveal the cream sheet behind them. The middle layer is the folded mirror floating, with the rocket fairing halves sliding away to the edges. At 27.14 on 'açıldı' the mirror's folded side columns flip open outward. At 28.98 on 'kuş' a large light paper crane silhouette slides up behind the mirror, wings closed. At 29.92 on 'kanatlarını' the crane's wings and the mirror's side columns open together in the same arc. At 30.6 on 'yaydı' the full 18 tile ochre mirror sits on the crane's spread wings and lifts once. End state: the open mirror and crane spread wide against paper space.",
+      "on_screen_text": "KANATLARINI YAYDI",
+      "camera": "slow pull back as the wings open",
+      "technique": "three-3d",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 638,
+          "type": "slide",
+          "gain_db": -15
+        },
+        {
+          "frame": 652,
+          "type": "rustle",
+          "gain_db": -13
+        },
+        {
+          "frame": 695,
+          "type": "slide",
+          "gain_db": -15
+        },
+        {
+          "frame": 719,
+          "type": "rustle",
+          "gain_db": -12
+        },
+        {
+          "frame": 735,
+          "type": "tap",
+          "gain_db": -10
+        }
+      ]
+    }
+  ]
+}

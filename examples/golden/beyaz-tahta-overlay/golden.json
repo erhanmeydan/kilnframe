@@ -1,0 +1,16 @@
+{
+  "name": "beyaz-tahta-overlay",
+  "style": "beyaz-tahta",
+  "format": "landscape",
+  "modes": ["overlay"],
+  "times": [2.35, 5],
+  "noise": {
+    "mean": 0,
+    "changed": 0
+  },
+  "threshold": {
+    "mean": 0.5,
+    "changed": 0.002
+  },
+  "renderMs": 14005
+}

@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>s1</title>
+</head>
+<body>
+<template>
+  <style>
+    @font-face {
+      font-family: "Bricolage Grotesque";
+      src: url("vendor/fonts/bricolage-grotesque/BricolageGrotesque-Variable.ttf") format("truetype");
+      font-weight: 100 900;
+      font-style: normal;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    /* overlay mode: the background layer stays empty and transparent */
+    #s1-bg {
+      position: absolute;
+      inset: 0;
+    }
+
+    #s1-defs {
+      position: absolute;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+    }
+
+    /* narrow right-edge column, max ~26% of frame width, middle 40% left clear */
+    #s1-col {
+      position: absolute;
+      top: 206px;
+      right: 110px;
+      width: 500px;
+      height: 668px;
+    }
+
+    /* headline plate: cream paper sheet with two misregistered frame inks */
+    #s1-plate {
+      position: absolute;
+      left: 28px;
+      top: 0;
+      width: 472px;
+      height: 196px;
+      background: #F1E9D8;
+      isolation: isolate;
+      opacity: 0;
+    }
+    .s1-pframe {
+      position: absolute;
+      mix-blend-mode: multiply;
+      opacity: 0;
+    }
+    #s1-pframeT { left: 12px; top: 9px; right: 18px; bottom: 15px; border: 3px solid #2F7A78; }
+    #s1-pframeR { left: 18px; top: 15px; right: 12px; bottom: 9px; border: 3px solid #D2553F; }
+
+    /* headline words: two overprinting ink copies per word (intentional
+       misregistered layering, marked with data-layout-allow-overlap) */
+    #s1-words {
+      position: absolute;
+      left: 32px;
+      top: 30px;
+      max-width: 420px;
+    }
+    .s1-hrow { display: flex; column-gap: 20px; }
+    .s1-hrow + .s1-hrow { margin-top: 2px; }
+    .s1-word {
+      position: relative;
+      display: inline-block;
+      data-layout-allow-overlap: true;
+    }
+    .s1-c {
+      display: block;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 800;
+      font-variation-settings: "opsz" 96;
+      font-size: 56px;
+      line-height: 1.14;
+      letter-spacing: 0.015em;
+      white-space: pre;
+    }
+    .s1-cR {
+      position: relative;
+      color: #D2553F;
+      mix-blend-mode: multiply;
+      opacity: 0;
+    }
+    .s1-cT {
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: #2F7A78;
+      mix-blend-mode: multiply;
+      opacity: 0;
+    }
+
+    /* newspaper pictogram cards: flat ink passes on a cream sheet plate */
+    .s1-card {
+      position: absolute;
+      width: 400px;
+      height: 126px;
+      display: block;
+      isolation: isolate;
+      overflow: hidden;
+    }
+    #s1-cardA { left: 100px; top: 220px; }
+    #s1-cardB { left: 89px; top: 362px; }
+    #s1-cardC { left: 97px; top: 504px; }
+    .s1-sheetG, .s1-passR, .s1-passT { opacity: 0; }
+
+    /* mustard ticks under the stack */
+    #s1-dots {
+      position: absolute;
+      left: 0;
+      top: 652px;
+      width: 500px;
+      height: 16px;
+    }
+    .s1-dot {
+      position: absolute;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #E0B04B;
+      opacity: 0;
+    }
+    #s1-dot1 { left: 102px; }
+    #s1-dot2 { left: 136px; }
+    #s1-dot3 { left: 170px; }
+  </style>
+
+  <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+    <div id="s1-bg"></div>
+
+    <svg id="s1-defs" aria-hidden="true" focusable="false">
+      <defs>
+        <!-- coarse 45 degree halftones, one per ink (flat pattern shading, no noise) -->
+        <pattern id="s1-halfR" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
+          <circle cx="6" cy="6" r="3.8" fill="#D2553F"/>
+        </pattern>
+        <pattern id="s1-halfT" patternUnits="userSpaceOnUse" width="13" height="13" patternTransform="rotate(45)">
+          <circle cx="6.5" cy="6.5" r="4.4" fill="#2F7A78"/>
+        </pattern>
+        <!-- ink can only land on the paper sheet of a card -->
+        <clipPath id="s1-clipCard"><rect x="6" y="6" width="388" height="114"/></clipPath>
+      </defs>
+    </svg>
+
+    <div id="s1-col">
+      <div id="s1-plate">
+        <div class="s1-pframe" id="s1-pframeT"></div>
+        <div class="s1-pframe" id="s1-pframeR"></div>
+        <div id="s1-words">
+          <div class="s1-hrow">
+            <span class="s1-word" data-layout-allow-overlap="true"><span class="s1-c s1-cR" id="s1-herR" data-layout-allow-overlap="true">HER</span><span class="s1-c s1-cT" id="s1-herT" data-layout-allow-overlap="true">HER</span></span>
+            <span class="s1-word" data-layout-allow-overlap="true"><span class="s1-c s1-cR" id="s1-gunR" data-layout-allow-overlap="true">GÜN</span><span class="s1-c s1-cT" id="s1-gunT" data-layout-allow-overlap="true">GÜN</span></span>
+          </div>
+          <div class="s1-hrow">
+            <span class="s1-word" data-layout-allow-overlap="true"><span class="s1-c s1-cR" id="s1-yeniR" data-layout-allow-overlap="true">YENİ</span><span class="s1-c s1-cT" id="s1-yeniT" data-layout-allow-overlap="true">YENİ</span></span>
+            <span class="s1-word" data-layout-allow-overlap="true"><span class="s1-c s1-cR" id="s1-haberR" data-layout-allow-overlap="true">HABER</span><span class="s1-c s1-cT" id="s1-haberT" data-layout-allow-overlap="true">HABER</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- card A: masthead, headline block, text lines, halftone photo right -->
+      <svg id="s1-cardA" class="s1-card" viewBox="0 0 400 126" width="400" height="126" aria-hidden="true">
+        <g class="s1-sheetG">
+          <rect x="6" y="6" width="388" height="114" fill="#F1E9D8"/>
+        </g>
+        <g clip-path="url(#s1-clipCard)">
+          <g class="s1-passR">
+            <rect x="11" y="12" width="374" height="98" fill="none" stroke="#D2553F" stroke-width="3"/>
+            <rect x="26" y="26" width="336" height="15" fill="url(#s1-halfR)"/>
+            <rect x="274" y="48" width="94" height="56" fill="none" stroke="#D2553F" stroke-width="3"/>
+          </g>
+          <g class="s1-passT">
+            <rect x="11" y="12" width="374" height="98" fill="none" stroke="#2F7A78" stroke-width="3"/>
+            <rect x="26" y="48" width="148" height="15" fill="#2F7A78"/>
+            <rect x="26" y="74" width="224" height="6" rx="3" fill="#2F7A78"/>
+            <rect x="26" y="86" width="196" height="6" rx="3" fill="#2F7A78"/>
+            <rect x="26" y="98" width="152" height="6" rx="3" fill="#2F7A78"/>
+            <rect x="274" y="48" width="94" height="56" fill="url(#s1-halfT)"/>
+          </g>
+        </g>
+      </svg>
+
+      <!-- card B: masthead, wide headline, full measure of text lines -->
+      <svg id="s1-cardB" class="s1-card" viewBox="0 0 400 126" width="400" height="126" aria-hidden="true">
+        <g class="s1-sheetG">
+          <rect x="6" y="6" width="388" height="114" fill="#F1E9D8"/>
+        </g>
+        <g clip-path="url(#s1-clipCard)">
+          <g class="s1-passR">
+            <rect x="11" y="12" width="374" height="98" fill="none" stroke="#D2553F" stroke-width="3"/>
+            <rect x="26" y="26" width="252" height="15" fill="url(#s1-halfR)"/>
+          </g>
+          <g class="s1-passT">
+            <rect x="11" y="12" width="374" height="98" fill="none" stroke="#2F7A78" stroke-width="3"/>
+            <rect x="26" y="48" width="196" height="15" fill="#2F7A78"/>
+            <rect x="26" y="74" width="340" height="6" rx="3" fill="#2F7A78"/>
+            <rect x="26" y="86" width="306" height="6" rx="3" fill="#2F7A78"/>
+            <rect x="26" y="98" width="224" height="6" rx="3" fill="#2F7A78"/>
+          </g>
+        </g>
+      </svg>
+
+      <!-- card C: halftone photo left, headline and lines right -->
+      <svg id="s1-cardC" class="s1-card" viewBox="0 0 400 126" width="400" height="126" aria-hidden="true">
+        <g class="s1-sheetG">
+          <rect x="6" y="6" width="388" height="114" fill="#F1E9D8"/>
+        </g>
+        <g clip-path="url(#s1-clipCard)">
+          <g class="s1-passR">
+            <rect x="11" y="12" width="374" height="98" fill="none" stroke="#D2553F" stroke-width="3"/>
+            <rect x="26" y="26" width="336" height="15" fill="url(#s1-halfR)"/>
+            <rect x="28" y="46" width="100" height="58" fill="none" stroke="#D2553F" stroke-width="3"/>
+          </g>
+          <g class="s1-passT">
+            <rect x="11" y="12" width="374" height="98" fill="none" stroke="#2F7A78" stroke-width="3"/>
+            <rect x="28" y="46" width="100" height="58" fill="url(#s1-halfT)"/>
+            <rect x="148" y="46" width="172" height="15" fill="#2F7A78"/>
+            <rect x="148" y="72" width="212" height="6" rx="3" fill="#2F7A78"/>
+            <rect x="148" y="84" width="232" height="6" rx="3" fill="#2F7A78"/>
+            <rect x="148" y="96" width="170" height="6" rx="3" fill="#2F7A78"/>
+          </g>
+        </g>
+      </svg>
+
+      <div id="s1-dots">
+        <div class="s1-dot" id="s1-dot1"></div>
+        <div class="s1-dot" id="s1-dot2"></div>
+        <div class="s1-dot" id="s1-dot3"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const SID = "s1";
+    window.__hf = window.__hf || {};
+    window.__hf.buildReady = window.__hf.buildReady || {};
+
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function () {
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    window.__hf.buildReady[SID] = (async () => {
+      try {
+        await document.fonts.load('800 56px "Bricolage Grotesque"');
+        await document.fonts.load('600 20px "Bricolage Grotesque"');
+      } catch (e) {}
+
+      const $ = (id) => document.getElementById(id);
+      const rnd = mulberry32(9);
+      const rr = (a, b) => a + rnd() * (b - a);
+
+      const tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      /* headline plate: the paper sheet slides into the column, then its two
+         frame inks stamp on separately and land a few px off each other */
+      const plate = $("s1-plate");
+      tl.set(plate, { opacity: 1 }, 0.02);
+      tl.fromTo(plate, { x: 64 }, { x: 0, duration: 0.24 }, 0.02);
+
+      const pfT = $("s1-pframeT");
+      const pfR = $("s1-pframeR");
+      tl.set(pfT, { opacity: 1 }, 0.10);
+      tl.fromTo(pfT, { x: -18, y: -11 }, { x: 0, y: 0, duration: 0.38 }, 0.10);
+      tl.set(pfR, { opacity: 1 }, 0.17);
+      tl.fromTo(pfR, { x: 16, y: 10 }, { x: 0, y: 0, duration: 0.38 }, 0.17);
+
+      /* headline words, printed in two offset inks on the anchor words */
+      const wordDefs = [
+        { r: "s1-herR",   t: "s1-herT",   at: 0.24 },
+        { r: "s1-gunR",   t: "s1-gunT",   at: 0.31 },
+        { r: "s1-yeniR",  t: "s1-yeniT",  at: 0.58 },
+        { r: "s1-haberR", t: "s1-haberT", at: 0.96 },
+      ];
+      wordDefs.forEach((w) => {
+        w.rEl = $(w.r);
+        w.tEl = $(w.t);
+        w.rx = rr(4.5, 7.0);  w.ry = rr(3.0, 5.0);
+        w.tx = -rr(3.5, 6.0); w.ty = -rr(2.5, 4.5);
+        tl.set(w.rEl, { opacity: 1 }, w.at);
+        tl.fromTo(w.rEl, { x: w.rx + 20, y: w.ry + 12 }, { x: w.rx, y: w.ry, duration: 0.4 }, w.at);
+        tl.set(w.tEl, { opacity: 1 }, w.at + 0.06);
+        tl.fromTo(w.tEl, { x: w.tx - 17, y: w.ty - 10 }, { x: w.tx, y: w.ty, duration: 0.4 }, w.at + 0.06);
+      });
+
+      /* newspaper cards print onto their sheets one by one, top to bottom:
+         sheet slides in, red pass (frame + halftone masthead) prints,
+         teal pass lands a few px off the red one */
+      const cardDefs = [
+        { id: "s1-cardA", at: 0.30 },
+        { id: "s1-cardB", at: 0.70 },
+        { id: "s1-cardC", at: 1.00 },
+      ];
+      cardDefs.forEach((c) => {
+        c.el = $(c.id);
+        c.sheet = c.el.querySelector(".s1-sheetG");
+        c.pr = c.el.querySelector(".s1-passR");
+        c.pt = c.el.querySelector(".s1-passT");
+        c.slide = rr(48, 66);
+        c.prx = rr(3.0, 5.5);  c.pry = rr(2.5, 4.5);
+        c.ptx = -rr(3.0, 5.5); c.pty = -rr(2.0, 4.0);
+
+        tl.set(c.sheet, { opacity: 1 }, c.at);
+        tl.fromTo(c.el, { x: c.slide }, { x: 0, duration: 0.26 }, c.at);
+
+        tl.set(c.pr, { opacity: 1 }, c.at + 0.20);
+        tl.fromTo(c.pr, { x: c.prx + 20, y: c.pry + 13 }, { x: c.prx, y: c.pry, duration: 0.42 }, c.at + 0.20);
+
+        tl.set(c.pt, { opacity: 1 }, c.at + 0.27);
+        tl.fromTo(c.pt, { x: c.ptx - 18, y: c.pty - 11 }, { x: c.ptx, y: c.pty, duration: 0.42 }, c.at + 0.27);
+      });
+
+      /* one mustard tick under the stack with each card */
+      const dotIds = ["s1-dot1", "s1-dot2", "s1-dot3"];
+      cardDefs.forEach((c, i) => {
+        const d = $(dotIds[i]);
+        tl.set(d, { opacity: 1 }, c.at + 0.42);
+        tl.fromTo(d, { scale: 1.6, y: -6 }, { scale: 1, y: 0, duration: 0.24, ease: "power2.out" }, c.at + 0.42);
+      });
+
+      /* registration wobble on the accents (print cues), seeded, settles back */
+      const wob = (el, t, bx, by, ax, ay) => {
+        tl.to(el, { x: bx + ax, y: by + ay, duration: 0.09, ease: "power1.inOut" }, t)
+          .to(el, { x: bx, y: by, duration: 0.17, ease: "power2.out" }, t + 0.09);
+      };
+      const first = cardDefs[0];
+      wob(first.pr, 1.02, first.prx, first.pry, rr(-3.0, -1.5), rr(1.5, 3.0));
+      wob(first.pt, 1.05, first.ptx, first.pty, rr(1.5, 3.0), rr(-2.5, -1.0));
+      [wordDefs[0], wordDefs[1], wordDefs[2]].forEach((w, i) => {
+        wob(w.tEl, 1.06 + i * 0.02, w.tx, w.ty, rr(-2.5, 2.5), rr(-2.0, 2.0));
+      });
+
+      /* hold the end state to the exact scene duration */
+      tl.to({}, { duration: Math.max(0.001, 1.8 - tl.duration()), ease: "none" }, tl.duration());
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[SID] = tl;
+    })();
+  </script>
+</template>
+</body>
+</html>

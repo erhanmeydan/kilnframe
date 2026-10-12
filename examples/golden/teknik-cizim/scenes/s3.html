@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>s3</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Space Grotesk";
+          src: url("vendor/fonts/space-grotesk/SpaceGrotesk-Variable.ttf") format("truetype");
+          font-weight: 300 700;
+        }
+        @font-face {
+          font-family: "IBM Plex Mono";
+          src: url("vendor/fonts/ibm-plex-mono/IBMPlexMono-Regular.ttf") format("truetype");
+          font-weight: 400;
+        }
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #s3-bg {
+          position: absolute;
+          inset: 0;
+          background: #1f3a5a;
+          color: #e8eef2;
+        }
+        #s3-world {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 2400px;
+          height: 1080px;
+          color: #e8eef2;
+        }
+        #s3-wsvg {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 2400px;
+          height: 1080px;
+          overflow: visible;
+          color: #e8eef2;
+        }
+        #s3-hsvg {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+          color: #e8eef2;
+        }
+        #s3-head,
+        .s3-htext {
+          color: #e8eef2;
+        }
+        #s3-val,
+        .s3-vtext {
+          color: #e3a445;
+        }
+        .s3-cl {
+          stroke-width: 1.25;
+          stroke-dasharray: 18 6 3 6;
+        }
+        .s3-thin {
+          stroke-width: 1.25;
+        }
+        .s3-hide {
+          opacity: 0;
+        }
+      </style>
+      <div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+        <div id="s3-bg"></div>
+
+        <div id="s3-world">
+          <svg id="s3-wsvg" width="2400" height="1080" viewBox="0 0 2400 1080" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="s3-grid" width="180" height="180" patternUnits="userSpaceOnUse">
+                <path
+                  d="M36.5 0V180M72.5 0V180M108.5 0V180M144.5 0V180M0 36.5H180M0 72.5H180M0 108.5H180M0 144.5H180"
+                  stroke="rgba(232,238,242,0.10)"
+                  stroke-width="1"
+                  fill="none"
+                />
+                <path d="M0.5 0V180M0 0.5H180" stroke="rgba(232,238,242,0.18)" stroke-width="1" fill="none" />
+              </pattern>
+              <filter id="s3-paper" filterUnits="userSpaceOnUse" x="0" y="0" width="2400" height="1080">
+                <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" seed="17" />
+                <feColorMatrix type="matrix" values="0 0 0 0 0.91  0 0 0 0 0.93  0 0 0 0 0.95  0 0 0 0.09 -0.02" />
+              </filter>
+              <filter id="s3-chalk" filterUnits="userSpaceOnUse" x="0" y="0" width="2400" height="1080">
+                <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="17" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.6" xChannelSelector="R" yChannelSelector="G" result="disp" />
+                <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="17" result="grain" />
+                <feColorMatrix in="grain" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.45 0.62" result="mask" />
+                <feComposite in="disp" in2="mask" operator="in" />
+              </filter>
+              <clipPath id="s3-waterclip"><path id="s3-waterclip-path" d="" /></clipPath>
+            </defs>
+
+            <rect x="0" y="0" width="2400" height="1080" fill="#1F3A5A" filter="url(#s3-paper)" />
+            <rect x="0" y="0" width="2400" height="1080" fill="url(#s3-grid)" />
+
+            <g id="s3-draw" filter="url(#s3-chalk)">
+              <g id="s3-line" fill="none" stroke="#E8EEF2" stroke-width="2.5" stroke-linecap="butt" stroke-linejoin="miter">
+                <g id="s3-hatch" class="s3-thin"></g>
+                <path id="s3-swl" class="s3-cl" d="M1300 648" />
+                <path id="s3-slope" d="M1120 837 L2400 468" />
+                <path id="s3-wave" d="" />
+                <path id="s3-curl" d="M1704 648 C1706 626 1722 606 1742 604 C1752 603 1758 610 1758 618" />
+                <path id="s3-axis" class="s3-thin" stroke-dasharray="12 8" d="M1300 648" />
+                <g id="s3-ticks" class="s3-thin"></g>
+
+                <path id="s3-icl-h" class="s3-cl" d="M888 648" />
+                <path id="s3-icl-v1" class="s3-cl" d="M720 560" />
+                <path id="s3-icl-v2" class="s3-cl" d="M830 596" />
+                <path id="s3-c1" d="M792 648 A72 72 0 1 1 648 648 A72 72 0 1 1 792 648" />
+                <path id="s3-c2" d="M792 648 A38 38 0 1 0 868 648 A38 38 0 1 0 792 648" />
+                <path id="s3-m1" class="s3-thin s3-hide" d="M713 648 H727 M720 641 V655" />
+                <path id="s3-m2" class="s3-thin s3-hide" d="M823 648 H837 M830 641 V655" />
+                <path id="s3-m0" class="s3-hide" stroke-width="1.5" d="M776 648 H808 M792 632 V664" />
+              </g>
+
+              <g id="s3-amber" fill="none" stroke="#E3A445" stroke-linecap="butt" stroke-linejoin="miter">
+                <path id="s3-ext1" class="s3-thin" d="M792 636 V416" />
+                <path id="s3-ext2" class="s3-thin" d="M1656 508 V416" />
+                <path id="s3-dim" stroke-width="1.5" d="M1656 432 H792" />
+                <polygon id="s3-arrw" class="s3-hide" fill="#E3A445" stroke="none" points="1656,432 1641,426.5 1641,437.5" />
+                <polygon id="s3-arri" class="s3-hide" fill="#E3A445" stroke="none" points="792,432 807,426.5 807,437.5" />
+                <g id="s3-iarcs" stroke-width="1.5"></g>
+                <g id="s3-warcs" stroke-width="1.5" clip-path="url(#s3-waterclip)"></g>
+                <g id="s3-val" stroke-width="2"></g>
+                <path id="s3-sig" stroke-width="6" stroke-dasharray="70 3000" stroke-dashoffset="70" d="M792 648 V432 H1656 V520" />
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <svg id="s3-hsvg" width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+          <defs id="s3-hdefs">
+            <filter id="s3-chalk2" filterUnits="userSpaceOnUse" x="0" y="0" width="1920" height="1080">
+              <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="17" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.4" xChannelSelector="R" yChannelSelector="G" result="disp" />
+              <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="17" result="grain" />
+              <feColorMatrix in="grain" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0.68" result="mask" />
+              <feComposite in="disp" in2="mask" operator="in" />
+            </filter>
+          </defs>
+          <g id="s3-head" filter="url(#s3-chalk2)"></g>
+        </svg>
+      </div>
+
+      <script type="module">
+        const DUR = 8.544;
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__timelines = window.__timelines || {};
+
+        async function build() {
+          await document.fonts.load('500 100px "Space Grotesk"');
+
+          const $ = (id) => document.getElementById(id);
+          const NS = "http://www.w3.org/2000/svg";
+          const mk = (tag, attrs, parent) => {
+            const e = document.createElementNS(NS, tag);
+            for (const k in attrs) e.setAttribute(k, attrs[k]);
+            if (parent) parent.appendChild(e);
+            return e;
+          };
+          const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+          const lerp = (a, b, t) => a + (b - a) * t;
+          const io2 = gsap.parseEase("power2.inOut");
+          const o2 = gsap.parseEase("power2.out");
+          const OFF = "#E8EEF2";
+          const AMB = "#E3A445";
+
+          const tl = gsap.timeline({ paused: true });
+
+          const drawOn = (el, t0, dur, ease = "power2.inOut") => {
+            const L = el.getTotalLength();
+            el.setAttribute("stroke-dasharray", `${L} ${L + 4}`);
+            tl.fromTo(el, { attr: { "stroke-dashoffset": L } }, { attr: { "stroke-dashoffset": 0 }, duration: dur, ease }, t0);
+          };
+          const drawText = (el, D, t0, dur, ease = "power1.inOut") => {
+            el.setAttribute("stroke-dasharray", `${D} ${D}`);
+            tl.fromTo(el, { attr: { "stroke-dashoffset": D } }, { attr: { "stroke-dashoffset": 0 }, duration: dur, ease }, t0);
+          };
+
+          /* ---------- text measuring (canvas, layout independent) ---------- */
+          const mctx = document.createElement("canvas").getContext("2d");
+          const setFont = (fs) => {
+            mctx.font = `500 ${fs}px "Space Grotesk"`;
+          };
+          const widthOf = (s, fs) => {
+            setFont(fs);
+            return mctx.measureText(s).width;
+          };
+          const charXs = (s, fs) => {
+            setFont(fs);
+            const xs = [];
+            for (let i = 0; i < s.length; i++) xs.push(mctx.measureText(s.slice(0, i)).width);
+            return xs;
+          };
+
+          /* ---------- wave geometry ---------- */
+          const W0 = [[1300,648],[1400,648],[1480,642],[1540,614],[1580,594],[1600,566],[1628,564],[1660,562],[1690,600],[1716,628],[1736,644],[1756,648],[1776,648]];
+          const W1 = [[1300,648],[1400,650],[1470,638],[1530,598],[1574,566],[1606,520],[1656,520],[1712,520],[1756,556],[1762,600],[1765,622],[1772,638],[1782,646]];
+          const f2 = (q) => q[0].toFixed(2) + " " + q[1].toFixed(2);
+          const wavePath = (b) => {
+            const p = W0.map((q, i) => [lerp(q[0], W1[i][0], b), lerp(q[1], W1[i][1], b)]);
+            let d = "M" + f2(p[0]);
+            for (let i = 1; i < 13; i += 3) d += " C" + f2(p[i]) + " " + f2(p[i + 1]) + " " + f2(p[i + 2]);
+            return d;
+          };
+          $("s3-waterclip-path").setAttribute("d", wavePath(1) + " L1300 785 Z");
+
+          /* ---------- hatching under the beach slope ---------- */
+          const hatchG = $("s3-hatch");
+          const m = -0.288;
+          const q1 = 756 + 0.288 * 1400;
+          const q2 = q1 + 64;
+          const step = 12 * Math.SQRT2;
+          const cStart = q1 + (1 + m) * 1120;
+          const cEnd = q2 + (1 + m) * 2400;
+          for (let c = cStart + 4; c <= cEnd; c += step) {
+            const xt = (c - q1) / (1 + m);
+            const xb = (c - q2) / (1 + m);
+            const x0 = Math.max(xb, 1120);
+            const x1 = Math.min(xt, 2400);
+            if (x1 - x0 < 3) continue;
+            const ln = mk("path", { d: `M${x0.toFixed(2)} ${(c - x0).toFixed(2)} L${x1.toFixed(2)} ${(c - x1).toFixed(2)}` }, hatchG);
+            drawOn(ln, 0.5 + ((x0 - 1120) / 1280) * 0.75, 0.2, "power1.inOut");
+          }
+
+          /* ---------- time axis ticks ---------- */
+          const tickXs = [1224, 1152, 1080, 1008, 936];
+          const ticks = tickXs.map((x) => mk("path", { d: `M${x} 641 V655`, opacity: 0 }, $("s3-ticks")));
+
+          /* ---------- ripple arcs ---------- */
+          const IR = [104, 140, 176, 212];
+          const WR = [36, 72, 108, 144];
+          const iArcs = IR.map(() => mk("path", { d: "" }, $("s3-iarcs")));
+          const wArcs = WR.map(() => mk("path", { d: "" }, $("s3-warcs")));
+          const IC = [792, 648];
+          const WC = [1656, 520];
+          const HALF = (32 * Math.PI) / 180;
+
+          /* ---------- measured value: 4,5 MİLYAR YIL ---------- */
+          const VS = 150, MS = 56, VGAP = 30, VBASE = 400;
+          const w45 = widthOf("4,5", VS);
+          const milStr = "MİLYAR YIL";
+          const wMil = widthOf(milStr, MS);
+          const milXs = charXs(milStr, MS);
+          const vx = 1224 - (w45 + VGAP + wMil) / 2;
+          const valG = $("s3-val");
+          const num = mk("text", { class: "s3-vtext", style: "color:#E3A445", x: vx.toFixed(2), y: VBASE, "font-family": "Space Grotesk", "font-weight": 500, "font-size": VS, fill: "none", stroke: AMB }, valG);
+          num.textContent = "0,0";
+          drawText(num, VS * 7, 2.95, 0.5);
+          const counter = { _v: -1 };
+          Object.defineProperty(counter, "v", {
+            get() { return this._v; },
+            set(v) {
+              if (v !== this._v) {
+                this._v = v;
+                num.textContent = (Math.round(v * 10) / 10).toFixed(1).replace(".", ",");
+              }
+            },
+          });
+          tl.fromTo(counter, { v: 0 }, { v: 4.5, duration: 0.8, ease: "power2.out" }, 2.95);
+
+          const milX0 = vx + w45 + VGAP;
+          for (let i = 0; i < milStr.length; i++) {
+            const ch = milStr[i];
+            if (ch === " ") continue;
+            const el = mk("text", { class: "s3-vtext", style: "color:#E3A445", x: (milX0 + milXs[i]).toFixed(2), y: VBASE, "font-family": "Space Grotesk", "font-weight": 500, "font-size": MS, fill: "none", stroke: AMB }, valG);
+            el.textContent = ch;
+            const t0 = i < 6 ? 3.41 + i * 0.05 : 3.79 + (i - 7) * 0.06;
+            drawText(el, MS * 8, t0, 0.22, "power1.out");
+          }
+
+          /* ---------- headline: ÇARPIŞMANIN YANKISI ---------- */
+          const words = "ÇARPIŞMANIN YANKISI".trim().split(/\s+/);
+          const wordTimes = [5.39, 7.77];
+          const HMAX = 520;
+          const maxW100 = Math.max(1, ...words.map((w) => widthOf(w, 100)));
+          const fs = Math.min(88, Math.floor((100 * HMAX) / maxW100));
+          const sp = fs * 0.26;
+          const lines = [];
+          let cur = [], curW = 0;
+          words.forEach((w, i) => {
+            const ww = widthOf(w, fs);
+            if (cur.length && curW + sp + ww > HMAX) {
+              lines.push(cur);
+              cur = [];
+              curW = 0;
+            }
+            cur.push({ w, i, ww, x: curW + (cur.length ? sp : 0) });
+            curW += (cur.length > 1 ? sp : 0) + ww;
+          });
+          if (cur.length) lines.push(cur);
+
+          const headG = $("s3-head");
+          const hdefs = $("s3-hdefs");
+          const HX = 110, LAST_BASE = 936, LH = 1.12;
+          lines.forEach((line, li) => {
+            const base = LAST_BASE - (lines.length - 1 - li) * fs * LH;
+            line.forEach((wd) => {
+              const t0 = wordTimes[wd.i] !== undefined ? wordTimes[wd.i] : 5.39;
+              const fast = wd.i > 0;
+              const stag = fast ? 0.035 : 0.04;
+              const ldur = fast ? 0.38 : 0.45;
+              const wx = HX + wd.x;
+              const cid = `s3-hclip-${wd.i}`;
+              const cp = mk("clipPath", { id: cid }, hdefs);
+              const rect = mk("rect", { x: wx - 6, y: base - fs * 1.2, width: 0, height: fs * 1.65 }, cp);
+              const fillT = mk("text", { class: "s3-htext", style: "color:#E8EEF2", x: wx.toFixed(2), y: base.toFixed(2), "font-family": "Space Grotesk", "font-weight": 500, "font-size": fs, fill: OFF, stroke: "none", "clip-path": `url(#${cid})` }, headG);
+              fillT.textContent = wd.w;
+              const xs = charXs(wd.w, fs);
+              for (let k = 0; k < wd.w.length; k++) {
+                const lt = mk("text", { class: "s3-htext", style: "color:#E8EEF2", x: (wx + xs[k]).toFixed(2), y: base.toFixed(2), "font-family": "Space Grotesk", "font-weight": 500, "font-size": fs, fill: "none", stroke: OFF, "stroke-width": 1.5, "stroke-linejoin": "miter" }, headG);
+                lt.textContent = wd.w[k];
+                drawText(lt, fs * 8, t0 + k * stag, ldur);
+              }
+              const fillStart = t0 + wd.w.length * stag + (fast ? 0.12 : 0.2);
+              tl.fromTo(rect, { attr: { width: 0 } }, { attr: { width: wd.ww + 14 }, duration: fast ? 0.3 : 0.38, ease: "power2.inOut" }, fillStart);
+            });
+          });
+
+          /* ---------- impact drawing ---------- */
+          drawOn($("s3-slope"), 0.35, 0.7);
+          drawOn($("s3-c1"), 2.3, 0.4);
+          drawOn($("s3-c2"), 2.36, 0.34);
+          tl.fromTo($("s3-m1"), { opacity: 0 }, { opacity: 1, duration: 0.01 }, 2.62);
+          tl.fromTo($("s3-m2"), { opacity: 0 }, { opacity: 1, duration: 0.01 }, 2.64);
+          tl.fromTo($("s3-m0"), { opacity: 0 }, { opacity: 1, duration: 0.01 }, 2.68);
+
+          /* ---------- camera pan along the axis ---------- */
+          tl.fromTo($("s3-world"), { x: -360 }, { x: 0, duration: 1.0, ease: "power2.inOut" }, 1.71);
+
+          /* ---------- amber dimension ---------- */
+          drawOn($("s3-ext1"), 2.7, 0.22, "power2.out");
+          drawOn($("s3-ext2"), 2.7, 0.14, "power2.out");
+          drawOn($("s3-dim"), 2.78, 0.42);
+          tl.fromTo($("s3-arrw"), { opacity: 0 }, { opacity: 1, duration: 0.01 }, 2.78);
+          tl.fromTo($("s3-arri"), { opacity: 0 }, { opacity: 1, duration: 0.01 }, 3.2);
+
+          /* ---------- amber signal ---------- */
+          tl.fromTo($("s3-sig"), { attr: { "stroke-dashoffset": 70 } }, { attr: { "stroke-dashoffset": -1168 }, duration: 1.16, ease: "power1.inOut" }, 5.39);
+
+          /* ---------- per-frame drawing ---------- */
+          const wave = $("s3-wave");
+          const curl = $("s3-curl");
+          const curlL = curl.getTotalLength();
+          curl.setAttribute("stroke-dasharray", `${curlL} ${curlL + 4}`);
+
+          const grows = [
+            { el: $("s3-swl"), x1: 1300, y1: 648, x2: 1800, y2: 648, t0: 0.05, d: 0.4 },
+            { el: $("s3-icl-h"), x1: 888, y1: 648, x2: 624, y2: 648, t0: 2.15, d: 0.3 },
+            { el: $("s3-icl-v1"), x1: 720, y1: 560, x2: 720, y2: 736, t0: 2.22, d: 0.23 },
+            { el: $("s3-icl-v2"), x1: 830, y1: 596, x2: 830, y2: 700, t0: 2.26, d: 0.19 },
+          ];
+          const axis = $("s3-axis");
+
+          function draw(t) {
+            for (const g of grows) {
+              const p = io2(clamp01((t - g.t0) / g.d));
+              g.el.setAttribute("d", `M${g.x1} ${g.y1} L${lerp(g.x1, g.x2, p).toFixed(2)} ${lerp(g.y1, g.y2, p).toFixed(2)}`);
+            }
+
+            const pa = io2(clamp01((t - 1.95) / 0.65));
+            const xEnd = 1300 - 404 * pa;
+            axis.setAttribute("d", `M1300 648 H${xEnd.toFixed(2)}`);
+            ticks.forEach((tk, i) => tk.setAttribute("opacity", pa > 0 && xEnd <= tickXs[i] ? 1 : 0));
+
+            const b = io2(clamp01((t - 1.71) / 0.5));
+            const pw = io2(clamp01((t - 0.75) / 0.7));
+            wave.setAttribute("d", wavePath(b));
+            const L = wave.getTotalLength();
+            wave.setAttribute("stroke-dasharray", `${L} ${L + 4}`);
+            wave.setAttribute("stroke-dashoffset", (L * (1 - pw)).toFixed(2));
+
+            const pc = io2(clamp01((t - 1.95) / 0.35));
+            curl.setAttribute("stroke-dashoffset", (curlL * (1 - pc)).toFixed(2));
+
+            iArcs.forEach((a, i) => {
+              const p = clamp01((t - (6.67 + i * 0.14)) / 0.75);
+              if (p <= 0) { a.setAttribute("d", ""); return; }
+              const r = 20 + (IR[i] - 20) * o2(p);
+              const cx = IC[0] + r * Math.cos(HALF), dy = r * Math.sin(HALF);
+              a.setAttribute("d", `M${cx.toFixed(2)} ${(IC[1] - dy).toFixed(2)} A${r.toFixed(2)} ${r.toFixed(2)} 0 0 1 ${cx.toFixed(2)} ${(IC[1] + dy).toFixed(2)}`);
+            });
+            wArcs.forEach((a, i) => {
+              const p = clamp01((t - (7.03 + i * 0.14)) / 0.74);
+              if (p <= 0) { a.setAttribute("d", ""); return; }
+              const r = 6 + (WR[i] - 6) * o2(p);
+              const rs = r.toFixed(2);
+              a.setAttribute("d", `M${(WC[0] - r).toFixed(2)} ${WC[1]} A${rs} ${rs} 0 1 0 ${(WC[0] + r).toFixed(2)} ${WC[1]} A${rs} ${rs} 0 1 0 ${(WC[0] - r).toFixed(2)} ${WC[1]}`);
+            });
+          }
+
+          const driver = { _t: -1 };
+          Object.defineProperty(driver, "t", {
+            get() { return this._t; },
+            set(v) {
+              if (v !== this._t) {
+                this._t = v;
+                draw(v);
+              }
+            },
+          });
+          tl.fromTo(driver, { t: 0 }, { t: DUR, duration: DUR, ease: "none" }, 0);
+
+          window.__timelines = window.__timelines || {};
+          window.__timelines["s3"] = tl;
+          return tl;
+        }
+
+        const buildPromise = build();
+        window.__hf.buildReady["s3"] = buildPromise;
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "retro-risograf-karisik",
+  "style": "retro-risograf",
+  "format": "landscape",
+  "modes": ["overlay", "fullscreen"],
+  "times": [0.72, 1.53, 3.43, 5.27],
+  "noise": {
+    "mean": 0,
+    "changed": 0
+  },
+  "threshold": {
+    "mean": 0.5,
+    "changed": 0.002
+  },
+  "renderMs": 18307
+}

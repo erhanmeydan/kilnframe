@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "topic": "Bilgi sağanağı",
+  "summary": "Clay news cards fall one by one onto a small clay figure, then turn into a downpour that piles up around it, showing the daily flood of information.",
+  "style": "kil-lacivert",
+  "mode": "fullscreen",
+  "speaker": {
+    "side": "center"
+  },
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "25",
+  "duration_frames": 147,
+  "handles_frames": 20,
+  "assets": [],
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 147,
+      "anchor_words": [
+        "yeni",
+        "haber",
+        "yağıyor",
+        "sağanak",
+        "bilgi yağışı"
+      ],
+      "visual": "Navy clay studio floor with a visible horizon and an amber glow in the upper right. A small cream clay figure (simple rounded body, plain head, no face) stands slightly right of centre on the floor. At 0.98 on 'haber' one cream clay news card (rounded rectangle with three pressed lines and a small amber block like a headline) drops from above and lands next to the figure with one squash bounce. At 1.82 on 'Üzerimize' two more cards drop. From 2.90 on 'yağıyor' the cards come faster, mixed with mustard chat bubble tokens and amber clay pebbles, all landing with squash bounces and stacking around the figure. At 4.16 on 'sağanak' a dense fall of cards, bubbles and pebbles fills the upper frame. The pile rises to the figure's waist and the figure tilts its head upward. A short burst of amber clay strokes appears around the figure. End state: the figure is half buried in a heap of clay cards while more keep falling. The left third stays calm for the headline: 'BİLGİ SAĞANAĞI' in cream Barlow Condensed rises in word by word at 4.16 and stays left aligned.",
+      "on_screen_text": "BİLGİ SAĞANAĞI",
+      "camera": "slow push in toward the figure, slight downward tilt as the pile rises on 'sağanak'",
+      "technique": "three-3d",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 26,
+          "type": "thock-small",
+          "gain_db": -14
+        },
+        {
+          "frame": 47,
+          "type": "thock-small",
+          "gain_db": -15
+        },
+        {
+          "frame": 72,
+          "type": "whoosh",
+          "gain_db": -14
+        },
+        {
+          "frame": 104,
+          "type": "thock-big",
+          "gain_db": -10
+        },
+        {
+          "frame": 106,
+          "type": "paper",
+          "gain_db": -14
+        }
+      ],
+      "mode": "fullscreen"
+    }
+  ]
+}

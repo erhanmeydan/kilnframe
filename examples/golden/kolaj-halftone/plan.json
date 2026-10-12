@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "topic": "Bilgi sağanağı",
+  "summary": "Torn newspaper scraps slap onto the page, then pour down like rain under a paper storm cloud while the cut-out headline BİLGİ SAĞANAĞI lands letter by letter.",
+  "style": "kolaj-halftone",
+  "mode": "fullscreen",
+  "speaker": {
+    "side": "center"
+  },
+  "format": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "fps": "25",
+  "duration_frames": 147,
+  "handles_frames": 20,
+  "assets": [],
+  "scenes": [
+    {
+      "id": "s1",
+      "start_frame": 0,
+      "end_frame": 147,
+      "anchor_words": [
+        "haber",
+        "yağıyor",
+        "sağanak",
+        "bilgi yağışı",
+        "altında"
+      ],
+      "visual": "Smooth newsprint background with faint grain. Left third stays empty for the headline. Phase 1 (0.24 to 1.54): small torn newsprint scraps slap onto the right two thirds one at a time, on 'Her', 'gün', 'yeni' and 'haber'. Each scrap carries a halftone pictogram: a folded newspaper, a phone with a notification dot, a bell, a small bar chart. Each scrap is slightly rotated, and a tape strip lands a beat after it. The 'haber' scrap is red paper and is the largest. Phase 2 (1.82 to 3.54): a faded blue torn paper cloud with a halftone cloud pictogram slaps across the top right on the first 'Üzerimize'. On the second 'üzerimize' the first scraps are pulled off upward. On 'yağıyor' (2.90) dozens of small torn paper pieces (newsprint, red and blue, some with tiny halftone pictograms of a newspaper, an envelope or a speech bubble) fall from the cloud in seeded straight diagonal lines like rain. They pile up along the bottom edge and jump to new rotations in stepped stop motion frames. Phase 3 (3.78 to 5.88): the rain gets denser on 'sağanak'. In the calm left third the cut-out headline BİLGİ SAĞANAĞI builds one piece at a time. BİLGİ lands on 'sağanak' (4.16) and SAĞANAĞI on 'bilgi' and 'yağışı' (4.62 to 5.36), each letter group in a different font (Archivo Black, Anton, Alfa Slab One) on its own torn red, blue or newsprint piece, black or white ink. On 'altında' (5.36) a small halftone pictogram of a person under an umbrella slaps onto a newsprint piece at the bottom right, under the falling scraps, and a tape strip holds it. End state: cloud top right, paper rain falling, headline taped on the left, small figure under the umbrella at the bottom.",
+      "on_screen_text": "BİLGİ SAĞANAĞI",
+      "camera": "hold, a small stepped push in on 'sağanak'",
+      "technique": "motion-2d",
+      "assets": [],
+      "transition_out": "cut",
+      "image_requests": [],
+      "sfx": [
+        {
+          "frame": 24,
+          "type": "slap",
+          "gain_db": -11
+        },
+        {
+          "frame": 45,
+          "type": "slap",
+          "gain_db": -12
+        },
+        {
+          "frame": 72,
+          "type": "whoosh",
+          "gain_db": -13
+        },
+        {
+          "frame": 104,
+          "type": "snip",
+          "gain_db": -12
+        },
+        {
+          "frame": 122,
+          "type": "snip",
+          "gain_db": -13
+        },
+        {
+          "frame": 134,
+          "type": "tape",
+          "gain_db": -12
+        }
+      ],
+      "mode": "fullscreen"
+    }
+  ]
+}

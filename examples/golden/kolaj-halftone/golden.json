@@ -1,0 +1,16 @@
+{
+  "name": "kolaj-halftone",
+  "style": "kolaj-halftone",
+  "format": "landscape",
+  "modes": ["fullscreen"],
+  "times": [2.35, 5],
+  "noise": {
+    "mean": 0.01,
+    "changed": 0
+  },
+  "threshold": {
+    "mean": 0.5,
+    "changed": 0.002
+  },
+  "renderMs": 17401
+}

@@ -1,0 +1,18 @@
+{
+  "name": "kagit-kesik-dikey",
+  "style": "kagit-kesik",
+  "format": "portrait",
+  "modes": ["fullscreen"],
+  "times": [
+    1.35, 2.87, 6.09, 9.15, 12.05, 14.17, 16.56, 18.46, 20.61, 22.31, 24.25, 25.79, 28.25, 30.44
+  ],
+  "noise": {
+    "mean": 0.3,
+    "changed": 0
+  },
+  "threshold": {
+    "mean": 0.8999999999999999,
+    "changed": 0.002
+  },
+  "renderMs": 106168
+}
