@@ -63,6 +63,15 @@ async function pool<T>(items: T[], limit: number, fn: (t: T) => Promise<void>): 
   );
 }
 
+/**
+ * A clip's file name for this run: s1.wav the first time, then s1-2.wav, s1-3.wav… A file the editor already
+ * placed is never written over: Premiere would play the new music from the old clip and keep stale caches.
+ */
+function nextName(dir: string, id: string): string {
+  if (!existsSync(join(dir, `${id}.wav`))) return `${id}.wav`;
+  for (let v = 2; ; v++) if (!existsSync(join(dir, `${id}-${v}.wav`))) return `${id}-${v}.wav`;
+}
+
 function rawOf(dir: string, id: string): string | null {
   if (!existsSync(dir)) return null;
   const f = readdirSync(dir).find((x) => x.startsWith(`${id}.`));
@@ -216,13 +225,14 @@ export async function makeScore(
     const normal = normalizeTo(music, SR, open);
     let ducked = applyLevels(normal, SR, s.startS, gainPlan, open);
     ducked = limitPeak(ducked);
-    const file = join(dir, `${s.id}.wav`);
-    const cleanFile = join(dir, "clean", `${s.id}.wav`);
+    const name = nextName(dir, s.id);
+    const file = join(dir, name);
+    const cleanFile = join(dir, "clean", name);
     writeAudio(file, ducked);
     writeAudio(cleanFile, limitPeak(normal));
     let preview: string | null = null;
     if (o.speechFile) {
-      preview = join(dir, "preview", `${s.id}.wav`);
+      preview = join(dir, "preview", name);
       const r = spawnSync(ffmpegPath(), [
         "-v",
         "error",

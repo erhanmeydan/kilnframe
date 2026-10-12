@@ -113,6 +113,18 @@ describe("making the score", () => {
     expect(r.sections[0]!.durationS + r.sections[0]!.atS).toBeCloseTo(r.sections[1]!.atS, 3);
   });
 
+  it("writes a section made again under a new name, leaving the placed file as it was", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const first = await makeScore(base(out, fakeLyria().fetchFn));
+    const before = readFileSync(first.sections[1]!.file!);
+    const again = await makeScore({ ...base(out, fakeLyria(70).fetchFn), only: ["s2"] });
+    expect(again.sections[1]!.file).not.toBe(first.sections[1]!.file);
+    expect(again.sections[1]!.file).toMatch(/s2-2\.wav$/);
+    expect(readFileSync(first.sections[1]!.file!).equals(before)).toBe(true);
+    // the neighbour was re-cut too: it gets a new name as well, so nothing on the timeline changes under the editor
+    expect(again.sections[0]!.file).toMatch(/s1-2\.wav$/);
+  });
+
   it("ends the music on the piece's own close at the last frame, with no separate hit", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     const lyria = fakeLyria();
