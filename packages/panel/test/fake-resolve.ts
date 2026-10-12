@@ -118,6 +118,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
   let jobs = 0;
   let stillCalls = 0;
   let refusals = o.refuseStarts ?? 0;
+  let settingsChangedOffDeliver = false;
   const started = new Set<string>();
   const folders: { name: string; subs: unknown[] }[] = [];
   const root = { name: "Master", subs: folders };
@@ -261,7 +262,11 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       return true;
     },
     GetMediaPool: async () => mediaPool,
-    SaveAsNewRenderPreset: async (n: string) => (log.presets.push(`save:${n}`), true),
+    SaveAsNewRenderPreset: async (n: string) => {
+      if (page !== "deliver") settingsChangedOffDeliver = true;
+      log.presets.push(`save:${n}`);
+      return true;
+    },
     LoadRenderPreset: async (n: string) => (log.presets.push(`load:${n}`), true),
     DeleteRenderPreset: async (n: string) => (log.presets.push(`delete:${n}`), true),
     GetRenderPresetList: async () => [] as string[],
@@ -279,7 +284,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     AddRenderJob: async () => `job-${++jobs}`,
     StartRendering: async (ids: string[]) => {
       log.startRendering.push(ids);
-      if (o.refuseOffDeliver && page !== "deliver") return false;
+      if (o.refuseOffDeliver && (page !== "deliver" || settingsChangedOffDeliver)) return false;
       if (refusals > 0) {
         refusals--;
         return false;

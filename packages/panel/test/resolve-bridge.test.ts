@@ -66,16 +66,28 @@ describe("resolve bridge", () => {
       "load:Kilnframe Temp",
       "delete:Kilnframe Temp",
     ]);
-    expect(f.log.pages.at(-1)).toBe("edit");
+    expect(f.log.pages).toEqual(["deliver"]);
   });
 
-  it("starts renders from the Deliver page and goes back to the editor's page", async () => {
+  it("does the exports on the Deliver page and goes back to the editor's page once, at the end", async () => {
     const f = makeFakeResolve({ refuseOffDeliver: true });
     const b = bridge(f);
     const seq = await b.currentSequence();
+    const hidden = await b.hideOurInserts(seq.id, 0, 1);
     await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).resolves.toMatchObject({ ok: true });
+    expect(await b.exportRangePicture(seq.id, 0, 1, "/x/footage.mp4")).toBe(true);
+    expect(f.log.pages).toEqual(["deliver"]);
+    await b.showTracks(seq.id, hidden);
     expect(f.log.pages).toEqual(["deliver", "edit"]);
-    expect(f.log.startRendering).toHaveLength(1);
+    expect(f.log.startRendering).toHaveLength(2);
+  });
+
+  it("is patient with a Deliver page that refuses the first starts after opening", async () => {
+    const f = makeFakeResolve({ refuseStarts: 4 });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).resolves.toMatchObject({ ok: true });
+    expect(f.log.startRendering).toHaveLength(5);
   });
 
   it("adds the job again when Resolve refuses to start it (seen 12 Oct 2026), deleting the refused one", async () => {
@@ -92,8 +104,8 @@ describe("resolve bridge", () => {
     const b = bridge(f);
     const seq = await b.currentSequence();
     await expect(b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav")).rejects.toThrow("RENDER_FAILED");
-    expect(f.log.startRendering).toHaveLength(3);
-    expect(f.log.deletedJobs).toEqual(["job-1", "job-2", "job-3"]);
+    expect(f.log.startRendering).toHaveLength(5);
+    expect(f.log.deletedJobs).toEqual(["job-1", "job-2", "job-3", "job-4", "job-5"]);
     expect(f.log.presets.at(-1)).toBe("delete:Kilnframe Temp");
   });
 

@@ -26,7 +26,8 @@ type R = any;
 const TEMP_PRESET = "Kilnframe Temp";
 const BUSY_WAIT_MS = 10 * 60_000;
 const POLL_MS = 2_000;
-const START_TRIES = 3;
+const START_TRIES = 5;
+const PAGE_SETTLE_MS = 500;
 const READY_LIMIT_MS = 15_000;
 
 const dirOf = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
@@ -37,6 +38,9 @@ export function createResolveBridge(
   opts: { sleep?: (ms: number) => Promise<void> } = {},
 ): ResolveBridge {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)));
+
+  /** The editor's page before the exports opened the Deliver page; restored by showTracks. */
+  let pageBefore: string | null = null;
 
   async function project(): Promise<R> {
     const p = await (await resolve.GetProjectManager()).GetCurrentProject();
@@ -113,7 +117,15 @@ export function createResolveBridge(
     }
     const rate = await rateOf(tl);
     const start = (await tl.GetStartFrame()) as number;
+    // Resolve Studio 21.1.1 refuses StartRendering on the Edit page after a still export or a settings change,
+    // and for a few seconds after the Deliver page opens (12 Oct 2026). So the renders happen on the Deliver
+    // page, opened once for all of a job's exports; showTracks brings the editor's page back at the end.
     const page = await resolve.GetCurrentPage();
+    if (page !== "deliver") {
+      pageBefore ??= page;
+      await resolve.OpenPage("deliver");
+      await sleep(PAGE_SETTLE_MS);
+    }
     await p.DeleteRenderPreset(TEMP_PRESET);
     const saved = await p.SaveAsNewRenderPreset(TEMP_PRESET);
     let job: string | null = null;
@@ -135,11 +147,7 @@ export function createResolveBridge(
         ...settings,
       });
       if (!ok) return false;
-      // Resolve Studio 21.1.1 refuses StartRendering on the Edit page right after a still export or a format
-      // change, and that job then never starts; from the Deliver page it starts (12 Oct 2026). Rendering shows
-      // the Deliver page anyway; the editor's page comes back in `finally`. Still: a few tries with a growing
-      // pause, each refused job deleted, never an endless wait.
-      await resolve.OpenPage("deliver");
+      // still refused: a few tries with a growing pause, each refused job deleted, never an endless wait
       for (let attempt = 1; attempt <= START_TRIES; attempt++) {
         job = (await p.AddRenderJob()) as string;
         if (!job) return false;
@@ -168,7 +176,6 @@ export function createResolveBridge(
         await p.LoadRenderPreset(TEMP_PRESET);
         await p.DeleteRenderPreset(TEMP_PRESET);
       }
-      if (page && page !== "deliver") await resolve.OpenPage(page);
     }
   }
 
@@ -314,6 +321,8 @@ export function createResolveBridge(
     showTracks(id, tracks) {
       return onTimeline(id, async (tl) => {
         for (const t of tracks) await tl.SetTrackEnable(t.type, t.index, true);
+        if (pageBefore && pageBefore !== "deliver") await resolve.OpenPage(pageBefore);
+        pageBefore = null;
       });
     },
 
