@@ -41,6 +41,8 @@ export interface FakeOptions {
   refuseOffDeliver?: boolean;
   /** After a refused start, Resolve 21.1.1 refuses every later start until the render settings are set again. */
   staleAfterRefusal?: boolean;
+  /** GetTrackCount throws, as on a timeline deleted while the job ran. */
+  failTrackCount?: boolean;
 }
 
 const track = (items: FakeItem[] = []): FakeTrack => ({ items, enabled: true, locked: false });
@@ -168,8 +170,13 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         }
         return r;
       },
-      SetMarkInOut: async (i: number, out: number) => {
-        tl.mark = { in: i, out };
+      // Resolve 21.1.1: an In alone is accepted; an Out never goes alone (-1 or a missing In clears both)
+      SetMarkInOut: async (i: number, out?: number) => {
+        if (i < 0) {
+          tl.mark = {};
+          return false;
+        }
+        tl.mark = out === undefined ? { in: i } : { in: i, out };
         return true;
       },
       GetCurrentTimecode: async () => tl.playhead,
@@ -178,7 +185,15 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         tl.playhead = t;
         return true;
       },
-      GetTrackCount: async (type: "video" | "audio") => list(type).length,
+      GetTrackCount: async (type: "video" | "audio") => {
+        if (o.failTrackCount) throw new Error("timeline gone");
+        return list(type).length;
+      },
+      DeleteTrack: async (type: "video" | "audio", i: number) => {
+        if (!list(type)[i - 1]) return false;
+        list(type).splice(i - 1, 1);
+        return true;
+      },
       AddTrack: async (type: "video" | "audio") => {
         const t = track();
         if (type === "video" && o.lockTopVideoTrackOnAdd) t.locked = true;
