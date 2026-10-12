@@ -44,9 +44,9 @@ export async function writeMusicPlan(o: {
   durationS: number;
   note?: string | undefined;
   language: string;
-  frames?: { path: string; atS: number }[];
+  frames?: { path: string; atS: number }[] | undefined;
   maxAttempts?: number;
-  onProgress?: (m: string) => void;
+  onProgress?: ((m: string) => void) | undefined;
 }): Promise<MusicPlan> {
   o.onProgress?.("Planning the music");
   const images: ChatMessage["content"] = (o.frames ?? []).map((f) => ({

@@ -1,3 +1,4 @@
+import { MusicPlanSchema } from "@kilnframe/core";
 import { z } from "zod";
 
 export const PROTOCOL_VERSION = 1;
@@ -136,13 +137,48 @@ export const PartsJobParamsSchema = z.object({
 });
 export type PartsJobParams = z.infer<typeof PartsJobParamsSchema>;
 
+/** The Music tab, step 1: the range's speech and a sectioned music plan from the user's text model. */
+export const MusicPlanJobParamsSchema = z.object({
+  kind: z.literal("music-plan"),
+  audioPath: z.string().min(1),
+  rangeStartS: z.number().min(0).optional(),
+  rangeEndS: z.number().positive().optional(),
+  outDir: z.string().min(1),
+  note: z.string().max(1000).optional(),
+  language: z.string().min(2).max(10),
+  frames: z
+    .array(z.object({ path: z.string().min(1), atS: z.number() }))
+    .max(6)
+    .optional(),
+  ...ProviderChoice,
+});
+
+/** The Music tab, step 2: the approved plan made into one clip per section (or only the sections asked for). */
+export const MusicMakeJobParamsSchema = z.object({
+  kind: z.literal("music-make"),
+  plan: MusicPlanSchema,
+  outDir: z.string().min(1),
+  durationS: z
+    .number()
+    .min(5)
+    .max(4 * 3600),
+  /** The music's meter level under speech, in dBFS. */
+  slider: z.number().min(-30).max(-12),
+  only: z.array(z.string().min(1)).optional(),
+  speechFile: z.string().min(1).optional(),
+});
+
 export const JobParamsSchema = z.union([
   PartsJobParamsSchema,
   StyleJobParamsSchema,
   StoryWriteJobParamsSchema,
   StoryVoiceJobParamsSchema,
+  MusicPlanJobParamsSchema,
+  MusicMakeJobParamsSchema,
   RenderJobParamsSchema,
 ]);
+export type MusicPlanJobParams = z.infer<typeof MusicPlanJobParamsSchema>;
+export type MusicMakeJobParams = z.infer<typeof MusicMakeJobParamsSchema>;
 export type StoryWriteJobParams = z.infer<typeof StoryWriteJobParamsSchema>;
 export type StoryVoiceJobParams = z.infer<typeof StoryVoiceJobParamsSchema>;
 export type JobParams = z.infer<typeof JobParamsSchema>;
@@ -184,6 +220,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     language: z.string().regex(/^[A-Za-z-]{2,10}$/),
   }),
   z.object({ type: z.literal("speech.stop") }),
+  /** Plays a music clip or its preview from a job folder; speech.stop stops it. */
+  z.object({ type: z.literal("audio.play"), file: z.string().min(1) }),
   z.object({ type: z.literal("assets.inspect"), paths: z.array(z.string().min(1)).max(12) }),
   z.object({ type: z.literal("providers.list") }),
   /** Opens the official sign-in of an agent CLI in a terminal window the editor sees. */
@@ -258,6 +296,8 @@ export type ServerMessage =
   | { type: "speech.played"; voice: string }
   /** The sample stopped: it finished, Stop was pressed, or another one started. */
   | { type: "speech.ended"; voice: string }
+  | { type: "audio.played" }
+  | { type: "audio.ended" }
   | {
       type: "providers";
       providers: unknown[];

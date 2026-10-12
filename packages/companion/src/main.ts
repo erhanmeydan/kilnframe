@@ -122,6 +122,7 @@ async function main() {
       playSound(file, onEnd);
     },
     stopVoice: () => stopSound(),
+    playAudio: (file, onEnd) => playSound(file, onEnd),
     inspectImages: async (paths) =>
       inspectImages(
         paths,

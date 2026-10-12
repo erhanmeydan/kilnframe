@@ -4,6 +4,15 @@ import {
   loadPalette,
   makeMusic,
   createTextProvider,
+  cutAudio,
+  decodeAudio,
+  loadMusicCatalog,
+  makeScore,
+  NoSpeechError,
+  splitLong,
+  transcribe,
+  writeMusicPlan,
+  type Transcript,
   loadSpeechCatalog,
   narrate,
   planParts,
@@ -30,7 +39,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { stillImages } from "./panel-support.js";
 import type { KeyStore } from "./keys.js";
-import type { JobParams, StoryVoiceJobParams, StyleJobParams } from "./protocol.js";
+import type {
+  JobParams,
+  MusicMakeJobParams,
+  StoryVoiceJobParams,
+  StyleJobParams,
+} from "./protocol.js";
 import type { JobRunner } from "./queue.js";
 
 /** The story text next to a narration, when there is one; a missing file only means no correction. */
@@ -44,6 +58,7 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
   return async (params: JobParams, events) => {
     const defaults = loadDefaults();
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
+    if (params.kind === "music-make") return musicMakeJob(params, keys, events.progress);
     if (params.kind === "parts") {
       const r = await planParts({
         audioPath: params.audioPath,
@@ -72,6 +87,42 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       apiKey,
     });
     if (params.kind === "style") return styleJob(params, provider, events.progress);
+    if (params.kind === "music-plan") {
+      mkdirSync(params.outDir, { recursive: true });
+      const ranged = params.rangeStartS !== undefined && params.rangeEndS !== undefined;
+      const speech = ranged ? join(params.outDir, "range.wav") : params.audioPath;
+      if (ranged) await cutAudio(params.audioPath, speech, params.rangeStartS!, params.rangeEndS!);
+      let transcript: Transcript | null = null;
+      try {
+        transcript = await transcribe({ audioPath: speech, defaults, onProgress: events.progress });
+        writeFileSync(join(params.outDir, "transcript.json"), JSON.stringify(transcript, null, 2));
+      } catch (err) {
+        // music under B-roll or a silent stretch: planned without speech
+        if (!(err instanceof NoSpeechError)) throw err;
+      }
+      const durationS = ranged
+        ? params.rangeEndS! - params.rangeStartS!
+        : (transcript?.duration_s ?? (await decodeAudio(speech)).length / 16_000);
+      const usage = new UsageMeter();
+      const plan = await writeMusicPlan({
+        provider: usage.wrap(provider),
+        transcript,
+        durationS,
+        note: params.note,
+        language: params.language,
+        frames: params.frames,
+        onProgress: events.progress,
+      });
+      writeFileSync(join(params.outDir, "music-plan.json"), JSON.stringify(plan, null, 2));
+      return {
+        kind: "music-plan",
+        plan,
+        speechFile: speech,
+        durationS,
+        listPriceUsd: usage.total().listPriceUsd || 0,
+        billing: provider.billing ?? "api",
+      };
+    }
     if (params.kind === "story-write") {
       const usage = new UsageMeter();
       const story = await writeStory({
@@ -275,4 +326,35 @@ async function storyVoiceJob(
       ? (result.audioTokens * price.outputAudio + result.inputTokens * price.input) / 1e6
       : 0,
   };
+}
+
+/** The Music tab's second step: Lyria pieces made into one clip per section under the speech. */
+async function musicMakeJob(
+  params: MusicMakeJobParams,
+  keys: KeyStore,
+  progress: (message: string) => void,
+) {
+  const defaults = loadDefaults();
+  const provider = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
+  if (!provider) throw new Error(`No music provider ${defaults.music.provider}`);
+  const transcriptFile = join(params.outDir, "transcript.json");
+  const words = existsSync(transcriptFile)
+    ? (JSON.parse(readFileSync(transcriptFile, "utf8")) as Transcript).words
+    : [];
+  const r = await makeScore({
+    // a section joined in the panel may be longer than one Lyria piece: split again here
+    plan: splitLong(params.plan),
+    words,
+    rangeDurationS: params.durationS,
+    speechFile: params.speechFile ?? null,
+    outDir: params.outDir,
+    slider: params.slider,
+    apiKey: (await keys.get(provider.keyName)) ?? "",
+    endpoint: provider.endpoint,
+    model: defaults.music.model,
+    clipModel: provider.models.find((m) => m.maxS <= 30)?.id ?? defaults.music.model,
+    only: params.only,
+    onProgress: progress,
+  });
+  return { kind: "music-make", ...r };
 }

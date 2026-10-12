@@ -56,6 +56,8 @@ export interface CompanionOptions {
   previewVoice?: (voice: string, language: string, onEnd: () => void) => Promise<void>;
   /** Stops the sample that is playing. */
   stopVoice?: () => void;
+  /** Plays a sound file (a music clip or preview); the server checks the file is one. */
+  playAudio?: (file: string, onEnd: () => void) => void;
   /** Deletes one of the editor's own styles. */
   deleteStyle?: (name: string) => Promise<void>;
   /** Thumbnails and sizes of the editor's images for the panel, or why one cannot be used. */
@@ -255,6 +257,14 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               broadcast({ type: "speech.ended", voice: msg.voice }),
             );
             send({ type: "speech.played", voice: msg.voice });
+            break;
+          case "audio.play":
+            // only the Music tab's own clips: never any file a page names
+            if (!/[\\/]music[\\/](preview[\\/])?s\d+\.wav$/.test(msg.file))
+              throw new Error("Only music clips can be played.");
+            if (!o.playAudio) throw new Error("playing music is not supported");
+            o.playAudio(msg.file, () => broadcast({ type: "audio.ended" }));
+            send({ type: "audio.played" });
             break;
           case "speech.stop":
             o.stopVoice?.();
