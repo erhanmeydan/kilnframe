@@ -134,6 +134,14 @@ export function afterMake(
   st.stage = "listen";
 }
 
+/**
+ * Whether the home screen should keep reading the sequence for a new In/Out: the range tab, and the Music
+ * tab before a plan is made (a plan belongs to the range it was made for).
+ */
+export function watchesSequence(tab: string, musicStage: MusicState["stage"]): boolean {
+  return tab === "range" || (tab === "music" && musicStage === "idle");
+}
+
 export function clock(seconds: number): string {
   const s = Math.floor(seconds);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -170,6 +178,8 @@ export interface MusicCtx {
     target: HostSequence,
     clips: { file: string; atS: number; durationS: number }[],
   ): Promise<{ audioTrack: number }>;
+  /** The range line shown above the choices, as on the range tab. */
+  rangeLine(scope: "all" | "range"): string;
   slider(): number;
   pricePerSong(): number;
   openTerms(): void;
@@ -225,6 +235,7 @@ export function musicBox(st: MusicState, ctx: MusicCtx): string {
   if (range) scopes.push(["range", t("music.scopeRange")]);
   const ready = ctx.connected();
   return `${err}
+  ${ctx.rangeLine(range ? st.scope : "all")}
   <div class="lbl">${t("music.scope")}</div>
   ${ctx.seg("music-scope", range ? st.scope : "all", scopes)}
   <div class="lbl">${t("music.note")}</div>

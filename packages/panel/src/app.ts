@@ -13,6 +13,7 @@ import {
   musicReadFields,
   musicWriteFields,
   newMusic,
+  watchesSequence,
   type MusicCtx,
 } from "./music";
 import {
@@ -323,6 +324,8 @@ const state = {
     fps: string;
     fpsValue: number;
     size: string;
+    /** The sequence's length: the Music tab can score all of it while an In/Out is set. */
+    endS: number;
   },
   seqError: "",
   job: null as JobView | null,
@@ -514,6 +517,21 @@ function connectionBox(): string {
   return `<div class="box warn"><div>${t("conn.down")}</div><div class="small muted">${esc(
     state.connError,
   )}</div><div class="btn2 mt" data-act="reconnect">${t("conn.retry")}</div></div>`;
+}
+
+/** The Music tab's range line, like the range tab's: the In/Out or the whole sequence, as chosen. */
+function musicRangeLine(scope: "all" | "range"): string {
+  if (state.seqError) return `<div class="box warn">${esc(state.seqError)}</div>`;
+  if (!state.seq) return `<div class="box muted">${t("seq.reading")}</div>`;
+  const inOut = state.seq.range.source === "inout";
+  const r =
+    scope === "range" && inOut
+      ? state.seq.range
+      : { startS: 0, endS: state.seq.endS, durationS: state.seq.endS };
+  const label = scope === "range" && inOut ? t("seq.range") : t("seq.whole");
+  return `<div class="rangeline row"><span>${label} ${formatTimecode(r.startS)} → ${formatTimecode(
+    r.endS,
+  )}</span><span class="muted">${formatDuration(r.durationS)} · ${esc(formatFps(state.seq.fps, state.seq.fpsValue))} fps</span></div>`;
 }
 
 function rangeBox(): string {
@@ -2267,6 +2285,7 @@ const musicCtx: MusicCtx = {
       wavPreset: state.system?.wavPreset ?? "",
     }),
   placeClips: (target, clips) => host().placeAudioClips(target, clips),
+  rangeLine: (scope) => musicRangeLine(scope),
   slider: () => state.settings.musicLevel ?? -21,
   pricePerSong: () => LYRIA_PRICE_USD,
   openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
@@ -2283,6 +2302,7 @@ async function readSequence(): Promise<HostSequence | null> {
       fps: seq.fps,
       fpsValue: seq.fpsValue,
       size: `${seq.width}x${seq.height}`,
+      endS: seq.endSeconds,
     };
     state.seqError = "";
     // the style belongs to the video: reuse the one chosen for this sequence before
@@ -3590,9 +3610,14 @@ function rereadSequence() {
 }
 
 // Premiere has no event for a new in or out point (26.5 lists sequence activated, closed and selection
-// changed only), so the range tab looks again every 1.5 s while it is open
+// changed only), so the range tab (and the Music tab's first screen) looks again every 1.5 s while it is open
 setInterval(() => {
-  if (state.screen === "home" && state.tab === "range" && !state.lightbox && !pressed)
+  if (
+    state.screen === "home" &&
+    watchesSequence(state.tab, state.music.stage) &&
+    !state.lightbox &&
+    !pressed
+  )
     rereadSequence();
 }, 1500);
 

@@ -220,7 +220,9 @@ describe("earlier inserts on the timeline", () => {
     // the Music tab's clips, also a section made again; never the job's speech or a preview
     expect(isOurInsert("/Projects/Film/Kilnframe/zeki-Music-20261012/music/s1.wav")).toBe(true);
     expect(isOurInsert("/Users/e/.kilnframe/jobs/x/music/s12-3.wav")).toBe(true);
-    expect(isOurInsert("/Projects/Film/Kilnframe/zeki-Music-20261012/music/preview/s1.wav")).toBe(false);
+    expect(isOurInsert("/Projects/Film/Kilnframe/zeki-Music-20261012/music/preview/s1.wav")).toBe(
+      false,
+    );
     expect(isOurInsert("/Projects/Film/Kilnframe/zeki-Music-20261012/range.wav")).toBe(false);
     // the companion's own job folder when the project has none (and every job of the 0.1.x companions)
     expect(isOurInsert("/Users/e/.kilnframe/jobs/Timeline-1-20261012-115531/insert.mp4")).toBe(

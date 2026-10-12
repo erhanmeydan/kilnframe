@@ -7,6 +7,7 @@ import {
   newMusic,
   planCost,
   toggleSilent,
+  watchesSequence,
 } from "../src/music";
 
 const plan = {
@@ -114,5 +115,14 @@ describe("music panel", () => {
     expect(st.spent).toBeCloseTo(0.08);
     // the note that made s2 again is used up; the other note waits for its own remake
     expect(st.edits).toEqual({ s3: "keep" });
+  });
+
+  it("looks for a new In/Out while the range tab or the Music tab's first screen is open", () => {
+    expect(watchesSequence("range", "idle")).toBe(true);
+    expect(watchesSequence("music", "idle")).toBe(true);
+    // a plan or a listen screen belongs to the range it was made for
+    expect(watchesSequence("music", "plan")).toBe(false);
+    expect(watchesSequence("music", "listen")).toBe(false);
+    expect(watchesSequence("story", "idle")).toBe(false);
   });
 });
