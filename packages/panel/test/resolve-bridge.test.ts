@@ -260,6 +260,19 @@ describe("resolve bridge", () => {
     expect(f.project.timeline.mark).toEqual({ in: 50, out: 225 });
   });
 
+  it("lays music clips that meet in seconds end to end in frames, whatever the rounding", async () => {
+    const f = makeFakeResolve();
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    // 0.02 s and 1.04 s fall between frames at 25 fps: rounded one by one they would overlap by a frame
+    await b.placeAudioClips(seq.id, [
+      { file: "/m/Kilnframe/j/music/s1.wav", atS: 0.02, durationS: 1.02 },
+      { file: "/m/Kilnframe/j/music/s2.wav", atS: 1.04, durationS: 1 },
+    ]);
+    const items = f.project.timeline.tracks.audio[1]!.items;
+    expect(items[0]!.end).toBe(items[1]!.start);
+  });
+
   it("takes the music track away again when a clip cannot be placed", async () => {
     const f = makeFakeResolve();
     const b = bridge(f);

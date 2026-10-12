@@ -462,15 +462,21 @@ export function createResolveBridge(
           await append(
             tl,
             p,
-            clips.map((c, i) => ({
-              mediaPoolItem: items[i],
-              startFrame: 0,
-              // exclusive, as measured for AppendToTimeline
-              endFrame: Math.round(c.durationS * rate.fps),
-              mediaType: 2 as const,
-              trackIndex: a,
-              recordFrame: start + Math.round(c.atS * rate.fps),
-            })),
+            clips.map((c, i) => {
+              // the start and the end are rounded to frames from the sequence time, not the length on its
+              // own: clips that meet in seconds then meet in frames too
+              const from = Math.round(c.atS * rate.fps);
+              const to = Math.round((c.atS + c.durationS) * rate.fps);
+              return {
+                mediaPoolItem: items[i],
+                startFrame: 0,
+                // exclusive, as measured for AppendToTimeline
+                endFrame: to - from,
+                mediaType: 2 as const,
+                trackIndex: a,
+                recordFrame: start + from,
+              };
+            }),
           );
           return { audioTrack: a - 1 };
         } catch (err) {
