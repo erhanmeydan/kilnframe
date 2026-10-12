@@ -1,15 +1,12 @@
-// os.homedir() returns null while a UXP panel is still loading (seen in Premiere 26.5.2) and the real path a
-// moment later, so everything that needs the home folder waits for it.
+// The host may not know the home folder yet (os.homedir() returns null while a UXP panel is still loading,
+// seen in Premiere 26.5.2) and knows it a moment later, so everything that needs it waits for it.
+import { host } from "./host";
 import { t } from "./i18n";
-const os = require("os") as { homedir(): string | null; platform?: () => string };
 
 let cached: string | null = null;
 
 export function homeDirNow(): string | null {
-  if (!cached) {
-    const h = os.homedir();
-    if (h) cached = h.replace(/\\/g, "/");
-  }
+  if (!cached) cached = host().homedir();
   return cached;
 }
 
@@ -23,11 +20,9 @@ export async function homeDir(timeoutMs = 10_000): Promise<string> {
   }
 }
 
-/** True on Windows: from os.platform() when UXP has it, else from the shape of the home folder (C:\\...). */
+/** True on Windows. */
 export function isWindows(): boolean {
-  const p = os.platform?.();
-  if (p) return p === "win32";
-  return /^[a-z]:/i.test(os.homedir() ?? "");
+  return host().platform() === "win";
 }
 
 /**

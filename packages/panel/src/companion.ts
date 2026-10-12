@@ -1,9 +1,7 @@
 // Client side of docs/companion-protocol.md. UXP can only be a WebSocket client; the companion is the server.
-import { t } from "./i18n";
-const fs = require("fs") as {
-  readFile(path: string, options: { encoding: string }): Promise<string>;
-};
 import { homeDir } from "./home";
+import { host } from "./host";
+import { t } from "./i18n";
 
 export interface ConnectionInfo {
   port: number;
@@ -16,7 +14,7 @@ export async function connectionFilePath(): Promise<string> {
 }
 
 export async function readConnection(): Promise<ConnectionInfo> {
-  const text = await fs.readFile(await connectionFilePath(), { encoding: "utf-8" });
+  const text = await host().readTextFile(await connectionFilePath());
   return JSON.parse(text) as ConnectionInfo;
 }
 

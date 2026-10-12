@@ -3,6 +3,7 @@
 import { PROTOCOL_VERSION } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
+import { host } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { prettyModel } from "./models";
 import {
@@ -39,16 +40,7 @@ import {
   techniqueName,
   type PlannedScene,
 } from "./steps";
-import {
-  lang,
-  localized,
-  pickLang,
-  premiereLocale,
-  setLang,
-  t,
-  type LangSetting,
-  type MessageKey,
-} from "./i18n";
+import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
 type Localized = string | Partial<Record<"en" | "tr", string>>;
@@ -442,7 +434,7 @@ function loadSettings(): Settings {
 }
 
 function applyLang() {
-  setLang(pickLang(state.settings.lang, premiereLocale()));
+  setLang(pickLang(state.settings.lang, host().uiLocale()));
   // a story not started yet speaks the panel's language (the story is made before the language is known)
   if (state.story.stage === "brief" && !state.story.brief.trim())
     state.story.language = lang() === "tr" ? "tr" : "en";
