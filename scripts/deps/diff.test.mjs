@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ffmpegPath } from "../../packages/core/dist/config.js";
-import { alphaReport, pixelDiff } from "./diff.mjs";
+import { alphaReport, framesAt, pixelDiff } from "./diff.mjs";
 
 const dir = mkdtempSync(join(tmpdir(), "kf-diff-"));
 const make = (name, args) => {
@@ -53,5 +53,25 @@ describe("alphaReport", () => {
     const r = alphaReport(mov);
     expect(r.pixFmt).toBe("yuva444p12le");
     expect(r.transparentShare).toBeGreaterThan(0.99);
+  });
+});
+
+describe("framesAt", () => {
+  it("keeps frames at the size they are compared at, so golden references stay small", () => {
+    const video = make("v.mp4", [
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=0x262b55:s=1920x1080:d=1",
+      "-pix_fmt",
+      "yuv420p",
+    ]);
+    const [f] = framesAt(video, [0.5], join(dir, "frames"));
+    const probe = spawnSync(
+      ffmpegPath().replace(/ffmpeg$/, "ffprobe"),
+      ["-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", f],
+      { encoding: "utf8" },
+    );
+    expect(probe.stdout.trim()).toBe("480,270");
   });
 });

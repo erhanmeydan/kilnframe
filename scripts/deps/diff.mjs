@@ -10,11 +10,12 @@ const ff = (args) => {
   return r.stdout;
 };
 
+/** Frames at the size pixelDiff compares (480 wide), so golden references stay small in the repo. */
 export function framesAt(video, times, outDir) {
   mkdirSync(outDir, { recursive: true });
   return times.map((t, i) => {
     const f = join(outDir, `f${String(i).padStart(2, "0")}-${t.toFixed(2)}.png`);
-    ff(["-ss", String(t), "-i", video, "-frames:v", "1", f]);
+    ff(["-ss", String(t), "-i", video, "-frames:v", "1", "-vf", "scale=480:-2:flags=area", f]);
     return f;
   });
 }
@@ -53,7 +54,7 @@ export function sideBySide(a, b, out) {
     "-i",
     b,
     "-filter_complex",
-    "[0:v]scale=640:-2,format=rgb24,split[o1][o2];[1:v]scale=640:-2,format=rgb24,split[n1][n2];" +
+    "[0:v]scale=480:-2,format=rgb24,split[o1][o2];[1:v]scale=480:-2,format=rgb24,split[n1][n2];" +
       "[o1][n1]blend=all_mode=difference,lutrgb=r=val*4:g=val*4:b=val*4[d];[o2][n2][d]hstack=3",
     "-frames:v",
     "1",
