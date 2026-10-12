@@ -137,6 +137,25 @@ describe("making the score", { timeout: 30_000 }, () => {
     expect(Math.abs(last[0]!.at(-1)!)).toBeLessThan(0.01);
   });
 
+  it("stops between pieces when the job is stopped, and a later make only makes what is missing", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const stop = new AbortController();
+    const first = fakeLyria();
+    const counting = (async (u: unknown, init?: RequestInit) => {
+      const r = await first.fetchFn(u as never, init as never);
+      stop.abort(); // the editor stops while the first piece comes in
+      return r;
+    }) as unknown as typeof fetch;
+    await expect(
+      makeScore({ ...base(out, counting), concurrency: 1, signal: stop.signal }),
+    ).rejects.toThrow(/stopped/i);
+    expect(first.calls).toHaveLength(1);
+    const again = fakeLyria();
+    const r = await makeScore(base(out, again.fetchFn));
+    expect(again.calls).toHaveLength(1);
+    expect(r.sections.every((x) => x.file)).toBe(true);
+  });
+
   it("keeps going when one section fails and turns its neighbour's crossfade into an ending", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     let n = 0;

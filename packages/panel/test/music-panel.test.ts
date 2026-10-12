@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   afterMake,
+  musicAct,
   clock,
   levelNote,
   mergeWithNext,
@@ -124,5 +125,13 @@ describe("music panel", () => {
     expect(watchesSequence("music", "plan")).toBe(false);
     expect(watchesSequence("music", "listen")).toBe(false);
     expect(watchesSequence("story", "idle")).toBe(false);
+  });
+
+  it("stops a running music job from its busy screen", () => {
+    const sent: unknown[] = [];
+    const ctx = { send: (m: unknown) => sent.push(m), render: () => undefined } as never;
+    const st = { ...newMusic(), stage: "making" as const, jobId: "job-7" };
+    expect(musicAct(st, ctx, "music-cancel", "")).toBe(true);
+    expect(sent).toEqual([{ type: "job.cancel", jobId: "job-7" }]);
   });
 });

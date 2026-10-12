@@ -59,7 +59,8 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
   return async (params: JobParams, events) => {
     const defaults = loadDefaults();
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
-    if (params.kind === "music-make") return musicMakeJob(params, keys, events.progress);
+    if (params.kind === "music-make")
+      return musicMakeJob(params, keys, events.progress, events.signal);
     if (params.kind === "parts") {
       const r = await planParts({
         audioPath: params.audioPath,
@@ -334,6 +335,7 @@ async function musicMakeJob(
   params: MusicMakeJobParams,
   keys: KeyStore,
   progress: (message: string) => void,
+  signal?: AbortSignal,
 ) {
   const defaults = loadDefaults();
   const provider = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
@@ -360,6 +362,7 @@ async function musicMakeJob(
     }
   }
   const r = await makeScore({
+    signal,
     plan,
     words,
     rangeDurationS: params.durationS,

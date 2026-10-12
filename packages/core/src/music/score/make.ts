@@ -41,6 +41,8 @@ export interface MakeMusicOptions {
   onProgress?: ((m: string) => void) | undefined;
   concurrency?: number;
   sleep?: (ms: number) => Promise<void>;
+  /** The editor stopped the job: no new piece is asked for; pieces already made stay for the next make. */
+  signal?: AbortSignal | undefined;
 }
 
 export interface MadeSection {
@@ -140,7 +142,9 @@ export async function makeScore(
     (s) => !s.silent && (o.only?.includes(s.id) || !rawOf(rawDir, s.id)),
   );
   let done = 0;
+  const stopped = () => o.signal?.aborted === true;
   await pool(wanted, o.concurrency ?? 3, async (s) => {
+    if (stopped()) return;
     o.onProgress?.(`Writing the music ${++done}/${wanted.length}`);
     for (const f of readdirSync(rawDir)) if (f.startsWith(`${s.id}.`)) rmSync(join(rawDir, f));
     const plainSection: MusicSection = {
@@ -159,6 +163,7 @@ export async function makeScore(
     }
   });
 
+  if (stopped()) throw new Error("The music was stopped.");
   o.onProgress?.("Fitting the music to the speech");
   const playable = (s: MusicSection | undefined) =>
     !!s && !s.silent && !errors.has(s.id) && !!rawOf(rawDir, s.id);

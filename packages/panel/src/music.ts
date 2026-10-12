@@ -221,7 +221,11 @@ function busyBox(st: MusicState): string {
       : st.stage === "placing"
         ? "music.placing"
         : "music.making",
-  )}</span></div>${st.last ? `<div class="small muted mt">${st.last}</div>` : ""}</div>`;
+  )}</span></div>${st.last ? `<div class="small muted mt">${st.last}</div>` : ""}${
+    st.jobId && st.stage !== "placing"
+      ? `<div class="link mt" data-act="music-cancel">${t("progress.stop")}</div>`
+      : ""
+  }</div>`;
 }
 
 export function musicBox(st: MusicState, ctx: MusicCtx): string {
@@ -331,7 +335,12 @@ async function musicJob(
     } else if (m.type === "job.error" || m.type === "job.cancelled") {
       off();
       st.stage = back;
-      st.error = t("music.jobFailed", { message: String(m.message ?? m.type) });
+      st.jobId = null;
+      // a stop keeps the finished sections: making again only makes the missing ones
+      st.error =
+        m.type === "job.cancelled"
+          ? t("job.stopped")
+          : t("music.jobFailed", { message: String(m.message ?? m.type) });
       ctx.trace(`music: failed ${String(m.message ?? m.type)}`);
       ctx.render();
     }
@@ -481,7 +490,9 @@ export function musicAct(st: MusicState, ctx: MusicCtx, act: string, val: string
   if (!act.startsWith("music-")) return false;
   const plan = st.plan;
   if (act === "music-scope") st.scope = val === "range" ? "range" : "all";
-  else if (act === "music-terms") ctx.openTerms();
+  else if (act === "music-cancel") {
+    if (st.jobId) ctx.send({ type: "job.cancel", jobId: st.jobId });
+  } else if (act === "music-terms") ctx.openTerms();
   else if (act === "music-plan") void planMusic(st, ctx);
   else if (act === "music-silent" && plan) st.plan = toggleSilent(plan, val);
   else if (act === "music-merge" && plan) {
