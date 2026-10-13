@@ -370,6 +370,8 @@ else {
   app.on("activate", () => {
     if (readyAt && Date.now() - readyAt > 3000 && !askingToQuit) announce(true);
   });
+  // kilnframe:// (the panel's Open Kilnframe button) only needs the app running; it opens no window
+  app.on("open-url", (event) => event.preventDefault());
   app.on("window-all-closed", () => {
     // a tray app has no windows; it stays until Quit
   });

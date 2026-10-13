@@ -303,6 +303,8 @@ const state = {
   review: null as Review | null,
   conn: "connecting" as "connecting" | "ok" | "down",
   connError: "",
+  /** Open Kilnframe was pressed; the panel connects as soon as the app answers. */
+  opening: false,
   system: null as null | {
     wavPreset?: string | null;
     /** Premiere's H.264 preset for the range's picture (preview over the real footage). */
@@ -513,10 +515,35 @@ function updateBox(): string {
 
 function connectionBox(): string {
   if (state.conn === "ok") return updateBox();
-  if (state.conn === "connecting") return `<div class="box muted">${t("conn.connecting")}</div>`;
-  return `<div class="box warn"><div>${t("conn.down")}</div><div class="small muted">${esc(
-    state.connError,
-  )}</div><div class="btn2 mt" data-act="reconnect">${t("conn.retry")}</div></div>`;
+  if (state.conn === "connecting" && !state.opening)
+    return `<div class="box muted">${t("conn.connecting")}</div>`;
+  return downBox();
+}
+
+/** The app is not running: what to do, and a button that opens it (the raw reason stays in the log). */
+function downBox(): string {
+  if (state.opening) return `<div class="box muted">${t("conn.opening")}</div>`;
+  return `<div class="box warn"><div>${t("conn.down")}</div><div class="small muted">${t("conn.downHelp")}</div><div class="btn2 mt" data-act="open-app">${t("conn.openApp")}</div><div class="btn2 mt" data-act="reconnect">${t("conn.retry")}</div></div>`;
+}
+
+/** Opens the app through kilnframe:// and connects as soon as it answers (up to 40 s). */
+async function openApp() {
+  state.opening = true;
+  render();
+  try {
+    await host().openUrl("kilnframe://open");
+    trace("connect: asked the app to open");
+  } catch (err) {
+    trace(`connect: open app failed ${String(err)}`);
+  }
+  const started = Date.now();
+  while (Date.now() - started < 40_000) {
+    await new Promise((r) => setTimeout(r, 2000));
+    await connectCompanion();
+    if (state.conn === "ok") break;
+  }
+  state.opening = false;
+  render();
 }
 
 /** The Music tab's range line, like the range tab's: the In/Out or the whole sequence, as chosen. */
@@ -1442,7 +1469,8 @@ async function refreshProviders() {
     );
     customKey = Boolean(custom.present);
   } catch (err) {
-    setup.error = err instanceof Error ? err.message : String(err);
+    // not connected: the settings show the app's own box instead (its text follows the panel language)
+    if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
   }
   render();
 }
@@ -1807,7 +1835,7 @@ function setupSteps(): { name: string; state: StepState; status: string }[] {
 function setupBody(i: number, st: StepState): string {
   if (i === 0)
     return st === "warn"
-      ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="reconnect">${t("conn.retry")}</div></div>`
+      ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="open-app">${t("conn.openApp")}</div><div class="pbtn" data-act="reconnect">${t("conn.retry")}</div></div>`
       : "";
   if (i === 1) {
     if (st !== "warn") return "";
@@ -1923,7 +1951,7 @@ function settings(): string {
     ["tr", "Türkçe"],
   ])}
   <div class="lbl">${t("settings.ai")}</div>
-  ${setup.error ? `<div class="box warn">${esc(setup.error)}</div>` : ""}
+  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box warn">${esc(setup.error)}</div>` : ""}
   ${providerList()}
   ${modelList()}
   <div class="lbl">${t("settings.review")}</div>
@@ -3563,6 +3591,7 @@ function runAction(el: HTMLElement) {
   else if (act === "key-delete-yes") return void deleteKey(val);
   else if (act === "key-save") return void saveKey(val);
   else if (act === "prov-test") return void runProviderTest(val);
+  else if (act === "open-app") return void openApp();
   else if (act === "agent-login") return void signInAgent(val);
   else if (act === "agent-logout") setup.confirmLogout = val;
   else if (act === "agent-logout-no") setup.confirmLogout = null;
