@@ -40,6 +40,7 @@ import {
   techniqueName,
   type PlannedScene,
 } from "./steps";
+import { formatMismatch } from "./format-check";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -303,6 +304,8 @@ const state = {
   review: null as Review | null,
   conn: "connecting" as "connecting" | "ok" | "down",
   connError: "",
+  /** Open Kilnframe was pressed; the panel connects as soon as the app answers. */
+  opening: false,
   system: null as null | {
     wavPreset?: string | null;
     /** Premiere's H.264 preset for the range's picture (preview over the real footage). */
@@ -513,10 +516,35 @@ function updateBox(): string {
 
 function connectionBox(): string {
   if (state.conn === "ok") return updateBox();
-  if (state.conn === "connecting") return `<div class="box muted">${t("conn.connecting")}</div>`;
-  return `<div class="box warn"><div>${t("conn.down")}</div><div class="small muted">${esc(
-    state.connError,
-  )}</div><div class="btn2 mt" data-act="reconnect">${t("conn.retry")}</div></div>`;
+  if (state.conn === "connecting" && !state.opening)
+    return `<div class="box muted">${t("conn.connecting")}</div>`;
+  return downBox();
+}
+
+/** The app is not running: what to do, and a button that opens it (the raw reason stays in the log). */
+function downBox(): string {
+  if (state.opening) return `<div class="box muted">${t("conn.opening")}</div>`;
+  return `<div class="box warn"><div>${t("conn.down")}</div><div class="small muted">${t("conn.downHelp")}</div><div class="btn2 mt" data-act="open-app">${t("conn.openApp")}</div><div class="btn2 mt" data-act="reconnect">${t("conn.retry")}</div></div>`;
+}
+
+/** Opens the app through kilnframe:// and connects as soon as it answers (up to 40 s). */
+async function openApp() {
+  state.opening = true;
+  render();
+  try {
+    await host().openUrl("kilnframe://open");
+    trace("connect: asked the app to open");
+  } catch (err) {
+    trace(`connect: open app failed ${String(err)}`);
+  }
+  const started = Date.now();
+  while (Date.now() - started < 40_000) {
+    await new Promise((r) => setTimeout(r, 2000));
+    await connectCompanion();
+    if (state.conn === "ok") break;
+  }
+  state.opening = false;
+  render();
 }
 
 /** The Music tab's range line, like the range tab's: the In/Out or the whole sequence, as chosen. */
@@ -751,6 +779,16 @@ function costLine(c: JobCost): string {
     : t("home.cost", { ...tokens, usd: formatUsd(c.costUsd, tr) });
 }
 
+/** A short note when the chosen format is not the sequence's shape; the insert is still made as chosen. */
+function formatWarning(): string {
+  const m = state.seq ? formatMismatch(state.seq.size, state.format) : null;
+  if (!m) return "";
+  return `<div class="small warn-text mt">${t("format.mismatch", {
+    sequence: t(`shape.${m.sequence}`),
+    chosen: t(`shape.${m.chosen}`),
+  })}</div>`;
+}
+
 /** The range tab: what the home screen always was. */
 function rangeHome(done: JobView["placed"]): string {
   const chosen = state.styles.find((s) => s.name === state.style);
@@ -774,6 +812,7 @@ function rangeHome(done: JobView["placed"]): string {
     ["portrait", t("format.portrait")],
     ["square", t("format.square")],
   ])}
+  ${formatWarning()}
   <div class="lbl">${t("home.layout")}</div>
   ${seg("mode", state.mode, [
     ["auto", t("mode.auto")],
@@ -1412,6 +1451,9 @@ const setup = {
   updating: null as string | null,
   /** An agent whose sign-in is open in a terminal; the panel looks until it is signed in. */
   signingIn: null as string | null,
+  /** An agent whose sign-out the editor is asked to confirm, or that is signing out now. */
+  confirmLogout: null as string | null,
+  signingOut: null as string | null,
   /** Models a local server reported (LM Studio), with whether they read images. */
   served: {} as Record<
     string,
@@ -1439,7 +1481,8 @@ async function refreshProviders() {
     );
     customKey = Boolean(custom.present);
   } catch (err) {
-    setup.error = err instanceof Error ? err.message : String(err);
+    // not connected: the settings show the app's own box instead (its text follows the panel language)
+    if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
   }
   render();
 }
@@ -1594,12 +1637,18 @@ function providerDetail(id: string): string {
                       : "grok login --oauth",
               },
             )}</div>`;
-    else
+    else if (setup.signingOut === id)
+      body += `<div class="ptest muted">${t("prov.signingOut")}</div>`;
+    else if (setup.confirmLogout === id)
+      body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="pbtns"><div class="pbtn" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="pbtn" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
+    else {
+      const signOut = `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
       body +=
         id === "grok"
           ? // its image reading could not be checked yet (only models that read images)
-            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div>`
-          : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
+            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="pbtns">${signOut}</div>`
+          : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
+    }
   } else if (id === "lmstudio") {
     body = `<div class="small">${t("prov.localNote")}</div>
     <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="lmstudio">${t("prov.test")}</div></div>`;
@@ -1797,9 +1846,11 @@ function setupSteps(): { name: string; state: StepState; status: string }[] {
 
 function setupBody(i: number, st: StepState): string {
   if (i === 0)
-    return st === "warn"
-      ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="reconnect">${t("conn.retry")}</div></div>`
-      : "";
+    return state.opening
+      ? `<div class="small muted">${t("conn.opening")}</div>`
+      : st === "warn"
+        ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="open-app">${t("conn.openApp")}</div><div class="pbtn" data-act="reconnect">${t("conn.retry")}</div></div>`
+        : "";
   if (i === 1) {
     if (st !== "warn") return "";
     const lines = [
@@ -1914,7 +1965,7 @@ function settings(): string {
     ["tr", "Türkçe"],
   ])}
   <div class="lbl">${t("settings.ai")}</div>
-  ${setup.error ? `<div class="box warn">${esc(setup.error)}</div>` : ""}
+  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box warn">${esc(setup.error)}</div>` : ""}
   ${providerList()}
   ${modelList()}
   <div class="lbl">${t("settings.review")}</div>
@@ -2180,7 +2231,16 @@ let lastScreen = "";
 
 // ---------- actions ----------
 
-async function connectCompanion() {
+/** One connect at a time: Open Kilnframe's retries and a Try Again click share it, so no socket is left over. */
+let connecting: Promise<void> | null = null;
+function connectCompanion(): Promise<void> {
+  connecting ??= connectOnce().finally(() => {
+    connecting = null;
+  });
+  return connecting;
+}
+
+async function connectOnce() {
   state.conn = "connecting";
   render();
   trace("connect: start");
@@ -3210,6 +3270,32 @@ async function updateAgent(id: string) {
   setTimeout(() => void look(), 5000);
 }
 
+function agentName(id: string): string {
+  return id === "claude-code" ? "Claude Code" : id === "codex" ? "Codex" : "Grok";
+}
+
+/** Runs the agent's own sign-out, then reads the sign-in states again; Sign In then takes another account. */
+async function signOutAgent(id: string) {
+  setup.confirmLogout = null;
+  setup.signingOut = id;
+  setup.error = null;
+  render();
+  try {
+    const r = await session.request<ServerMessage>(
+      { type: "agent.logout", agent: id },
+      "agent.logout.done",
+    );
+    if (r.type === "agent.logout.done" && !r.ok)
+      setup.error = t("prov.signOutFailed", { name: agentName(id) });
+    trace(`settings: ${id} sign-out ${r.type === "agent.logout.done" && r.ok ? "done" : "failed"}`);
+  } catch (err) {
+    setup.error = err instanceof Error ? err.message : String(err);
+  }
+  await refreshProviders();
+  setup.signingOut = null;
+  render();
+}
+
 /** Opens the agent's own sign-in in a terminal, then looks every 3 s (up to 5 minutes) until it is done. */
 async function signInAgent(id: string) {
   setup.signingIn = id;
@@ -3528,7 +3614,11 @@ function runAction(el: HTMLElement) {
   else if (act === "key-delete-yes") return void deleteKey(val);
   else if (act === "key-save") return void saveKey(val);
   else if (act === "prov-test") return void runProviderTest(val);
+  else if (act === "open-app") return void openApp();
   else if (act === "agent-login") return void signInAgent(val);
+  else if (act === "agent-logout") setup.confirmLogout = val;
+  else if (act === "agent-logout-no") setup.confirmLogout = null;
+  else if (act === "agent-logout-yes") return void signOutAgent(val);
   else if (act === "agent-update") return void updateAgent(val);
   else if (act === "agent-recheck") return void refreshProviders();
   else if (act === "or-all") onboard.allModels = !onboard.allModels;

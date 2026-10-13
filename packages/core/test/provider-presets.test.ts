@@ -242,6 +242,47 @@ describe("retries", () => {
     expect(calls).toBe(1);
   });
 
+  it("says what the provider wants accepted instead of blaming the key", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              message:
+                "This model requires you to complete the following before use: 18+ age confirmation. Confirm at https://openrouter.ai/settings/preferences.",
+            },
+          }),
+          { status: 403 },
+        ),
+    );
+    const err = await provider()
+      .complete(request)
+      .catch((e: unknown) => e as Error);
+    expect(err.message).not.toMatch(/rejected the API key/);
+    expect(err.message).toMatch(/asks for something to be accepted on its website first/);
+    expect(err.message).toContain("https://openrouter.ai/settings/preferences");
+  });
+
+  it("keeps an ordinary refusal that mentions terms as it was", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              message: "The request violates our terms of use, see https://example.com/terms",
+            },
+          }),
+          { status: 400 },
+        ),
+    );
+    const err = await provider()
+      .complete(request)
+      .catch((e: unknown) => e as Error);
+    expect(err.message).not.toMatch(/accepted on its website/);
+  });
+
   it("tries a reply cut off at the output limit only once more", async () => {
     let calls = 0;
     vi.stubGlobal("fetch", async () => {

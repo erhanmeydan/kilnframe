@@ -189,6 +189,8 @@ writeFileSync(
       extraMetadata: { name: "kilnframe", productName: "Kilnframe", version },
       // the app reads its updates from here (app-update.yml); the build itself never uploads (--publish never)
       publish: [{ provider: "github", owner: "erhanmeydan", repo: "kilnframe" }],
+      // kilnframe:// opens the app: the panel's Open Kilnframe button when the app is not running
+      protocols: [{ name: "Kilnframe", schemes: ["kilnframe"] }],
       electronVersion,
       ...(electronDist ? { electronDist } : {}),
       asar: false,

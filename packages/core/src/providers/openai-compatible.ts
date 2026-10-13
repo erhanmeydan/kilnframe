@@ -256,6 +256,14 @@ export class OpenAICompatibleProvider implements TextProvider {
     const body = Array.isArray(raw) ? (raw[0] ?? {}) : raw;
     if (!res.ok) {
       const detail = body.error?.message ?? res.statusText;
+      // the key is fine but the account must accept something first (OpenRouter's age confirmation, a
+      // model's terms): saying the key was rejected sent editors to check a key that worked
+      const page = res.status === 401 || res.status === 403 ? needsAcceptance(detail) : null;
+      if (page)
+        throw new ProviderError(
+          `${this.name} asks for something to be accepted on its website first: ${detail} Open ${page}, accept it, then try again.`,
+          false,
+        );
       if (res.status === 401 || res.status === 403 || /api key/i.test(detail))
         throw new ProviderError(
           `${this.name} rejected the API key. Check it in the settings: ${detail}`,
@@ -382,4 +390,11 @@ function openRouterPrice(p?: {
     cacheRead: Number.isFinite(cacheRead) ? cacheRead : input,
     cacheWrite: Number.isFinite(cacheWrite) ? cacheWrite : input,
   };
+}
+
+/** The page to visit when a refusal asks the account to confirm or accept something; null otherwise. */
+export function needsAcceptance(detail: string): string | null {
+  if (!/\b(confirm|confirmation|accept|complete the following)\b/i.test(detail)) return null;
+  const url = /https:\/\/[^\s"')]+/.exec(detail)?.[0];
+  return url ? url.replace(/[.,;:]+$/, "") : null;
 }

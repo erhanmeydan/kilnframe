@@ -229,6 +229,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("providers.list") }),
   /** Opens the official sign-in of an agent CLI in a terminal window the editor sees. */
   z.object({ type: z.literal("agent.login"), agent: z.enum(["claude-code", "codex", "grok"]) }),
+  /** Runs an agent CLI's official sign-out on this computer, e.g. to sign in with another account. */
+  z.object({ type: z.literal("agent.logout"), agent: z.enum(["claude-code", "codex", "grok"]) }),
   /** Opens an agent CLI's own update in a terminal window. */
   z.object({ type: z.literal("agent.update"), agent: z.enum(["claude-code", "codex", "grok"]) }),
   z.object({ type: z.literal("review.load"), outDir: z.string().min(1) }),
@@ -310,6 +312,7 @@ export type ServerMessage =
       updates: unknown;
     }
   | { type: "agent.login.opened"; agent: string }
+  | { type: "agent.logout.done"; agent: string; ok: boolean; error?: string }
   | { type: "agent.update.opened"; agent: string }
   | { type: "review"; outDir: string; review: unknown }
   | { type: "providers.tested"; provider: string; result: unknown }

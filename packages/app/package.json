@@ -1,6 +1,6 @@
 {
   "name": "@kilnframe/app",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Kilnframe Helper: the companion as a menu bar / tray app, packaged with Node, FFmpeg and headless Chrome.",
   "license": "Apache-2.0",

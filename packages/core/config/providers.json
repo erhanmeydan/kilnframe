@@ -110,7 +110,8 @@
         "google/gemini-3.8-flash",
         "openai/gpt-6.1-sol",
         "x-ai/grok-4.7",
-        "qwen/qwen3.8-max-prime"
+        "qwen/qwen3.8-max-prime",
+        "z-ai/glm-5.3-flash"
       ],
       "capabilities": {
         "vision": "per-model",
@@ -123,7 +124,8 @@
         "one key for many providers; only models that take images are offered",
         "OpenRouter takes 5.5% (at least $0.80) when credits are bought; model prices are passed through",
         "suggested models each saw the red-square test with a real key (2026-10-08); minimax/minimax-m3 left out of the suggestions because OpenRouter routes it across 13 hosts and one (StreamLake) misread the square, it stays reachable under All Models",
-        "reasoningEffort: GLM 5.3 Flash thought until it hit the 64k output limit on a whiteboard scene (11 Oct 2026); \"medium\" leaves about half of the limit to the answer (openrouter.ai/docs/use-cases/reasoning-tokens)"
+        "reasoningEffort: GLM 5.3 Flash thought until it hit the 64k output limit on a whiteboard scene (11 Oct 2026); \"medium\" leaves about half of the limit to the answer (openrouter.ai/docs/use-cases/reasoning-tokens)",
+        "z-ai/glm-5.3-flash suggested since 13 Oct 2026: a whiteboard benchmark run finished in 2.3 min for about $0.01 with the medium setting; its details are weaker than the others, so the site marks it experimental"
       ],
       "keyUrl": "https://openrouter.ai/settings/keys",
       "reasoningEffort": {

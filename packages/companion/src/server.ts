@@ -39,6 +39,10 @@ export interface CompanionOptions {
   }>;
   /** Opens an agent CLI's own sign-in (claude auth login, codex login) in a terminal window. */
   loginAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
+  /** Runs an agent CLI's own sign-out (claude auth logout, codex logout, grok logout). */
+  logoutAgent?: (
+    agent: "claude-code" | "codex" | "grok",
+  ) => Promise<{ ok: boolean; error?: string }>;
   /** Opens an agent CLI's own update (claude update, codex update, grok update) in a terminal window. */
   updateAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
   /** One short request with a picture through a provider (the settings' connection test). */
@@ -321,6 +325,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             if (o.loginAgent) await o.loginAgent(msg.agent);
             send({ type: "agent.login.opened", agent: msg.agent });
             break;
+          case "agent.logout": {
+            const r = o.logoutAgent ? await o.logoutAgent(msg.agent) : { ok: false };
+            send({ type: "agent.logout.done", agent: msg.agent, ...r });
+            break;
+          }
           case "providers.list": {
             const r = o.listProviders
               ? await o.listProviders()
