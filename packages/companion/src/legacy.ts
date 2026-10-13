@@ -1,4 +1,4 @@
-import { existsSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { KeyStore } from "./keys.js";
@@ -27,12 +27,19 @@ export function moveLegacyFolders(home = homedir()): string[] {
   return done;
 }
 
-/** Copies every key the old service holds and the new one lacks; returns the providers copied. */
+/**
+ * Copies every key the old service holds and the new one lacks; returns the providers copied. It runs once
+ * (a marker in ~/.kilnframe): the old entries stay, so copying on every start brought back a key the editor
+ * had deleted in the settings.
+ */
 export async function copyLegacyKeys(
   from: KeyStore,
   to: KeyStore,
   providers: string[],
+  home = homedir(),
 ): Promise<string[]> {
+  const marker = join(home, ".kilnframe", "legacy-keys-copied");
+  if (existsSync(marker)) return [];
   const copied: string[] = [];
   for (const id of providers) {
     try {
@@ -44,6 +51,12 @@ export async function copyLegacyKeys(
     } catch {
       // a keychain prompt declined or no access: that key is entered again in the settings
     }
+  }
+  try {
+    mkdirSync(join(home, ".kilnframe"), { recursive: true });
+    writeFileSync(marker, `${new Date().toISOString()}\n`);
+  } catch {
+    // no marker: the copy runs again next start, as before
   }
   return copied;
 }

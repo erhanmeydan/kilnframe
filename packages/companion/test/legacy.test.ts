@@ -34,9 +34,21 @@ describe("data kept under the old name", () => {
     await old.set("gemini", "g-old");
     await old.set("xai", "x-old");
     await now.set("xai", "x-new");
-    expect(await copyLegacyKeys(old, now, ["gemini", "xai", "minimax"])).toEqual(["gemini"]);
+    const home = mkdtempSync(join(tmpdir(), "mi-home-"));
+    expect(await copyLegacyKeys(old, now, ["gemini", "xai", "minimax"], home)).toEqual(["gemini"]);
     expect(await now.get("gemini")).toBe("g-old");
     expect(await now.get("xai")).toBe("x-new");
     expect(await old.get("gemini")).toBe("g-old");
+  });
+
+  it("copies the keys only once, so a key deleted in the settings stays deleted", async () => {
+    const home = mkdtempSync(join(tmpdir(), "mi-home-"));
+    const old = new MemoryKeyStore();
+    const now = new MemoryKeyStore();
+    await old.set("gemini", "g-old");
+    expect(await copyLegacyKeys(old, now, ["gemini"], home)).toEqual(["gemini"]);
+    await now.delete("gemini");
+    expect(await copyLegacyKeys(old, now, ["gemini"], home)).toEqual([]);
+    expect(await now.get("gemini")).toBeUndefined();
   });
 });
