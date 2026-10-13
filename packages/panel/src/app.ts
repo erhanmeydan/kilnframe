@@ -1412,6 +1412,9 @@ const setup = {
   updating: null as string | null,
   /** An agent whose sign-in is open in a terminal; the panel looks until it is signed in. */
   signingIn: null as string | null,
+  /** An agent whose sign-out the editor is asked to confirm, or that is signing out now. */
+  confirmLogout: null as string | null,
+  signingOut: null as string | null,
   /** Models a local server reported (LM Studio), with whether they read images. */
   served: {} as Record<
     string,
@@ -1594,12 +1597,18 @@ function providerDetail(id: string): string {
                       : "grok login --oauth",
               },
             )}</div>`;
-    else
+    else if (setup.signingOut === id)
+      body += `<div class="ptest muted">${t("prov.signingOut")}</div>`;
+    else if (setup.confirmLogout === id)
+      body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="pbtns"><div class="pbtn" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="pbtn" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
+    else {
+      const signOut = `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
       body +=
         id === "grok"
           ? // its image reading could not be checked yet (only models that read images)
-            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div>`
-          : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
+            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="pbtns">${signOut}</div>`
+          : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
+    }
   } else if (id === "lmstudio") {
     body = `<div class="small">${t("prov.localNote")}</div>
     <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="lmstudio">${t("prov.test")}</div></div>`;
@@ -3210,6 +3219,32 @@ async function updateAgent(id: string) {
   setTimeout(() => void look(), 5000);
 }
 
+function agentName(id: string): string {
+  return id === "claude-code" ? "Claude Code" : id === "codex" ? "Codex" : "Grok";
+}
+
+/** Runs the agent's own sign-out, then reads the sign-in states again; Sign In then takes another account. */
+async function signOutAgent(id: string) {
+  setup.confirmLogout = null;
+  setup.signingOut = id;
+  setup.error = null;
+  render();
+  try {
+    const r = await session.request<ServerMessage>(
+      { type: "agent.logout", agent: id },
+      "agent.logout.done",
+    );
+    if (r.type === "agent.logout.done" && !r.ok)
+      setup.error = t("prov.signOutFailed", { name: agentName(id) });
+    trace(`settings: ${id} sign-out ${r.type === "agent.logout.done" && r.ok ? "done" : "failed"}`);
+  } catch (err) {
+    setup.error = err instanceof Error ? err.message : String(err);
+  }
+  await refreshProviders();
+  setup.signingOut = null;
+  render();
+}
+
 /** Opens the agent's own sign-in in a terminal, then looks every 3 s (up to 5 minutes) until it is done. */
 async function signInAgent(id: string) {
   setup.signingIn = id;
@@ -3529,6 +3564,9 @@ function runAction(el: HTMLElement) {
   else if (act === "key-save") return void saveKey(val);
   else if (act === "prov-test") return void runProviderTest(val);
   else if (act === "agent-login") return void signInAgent(val);
+  else if (act === "agent-logout") setup.confirmLogout = val;
+  else if (act === "agent-logout-no") setup.confirmLogout = null;
+  else if (act === "agent-logout-yes") return void signOutAgent(val);
   else if (act === "agent-update") return void updateAgent(val);
   else if (act === "agent-recheck") return void refreshProviders();
   else if (act === "or-all") onboard.allModels = !onboard.allModels;
