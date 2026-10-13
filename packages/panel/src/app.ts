@@ -1846,9 +1846,11 @@ function setupSteps(): { name: string; state: StepState; status: string }[] {
 
 function setupBody(i: number, st: StepState): string {
   if (i === 0)
-    return st === "warn"
-      ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="open-app">${t("conn.openApp")}</div><div class="pbtn" data-act="reconnect">${t("conn.retry")}</div></div>`
-      : "";
+    return state.opening
+      ? `<div class="small muted">${t("conn.opening")}</div>`
+      : st === "warn"
+        ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="open-app">${t("conn.openApp")}</div><div class="pbtn" data-act="reconnect">${t("conn.retry")}</div></div>`
+        : "";
   if (i === 1) {
     if (st !== "warn") return "";
     const lines = [
@@ -2229,7 +2231,16 @@ let lastScreen = "";
 
 // ---------- actions ----------
 
-async function connectCompanion() {
+/** One connect at a time: Open Kilnframe's retries and a Try Again click share it, so no socket is left over. */
+let connecting: Promise<void> | null = null;
+function connectCompanion(): Promise<void> {
+  connecting ??= connectOnce().finally(() => {
+    connecting = null;
+  });
+  return connecting;
+}
+
+async function connectOnce() {
   state.conn = "connecting";
   render();
   trace("connect: start");

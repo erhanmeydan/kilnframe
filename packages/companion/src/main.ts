@@ -3,7 +3,7 @@ import "./system-certs.js";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   claudeBinary,
@@ -64,15 +64,20 @@ async function main() {
   const token = randomBytes(32).toString("hex");
   const keys = new OsKeyStore();
   const defaults = loadDefaults();
-  const copied = await copyLegacyKeys(new OsKeyStore("motion-insert"), keys, [
-    ...new Set([
-      "anthropic",
-      "custom",
-      defaults.speech.provider,
-      defaults.music.provider,
-      ...loadProviderCatalog().map((p) => p.id),
-    ]),
-  ]);
+  const copied = await copyLegacyKeys(
+    new OsKeyStore("motion-insert"),
+    keys,
+    [
+      ...new Set([
+        "anthropic",
+        "custom",
+        defaults.speech.provider,
+        defaults.music.provider,
+        ...loadProviderCatalog().map((p) => p.id),
+      ]),
+    ],
+    process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"),
+  );
   if (copied.length) process.stderr.write(`copied keys from the old name: ${copied.join(", ")}\n`);
   const companion = await startCompanion({
     token,
@@ -254,6 +259,8 @@ function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
     encoding: "utf8",
     timeout: 30_000,
     env: withoutHostSession(process.env),
+    // Grok's status is read from the temp folder too, so a project's own Grok settings play no part
+    ...(agent === "grok" ? { cwd: tmpdir() } : {}),
   });
   if (r.error || r.status !== 0)
     return {

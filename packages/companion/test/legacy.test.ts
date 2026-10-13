@@ -35,7 +35,9 @@ describe("data kept under the old name", () => {
     await old.set("xai", "x-old");
     await now.set("xai", "x-new");
     const home = mkdtempSync(join(tmpdir(), "mi-home-"));
-    expect(await copyLegacyKeys(old, now, ["gemini", "xai", "minimax"], home)).toEqual(["gemini"]);
+    expect(
+      await copyLegacyKeys(old, now, ["gemini", "xai", "minimax"], join(home, ".kilnframe")),
+    ).toEqual(["gemini"]);
     expect(await now.get("gemini")).toBe("g-old");
     expect(await now.get("xai")).toBe("x-new");
     expect(await old.get("gemini")).toBe("g-old");
@@ -46,9 +48,41 @@ describe("data kept under the old name", () => {
     const old = new MemoryKeyStore();
     const now = new MemoryKeyStore();
     await old.set("gemini", "g-old");
-    expect(await copyLegacyKeys(old, now, ["gemini"], home)).toEqual(["gemini"]);
+    expect(await copyLegacyKeys(old, now, ["gemini"], join(home, ".kilnframe"))).toEqual([
+      "gemini",
+    ]);
     await now.delete("gemini");
-    expect(await copyLegacyKeys(old, now, ["gemini"], home)).toEqual([]);
+    expect(await copyLegacyKeys(old, now, ["gemini"], join(home, ".kilnframe"))).toEqual([]);
     expect(await now.get("gemini")).toBeUndefined();
+  });
+
+  it("tries the copy again next start when the old keychain could not be read", async () => {
+    const home = mkdtempSync(join(tmpdir(), "mi-home-"));
+    const now = new MemoryKeyStore();
+    const declined = {
+      get: async () => {
+        throw new Error("keychain prompt declined");
+      },
+      set: async () => {},
+      delete: async () => false,
+    };
+    expect(await copyLegacyKeys(declined, now, ["gemini"], join(home, ".kilnframe"))).toEqual([]);
+    const old = new MemoryKeyStore();
+    await old.set("gemini", "g-old");
+    expect(await copyLegacyKeys(old, now, ["gemini"], join(home, ".kilnframe"))).toEqual([
+      "gemini",
+    ]);
+  });
+
+  it("does not take a deleted key as a reason to try again", async () => {
+    const home = mkdtempSync(join(tmpdir(), "mi-home-"));
+    expect(existsSync(join(home, ".kilnframe", "legacy-keys-copied"))).toBe(false);
+    await copyLegacyKeys(
+      new MemoryKeyStore(),
+      new MemoryKeyStore(),
+      ["gemini"],
+      join(home, ".kilnframe"),
+    );
+    expect(existsSync(join(home, ".kilnframe", "legacy-keys-copied"))).toBe(true);
   });
 });
