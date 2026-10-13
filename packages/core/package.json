@@ -17,13 +17,13 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.131.0",
-    "@huggingface/transformers": "4.3.0",
+    "@anthropic-ai/sdk": "0.133.0",
+    "@huggingface/transformers": "4.3.1",
     "@kilnframe/sfx": "workspace:*",
     "fontkit": "2.0.4",
     "hyperframes": "0.8.133",
     "tesseract.js": "7.0.0",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@types/fontkit": "2.0.9"

@@ -90,7 +90,8 @@ createServer(async (req, res) => {
       // ?theme=resolve: the page as the Resolve build dresses it (colours and Open Sans)
       const resolveLook = url.searchParams.get("theme") === "resolve";
       let page = readFileSync(join(panel, "dist", "index.html"), "utf8");
-      if (resolveLook) page = (await import("../packages/panel/resolve/theme.mjs")).resolveTheme(page);
+      if (resolveLook)
+        page = (await import("../packages/panel/resolve/theme.mjs")).resolveTheme(page);
       const html = page.replace(
         '<script defer src="./index.js"></script>',
         `${resolveLook ? "" : '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style>'}<script>window.KILNFRAME_DEMO=${JSON.stringify({ project })}</script><script src="/demo/stubs.js"></script><script defer src="./index.js"></script>`,

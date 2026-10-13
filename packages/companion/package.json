@@ -19,9 +19,9 @@
   },
   "dependencies": {
     "@kilnframe/core": "workspace:*",
-    "@napi-rs/keyring": "2.1.0",
+    "@napi-rs/keyring": "2.1.1",
     "ws": "8.22.0",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@types/ws": "8.18.2"

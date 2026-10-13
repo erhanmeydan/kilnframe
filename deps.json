@@ -292,7 +292,7 @@
     {
       "id": "prettier",
       "group": "dev",
-      "current": "3.9.9",
+      "current": "3.9.10",
       "source": {
         "type": "npm",
         "package": "prettier"
@@ -312,7 +312,7 @@
     {
       "id": "typescript-eslint",
       "group": "dev",
-      "current": "8.71.0",
+      "current": "8.71.1",
       "source": {
         "type": "npm",
         "package": "typescript-eslint"
@@ -362,7 +362,7 @@
     {
       "id": "@napi-rs/keyring",
       "group": "app",
-      "current": "2.1.0",
+      "current": "2.1.1",
       "source": {
         "type": "npm",
         "package": "@napi-rs/keyring"
@@ -382,7 +382,7 @@
     {
       "id": "zod",
       "group": "app",
-      "current": "4.6.5",
+      "current": "4.6.6",
       "source": {
         "type": "npm",
         "package": "zod"
@@ -402,7 +402,7 @@
     {
       "id": "@anthropic-ai/sdk",
       "group": "app",
-      "current": "0.131.0",
+      "current": "0.133.0",
       "source": {
         "type": "npm",
         "package": "@anthropic-ai/sdk"
@@ -412,7 +412,7 @@
     {
       "id": "@huggingface/transformers",
       "group": "app",
-      "current": "4.3.0",
+      "current": "4.3.1",
       "source": {
         "type": "npm",
         "package": "@huggingface/transformers"
@@ -472,7 +472,7 @@
     {
       "id": "vite",
       "group": "app",
-      "current": "8.3.2",
+      "current": "8.3.4",
       "source": {
         "type": "npm",
         "package": "vite"

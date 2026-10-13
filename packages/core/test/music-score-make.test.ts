@@ -196,7 +196,12 @@ describe("making the score", { timeout: 30_000 }, () => {
       return new Response("{}", { status: 503 });
     }) as unknown as typeof fetch;
     await expect(
-      makeScore({ ...base(out, busy), concurrency: 1, signal: stop.signal, sleep: async () => undefined }),
+      makeScore({
+        ...base(out, busy),
+        concurrency: 1,
+        signal: stop.signal,
+        sleep: async () => undefined,
+      }),
     ).rejects.toThrow(/stopped/i);
     expect(calls).toBe(1);
   });
