@@ -40,6 +40,7 @@ import {
   techniqueName,
   type PlannedScene,
 } from "./steps";
+import { formatMismatch } from "./format-check";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -778,6 +779,16 @@ function costLine(c: JobCost): string {
     : t("home.cost", { ...tokens, usd: formatUsd(c.costUsd, tr) });
 }
 
+/** A short note when the chosen format is not the sequence's shape; the insert is still made as chosen. */
+function formatWarning(): string {
+  const m = state.seq ? formatMismatch(state.seq.size, state.format) : null;
+  if (!m) return "";
+  return `<div class="small warn-text mt">${t("format.mismatch", {
+    sequence: t(`shape.${m.sequence}`),
+    chosen: t(`shape.${m.chosen}`),
+  })}</div>`;
+}
+
 /** The range tab: what the home screen always was. */
 function rangeHome(done: JobView["placed"]): string {
   const chosen = state.styles.find((s) => s.name === state.style);
@@ -801,6 +812,7 @@ function rangeHome(done: JobView["placed"]): string {
     ["portrait", t("format.portrait")],
     ["square", t("format.square")],
   ])}
+  ${formatWarning()}
   <div class="lbl">${t("home.layout")}</div>
   ${seg("mode", state.mode, [
     ["auto", t("mode.auto")],
