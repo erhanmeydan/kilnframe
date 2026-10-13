@@ -6,6 +6,10 @@ import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+  claudeBinary,
+  codexBinary,
+  grokBinary,
+  withoutHostSession,
   claudeCodeStatus,
   codexStatus,
   grokStatus,
@@ -26,6 +30,7 @@ import {
   systemReport,
   vendorDir,
 } from "@kilnframe/core";
+import { type Agent, loginCommand, logoutArgs } from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
 import {
@@ -152,7 +157,11 @@ async function main() {
     loginAgent: async (agent) => {
       // the panel watches for the sign-in to finish in the terminal: no cached state meanwhile
       freshUntil = Date.now() + 5 * 60_000;
-      openLogin(agent);
+      openInTerminal(loginCommand(agent, process.env));
+    },
+    logoutAgent: async (agent) => {
+      statusCache = null;
+      return logoutAgent(agent);
     },
     updateAgent: async (agent) => {
       freshUntil = Date.now() + 5 * 60_000;
@@ -235,24 +244,23 @@ main().catch((err: unknown) => {
 });
 
 /**
- * The agent's own sign-in in a terminal window the editor sees, so the official CLI does the whole login
- * (browser, account, plan) and this app never touches a credential (like HyperFrames Studio).
+ * The agent's own sign-out, run here without a window: the official CLI forgets its login, this app never
+ * touches a credential. It signs that CLI out on this computer, not just in Kilnframe.
  */
-function openLogin(agent: "claude-code" | "codex" | "grok"): void {
-  // a Claude Code profile of its own (CLAUDE_CONFIG_DIR) must sign in to that profile, not the default one
-  const claudeDir = process.env.CLAUDE_CONFIG_DIR;
-  const claudeLogin = !claudeDir
-    ? "claude auth login"
-    : process.platform === "win32"
-      ? `set "CLAUDE_CONFIG_DIR=${claudeDir}" && claude auth login`
-      : `CLAUDE_CONFIG_DIR='${claudeDir}' claude auth login`;
-  openInTerminal(
-    agent === "claude-code"
-      ? claudeLogin
-      : agent === "codex"
-        ? "codex login"
-        : "grok login --oauth",
-  );
+function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
+  const bin =
+    agent === "claude-code" ? claudeBinary() : agent === "codex" ? codexBinary() : grokBinary();
+  const r = spawnSync(bin, logoutArgs(agent), {
+    encoding: "utf8",
+    timeout: 30_000,
+    env: withoutHostSession(process.env),
+  });
+  if (r.error || r.status !== 0)
+    return {
+      ok: false,
+      error: (r.stderr || r.stdout || r.error?.message || "").trim().slice(0, 300),
+    };
+  return { ok: true };
 }
 
 /** A command in a terminal window the editor sees: the official CLI does the work, this app only starts it. */

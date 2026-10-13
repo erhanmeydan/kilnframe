@@ -77,6 +77,36 @@ describe("companion server", () => {
     c.ws.close();
   });
 
+  it("signs an agent out through its own CLI and reports the result", async () => {
+    const asked: string[] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      version: "test",
+      port: 0,
+      logoutAgent: async (agent) => {
+        asked.push(agent);
+        return agent === "grok" ? { ok: false, error: "not signed in" } : { ok: true };
+      },
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "agent.logout", agent: "codex" });
+    expect(await c.next((m) => m.type === "agent.logout.done")).toEqual({
+      type: "agent.logout.done",
+      agent: "codex",
+      ok: true,
+    });
+    c.send({ type: "agent.logout", agent: "grok" });
+    expect(await c.next((m) => m.type === "agent.logout.done" && m.agent === "grok")).toMatchObject(
+      { ok: false, error: "not signed in" },
+    );
+    expect(asked).toEqual(["codex", "grok"]);
+    c.ws.close();
+  });
+
   it("rejects a wrong token and a silent client", async () => {
     companion = await startCompanion({
       token: TOKEN,
