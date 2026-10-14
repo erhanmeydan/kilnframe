@@ -227,6 +227,25 @@ describe("making the score", { timeout: 30_000 }, () => {
     expect(r.sections[0]!.error).toBeTruthy();
   });
 
+  it("scores a range of a few seconds: one short clip, as long as the range, no error", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const short: MusicPlan = {
+      version: 1,
+      world: "warm piano",
+      sections: [{ ...plan.sections[1]!, id: "s1", startS: 0, endS: 3 }],
+    };
+    const r = await makeScore({
+      ...base(out, fakeLyria().fetchFn),
+      plan: short,
+      words: [{ text: "a", start: 0.5, end: 2.5 }],
+      rangeDurationS: 3,
+    });
+    expect(r.sections[0]!.error).toBeFalsy();
+    const clip = readAudio(r.sections[0]!.file!);
+    expect(clip[0]!.length / SR).toBeCloseTo(3, 1);
+    expect(clip.every((ch) => ch.every((v) => Number.isFinite(v)))).toBe(true);
+  });
+
   it("keeps going when one section fails and turns its neighbour's crossfade into an ending", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     let n = 0;
