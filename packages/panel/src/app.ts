@@ -42,7 +42,7 @@ import {
 } from "./steps";
 import { formatMismatch } from "./format-check";
 import { readableJobError } from "./job-errors";
-import { isOtherVideo } from "./video-switch";
+import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, type QuickRange } from "./range-watch";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
@@ -2367,7 +2367,13 @@ const musicCtx: MusicCtx = {
 async function readSequence(): Promise<HostSequence | null> {
   try {
     const seq = await host().currentSequence();
-    if (isOtherVideo(state.seq?.guid, seq.id, state.screen === "progress")) {
+    const busy = videoBusy({
+      screen: state.screen,
+      reviewing: state.review !== null,
+      following: stopFollowing !== null,
+      job: state.job,
+    });
+    if (isOtherVideo(state.seq?.guid, seq.id, busy)) {
       // the last video's result, note and images belong to that video
       state.job = null;
       state.note = "";
@@ -3739,15 +3745,19 @@ async function lookAtRange(quick: () => Promise<QuickRange>) {
   if (lookingAtRange || rereading) return;
   lookingAtRange = true;
   try {
-    const w = rangeWatch(state.seq, await quick());
+    const before = state.seq;
+    const q = await quick();
+    // a full read (focus, another tick) may have opened another sequence meanwhile: the next look sees it
+    if (state.seq !== before) return;
+    const w = rangeWatch(state.seq, q);
     if (w.kind === "full") rereadSequence();
     else if (w.kind === "range" && state.seq) {
       state.seq = { ...state.seq, range: w.range, endS: w.endS };
       render();
     }
   } catch {
-    // no sequence open, or Premiere busy: the full read says why
-    rereadSequence();
+    // no sequence open, or the editor busy: the full read says why, once every 1.5 s as before
+    if (state.seq || watchTick % 3 === 0) rereadSequence();
   } finally {
     lookingAtRange = false;
   }

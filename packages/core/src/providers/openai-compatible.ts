@@ -201,8 +201,9 @@ export class OpenAICompatibleProvider implements TextProvider {
       } catch (err) {
         if (!(err instanceof ProviderError) || !err.retryable) throw err;
         if (attempt >= (err.kind === "cut-off" ? 2 : 3)) throw err;
-        // the thinking counts against the limit: the try again thinks little (where a level is set at all)
-        if (err.kind === "cut-off" && effort) effort = "low";
+        // the thinking counts against the limit: the try again thinks little (OpenRouter takes the level
+        // for any model; elsewhere only where the preset sets one)
+        if (err.kind === "cut-off" && (effort || this.name === "openrouter")) effort = "low";
         await new Promise((r) => setTimeout(r, (this.o.retryDelayMs ?? 5_000) * attempt));
       }
     }

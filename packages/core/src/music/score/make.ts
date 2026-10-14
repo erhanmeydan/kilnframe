@@ -209,7 +209,13 @@ export async function makeScore(
     }
     if (readAudio(raw)[0]!.length < MIN_PIECE_S * SR)
       errors.set(s.id, "The music came back too short.");
-    else usable.add(s.id);
+    else {
+      usable.add(s.id);
+      // a remake left this section alone, but its plan changed since its music was made: it still plays
+      // (better than silence), and the editor is told to make it again
+      if (o.only && !o.only.includes(s.id) && !errors.has(s.id) && !fits(s))
+        errors.set(s.id, "This section's music was made for an older plan; make it again.");
+    }
   }
   const playable = (s: MusicSection | undefined) => !!s && usable.has(s.id);
 

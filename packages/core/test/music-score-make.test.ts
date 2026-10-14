@@ -246,6 +246,18 @@ describe("making the score", { timeout: 30_000 }, () => {
     expect(clip.every((ch) => ch.every((v) => Number.isFinite(v)))).toBe(true);
   });
 
+  it("tells when a section left alone by a remake still has music made for an older plan", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    await makeScore(base(out, fakeLyria().fetchFn));
+    const changed: MusicPlan = {
+      ...plan,
+      sections: [{ ...plan.sections[0]!, prompt: "darker strings" }, plan.sections[1]!],
+    };
+    const r = await makeScore({ ...base(out, fakeLyria().fetchFn), plan: changed, only: ["s2"] });
+    expect(r.sections[0]!.error).toMatch(/older plan/);
+    expect(r.sections[0]!.file).toBeTruthy();
+  });
+
   it("keeps going when one section fails and turns its neighbour's crossfade into an ending", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     let n = 0;

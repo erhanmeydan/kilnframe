@@ -1,6 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { basename, join } from "node:path";
 import { ffmpegPath } from "./config.js";
 import { sceneMode, type Plan } from "./schemas/plan.js";
 import { loadStyle } from "./styles.js";
@@ -133,9 +131,9 @@ export function bleedsOffEdges(tokensJson: string): boolean {
 
 /**
  * The scenes whose review still has a small drawing cut by the frame's edge. A note for the editor, not a
- * repair: some styles bleed off the edge on purpose. Overlay scenes are read from their transparent still.
+ * repair: some styles bleed off the edge on purpose. Fullscreen scenes only.
  */
-export function edgeCutScenes(plan: Plan, stills: string[], stillsDir: string): string[] {
+export function edgeCutScenes(plan: Plan, stills: string[]): string[] {
   try {
     if (bleedsOffEdges(loadStyle(plan.style).tokensJson)) return [];
   } catch {
@@ -144,10 +142,9 @@ export function edgeCutScenes(plan: Plan, stills: string[], stillsDir: string): 
   const cut: string[] = [];
   plan.scenes.forEach((s, i) => {
     const still = stills[i];
-    if (!still) return;
-    const alpha = join(stillsDir, "alpha", basename(still));
-    const file = sceneMode(plan, s) === "overlay" && existsSync(alpha) ? alpha : still;
-    const rgba = rgbaOf(file);
+    // overlays are left alone: a lower third or a side panel flush to the edge is how they are made
+    if (!still || sceneMode(plan, s) === "overlay") return;
+    const rgba = rgbaOf(still);
     if (rgba && cutAtEdge(rgba, W, H)) cut.push(s.id);
   });
   return cut;

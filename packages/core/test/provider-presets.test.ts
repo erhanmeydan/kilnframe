@@ -454,6 +454,23 @@ describe("OpenRouter thinking", () => {
     expect(bodies.map((b) => b.reasoning)).toEqual([{ effort: "medium" }, { effort: "low" }]);
   });
 
+  it("on OpenRouter thinks little after a cut-off also for a model with no level of its own", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: { body: string }) => {
+      bodies.push(JSON.parse(init.body) as Record<string, unknown>);
+      return reply(bodies.length === 1 ? "length" : "stop");
+    });
+    const p = new OpenAICompatibleProvider({
+      name: "openrouter",
+      baseURL: "https://o.test/v1",
+      model: "some/model",
+      capabilities: caps,
+      retryDelayMs: 0,
+    });
+    expect((await p.complete(request)).text).toBe("x");
+    expect(bodies.map((b) => b.reasoning)).toEqual([undefined, { effort: "low" }]);
+  });
+
   it("sends Z.ai's thinking level as reasoning_effort, and less of it after a cut-off", async () => {
     const bodies: Record<string, unknown>[] = [];
     vi.stubGlobal("fetch", async (_url: string, init: { body: string }) => {

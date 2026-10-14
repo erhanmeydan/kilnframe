@@ -309,18 +309,17 @@ export function createResolveBridge(
       return lost;
     },
 
-    // the panel looks twice a second: the marks alone, asked at once, not the whole description in turn
+    // the panel looks twice a second: the marks alone, not the whole description
     async quickRange() {
       const p = await project();
       const tl = await p.GetCurrentTimeline();
       if (!tl) throw new Error(NO_SEQUENCE);
-      const [id, rate, start, end, marks] = await Promise.all([
-        tl.GetUniqueId() as Promise<string>,
-        rateOf(tl),
-        tl.GetStartFrame() as Promise<number>,
-        tl.GetEndFrame() as Promise<number>,
-        tl.GetMarkInOut() as Promise<Record<string, { in?: number; out?: number }>>,
-      ]);
+      // one call at a time: whether Resolve's scripting takes calls side by side is not known
+      const id = (await tl.GetUniqueId()) as string;
+      const rate = await rateOf(tl);
+      const start = (await tl.GetStartFrame()) as number;
+      const end = (await tl.GetEndFrame()) as number;
+      const marks = (await tl.GetMarkInOut()) as Record<string, { in?: number; out?: number }>;
       const mark = markOf(marks);
       const length = end - start;
       return {

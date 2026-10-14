@@ -194,7 +194,7 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
   const stillsDir = join(outDir, "stills");
   const { stills, times, ms } = await reviewStills(plan, projectDir, outDir, stillsDir);
   timingsMs.stills = ms;
-  const cutScenes = edgeCutScenes(plan, stills, stillsDir);
+  const cutScenes = edgeCutScenes(plan, stills);
   // kept with the stills: a review opened again after a reload shows the same notes
   writeFileSync(join(stillsDir, "edges.json"), `${JSON.stringify(cutScenes)}\n`);
   showOverlaysOverFootage(plan, stills, outDir, times);
