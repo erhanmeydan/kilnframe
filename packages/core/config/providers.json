@@ -113,7 +113,7 @@
       "tier": "experimental",
       "verified": "docs.z.ai/api-reference/llm/chat-completion (base URL, Bearer key, reasoning_effort low/high/max for the vision models, default max), docs.z.ai/guides/vlm/glm-5.3-flash (model ids, image_url input), docs.z.ai/guides/overview/pricing, checked 2026-10-15",
       "notes": [
-        "GLM 5.3 Flash through OpenRouter finished the whiteboard benchmark in 2.3 min for about $0.01; Z.ai's own default thinking (max) took 18 to 28 min, so the level is set to high",
+        "whiteboard benchmark through Z.ai (15 Oct 2026): low thinking finished in 1.8 min for about $0.01 with no repair; high took 16.5 min and failed its checks (an overlay left a faint layer three times); Z.ai's own default (max) took 18 to 28 min",
         "glm-5.3 itself reads no images and is left out",
         "Z.ai's GLM Coding Plan is for its listed coding tools only: Kilnframe uses an API key"
       ],
@@ -123,8 +123,8 @@
       ],
       "keyUrl": "https://z.ai/manage-apikey/apikey-list",
       "reasoningEffort": {
-        "glm-5.3-flash": "high",
-        "glm-5.3-flashx": "high"
+        "glm-5.3-flash": "low",
+        "glm-5.3-flashx": "low"
       },
       "reasoningField": "reasoning_effort"
     },
