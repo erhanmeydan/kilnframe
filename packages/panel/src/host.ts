@@ -1,3 +1,4 @@
+import type { QuickRange } from "./range-watch";
 // What the panel needs from the editor it runs in. app.ts talks only to host(); the entry installs one
 // (index.ts: Premiere Pro). Everything editor-specific lives behind this interface.
 
@@ -30,6 +31,8 @@ export interface Host {
   kind: "premiere" | "resolve";
   /** The active sequence; throws a readable message when there is no project or sequence. */
   currentSequence(): Promise<HostSequence>;
+  /** The active sequence's id, in and out points and length only, quick enough to ask twice a second. */
+  quickRange?(): Promise<QuickRange>;
   exportFrame(
     seq: HostSequence,
     seconds: number,

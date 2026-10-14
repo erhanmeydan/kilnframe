@@ -43,6 +43,7 @@ import {
 import { formatMismatch } from "./format-check";
 import { readableJobError } from "./job-errors";
 import { isOtherVideo } from "./video-switch";
+import { rangeWatch, type QuickRange } from "./range-watch";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -3712,17 +3713,43 @@ function rereadSequence() {
     });
 }
 
-// Premiere has no event for a new in or out point (26.5 lists sequence activated, closed and selection
-// changed only), so the range tab (and the Music tab's first screen) looks again every 1.5 s while it is open
-setInterval(() => {
-  if (
-    state.screen === "home" &&
-    watchesSequence(state.tab, state.music.stage) &&
-    !state.lightbox &&
-    !pressed
-  )
+/** The in and out points alone, twice a second; the whole sequence only when another one is open. */
+let lookingAtRange = false;
+async function lookAtRange(quick: () => Promise<QuickRange>) {
+  if (lookingAtRange || rereading) return;
+  lookingAtRange = true;
+  try {
+    const w = rangeWatch(state.seq, await quick());
+    if (w.kind === "full") rereadSequence();
+    else if (w.kind === "range" && state.seq) {
+      state.seq = { ...state.seq, range: w.range, endS: w.endS };
+      render();
+    }
+  } catch {
+    // no sequence open, or Premiere busy: the full read says why
     rereadSequence();
-}, 1500);
+  } finally {
+    lookingAtRange = false;
+  }
+}
+
+// Premiere has no event for a new in or out point (26.5 lists sequence activated, closed and selection
+// changed only), so the range tab (and the Music tab's first screen) looks while it is open: the points
+// alone every 0.5 s where the host can ask for them quickly, else the whole sequence every 1.5 s
+let watchTick = 0;
+setInterval(() => {
+  watchTick++;
+  if (
+    state.screen !== "home" ||
+    !watchesSequence(state.tab, state.music.stage) ||
+    state.lightbox ||
+    pressed
+  )
+    return;
+  const quick = host().quickRange?.bind(host());
+  if (quick) void lookAtRange(quick);
+  else if (watchTick % 3 === 0) rereadSequence();
+}, 500);
 
 /** Re-read the sequence when the panel gains focus, so a new in/out shows up. */
 window.addEventListener("focus", () => {

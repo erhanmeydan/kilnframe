@@ -408,6 +408,22 @@ export function createPremiereHost(
         audioTracks: info.audioTracks,
       };
     },
+    async quickRange() {
+      const project = await activeProject();
+      const sequence = await project.getActiveSequence();
+      if (!sequence) throw new Error(t("seq.noSequence"));
+      const [inPoint, outPoint, end] = await Promise.all([
+        sequence.getInPoint(),
+        sequence.getOutPoint(),
+        sequence.getEndTime(),
+      ]);
+      return {
+        id: sequence.guid.toString(),
+        inSeconds: inPoint.seconds,
+        outSeconds: outPoint.seconds,
+        endSeconds: end.seconds,
+      };
+    },
     async exportFrame(seq, seconds, dir, name, width, height) {
       const { sequence } = await sequenceOf(seq);
       return ppro.Exporter.exportSequenceFrame(
