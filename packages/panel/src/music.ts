@@ -117,18 +117,31 @@ export function levelNote(
   };
 }
 
+/** What the text model (the plan, a rewritten note) cost: nothing when it ran on the editor's plan. */
+export function textSpend(r: { listPriceUsd?: unknown; billing?: unknown }): number {
+  return r.billing === "plan" ? 0 : Number(r.listPriceUsd ?? 0);
+}
+
 /**
  * A make (or a remake) finished: the listen screen comes back, and the new files can be placed again. They go
  * on a new track; the track placed before stays as it was (its files are never written over).
  */
 export function afterMake(
   st: MusicState,
-  result: { sections: MadeSection[]; priceUsd?: number; plan?: MusicPlan },
+  result: {
+    sections: MadeSection[];
+    priceUsd?: number;
+    plan?: MusicPlan;
+    textPriceUsd?: number;
+    billing?: string;
+  },
   noted: string[],
 ): void {
   st.made = result.sections;
   st.plan = result.plan ?? st.plan;
-  st.spent += Number(result.priceUsd ?? 0);
+  st.spent +=
+    Number(result.priceUsd ?? 0) +
+    textSpend({ listPriceUsd: result.textPriceUsd, billing: result.billing });
   for (const id of noted) delete st.edits[id];
   st.placedTrack = null;
   st.stage = "listen";
@@ -426,6 +439,7 @@ async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
       (result) => {
         st.plan = result.plan as MusicPlan;
         st.speechFile = result.speechFile ? String(result.speechFile) : null;
+        st.spent += textSpend(result);
         st.stage = "plan";
       },
     );

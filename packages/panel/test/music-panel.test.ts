@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   afterMake,
+  textSpend,
   musicAct,
   clock,
   levelNote,
@@ -117,6 +118,16 @@ describe("music panel", () => {
     expect(st.spent).toBeCloseTo(0.08);
     // the note that made s2 again is used up; the other note waits for its own remake
     expect(st.edits).toEqual({ s3: "keep" });
+  });
+
+  it("counts the text model's price in the music spend when it is paid by API, not on a plan", () => {
+    const st = { ...newMusic(), stage: "making" as const };
+    afterMake(st, { sections: [], priceUsd: 0.08, textPriceUsd: 0.02, billing: "api" }, []);
+    expect(st.spent).toBeCloseTo(0.1);
+    afterMake(st, { sections: [], priceUsd: 0.08, textPriceUsd: 0.02, billing: "plan" }, []);
+    expect(st.spent).toBeCloseTo(0.18);
+    expect(textSpend({ listPriceUsd: 0.03, billing: "api" })).toBeCloseTo(0.03);
+    expect(textSpend({ listPriceUsd: 0.03, billing: "plan" })).toBe(0);
   });
 
   it("looks for a new In/Out while the range tab or the Music tab's first screen is open", () => {

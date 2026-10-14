@@ -347,6 +347,9 @@ async function musicMakeJob(
   // a section joined in the panel may be longer than one Lyria piece: split again here
   let plan = splitLong(params.plan);
   const notes = Object.entries(params.notes ?? {}).filter(([, note]) => note.trim());
+  // the notes are rewritten by the text model: its price goes into the music spend too
+  const usage = new UsageMeter();
+  let billing: string = "api";
   if (notes.length) {
     progress("Rewriting the music for your notes");
     const name = params.provider ?? defaults.text.provider;
@@ -356,8 +359,10 @@ async function musicMakeJob(
       baseURL: params.baseURL,
       apiKey: await keys.get(name === "auto" ? "anthropic" : name),
     });
+    billing = text.billing ?? "api";
+    const metered = usage.wrap(text);
     for (const [id, note] of notes) {
-      const prompt = await rewriteSectionPrompt({ provider: text, plan, sectionId: id, note });
+      const prompt = await rewriteSectionPrompt({ provider: metered, plan, sectionId: id, note });
       plan = { ...plan, sections: plan.sections.map((s) => (s.id === id ? { ...s, prompt } : s)) };
     }
   }
@@ -375,5 +380,11 @@ async function musicMakeJob(
     only: params.only,
     onProgress: progress,
   });
-  return { kind: "music-make", plan, ...r };
+  return {
+    kind: "music-make",
+    plan,
+    ...r,
+    textPriceUsd: usage.total().listPriceUsd || 0,
+    billing,
+  };
 }
