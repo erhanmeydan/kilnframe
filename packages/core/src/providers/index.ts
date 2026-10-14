@@ -59,6 +59,8 @@ export interface ProviderPreset {
    * Flash, 11 Oct 2026). Other models get nothing and think as they do by default.
    */
   reasoningEffort?: Record<string, string>;
+  /** How the thinking level is sent: "reasoning" (OpenRouter, default) or "reasoning_effort" (Z.ai). */
+  reasoningField?: "reasoning" | "reasoning_effort";
 }
 
 export function loadProviderCatalog(): ProviderPreset[] {
@@ -230,6 +232,7 @@ function buildProvider(
         contextWindow: preset?.capabilities.contextWindow ?? 128_000,
       },
       reasoningEffort: preset?.reasoningEffort?.[model],
+      reasoningField: preset?.reasoningField,
     });
   }
   if (kind === "openai-compatible") {

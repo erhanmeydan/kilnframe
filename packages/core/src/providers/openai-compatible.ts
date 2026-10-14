@@ -22,6 +22,8 @@ export interface OpenAICompatibleOptions {
    * (providers.json, reasoningEffort). Unset: nothing is sent and the model thinks as it does by default.
    */
   reasoningEffort?: string | undefined;
+  /** Where the thinking level goes: OpenRouter's reasoning.effort (default) or Z.ai's top-level reasoning_effort. */
+  reasoningField?: "reasoning" | "reasoning_effort" | undefined;
   /** Pause before a retry, times the attempt number (tests set it to 0). */
   retryDelayMs?: number;
 }
@@ -199,8 +201,8 @@ export class OpenAICompatibleProvider implements TextProvider {
       } catch (err) {
         if (!(err instanceof ProviderError) || !err.retryable) throw err;
         if (attempt >= (err.kind === "cut-off" ? 2 : 3)) throw err;
-        // on OpenRouter the thinking counts against the limit: the try again thinks little
-        if (err.kind === "cut-off" && this.name === "openrouter") effort = "low";
+        // the thinking counts against the limit: the try again thinks little (where a level is set at all)
+        if (err.kind === "cut-off" && effort) effort = "low";
         await new Promise((r) => setTimeout(r, (this.o.retryDelayMs ?? 5_000) * attempt));
       }
     }
@@ -234,7 +236,11 @@ export class OpenAICompatibleProvider implements TextProvider {
           max_tokens: req.maxTokens,
           stream: true,
           stream_options: { include_usage: true },
-          ...(effort ? { reasoning: { effort } } : {}),
+          ...(effort
+            ? this.o.reasoningField === "reasoning_effort"
+              ? { reasoning_effort: effort }
+              : { reasoning: { effort } }
+            : {}),
           ...this.o.extraBody,
         }),
       });

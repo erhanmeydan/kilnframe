@@ -100,6 +100,35 @@
       "keyUrl": "https://platform.minimax.io/user-center/basic-information/interface-key"
     },
     {
+      "id": "zai",
+      "displayName": "Z.ai (GLM)",
+      "adapter": "openai-compatible",
+      "baseURL": "https://api.z.ai/api/paas/v4",
+      "models": ["glm-5.3-flash", "glm-5.3-flashx"],
+      "capabilities": {
+        "vision": true,
+        "structuredOutput": false,
+        "contextWindow": 128000
+      },
+      "tier": "experimental",
+      "verified": "docs.z.ai/api-reference/llm/chat-completion (base URL, Bearer key, reasoning_effort low/high/max for the vision models, default max), docs.z.ai/guides/vlm/glm-5.3-flash (model ids, image_url input), docs.z.ai/guides/overview/pricing, checked 2026-10-15",
+      "notes": [
+        "GLM 5.3 Flash through OpenRouter finished the whiteboard benchmark in 2.3 min for about $0.01; Z.ai's own default thinking (max) took 18 to 28 min, so the level is set to high",
+        "glm-5.3 itself reads no images and is left out",
+        "Z.ai's GLM Coding Plan is for its listed coding tools only: Kilnframe uses an API key"
+      ],
+      "unverified": [
+        "context window (128000 is a placeholder)",
+        "whether streamed replies carry usage"
+      ],
+      "keyUrl": "https://z.ai/manage-apikey/apikey-list",
+      "reasoningEffort": {
+        "glm-5.3-flash": "high",
+        "glm-5.3-flashx": "high"
+      },
+      "reasoningField": "reasoning_effort"
+    },
+    {
       "id": "openrouter",
       "displayName": "OpenRouter",
       "adapter": "openai-compatible",

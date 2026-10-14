@@ -454,6 +454,40 @@ describe("OpenRouter thinking", () => {
     expect(bodies.map((b) => b.reasoning)).toEqual([{ effort: "medium" }, { effort: "low" }]);
   });
 
+  it("sends Z.ai's thinking level as reasoning_effort, and less of it after a cut-off", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: { body: string }) => {
+      bodies.push(JSON.parse(init.body) as Record<string, unknown>);
+      return reply(bodies.length === 1 ? "length" : "stop");
+    });
+    const p = new OpenAICompatibleProvider({
+      name: "zai",
+      baseURL: "https://api.z.ai/api/paas/v4",
+      model: "glm-5.3-flash",
+      capabilities: caps,
+      retryDelayMs: 0,
+      reasoningEffort: "high",
+      reasoningField: "reasoning_effort",
+    });
+    expect((await p.complete(request)).text).toBe("x");
+    expect(bodies.map((b) => b.reasoning_effort)).toEqual(["high", "low"]);
+    expect(bodies[0]).not.toHaveProperty("reasoning");
+  });
+
+  it("has a Z.ai preset with the two GLM 5.3 models that read images", async () => {
+    const { providerPreset, createTextProvider, loadDefaults } = await import("../src/index.js");
+    const z = providerPreset("zai");
+    expect(z?.baseURL).toBe("https://api.z.ai/api/paas/v4");
+    expect(z?.models).toEqual(["glm-5.3-flash", "glm-5.3-flashx"]);
+    expect(z?.capabilities.vision).toBe(true);
+    const made = createTextProvider(loadDefaults(), {
+      provider: "zai",
+      model: "glm-5.3-flash",
+      apiKey: "k",
+    });
+    expect(made).toBeTruthy();
+  });
+
   it("names GLM 5.3 Flash in the OpenRouter preset", async () => {
     const { providerPreset } = await import("../src/index.js");
     expect(providerPreset("openrouter")?.reasoningEffort?.["z-ai/glm-5.3-flash"]).toBe("medium");
