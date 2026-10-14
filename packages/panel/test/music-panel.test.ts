@@ -136,6 +136,11 @@ describe("music panel", () => {
     expect(sent).toEqual([{ type: "job.cancel", jobId: "job-7" }]);
   });
 
+  it("leaves an action that is not its own, such as the settings' music level, to the panel", () => {
+    const ctx = { send: () => undefined, render: () => undefined } as never;
+    expect(musicAct(newMusic(), ctx, "music-level", "-18")).toBe(false);
+  });
+
   it("says when making a section again failed and its earlier music stays", () => {
     const st = {
       ...newMusic(),

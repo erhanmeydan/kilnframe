@@ -497,8 +497,24 @@ async function placeMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
 }
 
 /** The tab's clicks. Returns true when it handled `act`. */
+/** The Music tab's own actions; any other (the settings' music-level) is the panel's. */
+const MUSIC_ACTS = new Set([
+  "music-scope",
+  "music-cancel",
+  "music-terms",
+  "music-plan",
+  "music-silent",
+  "music-merge",
+  "music-make",
+  "music-redo",
+  "music-play",
+  "music-stop",
+  "music-place",
+  "music-new",
+]);
+
 export function musicAct(st: MusicState, ctx: MusicCtx, act: string, val: string): boolean {
-  if (!act.startsWith("music-")) return false;
+  if (!MUSIC_ACTS.has(act)) return false;
   const plan = st.plan;
   if (act === "music-scope") st.scope = val === "range" ? "range" : "all";
   else if (act === "music-cancel") {
