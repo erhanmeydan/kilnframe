@@ -325,7 +325,7 @@ export async function makeScore(
     });
   }
 
-  // 5. the record: what made this music, for the editor's own files
+  // 4. the record: what made this music, for the editor's own files
   const record = join(dir, "music.json");
   writeFileSync(
     record,
