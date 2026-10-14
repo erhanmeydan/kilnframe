@@ -1,3 +1,4 @@
+import { edgeCutScenes } from "../edges.js";
 import {
   copyFileSync,
   existsSync,
@@ -48,6 +49,8 @@ export interface RenderPlanResult {
   sfx: SfxResult | null;
   timingsMs: Record<string, number>;
   warnings: CheckFinding[];
+  /** Scenes whose review still has a small drawing cut by the frame's edge: a note for the editor. */
+  cutScenes: string[];
 }
 
 /**
@@ -191,9 +194,21 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
   const stillsDir = join(outDir, "stills");
   const { stills, times, ms } = await reviewStills(plan, projectDir, outDir, stillsDir);
   timingsMs.stills = ms;
+  const cutScenes = edgeCutScenes(plan, stills, stillsDir);
+  // kept with the stills: a review opened again after a reload shows the same notes
+  writeFileSync(join(stillsDir, "edges.json"), `${JSON.stringify(cutScenes)}\n`);
   showOverlaysOverFootage(plan, stills, outDir, times);
   if (o.stillsOnly)
-    return { projectDir, stills, output: null, preview: null, sfx: null, timingsMs, warnings };
+    return {
+      projectDir,
+      stills,
+      output: null,
+      preview: null,
+      sfx: null,
+      timingsMs,
+      warnings,
+      cutScenes,
+    };
 
   const format = plan.mode === "overlay" ? "mov" : "mp4";
   const master = join(projectDir, "renders", `master.${format}`);
@@ -241,5 +256,5 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
       footage: existsSync(join(outDir, "footage.mp4")) ? join(outDir, "footage.mp4") : undefined,
     });
   }
-  return { projectDir, stills, output, preview, sfx, timingsMs, warnings };
+  return { projectDir, stills, output, preview, sfx, timingsMs, warnings, cutScenes };
 }

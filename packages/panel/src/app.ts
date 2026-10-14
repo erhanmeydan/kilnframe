@@ -212,6 +212,8 @@ interface Settings {
 interface StillImage {
   sceneId: string;
   image: string | null;
+  /** A small drawing in this still runs off the frame's edge: a note, the editor decides. */
+  edgeCut?: boolean;
 }
 
 interface JobResult {
@@ -2069,7 +2071,9 @@ function reviewScreen(): string {
             "still-img",
           )
         : `<div class="still-empty" style="width:${width}px;height:${height}px"></div>`
-    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${st.sceneId}">${label} ${redo ? t("review.redoMark") : "✓"}</div></div>`;
+    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${st.sceneId}">${label} ${redo ? t("review.redoMark") : "✓"}</div>${
+      st.edgeCut ? `<div class="small warn-text">${t("review.edgeCut")}</div>` : ""
+    }</div>`;
   };
   let body: string;
   if (r.series) {
@@ -2092,6 +2096,7 @@ function reviewScreen(): string {
     : t("review.scenes", { n: r.stills.length });
   return `${header(t("review.title"), `<span class="tag2">${count}</span>`)}
   ${body}
+  ${r.stills.some((st) => st.edgeCut) ? `<div class="note warn-text">${t("review.edgeCutHint")}</div>` : ""}
   <div class="note muted">${t("review.hint")}</div>
   ${
     redo

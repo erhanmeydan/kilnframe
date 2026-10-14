@@ -153,6 +153,8 @@
   "review.scenes": "{n} Scenes",
   "review.redoMark": "↻ Redo",
   "review.hint": "Click a still to enlarge it. Click a scene's name to mark it, add a note and redo only that scene.",
+  "review.edgeCut": "May be cut at the edge",
+  "review.edgeCutHint": "In the marked scenes a drawing may run off the frame's edge. Open the still to look; if you do not like it, click the scene, write a note and have it made again. Some styles crop on purpose, so it is your call.",
   "review.noteFor": "Note for {scene}",
   "review.notePlaceholder": "Make the arrows thicker",
   "review.onlyThis": "Only {scene} is made again, the others stay. The full render comes after approval.",

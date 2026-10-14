@@ -363,11 +363,18 @@ export function reviewFromDisk(outDir: string): {
     .sort()
     .map((f) => join(stillsDir, f));
   if (frames.length !== plan.scenes.length) return null;
+  const edges = join(stillsDir, "edges.json");
+  let cut: string[] = [];
+  try {
+    if (existsSync(edges)) cut = JSON.parse(readFileSync(edges, "utf8")) as string[];
+  } catch {
+    // an unreadable note file: no notes
+  }
   return {
     stillImages: stillImages(
       frames,
       plan.scenes.map((s) => s.id),
-    ),
+    ).map((st) => (cut.includes(st.sceneId) ? { ...st, edgeCut: true } : st)),
     plan: { width: plan.width, height: plan.height },
   };
 }

@@ -153,6 +153,8 @@
   "review.scenes": "{n} Sahne",
   "review.redoMark": "↻ Yeniden Yap",
   "review.hint": "Kareye tıklayınca büyür. Beğenmediğiniz sahnenin adına tıklayın, not yazıp sadece onu yeniden ürettirin.",
+  "review.edgeCut": "Kenarda kesik olabilir",
+  "review.edgeCutHint": "İşaretli sahnelerde bir çizim kadrajın kenarından taşıyor olabilir. Kareyi büyütüp bakın; beğenmezseniz sahneye tıklayın, not yazın ve yeniden ürettirin. Bazı stiller bilerek kırptığı için karar sizin.",
   "review.noteFor": "{scene} İçin Not",
   "review.notePlaceholder": "Okları daha kalın yap",
   "review.onlyThis": "Sadece {scene} yeniden üretilir, diğerleri korunur. Tam render onaydan sonra alınır.",

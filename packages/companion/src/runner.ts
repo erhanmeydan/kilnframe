@@ -158,7 +158,7 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       stillImages: stillImages(
         render.stills,
         plan.scenes.map((sc) => sc.id),
-      ),
+      ).map((st) => (render.cutScenes?.includes(st.sceneId) ? { ...st, edgeCut: true } : st)),
       plan,
       // the job's tokens and cost so far, for the line under the placed insert
       cost: readUsageSummary(params.outDir),
