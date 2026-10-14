@@ -68,7 +68,12 @@
       ["Kilnframe-Windows.exe", text.win, "btn"],
     ]) {
       const url = asset(name);
-      if (url) dl.insertAdjacentHTML("beforeend", `<a class="${cls}" href="${url}">${label}</a>`);
+      const click = name.endsWith(".pkg") ? "download-mac" : "download-windows";
+      if (url)
+        dl.insertAdjacentHTML(
+          "beforeend",
+          `<a class="${cls}" data-goatcounter-click="${click}" href="${url}">${label}</a>`,
+        );
     }
     body.append(dl);
     el.append(meta, body);
@@ -83,6 +88,8 @@
       const shown = list.filter((r) => !r.draft && !r.prerelease);
       if (!shown.length) throw new Error("no releases");
       box.replaceChildren(...shown.map((r, i) => release(r, i === 0)));
+      // links added after the counter loaded are bound now, so their clicks count too
+      window.goatcounter?.bind_events?.();
     })
     .catch(() => {
       box.innerHTML = `<p class="muted">${text.failed} <a href="https://github.com/${repo}/releases">${text.all}</a>.</p>`;
