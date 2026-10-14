@@ -41,6 +41,7 @@ import {
   type PlannedScene,
 } from "./steps";
 import { formatMismatch } from "./format-check";
+import { readableJobError } from "./job-errors";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -3094,6 +3095,11 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
 function jobErrorText(msg: unknown): string {
   const m = msg as { message?: unknown; kind?: unknown };
   if (m.kind === "cut-off") return t("err.cutOff");
+  // the core speaks English; what the panel can say in its own language it says (the original is in the log)
+  const readable = readableJobError(String(m.message));
+  if (readable) trace(`job: checks failed ${String(m.message)}`);
+  if (readable)
+    return [t(readable.key, readable.vars), ...readable.reasons.map((r) => t(r))].join(" ");
   return String(m.message);
 }
 
