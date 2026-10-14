@@ -2264,14 +2264,16 @@ async function connectOnce() {
     state.mismatch = theirs < PROTOCOL_VERSION ? "app" : theirs > PROTOCOL_VERSION ? "panel" : null;
     state.appVersion = session.ready?.version || null;
     render();
-    const [system, styles] = await Promise.all([
-      session.request<ServerMessage>({ type: "system.check" }, "system"),
-      session.request<ServerMessage>({ type: "styles.list" }, "styles"),
-    ]);
-    state.system = system.report as typeof state.system;
+    // the styles show as soon as they come; the computer check (a GPU probe, seconds) arrives after
+    const systemCheck = session.request<ServerMessage>({ type: "system.check" }, "system");
+    systemCheck.catch(() => undefined); // its failure is handled where it is awaited below
+    const styles = await session.request<ServerMessage>({ type: "styles.list" }, "styles");
     state.styles = styles.styles as StyleCard[];
+    render();
     // the line under the button needs the providers' names, models and the Claude Code sign-in
     void refreshProviders().then(render);
+    const system = await systemCheck;
+    state.system = system.report as typeof state.system;
     // the panel opens on its home screen; the setup guide waits under Settings (the
     // guide opening by itself confused more than it helped)
     if (state.screen === "setup" && !speechModelReady()) void downloadModels();

@@ -28,6 +28,7 @@ import {
   narrate,
   loadSpeechModel,
   systemReport,
+  speechModelCached,
   vendorDir,
 } from "@kilnframe/core";
 import { type Agent, loginCommand, logoutArgs } from "./agent-commands.js";
@@ -56,6 +57,18 @@ const VERSION = process.env.KILNFRAME_APP_VERSION ?? "0.0.0";
 /** Where the panel finds the port and token. Readable only by the current user. */
 export function connectionFile(): string {
   return join(process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"), "companion.json");
+}
+
+/** GPU and FFmpeg do not change while the app runs: probed once, again only after a failed probe. */
+let hardwareProbe: ReturnType<typeof systemReport> | null = null;
+function hardware(): ReturnType<typeof systemReport> {
+  hardwareProbe ??= systemReport(loadDefaults(), join(vendorDir(), "gsap", "gsap.min.js")).catch(
+    (err: unknown) => {
+      hardwareProbe = null;
+      throw err;
+    },
+  );
+  return hardwareProbe;
 }
 
 async function main() {
@@ -88,11 +101,17 @@ async function main() {
     onBusy: (busy) => process.send?.({ type: "job.busy", busy }),
     version: VERSION,
     port: Number(process.env.KILNFRAME_PORT ?? DEFAULT_PORT),
-    systemCheck: async () => ({
-      ...(await systemReport(loadDefaults(), join(vendorDir(), "gsap", "gsap.min.js"))),
-      wavPreset: findWavPreset(),
-      previewPreset: findPreviewPreset(),
-    }),
+    systemCheck: async () => {
+      // the GPU probe starts a browser (about 4 s): done once a session; the speech model is looked at each time
+      const defaults = loadDefaults();
+      const report = await hardware();
+      return {
+        ...report,
+        speechModel: { name: defaults.whisper.model, cached: speechModelCached(defaults) },
+        wavPreset: findWavPreset(),
+        previewPreset: findPreviewPreset(),
+      };
+    },
     listStyles: async () =>
       styleCards(
         join(process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"), "cache", "thumbs"),
