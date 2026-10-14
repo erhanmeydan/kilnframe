@@ -212,6 +212,21 @@ describe("making the score", { timeout: 30_000 }, () => {
     expect(r.sections[1]!.measured.speechDb).toBeCloseTo(-21, 0);
   });
 
+  it("makes only the asked section again, not one that failed earlier", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const failing = (async (u: unknown, init?: { body?: string }) => {
+      if (/calm/.test(String(init?.body))) return new Response("{}", { status: 400 });
+      return fakeLyria().fetchFn(u as never, init as never);
+    }) as unknown as typeof fetch;
+    const first = await makeScore(base(out, failing));
+    expect(first.sections[0]!.error).toBeTruthy();
+    const again = fakeLyria();
+    const r = await makeScore({ ...base(out, again.fetchFn), only: ["s2"] });
+    expect(again.calls).toHaveLength(1);
+    expect(again.calls[0]).toMatch(/rising/);
+    expect(r.sections[0]!.error).toBeTruthy();
+  });
+
   it("keeps going when one section fails and turns its neighbour's crossfade into an ending", async () => {
     const out = mkdtempSync(join(tmpdir(), "kf-score-"));
     let n = 0;

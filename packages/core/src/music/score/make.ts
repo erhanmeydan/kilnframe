@@ -177,8 +177,9 @@ export async function makeScore(
     }
   };
 
-  // 1. raw pieces: the asked sections again, and any section without a piece made for it as it is now
-  const wanted = sections.filter((s) => !s.silent && (o.only?.includes(s.id) || !fits(s)));
+  // 1. raw pieces: the asked sections only (a remake is paid for one section, not for others that failed
+  // before); a whole make: every section without a piece made for it as it is now
+  const wanted = sections.filter((s) => !s.silent && (o.only ? o.only.includes(s.id) : !fits(s)));
   let done = 0;
   await pool(wanted, o.concurrency ?? 3, async (s) => {
     if (stopped()) return;
@@ -200,7 +201,11 @@ export async function makeScore(
   const pieces = new Map<string, Float32Array[]>();
   for (const s of sections) {
     const raw = !s.silent ? rawOf(rawDir, s.id) : null;
-    if (!raw) continue;
+    if (!raw) {
+      // a section a remake left alone, still without music from an earlier failure: still shown as failed
+      if (!s.silent && !errors.has(s.id)) errors.set(s.id, "This section has no music yet.");
+      continue;
+    }
     const piece = readAudio(raw);
     if (piece[0]!.length < MIN_PIECE_S * SR) errors.set(s.id, "The music came back too short.");
     else pieces.set(s.id, piece);
