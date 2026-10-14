@@ -197,8 +197,9 @@ export async function makeScore(
 
   if (stopped()) throw new Error("The music was stopped.");
   o.onProgress?.("Fitting the music to the speech");
-  // the pieces to use: a failed remake keeps the earlier piece; a cut-off piece is refused
-  const pieces = new Map<string, Float32Array[]>();
+  // the pieces to use: a failed remake keeps the earlier piece; a cut-off piece is refused. Only whether each
+  // can be used is kept here: a 30-minute range has more music than fits in memory at once
+  const usable = new Set<string>();
   for (const s of sections) {
     const raw = !s.silent ? rawOf(rawDir, s.id) : null;
     if (!raw) {
@@ -206,26 +207,26 @@ export async function makeScore(
       if (!s.silent && !errors.has(s.id)) errors.set(s.id, "This section has no music yet.");
       continue;
     }
-    const piece = readAudio(raw);
-    if (piece[0]!.length < MIN_PIECE_S * SR) errors.set(s.id, "The music came back too short.");
-    else pieces.set(s.id, piece);
+    if (readAudio(raw)[0]!.length < MIN_PIECE_S * SR)
+      errors.set(s.id, "The music came back too short.");
+    else usable.add(s.id);
   }
-  const playable = (s: MusicSection | undefined) => !!s && pieces.has(s.id);
+  const playable = (s: MusicSection | undefined) => !!s && usable.has(s.id);
 
-  // 2. each section's own music, long enough for a crossfade into the next one
-  const own = new Map<string, Float32Array[]>();
-  const outOf = new Map<string, "crossfade" | "end" | "final">();
-  for (const [i, s] of sections.entries()) {
-    if (!playable(s)) continue;
+  /** How a playable section leaves: into the next one, to silence, or as the range's close. */
+  const kindOf = (i: number): "crossfade" | "end" | "final" | undefined => {
+    const s = sections[i];
+    if (!playable(s)) return undefined;
+    if (s!.final) return "final";
+    return s!.transitionOut === "crossfade" && playable(sections[i + 1]) ? "crossfade" : "end";
+  };
+
+  // 2. a section's own music, long enough for a crossfade into the next one; read when it is needed
+  const ownOf = (i: number): Float32Array[] => {
+    const s = sections[i]!;
+    const kind = kindOf(i)!;
     const len = s.endS - s.startS;
-    const next = sections[i + 1];
-    const kind = s.final
-      ? "final"
-      : s.transitionOut === "crossfade" && playable(next)
-        ? "crossfade"
-        : "end";
-    outOf.set(s.id, kind);
-    const piece = pieces.get(s.id)!;
+    const piece = readAudio(rawOf(rawDir, s.id)!);
     let music: Float32Array[];
     if (kind !== "final") {
       music = fitLength(piece, len + (kind === "crossfade" ? CROSSFADE_S : 0), kind === "end");
@@ -235,27 +236,19 @@ export async function makeScore(
       // sounded worse than the model's own close (12 Oct 2026)
       music = fade(fitLength(piece, len, true), 0, FINAL_FADE_S);
     }
-    const prevKind = outOf.get(sections[i - 1]?.id ?? "");
+    const prevKind = kindOf(i - 1);
     const fadeIn = i === 0 ? FIRST_FADE_IN_S : prevKind === "crossfade" ? 0 : AFTER_END_FADE_IN_S;
-    own.set(s.id, fade(music, fadeIn, 0));
-  }
+    return fade(music, fadeIn, 0);
+  };
 
-  // 3. crossfades baked into the next clip's head
-  const clean = new Map(own);
-  for (const [i, s] of sections.entries()) {
-    if (outOf.get(s.id) !== "crossfade") continue;
-    const next = sections[i + 1]!;
-    const { prev, next: head } = bakeCrossfade(clean.get(s.id)!, clean.get(next.id)!, CROSSFADE_S);
-    clean.set(s.id, prev);
-    clean.set(next.id, head);
-  }
-
-  // 4. levels, files, preview, measured levels
+  // 3. levels, files, preview, measured levels
   const spans = speechSpans(o.words);
   const gainPlan: GainPlan = { slider: o.slider, rangeDurationS: o.rangeDurationS, spans };
   const open = o.slider + 6;
   const made: MadeSection[] = [];
-  for (const s of sections) {
+  // one section at a time, at most two in memory: the next one's head carries this one's crossfade
+  let carried: Float32Array[] | null = null;
+  for (const [i, s] of sections.entries()) {
     const base: MadeSection = {
       id: s.id,
       file: null,
@@ -266,7 +259,13 @@ export async function makeScore(
       measured: { speechDb: null, gapDb: null },
       ...(errors.has(s.id) ? { error: errors.get(s.id)! } : {}),
     };
-    const music = clean.get(s.id);
+    let music = playable(s) ? (carried ?? ownOf(i)) : null;
+    carried = null;
+    if (music && kindOf(i) === "crossfade") {
+      const baked = bakeCrossfade(music, ownOf(i + 1), CROSSFADE_S);
+      music = baked.prev;
+      carried = baked.next;
+    }
     if (!music) {
       made.push(base);
       continue;
