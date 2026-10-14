@@ -174,6 +174,24 @@ describe("music panel", () => {
     expect(musicBox(st, ctx)).toMatch(/earlier music stays|önceki müzik kaldı/);
   });
 
+  it("forgets a finished job's id, so Stop never aims at a job that is over", async () => {
+    let listener: (m: Record<string, unknown>) => void = () => undefined;
+    const ctx = {
+      on: (fn: typeof listener) => ((listener = fn), () => undefined),
+      request: async () => ({ jobId: "j1" }),
+      slider: () => -21,
+      providerParams: () => ({}),
+      render: () => undefined,
+      trace: () => undefined,
+    } as never;
+    const st = { ...newMusic(), plan, jobDir: "/j", stage: "listen" as const, made: [] };
+    musicAct(st, ctx, "music-make", "");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(st.jobId).toBe("j1");
+    listener({ type: "job.done", jobId: "j1", result: { sections: [] } });
+    expect(st.jobId).toBeNull();
+  });
+
   it("starts one plan and one placement only, however often the button is clicked", () => {
     let reads = 0;
     const ctx = {

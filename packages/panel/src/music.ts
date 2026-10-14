@@ -336,6 +336,8 @@ async function musicJob(
   onDone: (result: Record<string, unknown>) => void,
 ): Promise<void> {
   st.error = null;
+  // no id from an earlier job while this one is being accepted
+  st.jobId = null;
   const off = ctx.on((m) => {
     if (m.jobId !== st.jobId) return;
     if (m.type === "job.progress") {
@@ -343,6 +345,8 @@ async function musicJob(
       ctx.render();
     } else if (m.type === "job.done") {
       off();
+      // the job is over: a later Stop must not aim at it
+      st.jobId = null;
       onDone(m.result as Record<string, unknown>);
       ctx.render();
     } else if (m.type === "job.error" || m.type === "job.cancelled") {
