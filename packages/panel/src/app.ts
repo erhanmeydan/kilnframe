@@ -3301,13 +3301,20 @@ async function signOutAgent(id: string) {
       { type: "agent.logout", agent: id },
       "agent.logout.done",
     );
-    if (r.type === "agent.logout.done" && !r.ok)
-      setup.error = t("prov.signOutFailed", { name: agentName(id) });
-    trace(`settings: ${id} sign-out ${r.type === "agent.logout.done" && r.ok ? "done" : "failed"}`);
+    const done = r.type === "agent.logout.done" ? r : null;
+    if (done && !done.ok)
+      setup.error =
+        done.error === "busy"
+          ? t("prov.signOutBusy")
+          : t("prov.signOutFailed", { name: agentName(id) });
+    trace(`settings: ${id} sign-out ${done?.ok ? "done" : `failed ${done?.error ?? ""}`}`);
+    await refreshProviders();
+    // a sign-in Kilnframe cannot end (Claude Code's CLAUDE_CODE_OAUTH_TOKEN): still signed in after it
+    if (done?.ok && agentState(id)?.loggedIn)
+      setup.error = t("prov.signOutStill", { name: agentName(id) });
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }
-  await refreshProviders();
   setup.signingOut = null;
   render();
 }

@@ -326,7 +326,12 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             send({ type: "agent.login.opened", agent: msg.agent });
             break;
           case "agent.logout": {
-            const r = o.logoutAgent ? await o.logoutAgent(msg.agent) : { ok: false };
+            // a running job may be using that agent, and the sign-out holds the companion for seconds
+            const r = queue.busy()
+              ? { ok: false, error: "busy" }
+              : o.logoutAgent
+                ? await o.logoutAgent(msg.agent)
+                : { ok: false };
             send({ type: "agent.logout.done", agent: msg.agent, ...r });
             break;
           }

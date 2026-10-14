@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginCommand, logoutArgs } from "../src/agent-commands.js";
+import { loginCommand, loginEnv, logoutArgs } from "../src/agent-commands.js";
 
 describe("agent sign-in and sign-out commands", () => {
   it("signs in with each CLI's own command", () => {
@@ -15,7 +15,15 @@ describe("agent sign-in and sign-out commands", () => {
     );
     expect(loginCommand("codex", env, "darwin")).toBe("CODEX_HOME='/p/codex' codex login");
     expect(loginCommand("grok", env, "darwin")).toBe("GROK_HOME='/p/grok' grok login --oauth");
-    expect(loginCommand("codex", env, "win32")).toBe('set "CODEX_HOME=/p/codex" && codex login');
+  });
+
+  it("on Windows gives the profile folder to the new window instead of quoting it into the command", () => {
+    const env = { CODEX_HOME: "C:\\Users\\Erhan Meydan\\codex profile" };
+    expect(loginCommand("codex", env, "win32")).toBe("codex login");
+    expect(loginEnv("codex", env)).toEqual({
+      CODEX_HOME: "C:\\Users\\Erhan Meydan\\codex profile",
+    });
+    expect(loginEnv("grok", env)).toEqual({});
   });
 
   it("signs out with each CLI's own command", () => {

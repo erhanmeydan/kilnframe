@@ -417,6 +417,8 @@
   "prov.signingOut": "Çıkış yapılıyor…",
   "prov.signOutAsk": "Bu bilgisayarda {name} oturumu kapatılsın mı? Terminaldeki {name} de çıkış yapar. Başka bir hesap kullanmak için sonra Giriş Yap'a basın.",
   "prov.signOutFailed": "{name} çıkış yapamadı. Çıkışını bir terminalde çalıştırıp Yeniden Bak'a basın.",
+  "prov.signOutBusy": "Şu an bir animasyon üretiliyor. Bitince çıkış yapın.",
+  "prov.signOutStill": "{name} hâlâ bağlı: girişi bu bilgisayardaki bir ayardan geliyor (örneğin CLAUDE_CODE_OAUTH_TOKEN), Kilnframe bu ayarı değiştirmez.",
   "prov.signingIn": "Terminal penceresinde ve tarayıcıda girişi tamamlayın. Bitince burada kendiliğinden görünecek.",
   "prov.orRun": "Ya da kendiniz bir terminalde çalıştırın: {command}",
   "prov.grokPlan": "Grok Planı",

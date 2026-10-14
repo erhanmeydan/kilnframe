@@ -107,6 +107,35 @@ describe("companion server", () => {
     c.ws.close();
   });
 
+  it("does not sign an agent out while a job runs", async () => {
+    let finish = () => {};
+    const asked: string[] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: () => new Promise((r) => (finish = () => r(null))),
+      version: "test",
+      port: 0,
+      logoutAgent: async (agent) => {
+        asked.push(agent);
+        return { ok: true };
+      },
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "job.start", params });
+    await c.next((m) => m.type === "job.queued");
+    c.send({ type: "agent.logout", agent: "claude-code" });
+    expect(await c.next((m) => m.type === "agent.logout.done")).toMatchObject({
+      ok: false,
+      error: "busy",
+    });
+    expect(asked).toEqual([]);
+    finish();
+    c.ws.close();
+  });
+
   it("rejects a wrong token and a silent client", async () => {
     companion = await startCompanion({
       token: TOKEN,

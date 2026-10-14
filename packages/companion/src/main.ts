@@ -31,7 +31,7 @@ import {
   speechModelCached,
   vendorDir,
 } from "@kilnframe/core";
-import { type Agent, loginCommand, logoutArgs } from "./agent-commands.js";
+import { type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
 import {
@@ -181,7 +181,7 @@ async function main() {
     loginAgent: async (agent) => {
       // the panel watches for the sign-in to finish in the terminal: no cached state meanwhile
       freshUntil = Date.now() + 5 * 60_000;
-      openInTerminal(loginCommand(agent, process.env));
+      openInTerminal(loginCommand(agent, process.env), loginEnv(agent, process.env));
     },
     logoutAgent: async (agent) => {
       statusCache = null;
@@ -290,7 +290,7 @@ function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
 }
 
 /** A command in a terminal window the editor sees: the official CLI does the work, this app only starts it. */
-function openInTerminal(command: string): void {
+function openInTerminal(command: string, env: Record<string, string> = {}): void {
   if (process.platform === "darwin") {
     spawnSync("osascript", [
       "-e",
@@ -300,6 +300,7 @@ function openInTerminal(command: string): void {
     ]);
   } else if (process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", command], {
+      env: { ...process.env, ...env },
       detached: true,
       stdio: "ignore",
     }).unref();

@@ -14,9 +14,9 @@ const LOGIN: Record<Agent, string> = {
 };
 
 /**
- * The CLI's own sign-in, typed into a terminal window. The terminal does not inherit the companion's
- * environment, so a profile folder the companion uses is passed on; otherwise the sign-in lands in the
- * default profile and the companion never sees it.
+ * The CLI's own sign-in, typed into a terminal window. The macOS Terminal does not inherit the companion's
+ * environment, so a profile folder the companion uses is passed on in the command; otherwise the sign-in
+ * lands in the default profile and the companion never sees it.
  */
 export function loginCommand(
   agent: Agent,
@@ -25,10 +25,16 @@ export function loginCommand(
 ): string {
   const name = PROFILE_VAR[agent];
   const dir = env[name];
-  if (!dir) return LOGIN[agent];
-  return platform === "win32"
-    ? `set "${name}=${dir}" && ${LOGIN[agent]}`
-    : `${name}='${dir}' ${LOGIN[agent]}`;
+  // Windows: the folder goes to the new window as a setting (loginEnv); cmd's quoting broke on spaces
+  if (!dir || platform === "win32") return LOGIN[agent];
+  return `${name}='${dir}' ${LOGIN[agent]}`;
+}
+
+/** The profile setting the sign-in window needs on Windows, where the window inherits it from the companion. */
+export function loginEnv(agent: Agent, env: NodeJS.ProcessEnv): Record<string, string> {
+  const name = PROFILE_VAR[agent];
+  const dir = env[name];
+  return dir ? { [name]: dir } : {};
 }
 
 /** The CLI's own sign-out; it ends that account's session in the CLI on this computer. */

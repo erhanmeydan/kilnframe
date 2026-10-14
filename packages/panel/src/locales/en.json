@@ -417,6 +417,8 @@
   "prov.signingOut": "Signing out…",
   "prov.signOutAsk": "Sign out of {name} on this computer? This also signs {name} out in the terminal. To use another account, press Sign In afterwards.",
   "prov.signOutFailed": "{name} could not sign out. Run its sign-out in a terminal and press Look Again.",
+  "prov.signOutBusy": "An animation is being made. Sign out when it is done.",
+  "prov.signOutStill": "{name} is still signed in: its sign-in comes from a setting on this computer (for example CLAUDE_CODE_OAUTH_TOKEN), which Kilnframe does not change.",
   "prov.signingIn": "Finish the sign-in in the Terminal window and the browser. It shows up here by itself when done.",
   "prov.orRun": "Or run it yourself in a terminal: {command}",
   "prov.grokPlan": "Grok Plan",
