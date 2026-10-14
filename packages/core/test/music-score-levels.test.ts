@@ -53,6 +53,13 @@ describe("music levels", () => {
     expect(levelAt(50, p)).toBeCloseTo(-19);
   });
 
+  it("raises a quiet piece by 18 dB at most and leaves a silent one silent", () => {
+    const quiet = normalizeTo(tone(5, 0.001), SR, -15);
+    expect(meterLevelDb(quiet, SR)).toBeCloseTo(-60 + 18, 0);
+    const silent = normalizeTo([new Float32Array(SR), new Float32Array(SR)], SR, -15);
+    expect(silent.every((ch) => ch.every((v) => v === 0))).toBe(true);
+  });
+
   it("normalizes to a meter level, then follows the curve sample by sample", () => {
     const music = normalizeTo(tone(30, 0.3), SR, -15);
     expect(meterLevelDb(music, SR)).toBeCloseTo(-15, 1);

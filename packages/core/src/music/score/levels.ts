@@ -75,12 +75,18 @@ export function levelAt(t: number, p: GainPlan): number {
   return open + (ducked - open) * duckAmount(t, p.spans);
 }
 
+/** The most a piece is raised to reach its level. */
+export const MAX_BOOST_DB = 18;
+
 export function normalizeTo(
   channels: Float32Array[],
   sampleRate: number,
   targetDb: number,
 ): Float32Array[] {
-  const g = gain(targetDb - meterLevelDb(channels, sampleRate));
+  const level = meterLevelDb(channels, sampleRate);
+  // a near-silent piece is not pumped up into its own noise; a silent one has no level to bring up
+  if (!Number.isFinite(level)) return channels.map((ch) => ch.slice());
+  const g = gain(Math.min(targetDb - level, MAX_BOOST_DB));
   return channels.map((ch) => ch.map((v) => v * g));
 }
 
