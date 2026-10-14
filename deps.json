@@ -4,7 +4,7 @@
     {
       "id": "hyperframes",
       "group": "render",
-      "current": "0.8.133",
+      "current": "0.8.149",
       "source": {
         "type": "npm",
         "package": "hyperframes"
