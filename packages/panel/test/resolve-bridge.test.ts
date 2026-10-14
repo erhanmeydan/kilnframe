@@ -81,6 +81,19 @@ describe("resolve bridge", () => {
     expect(f.log.pages).toEqual(["deliver"]);
   });
 
+  it("tells once when the editor's render settings could not be put back", async () => {
+    for (const fails of ["save", "load"] as const) {
+      const b = bridge(makeFakeResolve({ presetFails: fails }));
+      const seq = await b.currentSequence();
+      await b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav");
+      expect(await b.renderSettingsLost()).toBe(true);
+      expect(await b.renderSettingsLost()).toBe(false);
+    }
+    const ok = bridge(makeFakeResolve());
+    await ok.exportRangeAudio((await ok.currentSequence()).id, 0, 1, "/x/a.wav");
+    expect(await ok.renderSettingsLost()).toBe(false);
+  });
+
   it("does the exports on the Deliver page and goes back to the editor's page once, at the end", async () => {
     const f = makeFakeResolve({ refuseOffDeliver: true });
     const b = bridge(f);

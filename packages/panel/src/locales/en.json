@@ -446,6 +446,7 @@
   "story.stopShort": "Stop",
   "resolve.renderBusy": "DaVinci Resolve was still rendering after 10 minutes. Try again when its render is done.",
   "resolve.waitingRender": "DaVinci Resolve is rendering; Kilnframe waits for it to finish, up to 10 minutes.",
+  "resolve.settingsLost": "Resolve's Deliver settings could not be put back after the export. Check your render settings on the Deliver page before your next render.",
   "resolve.renderFailed": "DaVinci Resolve did not start the render for the range. Try again; if it keeps happening, restart Resolve.",
   "tab.music": "Music",
   "music.scope": "Music For",

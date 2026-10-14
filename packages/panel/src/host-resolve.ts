@@ -53,6 +53,7 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
       };
     },
     quickRange: () => words(api.quickRange()),
+    renderSettingsLost: () => api.renderSettingsLost().catch(() => false),
     exportFrame: (seq, seconds, dir, name) =>
       words(api.exportFrame(seq.id, seconds, `${dir.replace(/[\\/]$/, "")}/${name}`)),
     exportRangeAudio: (seq, startS, endS, file) =>

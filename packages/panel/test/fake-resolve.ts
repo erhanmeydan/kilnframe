@@ -26,6 +26,8 @@ export interface FakeTimeline {
 }
 
 export interface FakeOptions {
+  /** SaveAsNewRenderPreset or LoadRenderPreset answers false: the editor's render settings cannot come back. */
+  presetFails?: "save" | "load";
   markIn?: number;
   markOut?: number;
   playhead?: string;
@@ -285,9 +287,12 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     SaveAsNewRenderPreset: async (n: string) => {
       if (page !== "deliver") settingsChangedOffDeliver = true;
       log.presets.push(`save:${n}`);
-      return true;
+      return o.presetFails !== "save";
     },
-    LoadRenderPreset: async (n: string) => (log.presets.push(`load:${n}`), true),
+    LoadRenderPreset: async (n: string) => (
+      log.presets.push(`load:${n}`),
+      o.presetFails !== "load"
+    ),
     DeleteRenderPreset: async (n: string) => (log.presets.push(`delete:${n}`), true),
     GetRenderPresetList: async () => [] as string[],
     // a VideoQuality string makes Resolve 21.1.1 refuse the whole settings dict

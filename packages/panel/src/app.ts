@@ -249,6 +249,8 @@ interface JobView {
   startedAt: number;
   error: string | null;
   placed: PlaceResult | null;
+  /** Something the editor should know about the job besides its result (Resolve's render settings). */
+  note?: string;
   /** What the placed insert cost; for a long range, all its parts. */
   cost?: JobCost | null;
   /** Set when a long range finished: how many parts were placed. */
@@ -800,6 +802,7 @@ function rangeHome(done: JobView["placed"]): string {
   return `${done ? `<div class="box ok">${many ? t("home.placedParts", { n: many, v: done.videoTrack + 1, a: done.audioTrack + 1 }) : t("home.placed", { v: done.videoTrack + 1, a: done.audioTrack + 1 })}</div>` : ""}
   ${done && state.job?.cost ? `<div class="small muted">${esc(costLine(state.job.cost))}</div>` : ""}
   ${state.job?.error ? `<div class="box warn">${esc(state.job.error)}</div>` : ""}
+  ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   ${seriesBox()}
   ${rangeBox()}
   <div class="lbl">${t("home.style")}</div>
@@ -2461,6 +2464,9 @@ async function generate() {
       }
       return frames;
     });
+    // Resolve could not put its Deliver settings back after the exports: said once, next to the result
+    if ((await host().renderSettingsLost?.()) && state.job)
+      state.job.note = t("resolve.settingsLost");
     const params = {
       audioPath,
       ...(narration ? { scriptPath: narration.replace(/narration\.wav$/, "story.txt") } : {}),

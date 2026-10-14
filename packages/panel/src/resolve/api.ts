@@ -36,6 +36,8 @@ export interface PlacedTracks {
 
 export interface ResolveBridge {
   currentSequence(): Promise<ResolveSequence>;
+  /** True once after an export that could not put the editor's render settings back. */
+  renderSettingsLost(): Promise<boolean>;
   /** The current timeline's id, In, Out and length only, for the twice-a-second look. */
   quickRange(): Promise<{ id: string; inSeconds: number; outSeconds: number; endSeconds: number }>;
   /** `offsetSeconds`: where in the timeline the written file starts (the range's start). */

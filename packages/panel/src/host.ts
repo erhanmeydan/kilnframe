@@ -31,6 +31,8 @@ export interface Host {
   kind: "premiere" | "resolve";
   /** The active sequence; throws a readable message when there is no project or sequence. */
   currentSequence(): Promise<HostSequence>;
+  /** Resolve: true once after an export that could not put the editor's Deliver settings back. */
+  renderSettingsLost?(): Promise<boolean>;
   /** The active sequence's id, in and out points and length only, quick enough to ask twice a second. */
   quickRange?(): Promise<QuickRange>;
   exportFrame(

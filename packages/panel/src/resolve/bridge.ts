@@ -131,6 +131,9 @@ export function createResolveBridge(
     if (back && (await resolve.GetCurrentPage()) !== back) await resolve.OpenPage(back);
   }
 
+  /** An export could not keep or put back the editor's render settings. */
+  let settingsLost = false;
+
   async function describe(tl: R, p: R): Promise<ResolveSequence> {
     const s = (await tl.GetSetting()) as Record<string, string>;
     const rate = await rateOf(tl);
@@ -185,6 +188,8 @@ export function createResolveBridge(
     }
     await p.DeleteRenderPreset(TEMP_PRESET);
     const saved = await p.SaveAsNewRenderPreset(TEMP_PRESET);
+    // no copy of the editor's settings: the export goes on, and the panel says they changed
+    if (!saved) settingsLost = true;
     let job: string | null = null;
     try {
       if (format) {
@@ -232,7 +237,7 @@ export function createResolveBridge(
     } finally {
       if (job) await p.DeleteRenderJob(job);
       if (saved) {
-        await p.LoadRenderPreset(TEMP_PRESET);
+        if (!(await p.LoadRenderPreset(TEMP_PRESET))) settingsLost = true;
         await p.DeleteRenderPreset(TEMP_PRESET);
       }
     }
@@ -295,6 +300,13 @@ export function createResolveBridge(
       const tl = await p.GetCurrentTimeline();
       if (!tl) throw new Error(NO_SEQUENCE);
       return describe(tl, p);
+    },
+
+    /** Whether an export since the last ask left the Deliver page's settings changed; asked once a job. */
+    async renderSettingsLost() {
+      const lost = settingsLost;
+      settingsLost = false;
+      return lost;
     },
 
     // the panel looks twice a second: the marks alone, asked at once, not the whole description in turn
