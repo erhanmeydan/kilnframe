@@ -42,6 +42,7 @@ import {
 } from "./steps";
 import { formatMismatch } from "./format-check";
 import { readableJobError } from "./job-errors";
+import { isOtherVideo } from "./video-switch";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -2355,6 +2356,12 @@ const musicCtx: MusicCtx = {
 async function readSequence(): Promise<HostSequence | null> {
   try {
     const seq = await host().currentSequence();
+    if (isOtherVideo(state.seq?.guid, seq.id, state.screen === "progress")) {
+      // the last video's result, note and images belong to that video
+      state.job = null;
+      state.note = "";
+      state.images = [];
+    }
     // the field stays "guid": unfinished series and pending jobs saved before the host interface use it
     state.seq = {
       name: seq.name,
