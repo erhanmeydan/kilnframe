@@ -27,6 +27,18 @@ describe("resolve bridge", () => {
     expect(seq.endSeconds).toBeCloseTo(271 / 25);
   });
 
+  it("reads only the id, In, Out and length for the quick look, the same as the full read", async () => {
+    const b = bridge(makeFakeResolve({ markIn: 50, markOut: 225 }));
+    const full = await b.currentSequence();
+    expect(await b.quickRange()).toEqual({
+      id: full.id,
+      inSeconds: full.inSeconds,
+      outSeconds: full.outSeconds,
+      endSeconds: full.endSeconds,
+    });
+    await expect(bridge(makeFakeResolve({ noTimeline: true })).quickRange()).rejects.toThrow();
+  });
+
   it("takes the whole timeline when no In/Out is set", async () => {
     const seq = await bridge(makeFakeResolve()).currentSequence();
     expect(seq.inSeconds).toBe(0);

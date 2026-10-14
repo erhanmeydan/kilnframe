@@ -51,6 +51,7 @@ function pluginVersion(): string {
 
 const BRIDGE_CALLS = [
   "currentSequence",
+  "quickRange",
   "exportRangeAudio",
   "exportFrame",
   "exportRangePicture",

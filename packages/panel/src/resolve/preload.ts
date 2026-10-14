@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from "electron";
 
 const ASYNC = [
   "currentSequence",
+  "quickRange",
   "exportRangeAudio",
   "exportFrame",
   "exportRangePicture",

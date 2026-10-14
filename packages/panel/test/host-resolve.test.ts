@@ -62,6 +62,12 @@ describe("resolve host", () => {
     expect(s.jobRoot).toBe("C:/Users/e/Videos/Kilnframe/Belgesel- Ay - Gelgit");
   });
 
+  it("passes the quick In/Out look through", async () => {
+    const quick = { id: "tl-1", inSeconds: 2, outSeconds: 9, endSeconds: 60 };
+    const h = createResolveHost(fakeApi({ quickRange: vi.fn(async () => quick) }));
+    expect(await h.quickRange?.()).toEqual(quick);
+  });
+
   it("maps the timeline and puts its job folders under ~/Movies/Kilnframe/<project>", async () => {
     const s = await createResolveHost(fakeApi()).currentSequence();
     expect(s).toMatchObject({

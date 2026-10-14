@@ -297,6 +297,28 @@ export function createResolveBridge(
       return describe(tl, p);
     },
 
+    // the panel looks twice a second: the marks alone, asked at once, not the whole description in turn
+    async quickRange() {
+      const p = await project();
+      const tl = await p.GetCurrentTimeline();
+      if (!tl) throw new Error(NO_SEQUENCE);
+      const [id, rate, start, end, marks] = await Promise.all([
+        tl.GetUniqueId() as Promise<string>,
+        rateOf(tl),
+        tl.GetStartFrame() as Promise<number>,
+        tl.GetEndFrame() as Promise<number>,
+        tl.GetMarkInOut() as Promise<Record<string, { in?: number; out?: number }>>,
+      ]);
+      const mark = markOf(marks);
+      const length = end - start;
+      return {
+        id,
+        inSeconds: (mark?.in ?? 0) / rate.fps,
+        outSeconds: mark?.out !== undefined ? (mark.out + 1) / rate.fps : length / rate.fps,
+        endSeconds: length / rate.fps,
+      };
+    },
+
     exportRangeAudio(id, startS, endS, file) {
       return onTimeline(id, async (tl, p) => ({
         ok: await renderRange(tl, p, startS, endS, file, {
