@@ -37,3 +37,12 @@ jobs:
           path: site
       - id: deployment
         uses: actions/deploy-pages@v4
+      # IndexNow: tells Bing (and the engines that share its list) that the pages changed. The key is public
+      # by design: it is the file site/fed9be2f0b40877395d989a133913fa3.txt, which proves the site is ours.
+      - name: IndexNow
+        continue-on-error: true
+        run: |
+          curl -sS -f -X POST https://api.indexnow.org/indexnow \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d '{"host":"kilnframe.com","key":"fed9be2f0b40877395d989a133913fa3","keyLocation":"https://kilnframe.com/fed9be2f0b40877395d989a133913fa3.txt","urlList":["https://kilnframe.com/","https://kilnframe.com/tr/","https://kilnframe.com/changelog/","https://kilnframe.com/tr/changelog/","https://kilnframe.com/llms.txt"]}' \
+            -w "IndexNow: HTTP %{http_code}\n"
