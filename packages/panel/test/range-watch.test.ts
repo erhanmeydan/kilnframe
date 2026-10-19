@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pickRange } from "../src/range";
-import { rangeWatch } from "../src/range-watch";
+import { rangeWatch, within } from "../src/range-watch";
 
 const seq = { guid: "a", range: pickRange(1, 7, 60), endS: 60 };
 
@@ -23,5 +23,13 @@ describe("watching the in and out points", () => {
     expect(rangeWatch(seq, { id: "a", inSeconds: 1, outSeconds: 7, endSeconds: 60 })).toEqual({
       kind: "same",
     });
+  });
+
+  it("gives up on a read the editor never answers, so the panel keeps looking", async () => {
+    await expect(within(new Promise(() => undefined), 20)).rejects.toThrow(/did not answer/);
+    await expect(within(Promise.resolve(7), 20)).resolves.toBe(7);
+    await expect(within(Promise.reject(new Error("no sequence")), 20)).rejects.toThrow(
+      "no sequence",
+    );
   });
 });

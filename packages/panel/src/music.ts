@@ -54,6 +54,8 @@ export interface MusicState {
   spent: number;
   playing: string | null;
   error: string | null;
+  /** Resolve could not put its Deliver settings back after the export: said next to the plan. */
+  settingsNote: string | null;
   placedTrack: number | null;
 }
 
@@ -74,6 +76,7 @@ export function newMusic(): MusicState {
     spent: 0,
     playing: null,
     error: null,
+    settingsNote: null,
     placedTrack: null,
   };
 }
@@ -115,6 +118,15 @@ export function levelNote(
     gap: gapDb === null ? null : gapDb.toFixed(1),
     warn: off(speechDb, slider) || off(gapDb, slider + 6),
   };
+}
+
+/** The measured levels as one line; a level that could not be measured (no pauses, no speech) is left out. */
+export function levelText(lv: { speech: string | null; gap: string | null }): string {
+  if (lv.speech !== null && lv.gap !== null)
+    return t("music.levels", { speech: lv.speech, gap: lv.gap });
+  if (lv.speech !== null) return t("music.levelsSpeech", { speech: lv.speech });
+  if (lv.gap !== null) return t("music.levelsGap", { gap: lv.gap });
+  return "";
 }
 
 /** What the text model (the plan, a rewritten note) cost: nothing when it ran on the editor's plan. */
@@ -163,6 +175,8 @@ export function clock(seconds: number): string {
 /** What the tab needs from the rest of the panel. */
 export interface MusicCtx {
   esc(s: string): string;
+  /** "Report This Error ↗" under an error. */
+  reportLink(error: string): string;
   seg<T extends string>(name: string, value: T, options: [T, string][]): string;
   render(): void;
   trace(line: string): void;
@@ -182,6 +196,8 @@ export interface MusicCtx {
     jobDir: string,
   ): Promise<{ path: string; atS: number }[]>;
   withoutOurInserts<T>(target: HostSequence, range: Range, fn: () => Promise<T>): Promise<T>;
+  /** Resolve: true once after an export whose Deliver settings could not be put back. */
+  renderSettingsLost(): Promise<boolean>;
   exportAudio(
     target: HostSequence,
     range: Range,
@@ -242,7 +258,10 @@ function busyBox(st: MusicState): string {
 }
 
 export function musicBox(st: MusicState, ctx: MusicCtx): string {
-  const err = st.error ? `<div class="box warn">${ctx.esc(st.error)}</div>` : "";
+  const err =
+    (st.error
+      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "");
   if (st.stage === "planning" || st.stage === "making" || st.stage === "placing")
     return `${err}${busyBox(st)}`;
   if (st.stage === "plan" && st.plan) return err + planScreen(st, ctx);
@@ -304,10 +323,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       const lv = levelNote(m, ctx.slider());
       const levels =
         lv.speech !== null || lv.gap !== null
-          ? `<div class="${lv.warn ? "warn-text" : "muted"} mt">${t("music.levels", {
-              speech: lv.speech ?? "·",
-              gap: lv.gap ?? "·",
-            })}${lv.warn ? ` · ${t("music.levelWarn")}` : ""}</div>`
+          ? `<div class="${lv.warn ? "warn-text" : "muted"} mt">${levelText(lv)}${lv.warn ? ` · ${t("music.levelWarn")}` : ""}</div>`
           : "";
       const playing = st.playing === m.id;
       return `<div class="box small">${head}<span class="link" data-act="${playing ? "music-stop" : "music-play"}" data-val="${m.id}">${playing ? t("music.stop") : t("music.play")}</span></div>
@@ -398,6 +414,7 @@ async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
         };
   st.stage = "planning";
   st.last = "";
+  st.settingsNote = null;
   st.made = null;
   st.edits = {};
   st.placedTrack = null;
@@ -416,10 +433,17 @@ async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
     const jobDir = String(prepared.jobDir);
     const audioPath = `${jobDir}/sequence.wav`;
     // the editor's own speech: earlier Kilnframe inserts over the range are switched off for the export
-    const { audio, frames } = await ctx.withoutOurInserts(target, range, async () => ({
-      audio: await ctx.exportAudio(target, range, audioPath),
-      frames: await ctx.frames(target, range, jobDir).catch(() => []),
-    }));
+    // Resolve may lose its Deliver settings even when the export fails: read (and cleared) either way
+    let exported;
+    try {
+      exported = await ctx.withoutOurInserts(target, range, async () => ({
+        audio: await ctx.exportAudio(target, range, audioPath),
+        frames: await ctx.frames(target, range, jobDir).catch(() => []),
+      }));
+    } finally {
+      st.settingsNote = (await ctx.renderSettingsLost()) ? t("resolve.settingsLost") : null;
+    }
+    const { audio, frames } = exported;
     if (!audio.ok) throw new Error(t("job.exportFailed"));
     st.jobDir = jobDir;
     st.rangeStartS = range.startS;

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { ffmpegPath } from "./config.js";
 import { sceneMode, type Plan } from "./schemas/plan.js";
 import { loadStyle } from "./styles.js";
@@ -96,25 +96,28 @@ export function cutAtEdge(rgba: Buffer, width: number, height: number): boolean 
   return false;
 }
 
-function rgbaOf(png: string): Buffer | null {
-  const r = spawnSync(
-    ffmpegPath(),
-    [
-      "-v",
-      "error",
-      "-i",
-      png,
-      "-vf",
-      `scale=${W}:${H}:flags=area`,
-      "-f",
-      "rawvideo",
-      "-pix_fmt",
-      "rgba",
-      "-",
-    ],
-    { maxBuffer: 1 << 24 },
-  );
-  return r.status === 0 && r.stdout.length === W * H * 4 ? r.stdout : null;
+/** A still scaled to W x H as raw RGBA, read by ffmpeg in the background (the app keeps answering meanwhile). */
+function rgbaOf(png: string): Promise<Buffer | null> {
+  return new Promise((resolve) => {
+    execFile(
+      ffmpegPath(),
+      [
+        "-v",
+        "error",
+        "-i",
+        png,
+        "-vf",
+        `scale=${W}:${H}:flags=area`,
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgba",
+        "-",
+      ],
+      { encoding: "buffer", maxBuffer: 1 << 24 },
+      (err, stdout) => resolve(!err && stdout.length === W * H * 4 ? stdout : null),
+    );
+  });
 }
 
 /** Whether a style crops at the frame's edge on purpose (tokens.json layout.bleedOffEdges). */
@@ -133,19 +136,19 @@ export function bleedsOffEdges(tokensJson: string): boolean {
  * The scenes whose review still has a small drawing cut by the frame's edge. A note for the editor, not a
  * repair: some styles bleed off the edge on purpose. Fullscreen scenes only.
  */
-export function edgeCutScenes(plan: Plan, stills: string[]): string[] {
+export async function edgeCutScenes(plan: Plan, stills: string[]): Promise<string[]> {
   try {
     if (bleedsOffEdges(loadStyle(plan.style).tokensJson)) return [];
   } catch {
     // a style that cannot be read: the scenes are looked at as usual
   }
   const cut: string[] = [];
-  plan.scenes.forEach((s, i) => {
+  for (const [i, s] of plan.scenes.entries()) {
     const still = stills[i];
     // overlays are left alone: a lower third or a side panel flush to the edge is how they are made
-    if (!still || sceneMode(plan, s) === "overlay") return;
-    const rgba = rgbaOf(still);
+    if (!still || sceneMode(plan, s) === "overlay") continue;
+    const rgba = await rgbaOf(still);
     if (rgba && cutAtEdge(rgba, W, H)) cut.push(s.id);
-  });
+  }
   return cut;
 }

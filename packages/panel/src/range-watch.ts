@@ -26,3 +26,23 @@ export function rangeWatch(
     return { kind: "same" };
   return { kind: "range", range, endS: quick.endSeconds };
 }
+
+/**
+ * A read of the editor that must answer within `ms`: a Premiere or Resolve busy with a modal dialog or a long
+ * task may never answer, and the panel would stop looking at the range until it is reopened.
+ */
+export function within<T>(read: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("The editor did not answer.")), ms);
+    read.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      },
+    );
+  });
+}

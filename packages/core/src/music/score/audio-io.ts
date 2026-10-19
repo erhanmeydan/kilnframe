@@ -43,3 +43,11 @@ export function readAudio(file: string): Float32Array[] {
 export function writeAudio(file: string, ch: Float32Array[]): void {
   writeWav16(file, ch, SR);
 }
+
+/** A file's length in seconds, from what ffmpeg reads in its header (nothing is decoded); null when unreadable. */
+export function audioSeconds(file: string): number | null {
+  // with no output named ffmpeg only prints the input's details (and exits with an error, which is expected)
+  const r = spawnSync(ffmpegPath(), ["-hide_banner", "-i", file], { encoding: "utf8" });
+  const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(r.stderr ?? "");
+  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
+}
