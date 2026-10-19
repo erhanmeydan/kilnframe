@@ -1,7 +1,7 @@
 {
   "id": "kilnframe",
   "name": "Kilnframe",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "main": "index.html",
   "manifestVersion": 5,
   "host": {
@@ -14,7 +14,7 @@
       "domains": ["ws://localhost"]
     },
     "launchProcess": {
-      "schemes": ["https", "kilnframe"],
+      "schemes": ["https", "kilnframe", "mailto"],
       "extensions": []
     }
   },
