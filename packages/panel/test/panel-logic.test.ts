@@ -122,6 +122,21 @@ describe("panel language", () => {
     for (const text of Object.values(tr)) expect(text).not.toMatch(/[\u2013\u2014]/);
   });
 
+  it("says one thing, not one things", () => {
+    setLang("en");
+    expect(t("music.cost", { n: 1, usd: "$0.08" })).toBe("1 section, about $0.08");
+    expect(t("music.cost", { n: 4, usd: "$0.32" })).toBe("4 sections, about $0.32");
+    expect(t("review.scenes", { n: 1 })).toBe("1 Scene");
+    expect(t("progress.scenes", { n: 1 })).toBe("1 Scene");
+    expect(t("detail.planned", { n: 1 })).toBe("1 scene planned");
+    expect(t("detail.composed", { done: 1, n: 1 })).toBe("1 of 1 scene written");
+    expect(t("series.partsCount", { n: 1 })).toBe("1 part");
+    // the progress lines get the count from a regex, as text
+    expect(t("detail.planned", { n: "1" })).toBe("1 scene planned");
+    setLang("tr");
+    expect(t("music.cost", { n: 1, usd: "0,08 $" })).toBe("1 bölüm, yaklaşık 0,08 $");
+  });
+
   it("speaks English in every helper", () => {
     setLang("en");
     expect(pickRange(-400000, -400000, 75.4).warning).toBe(

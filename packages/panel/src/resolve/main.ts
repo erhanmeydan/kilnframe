@@ -115,7 +115,7 @@ function register() {
     return r.canceled ? [] : r.filePaths;
   });
   ipcMain.handle("kilnframe:openUrl", async (_e, url: string) => {
-    if (!/^(https|kilnframe):/i.test(url)) throw new Error(`Not opened: ${url}`);
+    if (!/^(https|kilnframe|mailto):/i.test(url)) throw new Error(`Not opened: ${url}`);
     await shell.openExternal(url);
   });
   ipcMain.handle("kilnframe:readTextFile", (_e, path: string) =>

@@ -1,5 +1,11 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { bleedsOffEdges, cutAtEdge } from "../src/edges.js";
+import { ffmpegPath } from "../src/config.js";
+import { bleedsOffEdges, cutAtEdge, edgeCutScenes } from "../src/edges.js";
+import type { Plan } from "../src/schemas/plan.js";
 
 const W = 480;
 const H = 270;
@@ -58,5 +64,36 @@ describe("elements cut at the frame's edge", () => {
     expect(bleedsOffEdges('{"layout":{"bleedOffEdges":true}}')).toBe(true);
     expect(bleedsOffEdges('{"layout":{"scale":"big"}}')).toBe(false);
     expect(bleedsOffEdges("not json")).toBe(false);
+  });
+
+  it("reads the stills without holding up the app while ffmpeg works", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "edges-"));
+    const still = join(dir, "s1.png");
+    // a paper frame with a small dark card half off the right edge
+    execFileSync(ffmpegPath(), [
+      "-v",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=0xf0ece4:s=1920x1080",
+      "-vf",
+      "drawbox=x=1840:y=480:w=160:h=120:color=0x1e1e1e:t=fill",
+      "-frames:v",
+      "1",
+      still,
+    ]);
+    const plan = {
+      style: "beyaz-tahta",
+      mode: "fullscreen",
+      scenes: [{ id: "s1", mode: "fullscreen" }],
+    } as unknown as Plan;
+    let ticked = false;
+    setImmediate(() => (ticked = true));
+    const pending = edgeCutScenes(plan, [still]);
+    expect(pending).toBeInstanceOf(Promise);
+    expect(await pending).toEqual(["s1"]);
+    expect(ticked).toBe(true);
   });
 });

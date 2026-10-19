@@ -24,9 +24,15 @@ export function pickLang(setting: LangSetting, uiLocale: string | null | undefin
   return /^tr([_-]|$)/i.test(uiLocale ?? "") ? "tr" : "en";
 }
 
-/** Looks a message up in the current language (English as the fallback) and fills {placeholders}. */
+/**
+ * Looks a message up in the current language (English as the fallback) and fills {placeholders}. When `n` is
+ * 1 and the message has a "<key>.one" form, that one is used: "1 section", not "1 sections".
+ */
 export function t(key: MessageKey, vars: Record<string, string | number> = {}): string {
-  const text = DICTS[current][key] ?? DICTS.en[key] ?? key;
+  // the progress lines get their count from a regex, as text: "1" counts as one too
+  const one = vars.n !== undefined && Number(vars.n) === 1 ? `${key}.one` : null;
+  const text =
+    (one && (DICTS[current][one] ?? DICTS.en[one])) ?? DICTS[current][key] ?? DICTS.en[key] ?? key;
   return text.replace(/\{(\w+)\}/g, (_, name: string) =>
     name in vars ? String(vars[name]) : `{${name}}`,
   );

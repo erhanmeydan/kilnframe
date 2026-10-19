@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { ffmpegPath } from "../../config.js";
 import type { Word } from "../../schemas/transcript.js";
 import { generateMusic, loadMusicCatalog, MusicError, saveRawMusic } from "../index.js";
-import { readAudio, SR, writeAudio } from "./audio-io.js";
+import { audioSeconds, readAudio, SR, writeAudio } from "./audio-io.js";
 import { bakeCrossfade, fade, fitLength } from "./fit.js";
 import {
   applyLevels,
@@ -207,7 +207,9 @@ export async function makeScore(
       if (!s.silent && !errors.has(s.id)) errors.set(s.id, "This section has no music yet.");
       continue;
     }
-    if (readAudio(raw)[0]!.length < MIN_PIECE_S * SR)
+    // its length from the header: each piece is decoded once, when its section is mixed
+    const seconds = audioSeconds(raw);
+    if (seconds === null || seconds < MIN_PIECE_S)
       errors.set(s.id, "The music came back too short.");
     else {
       usable.add(s.id);

@@ -16,6 +16,7 @@ import {
   watchesSequence,
   type MusicCtx,
 } from "./music";
+import { feedbackMail, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
   STORY_LENGTH,
@@ -43,7 +44,7 @@ import {
 import { formatMismatch } from "./format-check";
 import { readableJobError } from "./job-errors";
 import { isOtherVideo, videoBusy } from "./video-switch";
-import { rangeWatch, type QuickRange } from "./range-watch";
+import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -250,6 +251,8 @@ interface JobView {
   last: string;
   startedAt: number;
   error: string | null;
+  /** The error is worth reporting (not a job the editor stopped). */
+  reportable?: boolean;
   placed: PlaceResult | null;
   /** Something the editor should know about the job besides its result (Resolve's render settings). */
   note?: string;
@@ -803,7 +806,7 @@ function rangeHome(done: JobView["placed"]): string {
   const many = state.job?.partsPlaced;
   return `${done ? `<div class="box ok">${many ? t("home.placedParts", { n: many, v: done.videoTrack + 1, a: done.audioTrack + 1 }) : t("home.placed", { v: done.videoTrack + 1, a: done.audioTrack + 1 })}</div>` : ""}
   ${done && state.job?.cost ? `<div class="small muted">${esc(costLine(state.job.cost))}</div>` : ""}
-  ${state.job?.error ? `<div class="box warn">${esc(state.job.error)}</div>` : ""}
+  ${state.job?.error ? `<div class="box warn">${esc(state.job.error)}${state.job.reportable ? reportLink(state.job.error) : ""}</div>` : ""}
   ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   ${seriesBox()}
   ${rangeBox()}
@@ -1033,7 +1036,7 @@ async function startStyleJob(params: Record<string, unknown>) {
 /** The story tab: brief, then the narration to edit, a voice, and the new sequence. */
 function storyBox(): string {
   const st = state.story;
-  const err = st.error ? `<div class="box warn">${esc(st.error)}</div>` : "";
+  const err = st.error ? `<div class="box warn">${esc(st.error)}${reportLink(st.error)}</div>` : "";
   if (st.stage === "writing" || st.stage === "voicing")
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
@@ -2030,6 +2033,24 @@ function panelVersion(): string {
   return __PANEL_VERSION__;
 }
 
+/** The versions and the editor, for a feedback or error mail. */
+function mailAbout() {
+  return {
+    app: state.appVersion ?? t("settings.unknown"),
+    panel: panelVersion(),
+    editor: host().kind === "resolve" ? ("DaVinci Resolve" as const) : ("Premiere" as const),
+    os: host().platform(),
+  };
+}
+
+/** "Report This Error ↗": the editor's mail app opens with the error and the versions filled in. */
+function reportLink(error: string): string {
+  if (!shouldReport(error, [t("job.stopped"), t("story.needBrief"), t("story.badLength")]))
+    return "";
+  const url = feedbackMail({ kind: "error", error, ask: t("feedback.ask"), ...mailAbout() });
+  return `<div class="link mt" data-act="open-url" data-val="${esc(url)}">${t("feedback.report")} ↗</div>`;
+}
+
 /** "Kilnframe 0.1.2 · Panel 0.1.2 · Release Notes ↗"; when they differ, how to put the panel right. */
 function versionLine(): string {
   const panel = panelVersion();
@@ -2037,7 +2058,7 @@ function versionLine(): string {
   const differ = Boolean(app && app !== panel);
   const notes =
     lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
-  return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div>${
+  return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackMail({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
     differ
       ? `<div class="small warn-text">${t(host().kind === "resolve" ? "settings.versionsDifferResolve" : "settings.versionsDiffer")}</div>`
       : ""
@@ -2332,6 +2353,8 @@ const LYRIA_PRICE_USD = 0.08;
 
 /** What the Music tab (music.ts) uses from the rest of the panel. */
 const musicCtx: MusicCtx = {
+  renderSettingsLost: async () => (await host().renderSettingsLost?.()) ?? false,
+  reportLink: (error) => reportLink(error),
   esc: (s) => esc(s),
   seg: (name, value, options) => seg(name, value, options),
   render: () => render(),
@@ -3124,7 +3147,7 @@ function jobErrorText(msg: unknown): string {
   if (m.kind === "cut-off") return t("err.cutOff");
   // the core speaks English; what the panel can say in its own language it says (the original is in the log)
   const readable = readableJobError(String(m.message));
-  if (readable) trace(`job: checks failed ${String(m.message)}`);
+  if (readable) trace(`job: ${String(m.message)}`);
   if (readable)
     return [t(readable.key, readable.vars), ...readable.reasons.map((r) => t(r))].join(" ");
   return String(m.message);
@@ -3145,6 +3168,7 @@ function failJob(err: unknown) {
       placed: null,
     };
   state.job.confirmStop = false;
+  state.job.reportable = !(err instanceof JobStopped);
   state.job.error =
     series && !(err instanceof JobStopped)
       ? t("job.partFailed", { i: seriesAt + 1, n: series.parts.length, message })
@@ -3723,6 +3747,9 @@ window.addEventListener("resize", () => {
   }, 150);
 });
 
+/** How long a background look at the sequence waits for the editor before it gives up and tries again later. */
+const READ_WAIT_MS = 8000;
+
 /** Reads the sequence again and re-renders only when the range or the sequence changed: a render in the
  * middle of a click swallowed it. */
 let rereading = false;
@@ -3730,10 +3757,11 @@ function rereadSequence() {
   if (rereading) return;
   rereading = true;
   const before = JSON.stringify(state.seq);
-  void readSequence()
+  void within(readSequence(), READ_WAIT_MS)
     .then(() => {
       if (JSON.stringify(state.seq) !== before) render();
     })
+    .catch(() => trace("sequence read: the editor did not answer"))
     .finally(() => {
       rereading = false;
     });
@@ -3746,7 +3774,7 @@ async function lookAtRange(quick: () => Promise<QuickRange>) {
   lookingAtRange = true;
   try {
     const before = state.seq;
-    const q = await quick();
+    const q = await within(quick(), READ_WAIT_MS);
     // a full read (focus, another tick) may have opened another sequence meanwhile: the next look sees it
     if (state.seq !== before) return;
     const w = rangeWatch(state.seq, q);

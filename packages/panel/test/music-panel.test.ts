@@ -5,6 +5,7 @@ import {
   musicAct,
   clock,
   levelNote,
+  levelText,
   musicBox,
   mergeWithNext,
   newMusic,
@@ -85,6 +86,15 @@ describe("music panel", () => {
       speech: null,
       warn: false,
     });
+  });
+
+  it("leaves out a level that was not measured", () => {
+    expect(levelText({ speech: "-21.0", gap: "-15.0", warn: false })).toBe(
+      "Under speech -21.0 dB, in pauses -15.0 dB",
+    );
+    expect(levelText({ speech: "-21.0", gap: null, warn: false })).toBe("Under speech -21.0 dB");
+    expect(levelText({ speech: null, gap: "-15.0", warn: false })).toBe("In pauses -15.0 dB");
+    expect(levelText({ speech: null, gap: null, warn: false })).toBe("");
   });
 
   it("shows section times as minutes and seconds", () => {
@@ -172,6 +182,69 @@ describe("music panel", () => {
     };
     const ctx = { esc: (x: string) => x, slider: () => -21 } as never;
     expect(musicBox(st, ctx)).toMatch(/earlier music stays|önceki müzik kaldı/);
+  });
+
+  it("says when Resolve could not put its Deliver settings back after the music's export", async () => {
+    const ctx = {
+      readSequence: async () => ({ name: "Talk", projectPath: "/p/a.drp", endSeconds: 60 }),
+      inOut: () => null,
+      request: async (m: { type: string }) =>
+        m.type === "job.prepare" ? { jobDir: "/j" } : { jobId: "j1" },
+      withoutOurInserts: async (_t: unknown, _r: unknown, fn: () => Promise<unknown>) => fn(),
+      exportAudio: async () => ({ ok: true, offsetSeconds: 0 }),
+      frames: async () => [],
+      renderSettingsLost: async () => true,
+      providerParams: () => ({}),
+      on: () => () => undefined,
+      render: () => undefined,
+      trace: () => undefined,
+    } as never;
+    const st = newMusic();
+    musicAct(st, ctx, "music-plan", "");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(st.settingsNote).toMatch(/Deliver|Teslim/);
+  });
+
+  it("reads Resolve's settings note even when the export fails, and clears an old one", async () => {
+    let lost = true;
+    const ctx = {
+      readSequence: async () => ({ name: "Talk", projectPath: "/p/a.drp", endSeconds: 60 }),
+      inOut: () => null,
+      request: async () => ({ jobDir: "/j" }),
+      withoutOurInserts: async (_t: unknown, _r: unknown, fn: () => Promise<unknown>) => fn(),
+      exportAudio: async () => ({ ok: false, offsetSeconds: 0 }),
+      frames: async () => [],
+      renderSettingsLost: async () => {
+        const was = lost;
+        lost = false;
+        return was;
+      },
+      providerParams: () => ({}),
+      on: () => () => undefined,
+      render: () => undefined,
+      trace: () => undefined,
+    } as never;
+    const st = newMusic();
+    musicAct(st, ctx, "music-plan", "");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(st.settingsNote).toMatch(/Deliver/);
+    musicAct(st, ctx, "music-plan", "");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(st.settingsNote).toBeNull();
+  });
+
+  it("offers to report a music error", () => {
+    const st = { ...newMusic(), error: "The music could not be made: Lyria failed" };
+    const ctx = {
+      esc: (x: string) => x,
+      reportLink: (e: string) => `[report ${e}]`,
+      inOut: () => null,
+      connected: () => true,
+      keySet: () => true,
+      rangeLine: () => "",
+      seg: () => "",
+    } as never;
+    expect(musicBox(st, ctx)).toContain("[report The music could not be made: Lyria failed]");
   });
 
   it("forgets a finished job's id, so Stop never aims at a job that is over", async () => {

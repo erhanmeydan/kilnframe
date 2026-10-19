@@ -15,6 +15,25 @@ describe("job errors in the panel's language", () => {
     });
   });
 
+  it("says an expired API key plainly, with the provider's name", () => {
+    expect(
+      readableJobError(
+        "openrouter rejected the API key. Check it in the settings: API key expired.",
+      ),
+    ).toEqual({ key: "job.keyExpired", vars: { provider: "OpenRouter" }, reasons: [] });
+  });
+
+  it("says any other rejected key in the panel's language", () => {
+    expect(
+      readableJobError("xai rejected the API key. Check it in the settings: Incorrect API key"),
+    ).toEqual({ key: "job.keyRejected", vars: { provider: "xAI" }, reasons: [] });
+    expect(readableJobError("acme rejected the API key. Check it in the settings: nope")).toEqual({
+      key: "job.keyRejected",
+      vars: { provider: "acme" },
+      reasons: [],
+    });
+  });
+
   it("leaves any other message as it is", () => {
     expect(readableJobError("OpenRouter error 500: down")).toBeNull();
   });

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { keepWhen } from "./probe-memo.js";
 import "./system-certs.js";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -60,16 +61,11 @@ export function connectionFile(): string {
 }
 
 /** GPU and FFmpeg do not change while the app runs: probed once, again only after a failed probe. */
-let hardwareProbe: ReturnType<typeof systemReport> | null = null;
-function hardware(): ReturnType<typeof systemReport> {
-  hardwareProbe ??= systemReport(loadDefaults(), join(vendorDir(), "gsap", "gsap.min.js")).catch(
-    (err: unknown) => {
-      hardwareProbe = null;
-      throw err;
-    },
-  );
-  return hardwareProbe;
-}
+// the GPU probe starts a browser (about 4 s): a GPU found is kept for the session, anything else asked again
+const hardware = keepWhen(
+  () => systemReport(loadDefaults(), join(vendorDir(), "gsap", "gsap.min.js")),
+  (report) => report.gpu.mode === "hardware",
+);
 
 async function main() {
   // data kept under the old name (motion-insert, until 9 Oct 2026) moves over before anything reads it
@@ -102,7 +98,7 @@ async function main() {
     version: VERSION,
     port: Number(process.env.KILNFRAME_PORT ?? DEFAULT_PORT),
     systemCheck: async () => {
-      // the GPU probe starts a browser (about 4 s): done once a session; the speech model is looked at each time
+      // the speech model is looked at each time
       const defaults = loadDefaults();
       const report = await hardware();
       return {

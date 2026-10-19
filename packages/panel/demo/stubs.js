@@ -30,7 +30,7 @@
   const seq = {
     in: Number(params.get("in") || 1),
     out: Number(params.get("out") || 7),
-    end: 10.84,
+    end: Number(params.get("end") || 10.84),
   };
   const tick = (s) => ({
     seconds: s,
@@ -78,6 +78,7 @@
       path:
         params.get("project") || window.KILNFRAME_DEMO?.project || "/Users/demo/Interview.prproj",
       getActiveSequence: async () => sequence,
+      getSequences: async () => [sequence],
       getRootItem: async () => loose({ getItems: async () => [bin] }, "root"),
       lockedAccess: (fn) => fn(),
       executeTransaction: (fn) => {
