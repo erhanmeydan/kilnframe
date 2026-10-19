@@ -1,57 +1,60 @@
 import { describe, expect, it } from "vitest";
-import { FEEDBACK_ADDRESS, feedbackMail, shouldReport, withoutUserName } from "../src/feedback";
+import { FEEDBACK_PAGE, feedbackPage, shouldReport, withoutUserName } from "../src/feedback";
 
-const parse = (url: string) => {
-  const [to, query] = url.replace(/^mailto:/, "").split("?");
-  const p = new URLSearchParams(query!.replace(/\+/g, "%2B"));
-  return { to, subject: p.get("subject")!, body: p.get("body")! };
+/** The fields a feedback link carries after the "#", as the page reads them. */
+const fields = (url: string) => {
+  const [page, hash] = url.split("#");
+  return { page, ...Object.fromEntries(new URLSearchParams(hash)) } as Record<string, string>;
 };
 
 const info = { app: "0.2.3", panel: "0.2.3", editor: "Premiere" as const, os: "mac" as const };
 
-describe("feedback mail", () => {
-  it("opens a mail to the feedback address with the versions filled in", () => {
-    const m = parse(feedbackMail({ kind: "feedback", ...info }));
-    expect(m.to).toBe(FEEDBACK_ADDRESS);
-    expect(m.subject).toBe("Kilnframe feedback");
-    expect(m.body).toContain("Kilnframe 0.2.3 · Panel 0.2.3 · Premiere · macOS");
+describe("feedback page link", () => {
+  it("opens the site's feedback page with the versions and the panel's language", () => {
+    const f = fields(feedbackPage({ kind: "feedback", lang: "tr", ...info }));
+    expect(f.page).toBe(FEEDBACK_PAGE);
+    expect(FEEDBACK_PAGE).toBe("https://kilnframe.com/feedback/");
+    expect(f.k).toBe("feedback");
+    expect(f.l).toBe("tr");
+    expect(f.v).toBe("Kilnframe 0.2.3 · Panel 0.2.3 · Premiere · macOS");
+    expect(f.e).toBeUndefined();
   });
 
-  it("carries the error, without the user's name in paths", () => {
-    const m = parse(
-      feedbackMail({
-        kind: "error",
-        error: "Could not read /Users/ayse/Movies/Kilnframe/job/plan.json",
-        ...info,
-        editor: "DaVinci Resolve",
-        os: "win",
-      }),
-    );
-    expect(m.subject).toBe("Kilnframe error");
-    expect(m.body).toContain("Could not read ~/Movies/Kilnframe/job/plan.json");
-    expect(m.body).not.toContain("ayse");
-    expect(m.body).toContain("DaVinci Resolve · Windows");
-  });
-
-  it("asks in the panel's language", () => {
-    const m = parse(feedbackMail({ kind: "error", error: "x", ask: "Ne yapıyordunuz?", ...info }));
-    expect(m.body.startsWith("Ne yapıyordunuz?")).toBe(true);
+  it("carries the error after the #, never to a server, without the user's name in paths", () => {
+    const url = feedbackPage({
+      kind: "error",
+      error: "Could not read /Users/ayse/Movies/Kilnframe/job/plan.json",
+      lang: "en",
+      ...info,
+      editor: "DaVinci Resolve",
+      os: "win",
+    });
+    expect(url.split("#")[0]).toBe(FEEDBACK_PAGE);
+    const f = fields(url);
+    expect(f.k).toBe("error");
+    expect(f.e).toBe("Could not read ~/Movies/Kilnframe/job/plan.json");
+    expect(url).not.toContain("ayse");
+    expect(f.v).toContain("DaVinci Resolve · Windows");
   });
 
   it("keeps spaces, line breaks and Turkish letters intact", () => {
-    const m = parse(
-      feedbackMail({ kind: "error", error: "Sahne 2 çizilemedi.\nİkinci satır & %", ...info }),
+    const f = fields(
+      feedbackPage({
+        kind: "error",
+        error: "Sahne 2 çizilemedi.\nİkinci satır & % #",
+        lang: "tr",
+        ...info,
+      }),
     );
-    expect(m.body).toContain("Sahne 2 çizilemedi.\nİkinci satır & %");
+    expect(f.e).toBe("Sahne 2 çizilemedi.\nİkinci satır & % #");
   });
 
-  it("keeps the link short enough for Windows mail apps, versions first", () => {
+  it("keeps the link short enough for Windows to open it, with the versions kept", () => {
     const error = "Sahne çizilemedi; işlem yarıda kaldı.\n".repeat(400);
-    const url = feedbackMail({ kind: "error", error, ...info });
+    const url = feedbackPage({ kind: "error", error, lang: "tr", ...info });
     expect(url.length).toBeLessThanOrEqual(1800);
-    const m = parse(url);
-    expect(m.body).toContain("Kilnframe 0.2.3 · Panel 0.2.3");
-    expect(m.body.indexOf("Kilnframe 0.2.3")).toBeLessThan(m.body.indexOf("Sahne"));
+    expect(fields(url).v).toBe("Kilnframe 0.2.3 · Panel 0.2.3 · Premiere · macOS");
+    expect(fields(url).e!.startsWith("Sahne çizilemedi")).toBe(true);
   });
 
   it("does not offer a report for the editor's own stop or a missing input", () => {

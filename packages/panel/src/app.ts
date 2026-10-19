@@ -16,7 +16,7 @@ import {
   watchesSequence,
   type MusicCtx,
 } from "./music";
-import { feedbackMail, shouldReport } from "./feedback";
+import { feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
   STORY_LENGTH,
@@ -2033,21 +2033,22 @@ function panelVersion(): string {
   return __PANEL_VERSION__;
 }
 
-/** The versions and the editor, for a feedback or error mail. */
+/** The versions, the editor and the panel's language, for the feedback page. */
 function mailAbout() {
   return {
     app: state.appVersion ?? t("settings.unknown"),
     panel: panelVersion(),
     editor: host().kind === "resolve" ? ("DaVinci Resolve" as const) : ("Premiere" as const),
     os: host().platform(),
+    lang: lang(),
   };
 }
 
-/** "Report This Error ↗": the editor's mail app opens with the error and the versions filled in. */
+/** "Report This Error ↗": the site's feedback page opens with the error and the versions filled in. */
 function reportLink(error: string): string {
   if (!shouldReport(error, [t("job.stopped"), t("story.needBrief"), t("story.badLength")]))
     return "";
-  const url = feedbackMail({ kind: "error", error, ask: t("feedback.ask"), ...mailAbout() });
+  const url = feedbackPage({ kind: "error", error, ...mailAbout() });
   return `<div class="link mt" data-act="open-url" data-val="${esc(url)}">${t("feedback.report")} ↗</div>`;
 }
 
@@ -2058,7 +2059,7 @@ function versionLine(): string {
   const differ = Boolean(app && app !== panel);
   const notes =
     lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
-  return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackMail({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
+  return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackPage({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
     differ
       ? `<div class="small warn-text">${t(host().kind === "resolve" ? "settings.versionsDifferResolve" : "settings.versionsDiffer")}</div>`
       : ""

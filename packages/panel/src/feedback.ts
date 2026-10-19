@@ -1,9 +1,11 @@
-// Feedback by mail: no account and no form, the editor's own mail app opens with the versions filled in. A
-// reported error carries its text only; the user's name is taken out of paths, and no file is attached.
+// Feedback through the site's feedback page: the panel opens it in the browser with the versions (and an
+// error) after the "#", which browsers never send to a server. The page offers Gmail, Outlook, the mail app
+// and a copy button, so it works whatever handles mail links on the computer. A reported error carries its
+// text only; the user's name is taken out of paths.
 
-export const FEEDBACK_ADDRESS = "hello@kilnframe.com";
+export const FEEDBACK_PAGE = "https://kilnframe.com/feedback/";
 
-/** Mail apps on Windows refuse or cut mailto links much over 2000 characters; the whole link stays below. */
+/** Windows opens links through a call that refuses very long ones; the whole link stays well below. */
 const MAX_URL = 1800;
 
 export interface FeedbackInfo {
@@ -11,8 +13,8 @@ export interface FeedbackInfo {
   panel: string;
   editor: "Premiere" | "DaVinci Resolve";
   os: "mac" | "win";
-  /** The line above the error, in the panel's language. */
-  ask?: string;
+  /** The panel's language: the page speaks it too. */
+  lang: "en" | "tr";
 }
 
 /** A path's home folder as "~": "/Users/ayse/x" -> "~/x", "C:\Users\Ayse Y\x" -> "~\x". */
@@ -25,21 +27,23 @@ export function shouldReport(error: string, own: string[]): boolean {
   return !own.includes(error.trim());
 }
 
-export function feedbackMail(
+export function feedbackPage(
   o: (FeedbackInfo & { kind: "feedback" }) | (FeedbackInfo & { kind: "error"; error: string }),
 ): string {
   const about = `Kilnframe ${o.app} · Panel ${o.panel} · ${o.editor} · ${o.os === "mac" ? "macOS" : "Windows"}`;
-  const subject = o.kind === "error" ? "Kilnframe error" : "Kilnframe feedback";
-  const link = (body: string) =>
-    `mailto:${FEEDBACK_ADDRESS}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  if (o.kind === "feedback") return link(`\n\n\n---\n${about}`);
-  // the versions come before the error, so a cut never takes them; the error is shortened until it fits
-  const head = `${o.ask ?? "What were you doing when it happened?"}\n\n\n---\n${about}\n\n`;
+  const link = (error?: string) => {
+    const p = new URLSearchParams({ l: o.lang, k: o.kind, v: about });
+    if (error !== undefined) p.set("e", error);
+    // spaces as %20, not "+": the page reads them back with URLSearchParams either way
+    return `${FEEDBACK_PAGE}#${p.toString().replace(/\+/g, "%20")}`;
+  };
+  if (o.kind === "feedback") return link();
+  // the error is shortened until the link fits; the versions always stay
   let error = withoutUserName(o.error);
-  let url = link(head + error);
+  let url = link(error);
   while (url.length > MAX_URL && error.length) {
     error = error.slice(0, Math.floor(error.length * 0.9));
-    url = link(`${head}${error}…`);
+    url = link(`${error}…`);
   }
   return url;
 }

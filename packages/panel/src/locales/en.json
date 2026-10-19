@@ -146,7 +146,6 @@
   "settings.releaseNotes": "Release Notes",
   "feedback.send": "Send Feedback",
   "feedback.report": "Report This Error",
-  "feedback.ask": "What were you doing when it happened?",
   "settings.versionsDiffer": "The panel and the app are different versions. Choose Install the Plugin in Premiere from the Kilnframe icon (menu bar or system tray), then restart Premiere.",
   "settings.window": "Panel Window",
   "settings.onTopOn": "Always on Top",

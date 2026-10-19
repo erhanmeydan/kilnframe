@@ -14,7 +14,7 @@
       "domains": ["ws://localhost"]
     },
     "launchProcess": {
-      "schemes": ["https", "kilnframe", "mailto"],
+      "schemes": ["https", "kilnframe"],
       "extensions": []
     }
   },

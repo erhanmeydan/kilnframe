@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feedback · Kilnframe</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="../assets/favicon.png" />
+    <link rel="stylesheet" href="../assets/studio.css" />
+    <style>
+      .feedback {
+        padding: 72px 0 96px;
+      }
+      .feedback .card {
+        max-width: 720px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 24px;
+      }
+      .feedback .to {
+        font: 500 14px var(--mono);
+        color: var(--ink-2);
+        margin: 0 0 14px;
+      }
+      .feedback label {
+        display: block;
+        font: 600 13px var(--body);
+        color: var(--ink-2);
+        margin: 18px 0 8px;
+      }
+      .feedback textarea {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 150px;
+        font: 16px/1.5 var(--body);
+        color: var(--ink);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+        resize: vertical;
+      }
+      .feedback pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font: 13px/1.5 var(--mono);
+        color: var(--ink-2);
+        background: var(--paper-2);
+        border-radius: 10px;
+        padding: 12px 14px;
+        max-height: 220px;
+        overflow: auto;
+      }
+      .feedback .send {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+      .feedback .send button {
+        font: inherit;
+        cursor: pointer;
+      }
+      .feedback .note {
+        margin-top: 14px;
+        font-size: 14px;
+        color: var(--ink-3);
+      }
+      .feedback [hidden] {
+        display: none;
+      }
+    </style>
+    <!-- visit counts without cookies (goatcounter.com); the part after # is never sent -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../"><img src="../assets/icon.png" alt="" />Kilnframe</a>
+        <nav>
+          <a href="../" data-t="site">kilnframe.com</a>
+          <a href="https://github.com/erhanmeydan/kilnframe">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="feedback">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc" data-t="tag">FEEDBACK</span>
+            <div>
+              <h2 data-t="title">Tell us what you think.</h2>
+              <p data-t="lead">
+                Write a few words, then send it the way you like. It goes to hello@kilnframe.com.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <p class="to"><span data-t="to">To</span>: hello@kilnframe.com</p>
+            <label for="message" data-t="message">Your message</label>
+            <textarea id="message"></textarea>
+            <div id="error-box" hidden>
+              <label data-t="error">The error</label>
+              <pre id="error"></pre>
+            </div>
+            <label data-t="about">Sent with it</label>
+            <pre id="about"></pre>
+            <div class="send">
+              <a class="btn solid" id="gmail" target="_blank" rel="noopener" href="#" data-t="gmail"
+                >Send with Gmail</a
+              >
+              <a class="btn" id="outlook" target="_blank" rel="noopener" href="#" data-t="outlook"
+                >Send with Outlook</a
+              >
+              <a class="btn" id="mailapp" href="#" data-t="mailapp">Open in my mail app</a>
+              <button class="btn" type="button" id="copy" data-t="copy">Copy the text</button>
+            </div>
+            <p class="note" id="note" data-t="note">
+              Using another mail service? Copy the text and send it to hello@kilnframe.com.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe by Erhan Meydan · Apache 2.0</span>
+        <span><a href="https://github.com/erhanmeydan/kilnframe">GitHub</a></span>
+      </div>
+    </footer>
+    <script>
+      // The panel opens this page with its language, the versions and (for an error report) the error after
+      // the "#": that part stays in the browser and is never sent to any server.
+      (() => {
+        const to = "hello@kilnframe.com";
+        const p = new URLSearchParams(location.hash.slice(1));
+        const tr = p.get("l") === "tr";
+        const error = p.get("k") === "error" ? (p.get("e") ?? "") : "";
+        const about = p.get("v") ?? "";
+        const text = tr
+          ? {
+              tag: "GERİ BİLDİRİM",
+              title: error ? "Bir hata mı çıktı?" : "Ne düşündüğünüzü yazın.",
+              lead: "Birkaç cümle yazın, sonra istediğiniz yoldan gönderin. hello@kilnframe.com adresine gider.",
+              to: "Alıcı",
+              message: error ? "Hata çıktığında ne yapıyordunuz?" : "Mesajınız",
+              error: "Hata",
+              about: "Birlikte gönderilen",
+              gmail: "Gmail ile gönder",
+              outlook: "Outlook ile gönder",
+              mailapp: "E-posta programımda aç",
+              copy: "Metni kopyala",
+              copied: "Kopyalandı",
+              note: "Başka bir e-posta servisi mi kullanıyorsunuz? Metni kopyalayıp hello@kilnframe.com adresine gönderin.",
+              site: "kilnframe.com",
+            }
+          : {
+              tag: "FEEDBACK",
+              title: error ? "Did something go wrong?" : "Tell us what you think.",
+              lead: "Write a few words, then send it the way you like. It goes to hello@kilnframe.com.",
+              to: "To",
+              message: error ? "What were you doing when it happened?" : "Your message",
+              error: "The error",
+              about: "Sent with it",
+              gmail: "Send with Gmail",
+              outlook: "Send with Outlook",
+              mailapp: "Open in my mail app",
+              copy: "Copy the text",
+              copied: "Copied",
+              note: "Using another mail service? Copy the text and send it to hello@kilnframe.com.",
+              site: "kilnframe.com",
+            };
+        if (tr) document.documentElement.lang = "tr";
+        for (const el of document.querySelectorAll("[data-t]")) el.textContent = text[el.dataset.t];
+        document.getElementById("error-box").hidden = !error;
+        document.getElementById("error").textContent = error;
+        document.getElementById("about").textContent = about || "Kilnframe";
+        const subject = error ? "Kilnframe error" : "Kilnframe feedback";
+        const message = document.getElementById("message");
+        const body = () =>
+          [message.value.trim(), "---", about, error].filter((x) => x !== "").join("\n\n");
+        const q = encodeURIComponent;
+        const links = () => {
+          document.getElementById("gmail").href =
+            `https://mail.google.com/mail/?view=cm&fs=1&to=${q(to)}&su=${q(subject)}&body=${q(body())}`;
+          document.getElementById("outlook").href =
+            `https://outlook.live.com/mail/0/deeplink/compose?to=${q(to)}&subject=${q(subject)}&body=${q(body())}`;
+          document.getElementById("mailapp").href =
+            `mailto:${to}?subject=${q(subject)}&body=${q(body())}`;
+        };
+        message.addEventListener("input", links);
+        links();
+        const copy = document.getElementById("copy");
+        copy.addEventListener("click", () => {
+          const all = `${tr ? "Alıcı" : "To"}: ${to}\n${tr ? "Konu" : "Subject"}: ${subject}\n\n${body()}`;
+          navigator.clipboard?.writeText(all).then(() => {
+            copy.textContent = text.copied;
+            setTimeout(() => (copy.textContent = text.copy), 2000);
+          });
+        });
+        message.focus();
+      })();
+    </script>
+  </body>
+</html>
