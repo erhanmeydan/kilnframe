@@ -68,6 +68,39 @@
         font-size: 14px;
         color: var(--ink-3);
       }
+      .feedback input[type="email"] {
+        width: 100%;
+        box-sizing: border-box;
+        font: 16px var(--body);
+        color: var(--ink);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 14px;
+      }
+      .feedback .status {
+        margin-top: 12px;
+        font-size: 15px;
+      }
+      .feedback .status.ok {
+        color: #2f6b4c;
+      }
+      .feedback .status.fail {
+        color: var(--clay);
+      }
+      .feedback .or {
+        margin-top: 26px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        font-size: 14px;
+        color: var(--ink-3);
+      }
+      .feedback .or .send {
+        margin-top: 10px;
+      }
+      .feedback .or .btn {
+        font-size: 14px;
+      }
       .feedback [hidden] {
         display: none;
       }
@@ -98,7 +131,7 @@
             <div>
               <h2 data-t="title">Tell us what you think.</h2>
               <p data-t="lead">
-                Write a few words, then send it the way you like. It goes to hello@kilnframe.com.
+                Write a few words and press Send. Your message goes to hello@kilnframe.com.
               </p>
             </div>
           </div>
@@ -112,15 +145,24 @@
             </div>
             <label data-t="about">Sent with it</label>
             <pre id="about"></pre>
+            <label for="email" data-t="email">Your email, if you would like an answer</label>
+            <input type="email" id="email" autocomplete="email" />
             <div class="send">
-              <a class="btn solid" id="gmail" target="_blank" rel="noopener" href="#" data-t="gmail"
-                >Send with Gmail</a
-              >
-              <a class="btn" id="outlook" target="_blank" rel="noopener" href="#" data-t="outlook"
-                >Send with Outlook</a
-              >
-              <a class="btn" id="mailapp" href="#" data-t="mailapp">Open in my mail app</a>
-              <button class="btn" type="button" id="copy" data-t="copy">Copy the text</button>
+              <button class="btn solid" type="button" id="send" data-t="send">Send</button>
+            </div>
+            <p class="status" id="status" role="status" hidden></p>
+            <div class="or">
+              <span data-t="or">Or send it yourself:</span>
+              <div class="send">
+                <a class="btn" id="gmail" target="_blank" rel="noopener" href="#" data-t="gmail"
+                  >Send with Gmail</a
+                >
+                <a class="btn" id="outlook" target="_blank" rel="noopener" href="#" data-t="outlook"
+                  >Send with Outlook</a
+                >
+                <a class="btn" id="mailapp" href="#" data-t="mailapp">Open in my mail app</a>
+                <button class="btn" type="button" id="copy" data-t="copy">Copy the text</button>
+              </div>
             </div>
             <p class="note" id="note" data-t="note">
               Using another mail service? Copy the text and send it to hello@kilnframe.com.
@@ -149,11 +191,18 @@
           ? {
               tag: "GERİ BİLDİRİM",
               title: error ? "Bir hata mı çıktı?" : "Ne düşündüğünüzü yazın.",
-              lead: "Birkaç cümle yazın, sonra istediğiniz yoldan gönderin. hello@kilnframe.com adresine gider.",
+              lead: "Birkaç cümle yazıp Gönder'e basın. Mesajınız hello@kilnframe.com adresine gider.",
               to: "Alıcı",
               message: error ? "Hata çıktığında ne yapıyordunuz?" : "Mesajınız",
               error: "Hata",
               about: "Birlikte gönderilen",
+              email: "Cevap isterseniz e-posta adresiniz",
+              send: "Gönder",
+              sending: "Gönderiliyor...",
+              sent: "Teşekkürler, mesajınız gönderildi.",
+              failed: "Gönderilemedi. Aşağıdaki yollardan biriyle gönderebilirsiniz.",
+              empty: "Önce birkaç cümle yazın.",
+              or: "Ya da kendiniz gönderin:",
               gmail: "Gmail ile gönder",
               outlook: "Outlook ile gönder",
               mailapp: "E-posta programımda aç",
@@ -165,11 +214,18 @@
           : {
               tag: "FEEDBACK",
               title: error ? "Did something go wrong?" : "Tell us what you think.",
-              lead: "Write a few words, then send it the way you like. It goes to hello@kilnframe.com.",
+              lead: "Write a few words and press Send. Your message goes to hello@kilnframe.com.",
               to: "To",
               message: error ? "What were you doing when it happened?" : "Your message",
               error: "The error",
               about: "Sent with it",
+              email: "Your email, if you would like an answer",
+              send: "Send",
+              sending: "Sending...",
+              sent: "Thank you, your message was sent.",
+              failed: "It could not be sent. You can send it one of the ways below.",
+              empty: "Write a few words first.",
+              or: "Or send it yourself:",
               gmail: "Send with Gmail",
               outlook: "Send with Outlook",
               mailapp: "Open in my mail app",
@@ -198,6 +254,43 @@
         };
         message.addEventListener("input", links);
         links();
+        // the message goes to hello@kilnframe.com through Web3Forms (a form service; the key is public by
+        // design and can only send to that address)
+        const send = document.getElementById("send");
+        const status = document.getElementById("status");
+        const say = (msg, cls) => {
+          status.textContent = msg;
+          status.className = `status ${cls}`;
+          status.hidden = false;
+        };
+        send.addEventListener("click", () => {
+          if (!message.value.trim() && !error) return say(text.empty, "fail");
+          send.disabled = true;
+          send.textContent = text.sending;
+          const email = document.getElementById("email").value.trim();
+          fetch("https://api.web3forms.com/submit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({
+              access_key: "993d7937-04e8-4d77-89c0-5bfae2c19b4b",
+              subject,
+              from_name: "Kilnframe",
+              ...(email ? { email, replyto: email } : {}),
+              message: body(),
+            }),
+          })
+            .then((r) => r.json())
+            .then((r) => {
+              if (!r.success) throw new Error(r.message);
+              say(text.sent, "ok");
+              send.hidden = true;
+            })
+            .catch(() => {
+              say(text.failed, "fail");
+              send.disabled = false;
+              send.textContent = text.send;
+            });
+        });
         const copy = document.getElementById("copy");
         copy.addEventListener("click", () => {
           const all = `${tr ? "Alıcı" : "To"}: ${to}\n${tr ? "Konu" : "Subject"}: ${subject}\n\n${body()}`;
