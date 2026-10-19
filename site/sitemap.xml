@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://kilnframe.com/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/changelog/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/changelog/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/changelog/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/changelog/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/changelog/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/changelog/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/changelog/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/changelog/" />
+  </url>
+</urlset>

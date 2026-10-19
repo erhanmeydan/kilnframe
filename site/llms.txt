@@ -1,0 +1,46 @@
+# Kilnframe
+
+> Kilnframe is a free, open source (Apache 2.0) plugin for Adobe Premiere Pro and DaVinci Resolve Studio. The editor marks an in/out range on the timeline and picks a style; Kilnframe listens to what is said in that range, plans scenes, writes the animation as code (HTML, CSS, JavaScript, GSAP, Three.js), renders it on the editor's own computer with HyperFrames and places the clip and its sound effects on the timeline above the range. It can also score a whole video: it splits the speech into topics, writes music for each (Google Lyria) and keeps it under the voice.
+
+Made by Erhan Meydan, a graphic designer and video creator. No account and no sign-in; the footage never leaves the computer, only text (the transcript and the plan) and a few still frames go to the AI the editor chooses.
+
+## What it does
+
+- Animated inserts from speech: fullscreen inserts, or overlays beside the speaker that never cover the face (chosen per scene, or set by the editor).
+- Techniques chosen per scene: 3D metaphors, kinetic type, charts for numbers, diagrams for processes, UI mockups, code, hand drawing, particles.
+- 11 built-in styles (Navy Clay, Flat Infographic, Isometric, Kinetic Typography, Whiteboard, Paper Cut, Halftone Collage, Retro Risograph, Glass Interface, Technical Drawing, Editorial Newspaper) and "Your own style" from a reference image or a description.
+- Review: a still of every scene before anything renders; redo one scene with a note.
+- Formats: landscape 16:9, portrait 9:16, square 1:1, at the sequence's frame rate.
+- Sound effects synthesised in code, delivered as a separate WAV track.
+- Story mode: no recording needed; write a topic, Kilnframe writes the story, narrates it (Gemini TTS), adds music and builds a new sequence.
+- Music tab: music for every topic of a video, ducked under the voice, one clip per section.
+- Local speech recognition (Whisper) with word timings, Turkish and many other languages.
+
+## AI it works with
+
+- The plan the editor already pays for: Claude (through Claude Code), ChatGPT (through Codex), Grok (through Grok CLI).
+- API keys: Anthropic Claude, OpenAI, Google Gemini, xAI, MiniMax, Z.ai (GLM), OpenRouter, a custom endpoint.
+- Local models through LM Studio.
+- Only models that can see images are offered.
+- Benchmark of 15 models on the same clip: https://kilnframe.com/#benchmark
+
+## Requirements
+
+- Adobe Premiere Pro 2026 (25.6 or later), or DaVinci Resolve Studio 21.1 or later. The free version of DaVinci Resolve does not load workflow integration plugins.
+- macOS on Apple silicon (M1 or later), or Windows 10 or 11.
+- A graphics card (GPU); about 2 GB of disk.
+
+## Price
+
+Kilnframe itself is free. The only cost is the AI: a plan the editor already has, an API key paid per use (a 10 second animation is usually between $0.01 and $2.75 depending on the model), or nothing with a local model.
+
+## Links
+
+- Website and download: https://kilnframe.com (Turkish: https://kilnframe.com/tr/)
+- Download for Mac: https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg
+- Download for Windows: https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe
+- Source code: https://github.com/erhanmeydan/kilnframe
+- Changelog: https://kilnframe.com/changelog/
+- Promo video: https://youtu.be/6W_dFwX2UYs
+- X: https://x.com/kilnframe
+- Contact: hello@kilnframe.com

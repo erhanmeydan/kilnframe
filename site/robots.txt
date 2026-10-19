@@ -1,0 +1,21 @@
+# kilnframe.com: every page may be read, by search engines and by AI assistants alike
+User-agent: *
+Allow: /
+Disallow: /thanks/
+
+# AI search and assistants, named so their owners see they are welcome
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Allow: /
+Disallow: /thanks/
+
+Sitemap: https://kilnframe.com/sitemap.xml

@@ -903,7 +903,7 @@ figcaption {
 }
 
 /* the badge sits on the clip's corner, so the caption stays one line */
-.bench .rec {
+.bench .pick {
   position: absolute;
   top: 8px;
   left: 8px;
@@ -913,7 +913,7 @@ figcaption {
   pointer-events: none;
 }
 
-.rec {
+.pick {
   font: 600 10px var(--mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -924,7 +924,7 @@ figcaption {
   white-space: nowrap;
 }
 
-.runs .rec {
+.runs .pick {
   margin-left: 8px;
   color: var(--clay);
   vertical-align: 1px;

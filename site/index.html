@@ -19,7 +19,202 @@
       property="og:description"
       content="Mark a range, pick a style. The animation lands on your timeline."
     />
-    <meta property="og:image" content="https://kilnframe.com/assets/video/rain-still.jpg" />
+    <link rel="canonical" href="https://kilnframe.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="tr_TR" />
+    <meta property="og:image" content="https://kilnframe.com/assets/share.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Kilnframe: your words, animated. An animated insert on a Premiere timeline."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://kilnframe.com/#app",
+            "name": "Kilnframe",
+            "url": "https://kilnframe.com/",
+            "description": "A free, open source plugin for Premiere Pro and DaVinci Resolve Studio. Mark a range, pick a style: Kilnframe writes an animation for what you said, renders it on your computer and places it on your timeline with its sound effects. The Music tab scores the whole video.",
+            "applicationCategory": "MultimediaApplication",
+            "applicationSubCategory": "Video editing plugin",
+            "operatingSystem": "macOS (Apple silicon), Windows 10, Windows 11",
+            "softwareRequirements": "Adobe Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later",
+            "downloadUrl": [
+              "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg",
+              "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+            ],
+            "license": "https://www.apache.org/licenses/LICENSE-2.0",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "featureList": [
+              "Animated inserts written in code from what you say",
+              "Fullscreen inserts or overlays beside the speaker",
+              "11 styles, or your own from a reference image",
+              "A still of every scene before rendering",
+              "Sound effects on a separate track",
+              "Story mode: a narrated video from a topic",
+              "Music tab: music for every topic, under the voice",
+              "Local transcription and local rendering"
+            ],
+            "image": "https://kilnframe.com/assets/share.jpg",
+            "screenshot": "https://kilnframe.com/assets/video/rain-still.jpg",
+            "inLanguage": ["en", "tr"],
+            "author": {
+              "@id": "https://kilnframe.com/#erhan"
+            },
+            "sameAs": [
+              "https://github.com/erhanmeydan/kilnframe",
+              "https://x.com/kilnframe",
+              "https://www.youtube.com/@Kilnframe"
+            ]
+          },
+          {
+            "@type": "Person",
+            "@id": "https://kilnframe.com/#erhan",
+            "name": "Erhan Meydan",
+            "url": "https://github.com/erhanmeydan",
+            "jobTitle": "Graphic designer and video creator"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://kilnframe.com/#site",
+            "url": "https://kilnframe.com/",
+            "name": "Kilnframe",
+            "inLanguage": "en",
+            "publisher": {
+              "@id": "https://kilnframe.com/#erhan"
+            }
+          },
+          {
+            "@type": "VideoObject",
+            "name": "Kilnframe: animated inserts and music for Premiere Pro and DaVinci Resolve",
+            "description": "A 90 second tour of Kilnframe: mark a range, pick a style, review every scene, and the animation lands on your timeline with its sound. Also story mode and the Music tab.",
+            "thumbnailUrl": "https://kilnframe.com/assets/share.jpg",
+            "uploadDate": "2026-10-19",
+            "duration": "PT1M29S",
+            "contentUrl": "https://kilnframe.com/assets/video/promo-en.mp4",
+            "inLanguage": "en",
+            "embedUrl": "https://www.youtube.com/embed/6W_dFwX2UYs"
+          },
+          {
+            "@type": "FAQPage",
+            "inLanguage": "en",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How do I add AI animations to a Premiere Pro video?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Install Kilnframe and open its panel in Premiere Pro. Mark an in/out range over the part you want to illustrate and pick a style. Kilnframe transcribes the range, plans the scenes and writes the animation in code. It shows you a still of every scene, and after your approval renders the clip on your computer and places it on the track above the range, with its sound effects on a separate audio track."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which AI models does it work with?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; API keys for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in LM Studio. Only models that can see images are offered. The benchmark above compares fifteen of them on the same clip."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does my footage leave my computer?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Speech is transcribed on your computer with Whisper, and the animation is rendered on your computer. Only text, the transcript and the scene plan, and a few still frames go to the AI you choose."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What do I need to run it?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later, a Mac with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is it really free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Kilnframe is free and open source under Apache 2.0. The only cost is the AI: the Claude, ChatGPT or Grok plan you already have, an API key you pay per use, or nothing with a local model."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work in DaVinci Resolve?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, in DaVinci Resolve Studio 21.1 or later, on Mac and Windows. The installer puts the panel in Resolve; open it from Workspace, Workflow Integrations, Kilnframe. The free version of Resolve does not load plugins."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Do I need an account?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Download, install, open the panel. There is no Kilnframe account and no sign-in."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How long does one animation take?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Usually five to ten minutes for a ten second range. Most of it is the AI writing each scene; the render itself takes about a minute."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I use the animations commercially?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, they are yours. Kilnframe's code is Apache 2.0; the animations use GSAP under GreenSock's no-charge license and open source fonts."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I change an animation afterwards?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Redo any scene with a note before it renders. After that the clip trims like any other, and its plan and HTML stay in the project to change and render again."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why does Windows warn about the installer?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The Windows installer is not code signed yet, so SmartScreen asks. Click More info, then Run anyway. The Mac installer is signed and notarized by Apple."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Intel Mac?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Not yet. The Mac version runs on Apple silicon (M1 and later)."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
     <link rel="stylesheet" href="assets/studio.css" />
     <!-- visit counts without cookies (goatcounter.com); downloads are counted as clicks -->
     <script
@@ -343,47 +538,91 @@
           </div>
           <div class="sheet">
             <figure>
-              <img src="assets/styles/kil-lacivert.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/kil-lacivert.jpg"
+                alt="Navy Clay style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Navy Clay<i>01</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/flat-infografik.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/flat-infografik.jpg"
+                alt="Flat Infographic style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Flat Infographic<i>02</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/izometrik.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/izometrik.jpg"
+                alt="Isometric style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Isometric<i>03</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/kinetik-tipografi-en.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/kinetik-tipografi-en.jpg"
+                alt="Kinetic Typography style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Kinetic Typography<i>04</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/beyaz-tahta.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/beyaz-tahta.jpg"
+                alt="Whiteboard style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Whiteboard<i>05</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/kagit-kesik.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/kagit-kesik.jpg"
+                alt="Paper Cut style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Paper Cut<i>06</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/kolaj-halftone.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/kolaj-halftone.jpg"
+                alt="Halftone Collage style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Halftone Collage<i>07</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/retro-risograf.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/retro-risograf.jpg"
+                alt="Retro Risograph style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Retro Risograph<i>08</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/cam-arayuz.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/cam-arayuz.jpg"
+                alt="Glass Interface style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Glass Interface<i>09</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/teknik-cizim.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/teknik-cizim.jpg"
+                alt="Technical Drawing style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Technical Drawing<i>10</i></figcaption>
             </figure>
             <figure>
-              <img src="assets/styles/gazete-editoryal.jpg" alt="" loading="lazy" />
+              <img
+                src="assets/styles/gazete-editoryal.jpg"
+                alt="Editorial Newspaper style, sample frame"
+                loading="lazy"
+              />
               <figcaption>Editorial Newspaper<i>11</i></figcaption>
             </figure>
             <div class="own">
@@ -623,7 +862,7 @@
                 preload="none"
               ></video>
               <figcaption>
-                <span>Claude Opus 5.5<b class="rec">Recommended</b></span
+                <span>Claude Opus 5.5<b class="pick">Recommended</b></span
                 ><i>7.8 min</i>
               </figcaption>
             </figure>
@@ -670,7 +909,7 @@
                 preload="none"
               ></video>
               <figcaption>
-                <span>Gemini 4 Argon<b class="rec">Recommended</b></span
+                <span>Gemini 4 Argon<b class="pick">Recommended</b></span
                 ><i>3.6 min</i>
               </figcaption>
             </figure>
@@ -706,7 +945,7 @@
                 preload="none"
               ></video>
               <figcaption>
-                <span>GPT 6.1 Sol<b class="rec">Recommended</b></span
+                <span>GPT 6.1 Sol<b class="pick">Recommended</b></span
                 ><i>5.0 min</i>
               </figcaption>
             </figure>
@@ -800,7 +1039,7 @@
               </thead>
               <tbody>
                 <tr data-via="plan">
-                  <td>Claude Opus 5.5<b class="rec">Recommended</b></td>
+                  <td>Claude Opus 5.5<b class="pick">Recommended</b></td>
                   <td>Claude plan</td>
                   <td class="n" data-sort="7.8">7.8 min</td>
                   <td class="n" data-sort="2.26">$2.26</td>
@@ -824,7 +1063,7 @@
                   <td class="n" data-sort="0.08">$0.08</td>
                 </tr>
                 <tr data-via="key">
-                  <td>Gemini 4 Argon<b class="rec">Recommended</b></td>
+                  <td>Gemini 4 Argon<b class="pick">Recommended</b></td>
                   <td>OpenRouter</td>
                   <td class="n" data-sort="3.6">3.6 min</td>
                   <td class="n" data-sort="0.43">$0.43</td>
@@ -842,7 +1081,7 @@
                   <td class="n" data-sort="0.01">$0.01</td>
                 </tr>
                 <tr data-via="plan">
-                  <td>GPT 6.1 Sol<b class="rec">Recommended</b></td>
+                  <td>GPT 6.1 Sol<b class="pick">Recommended</b></td>
                   <td>ChatGPT plan</td>
                   <td class="n" data-sort="5.0">5.0 min</td>
                   <td class="n" data-sort="0.29">$0.29</td>
@@ -948,6 +1187,40 @@
             <div><h2>Before you install.</h2></div>
           </div>
           <div class="faq">
+            <details>
+              <summary>How do I add AI animations to a Premiere Pro video?</summary>
+              <p>
+                Install Kilnframe and open its panel in Premiere Pro. Mark an in/out range over the
+                part you want to illustrate and pick a style. Kilnframe transcribes the range, plans
+                the scenes and writes the animation in code. It shows you a still of every scene,
+                and after your approval renders the clip on your computer and places it on the track
+                above the range, with its sound effects on a separate audio track.
+              </p>
+            </details>
+            <details>
+              <summary>Which AI models does it work with?</summary>
+              <p>
+                Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; API keys
+                for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in
+                LM Studio. Only models that can see images are offered. The benchmark above compares
+                fifteen of them on the same clip.
+              </p>
+            </details>
+            <details>
+              <summary>Does my footage leave my computer?</summary>
+              <p>
+                No. Speech is transcribed on your computer with Whisper, and the animation is
+                rendered on your computer. Only text, the transcript and the scene plan, and a few
+                still frames go to the AI you choose.
+              </p>
+            </details>
+            <details>
+              <summary>What do I need to run it?</summary>
+              <p>
+                Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later, a Mac
+                with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk.
+              </p>
+            </details>
             <details>
               <summary>Is it really free?</summary>
               <p>
