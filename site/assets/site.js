@@ -52,6 +52,35 @@
     video.addEventListener("click", () => (video.paused ? play() : video.pause()));
   }
 
+  // benchmark filter: by how the model is reached, or what a run costs; the table follows the clips
+  const filters = document.querySelectorAll(".bench-filter button");
+  for (const button of filters) {
+    button.addEventListener("click", () => {
+      const want = button.dataset.filter;
+      for (const b of filters) b.setAttribute("aria-pressed", String(b === button));
+      for (const el of document.querySelectorAll(".bench figure, .runs tbody tr")) {
+        el.hidden =
+          want !== "all" &&
+          !(want === "cheap" ? el.hasAttribute("data-cheap") : el.dataset.via === want);
+      }
+    });
+  }
+
+  // the table sorts by time or by price; a second click turns the order round
+  for (const button of document.querySelectorAll(".runs th button")) {
+    button.addEventListener("click", () => {
+      const col = Number(button.dataset.sortCol);
+      const dir = button.dataset.dir === "asc" ? "desc" : "asc";
+      for (const b of document.querySelectorAll(".runs th button")) delete b.dataset.dir;
+      button.dataset.dir = dir;
+      const body = button.closest("table").tBodies[0];
+      const value = (row) => Number(row.cells[col].dataset.sort);
+      [...body.rows]
+        .sort((a, b) => (dir === "asc" ? value(a) - value(b) : value(b) - value(a)))
+        .forEach((row) => body.append(row));
+    });
+  }
+
   // the mailing list: Kit takes the address and sends its confirmation email; the page stays where it is
   for (const form of document.querySelectorAll("form.list")) {
     const status = form.querySelector(".list-status");

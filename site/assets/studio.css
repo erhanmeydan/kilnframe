@@ -862,6 +862,100 @@ figcaption {
 
 /* benchmark */
 
+.bench-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bench-filter button {
+  font: 500 13px var(--body);
+  color: var(--ink-2);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.bench-filter button:hover {
+  border-color: var(--ink-3);
+}
+
+.bench-filter button[aria-pressed="true"] {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.bench [hidden],
+.runs tr[hidden] {
+  display: none;
+}
+
+.bench figure {
+  position: relative;
+}
+
+.bench figcaption i {
+  white-space: nowrap;
+}
+
+/* the badge sits on the clip's corner, so the caption stays one line */
+.bench .rec {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  color: #fff;
+  background: var(--clay);
+  border-color: var(--clay);
+  pointer-events: none;
+}
+
+.rec {
+  font: 600 10px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--clay-2);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.runs .rec {
+  margin-left: 8px;
+  color: var(--clay);
+  vertical-align: 1px;
+}
+
+.runs th button {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.runs th button::after {
+  content: " ↕";
+  opacity: 0.45;
+}
+
+.runs th button[data-dir="asc"]::after {
+  content: " ↑";
+  opacity: 1;
+}
+
+.runs th button[data-dir="desc"]::after {
+  content: " ↓";
+  opacity: 1;
+}
+
 .bench {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
