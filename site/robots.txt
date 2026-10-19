@@ -2,6 +2,7 @@
 User-agent: *
 Allow: /
 Disallow: /thanks/
+Disallow: /feedback/
 
 # AI search and assistants, named so their owners see they are welcome
 User-agent: GPTBot
@@ -17,5 +18,6 @@ User-agent: Applebot-Extended
 User-agent: CCBot
 Allow: /
 Disallow: /thanks/
+Disallow: /feedback/
 
 Sitemap: https://kilnframe.com/sitemap.xml
