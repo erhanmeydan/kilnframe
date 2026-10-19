@@ -20,7 +20,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # a release runs on its tag, which the github-pages environment does not accept: it starts this
+  # workflow again on main instead
+  release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   deploy:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
