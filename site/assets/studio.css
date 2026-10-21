@@ -860,18 +860,6 @@ figcaption {
   vertical-align: 2px;
 }
 
-/* the Product Hunt badge under the downloads */
-.ph-badge {
-  display: inline-block;
-  margin-top: 20px;
-  line-height: 0;
-}
-
-.ph-badge img {
-  width: 250px;
-  height: 54px;
-}
-
 /* benchmark */
 
 .bench-filter {
