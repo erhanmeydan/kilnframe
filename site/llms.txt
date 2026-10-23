@@ -22,7 +22,7 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 - API keys: Anthropic Claude, OpenAI, Google Gemini, xAI, MiniMax, Z.ai (GLM), OpenRouter, a custom endpoint.
 - Local models through LM Studio.
 - Only models that can see images are offered.
-- Benchmark of 15 models on the same clip: https://kilnframe.com/#benchmark
+- Benchmark of 16 models on the same clip: https://kilnframe.com/#benchmark
 
 ## Requirements
 
