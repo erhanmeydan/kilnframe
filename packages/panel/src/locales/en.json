@@ -529,6 +529,7 @@
   "captions.checkHelp": "Fix a word in its line; the timing stays. Lines the AI changed are marked.",
   "captions.notCorrected": "The text could not be corrected; Whisper's text is used.",
   "captions.partlyCorrected": "Some parts could not be corrected and keep the heard text.",
+  "captions.tooLarge": "This is too long to send to the Kilnframe app in one piece. Caption a shorter In/Out range.",
   "captions.changed": "Corrected",
   "captions.split": "Split",
   "captions.merge": "Join With Next",

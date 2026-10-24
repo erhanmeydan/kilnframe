@@ -3,6 +3,12 @@ import { z } from "zod";
 
 export const PROTOCOL_VERSION = 1;
 
+/**
+ * The largest message the companion takes. The socket is loopback only and token authenticated; a long
+ * sequence's caption state is well under this (packed lines), the margin keeps a slip from closing the socket.
+ */
+export const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+
 /** Parameters of one insert job, as the panel sends them. */
 export const RenderJobParamsSchema = z.object({
   kind: z.literal("render").optional(),
@@ -184,21 +190,24 @@ export const CAPTION_LOOK_IDS = [
 ] as const;
 const CaptionLookSchema = z.enum(CAPTION_LOOK_IDS);
 
-const CaptionWordSchema = z.object({
-  text: z.string(),
-  start: z.number().min(0),
-  end: z.number().min(0),
-});
-const CaptionLineSchema = z.object({
-  start: z.number().min(0),
-  end: z.number().min(0),
-  text: z.string(),
-  words: z.array(CaptionWordSchema),
-  changed: z.boolean(),
-});
-/** The caption lines with what the looks need to lay them out (core captions/compose.ts). */
+/** A caption line packed for the socket (core captions/pack.ts): words' texts and times in flat arrays. */
+const PackedLineSchema = z
+  .object({
+    s: z.number().min(0),
+    e: z.number().min(0),
+    w: z.array(z.string()),
+    d: z.array(z.number().int()).optional(),
+    m: z.array(z.number().min(0)).optional(),
+    t: z.string().optional(),
+    c: z.literal(true).optional(),
+  })
+  .refine((l) => (l.d ?? l.m)?.length === 2 * l.w.length, "two times for every word");
+/**
+ * The caption lines with what the looks need to lay them out (core captions/compose.ts CaptionDoc), the lines
+ * packed: a long sequence's doc stays small on the socket.
+ */
 export const CaptionDocSchema = z.object({
-  lines: z.array(CaptionLineSchema),
+  lines: z.array(PackedLineSchema),
   language: z.string(),
   glossary: z.array(z.string().max(100)).max(200),
   durationS: z.number().positive(),

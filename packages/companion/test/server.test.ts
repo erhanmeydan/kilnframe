@@ -403,6 +403,14 @@ describe("companion server", () => {
     c.send({ type: "captions.save", jobDir: "/j/cap", state: { look: "loud" }, ref: "b" });
     expect(await c.next((m) => m.type === "captions.saved")).toMatchObject({ ref: "b" });
     expect(saved).toEqual([["/j/cap", { look: "loud" }]]);
+    // more than the old 1 MiB limit: a long sequence's state still arrives
+    c.send({
+      type: "captions.save",
+      jobDir: "/j/big",
+      state: { text: "x".repeat(3 * 1024 * 1024) },
+      ref: "big",
+    });
+    expect(await c.next((m) => m.type === "captions.saved" && m.ref === "big")).toBeDefined();
     c.send({ type: "captions.load", jobDir: "/j/cap", ref: "c" });
     expect(await c.next((m) => m.type === "captions.loaded")).toMatchObject({
       state: { panel: { from: "/j/cap" } },
@@ -581,9 +589,9 @@ describe("companion server", () => {
     const c = await connect(companion.port);
     c.send({ type: "hello", token: TOKEN });
     await c.next((m) => m.type === "ready");
-    const word = { text: "Merhaba", start: 0, end: 0.5 };
+    // the lines packed, as the panel sends them (core captions/pack.ts)
     const doc = {
-      lines: [{ start: 0, end: 0.5, text: "Merhaba", words: [word], changed: false }],
+      lines: [{ s: 0, e: 0.5, w: ["Merhaba"], d: [0, 500] }],
       language: "tr",
       glossary: [],
       durationS: 2,
@@ -602,7 +610,7 @@ describe("companion server", () => {
         mode: "written",
       },
       { kind: "captions-render", doc, look: "loud", colors, outDir: "/tmp/c" },
-      { kind: "captions-preview", doc, looks: ["bant", "sakin"], atS: 0.2, outDir: "/tmp/c" },
+      { kind: "captions-preview", doc, looks: ["bant", "sakin"], atS: 0.2 },
       // the panel's "Play": a short clip, shown as frames or a small video over the footage
       {
         kind: "captions-render",
@@ -631,6 +639,19 @@ describe("companion server", () => {
     });
     // the error names the request it answers
     expect(await c.next((m) => m.type === "error")).toMatchObject({ ref: "bad-1" });
+    // a line whose times do not match its words is refused too
+    c.send({
+      type: "job.start",
+      params: {
+        kind: "captions-render",
+        doc: { ...doc, lines: [{ s: 0, e: 0.5, w: ["Merhaba", "dünya"], d: [0, 500] }] },
+        look: "loud",
+        colors,
+        outDir: "/tmp/c",
+      },
+      ref: "bad-2",
+    });
+    expect(await c.next((m) => m.type === "error" && m.ref === "bad-2")).toBeDefined();
     expect(c.messages.slice(before).some((m) => m.type === "job.done")).toBe(false);
   });
 

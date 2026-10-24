@@ -6,6 +6,7 @@ import { LISTEN_HOST, LISTEN_HOST_V6, isLoopbackAddress } from "./loopback.js";
 import type { KeyStore } from "./keys.js";
 import {
   ClientMessageSchema,
+  MAX_MESSAGE_BYTES,
   PROTOCOL_VERSION,
   type AppUpdateState,
   type ServerMessage,
@@ -154,7 +155,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
 
   o.appUpdates?.onState((update) => broadcast({ type: "app.update", update }));
 
-  const wss = new WebSocketServer({ host: LISTEN_HOST, port: o.port, maxPayload: 1 << 20 });
+  const wss = new WebSocketServer({
+    host: LISTEN_HOST,
+    port: o.port,
+    maxPayload: MAX_MESSAGE_BYTES,
+  });
 
   const onConnection = (ws: WebSocket, req: IncomingMessage) => {
     if (!isLoopbackAddress(req.socket.remoteAddress ?? "")) {
@@ -420,7 +425,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       const port = (wss.address() as AddressInfo).port;
       // the panel may only connect to ws://localhost, which Windows resolves to ::1 first and does not retry on
       // 127.0.0.1 (11 Oct 2026); so the IPv6 loopback answers on the same port too, where the computer has one
-      const wss6 = new WebSocketServer({ host: LISTEN_HOST_V6, port, maxPayload: 1 << 20 });
+      const wss6 = new WebSocketServer({
+        host: LISTEN_HOST_V6,
+        port,
+        maxPayload: MAX_MESSAGE_BYTES,
+      });
       wss6.on("connection", onConnection);
       const v6Ready = new Promise<void>((ready) => {
         wss6.once("listening", () => ready());

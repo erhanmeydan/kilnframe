@@ -20,6 +20,8 @@ import {
   captionsAct,
   captionsBox,
   captionsColorInput,
+  captionsLineInput,
+  captionsReconnected,
   captionsReadFields,
   captionsSwitch,
   captionsWriteFields,
@@ -2323,6 +2325,7 @@ async function connectOnce() {
     );
     trace("connect: ready");
     state.conn = "ok";
+    captionsReconnected(state.captions);
     const theirs = session.ready?.protocol ?? PROTOCOL_VERSION;
     state.mismatch = theirs < PROTOCOL_VERSION ? "app" : theirs > PROTOCOL_VERSION ? "panel" : null;
     state.appVersion = session.ready?.version || null;
@@ -3354,6 +3357,9 @@ root.addEventListener("input", (event) => {
   const id = (event.target as HTMLElement | null)?.id ?? "";
   if (id.startsWith("cap-color-"))
     captionsColorInput(state.captions, captionsCtx, () => readColorFields());
+  // a typed line is kept in the job folder once the typing pauses
+  else if (id.startsWith("cap-line-"))
+    captionsLineInput(state.captions, captionsCtx, () => captionsReadFields(state.captions));
 });
 root.addEventListener("pointermove", (event) => {
   if (!focusedField || Date.now() - lastTyped < 500) return;

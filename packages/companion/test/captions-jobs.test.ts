@@ -7,6 +7,7 @@ import {
   correctCaptionWords,
   createTextProvider,
   ffmpegPath,
+  packLines,
   previewCaptionStill,
   renderCaptions,
   transcribe,
@@ -57,16 +58,18 @@ afterEach(() => {
   vi.mocked(renderCaptions).mockReset();
 });
 
+const tinyLines = [
+  {
+    start: 0,
+    end: 0.4,
+    text: "Merhaba",
+    words: [{ text: "Merhaba", start: 0, end: 0.4 }],
+    changed: false,
+  },
+];
+// lines travel packed (core captions/pack.ts)
 const tinyDoc = {
-  lines: [
-    {
-      start: 0,
-      end: 0.4,
-      text: "Merhaba",
-      words: [{ text: "Merhaba", start: 0, end: 0.4 }],
-      changed: false,
-    },
-  ],
+  lines: packLines(tinyLines),
   language: "tr",
   glossary: [],
   durationS: 1,
@@ -145,6 +148,7 @@ describe("caption jobs", () => {
 
   it("gives null for one look that cannot be drawn and the others' stills all the same", async () => {
     vi.mocked(previewCaptionStill).mockImplementation(async (o) => {
+      expect(o.doc.lines).toEqual(tinyLines);
       if (o.look === "hap") throw new Error("the look could not be drawn");
       return drawPng(o.out);
     });
@@ -234,6 +238,8 @@ describe("caption jobs", () => {
     expect(vi.mocked(renderCaptions).mock.calls[0]![0]).toMatchObject({
       outDir: "/j",
       srtOffsetS: 75.5,
+      // unpacked for the core
+      doc: { lines: tinyLines, durationS: 1 },
     });
   });
 
@@ -259,7 +265,7 @@ describe("caption jobs", () => {
       const word = (text: string, start: number) => ({ text, start, end: start + 0.4 });
       const words = [word("Merhaba", 0), word("dünya", 0.4)];
       const doc = {
-        lines: [{ start: 0, end: 0.8, text: "Merhaba dünya", words, changed: false }],
+        lines: packLines([{ start: 0, end: 0.8, text: "Merhaba dünya", words, changed: false }]),
         language: "tr",
         glossary: [],
         durationS: 2,
@@ -291,7 +297,7 @@ describe("caption jobs", () => {
       const word = (text: string, start: number) => ({ text, start, end: start + 0.4 });
       const words = [word("Merhaba", 0.2), word("dünya", 0.6)];
       const doc = {
-        lines: [{ start: 0.2, end: 1.0, text: "Merhaba dünya", words, changed: false }],
+        lines: packLines([{ start: 0.2, end: 1.0, text: "Merhaba dünya", words, changed: false }]),
         language: "tr",
         glossary: [],
         durationS: 2.5,

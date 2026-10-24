@@ -24,6 +24,9 @@ export async function readConnection(): Promise<ConnectionInfo> {
  */
 export const PROTOCOL_VERSION = 1;
 
+/** The largest message the companion takes (packages/companion/src/protocol.ts MAX_MESSAGE_BYTES). */
+export const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+
 export interface CompanionClient {
   socket: WebSocket;
   /** The companion's protocol and version, from its "ready". */

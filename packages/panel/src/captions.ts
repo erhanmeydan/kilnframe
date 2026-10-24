@@ -5,6 +5,7 @@
 // The looks are shown on the editor's own footage: one still per look over a frame of the sequence
 // (captions-preview), and "Play" renders a short window of a line small and shows it over the footage.
 import { mergeLines, retimeLine, splitLineAt, splitLines } from "../../core/src/captions/lines";
+import { msTimes, packLines, unpackLines, type PackedLine } from "../../core/src/captions/pack";
 import { CAPTION_LOOKS, captionGrid, type CaptionLook } from "../../core/src/captions/styles";
 import type {
   CaptionColors,
@@ -12,6 +13,7 @@ import type {
   CaptionStyleId,
   CaptionWord,
 } from "../../core/src/captions/types";
+import { MAX_MESSAGE_BYTES } from "./companion";
 import type { ServerMessage } from "./companion-session";
 import { PORTRAIT_CENTRE, safeArea } from "../../core/src/safe-area";
 import { shapeOf } from "./format-check";
@@ -587,6 +589,22 @@ export function captionsBox(st: CaptionsState, ctx: CaptionsCtx): string {
 
 // ---------- jobs ----------
 
+/** Some room for what the session adds to a message (its ref). */
+const MESSAGE_MARGIN = 1024;
+
+/**
+ * Whether a message fits what the companion takes. One that does not is not sent (the companion would close
+ * the connection): the tab says so in one line instead.
+ */
+function fits(st: CaptionsState, ctx: CaptionsCtx, message: unknown): boolean {
+  const bytes = new TextEncoder().encode(JSON.stringify(message)).length;
+  if (bytes <= MAX_MESSAGE_BYTES - MESSAGE_MARGIN) return true;
+  st.error = t("captions.tooLarge");
+  ctx.trace(`captions: a message of ${bytes} bytes was not sent`);
+  ctx.render();
+  return false;
+}
+
 /** Starts a companion job and follows it; `onDone` gets its result, `onFail` its message. */
 async function captionsJob(
   st: CaptionsState,
@@ -597,6 +615,11 @@ async function captionsJob(
   onFail?: (message: string) => boolean,
 ): Promise<void> {
   st.jobId = null;
+  const message = { type: "job.start", ref: String(Date.now()), params };
+  if (!fits(st, ctx, message)) {
+    st.stage = back;
+    return ctx.render();
+  }
   const off = ctx.on((m) => {
     if (m.jobId !== st.jobId || st.jobId === null) return;
     if (m.type === "job.progress") {
@@ -619,10 +642,7 @@ async function captionsJob(
     }
   });
   try {
-    const accepted = await ctx.request(
-      { type: "job.start", ref: String(Date.now()), params },
-      "job.accepted",
-    );
+    const accepted = await ctx.request(message, "job.accepted");
     st.jobId = String(accepted.jobId);
   } catch (err) {
     off();
@@ -812,7 +832,7 @@ async function renderCaptions(st: CaptionsState, ctx: CaptionsCtx): Promise<void
     {
       kind: "captions-render",
       doc: {
-        lines,
+        lines: packLines(lines),
         language: st.language ?? "",
         glossary: st.settings.glossary,
         durationS: st.durationS,
@@ -952,8 +972,10 @@ interface SavedCaptions {
   durationS: number;
   format: CaptionsState["format"];
   language: string | null;
-  lines: CaptionLine[];
-  drafts: string[];
+  /** Packed, times in whole milliseconds; the words themselves stay in the text job's part of the file. */
+  lines: PackedLine[];
+  /** Only the fields whose text differs from their line, by line. */
+  drafts: Record<number, string>;
   edited: boolean;
   correctionError: string | null;
   partlyCorrected: boolean;
@@ -968,27 +990,37 @@ interface SavedCaptions {
 function persist(st: CaptionsState, ctx: CaptionsCtx): void {
   if (!st.jobDir || !st.seqId || !st.lines.length) return;
   ctx.store(jobKey(st.seqId), st.jobDir);
+  const drafts: Record<number, string> = {};
+  st.drafts.forEach((d, i) => {
+    if (d !== st.lines[i]?.text) drafts[i] = d;
+  });
   const state: SavedCaptions = {
     seqId: st.seqId,
     seqName: st.seqName,
     projectPath: st.projectPath,
     scope: st.scope,
-    rangeStartS: st.rangeStartS,
-    durationS: st.durationS,
+    rangeStartS: ms(st.rangeStartS),
+    durationS: ms(st.durationS),
     format: st.format,
     language: st.language,
-    lines: st.lines,
-    drafts: st.drafts,
+    lines: packLines(msTimes(st.lines)),
+    drafts,
     edited: st.edited,
     correctionError: st.correctionError,
     partlyCorrected: st.partlyCorrected,
     settings: st.settings,
-    placed: st.placed,
+    placed: st.placed
+      ? { ...st.placed, atS: ms(st.placed.atS), durationS: ms(st.placed.durationS) }
+      : null,
   };
+  const message = { type: "captions.save", jobDir: st.jobDir, state };
+  if (!fits(st, ctx, message)) return;
   ctx
-    .request({ type: "captions.save", jobDir: st.jobDir, state }, "captions.saved")
+    .request(message, "captions.saved")
     .catch((err: unknown) => ctx.trace(`captions: save failed ${String(err)}`));
 }
+
+const ms = (s: number) => Math.round(s * 1000) / 1000;
 
 /** Step 1 shows for a sequence with no text: its last job folder is read once, and its text comes back. */
 function wantRestore(st: CaptionsState, ctx: CaptionsCtx): void {
@@ -1017,11 +1049,14 @@ function restore(st: CaptionsState, jobDir: string, kept: unknown): boolean {
   };
   const p = file.panel;
   if (!p || p.seqId !== st.seqId || !Array.isArray(p.lines) || !p.lines.length) return false;
-  const lines = p.lines;
-  const drafts =
-    Array.isArray(p.drafts) && p.drafts.length === lines.length
-      ? p.drafts.map(String)
-      : lines.map((l) => l.text);
+  let lines: CaptionLine[];
+  try {
+    lines = unpackLines(p.lines);
+  } catch {
+    return false;
+  }
+  const typed = p.drafts && typeof p.drafts === "object" ? p.drafts : {};
+  const drafts = lines.map((l, i) => (typeof typed[i] === "string" ? typed[i] : l.text));
   const settings = p.settings ? readSettings(JSON.stringify(p.settings)) : st.settings;
   Object.assign(st, {
     jobDir,
@@ -1145,6 +1180,8 @@ function previewJob(
   params: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   if (busy(st) || q.stopped) return Promise.reject(new PreviewStopped());
+  if (!fits(st, ctx, { type: "job.start", params }))
+    return Promise.reject(new Error("the preview is too large to send"));
   return new Promise((resolve, reject) => {
     let id: string | null = null;
     const early: ServerMessage[] = [];
@@ -1285,7 +1322,7 @@ function sampleDoc(st: CaptionsState, target: HostSequence) {
   const { line, language } = sampleLine(st);
   return {
     doc: {
-      lines: [line],
+      lines: packLines([line]),
       language,
       glossary: st.settings.glossary,
       durationS: line.end + 0.5,
@@ -1420,6 +1457,34 @@ export function captionsColorInput(
   );
 }
 
+const lineTimers = new WeakMap<CaptionsState, ReturnType<typeof setTimeout>>();
+
+/**
+ * The editor is typing in a line: 800 ms after the last change the fields are read (`read`) and the text is
+ * kept in the job folder, so a reload does not lose what was typed since the last click.
+ */
+export function captionsLineInput(st: CaptionsState, ctx: CaptionsCtx, read: () => void): void {
+  clearTimeout(lineTimers.get(st));
+  lineTimers.set(
+    st,
+    setTimeout(() => {
+      lineTimers.delete(st);
+      read();
+      persist(st, ctx);
+    }, 800),
+  );
+}
+
+/**
+ * The connection to the app came back: the app may have started anew and emptied its preview folder, so the
+ * folder is asked for again and the tiles' frame is taken anew.
+ */
+export function captionsReconnected(st: CaptionsState): void {
+  st.previewDir = null;
+  st.tilesFrame = null;
+  st.tilesKey = null;
+}
+
 /** The colours in the colour fields, for `captionsColorInput`; the fields then count as taken. */
 export function readColorFields(): CaptionColors | null {
   const fields: ColorFields = {};
@@ -1530,10 +1595,12 @@ function playLine(st: CaptionsState, ctx: CaptionsCtx, i: number): void {
       const result = await previewJob(st, ctx, q, {
         kind: "captions-render",
         doc: {
-          lines: windowLines(
-            lines.filter((l): l is CaptionLine => l !== null),
-            fromS,
-            toS,
+          lines: packLines(
+            windowLines(
+              lines.filter((l): l is CaptionLine => l !== null),
+              fromS,
+              toS,
+            ),
           ),
           language: st.language ?? "",
           glossary: st.settings.glossary,

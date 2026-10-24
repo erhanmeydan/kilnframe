@@ -3,6 +3,8 @@ import {
   captionsAct,
   captionsBox,
   captionsColorInput,
+  captionsLineInput,
+  captionsReconnected,
   captionsSwitch,
   caretWord,
   stillWindow,
@@ -15,6 +17,10 @@ import { setLang, t } from "../src/i18n";
 import en from "../src/locales/en.json";
 import tr from "../src/locales/tr.json";
 import { watchesSequence } from "../src/music";
+import { MAX_MESSAGE_BYTES } from "../src/companion";
+import { MAX_MESSAGE_BYTES as COMPANION_MAX } from "../../companion/src/protocol";
+import { msTimes, unpackLines, type PackedLine } from "../../core/src/captions/pack";
+import { longWords } from "../../core/test/long-talk";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 /** Lets the preview chain (sequence, folder, frame, job) run its awaits. */
@@ -57,6 +63,8 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
   /** captions.json per job folder, as the companion keeps it. */
   const disk: Record<string, Record<string, unknown>> = {};
   const prepared: string[] = [];
+  /** Every request as it would go over the socket. */
+  const requests: Record<string, unknown>[] = [];
   const listeners = new Set<Listener>();
   const frames: number[] = [];
   const frameCalls: {
@@ -84,6 +92,7 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     readSequence: async () => seq,
     request: async (m) => {
       const msg = m as Record<string, unknown>;
+      requests.push(msg);
       if (msg.type === "job.prepare") {
         prepared.push(String(msg.sequenceName));
         return { type: "job.prepared", jobDir: "/j/cap" };
@@ -98,7 +107,13 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
       if (msg.type === "captions.load")
         return { type: "captions.loaded", state: disk[String(msg.jobDir)] ?? null };
       if (msg.type === "job.start") {
-        sent.push(msg.params as Record<string, unknown>);
+        // the doc's lines travel packed; the tests read them as lines
+        const params = msg.params as Record<string, unknown> & { doc?: { lines: PackedLine[] } };
+        sent.push(
+          params.doc
+            ? { ...params, doc: { ...params.doc, lines: unpackLines(params.doc.lines) } }
+            : params,
+        );
         return { type: "job.accepted", jobId: `job-${++jobs}` };
       }
       return { type: "ok" };
@@ -164,6 +179,7 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     store,
     disk,
     prepared,
+    requests,
     frames,
     frameCalls,
     hidden,
@@ -812,6 +828,107 @@ describe("captions tab", () => {
     expect(t("captions.partlyCorrected")).not.toMatch(/[—–]/);
   });
 
+  describe("long sequences", () => {
+    const bytes = (m: unknown) => new TextEncoder().encode(JSON.stringify(m)).length;
+
+    it("sends a 90-minute talk's lines packed, well under a megabyte, and brings them back the same", async () => {
+      const f = fakeCtx({ caret: () => 8 });
+      const talk = longWords(90);
+      const st = await toReview(f, { ...textResult, words: talk, durationS: 5400 });
+      await flush();
+      captionsAct(st, f.ctx, "captions-split", "0");
+      st.drafts[5] = "Bambaşka bir cümle";
+      captionsAct(st, f.ctx, "captions-merge", "7");
+      await flush();
+      const saves = f.requests.filter((m) => m.type === "captions.save");
+      const save = saves[saves.length - 1]!;
+      captionsAct(st, f.ctx, "captions-render", "");
+      await flush();
+      const render = f.requests.find(
+        (m) => m.type === "job.start" && (m.params as { kind: string }).kind === "captions-render",
+      )!;
+      // what the same state and doc weighed with one object per word
+      const before = bytes({ lines: st.lines, drafts: st.drafts, words: st.words });
+      console.log(
+        `90 min, ${talk.length} words: save ${bytes(save)} B, render ${bytes(render)} B, unpacked state ${before} B`,
+      );
+      expect(bytes(save)).toBeLessThan(600 * 1024);
+      expect(bytes(render)).toBeLessThan(600 * 1024);
+      // the words stay where the text job wrote them; the save does not carry them again
+      expect(JSON.stringify(save)).not.toContain('"words"');
+      f.disk["/j/cap"]!.words = talk;
+      const back = newCaptions();
+      captionsSwitch(back, undefined, "seq-1", f.ctx.stored);
+      captionsBox(back, f.ctx);
+      await flush();
+      expect(back.lines).toEqual(msTimes(st.lines));
+      expect(back.drafts).toEqual(st.drafts);
+      expect(back.words).toEqual(talk);
+    });
+
+    it("says so instead of sending a message the app would refuse", async () => {
+      expect(MAX_MESSAGE_BYTES).toBe(COMPANION_MAX);
+      const f = fakeCtx();
+      const st = await toReview(f);
+      await flush();
+      const sent = f.requests.length;
+      const huge = "a".repeat(MAX_MESSAGE_BYTES);
+      st.lines[0] = { ...st.lines[0]!, text: huge, words: [{ text: huge, start: 0.2, end: 1.6 }] };
+      st.drafts[0] = huge;
+      captionsAct(st, f.ctx, "captions-render", "");
+      await flush();
+      expect(f.requests.slice(sent).filter((m) => m.type !== "job.prepare")).toEqual([]);
+      expect(f.sent.some((p) => p.kind === "captions-render")).toBe(false);
+      expect(st.error).toBe(t("captions.tooLarge"));
+      expect(st.stage).toBe("review");
+      setLang("tr");
+      expect(t("captions.tooLarge")).not.toMatch(/[—–]/);
+      expect(t("captions.tooLarge")).not.toBe("captions.tooLarge");
+    });
+
+    it("keeps typed line edits 800 ms after the typing pauses", async () => {
+      const f = fakeCtx();
+      const st = await toReview(f);
+      await flush();
+      vi.useFakeTimers();
+      try {
+        const saves = () => f.requests.filter((m) => m.type === "captions.save").length;
+        const before = saves();
+        captionsLineInput(st, f.ctx, () => {
+          st.drafts[1] = "Hadi başla";
+        });
+        await vi.advanceTimersByTimeAsync(500);
+        captionsLineInput(st, f.ctx, () => {
+          st.drafts[1] = "Hadi başlayalım!";
+        });
+        await vi.advanceTimersByTimeAsync(799);
+        expect(saves()).toBe(before);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(saves()).toBe(before + 1);
+        expect((f.disk["/j/cap"]!.panel as { drafts: unknown }).drafts).toEqual({
+          1: "Hadi başlayalım!",
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("asks for the preview folder again after the app reconnects (it empties it when it starts)", async () => {
+      const f = fakeCtx();
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      await flush();
+      f.finish({ kind: "captions-preview", images: {} });
+      await flush();
+      const asked = () => f.requests.filter((m) => m.type === "captions.previews").length;
+      expect(asked()).toBe(1);
+      captionsReconnected(st);
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(asked()).toBe(2);
+    });
+  });
+
   describe("the job folder", () => {
     it("makes a job folder only when the captions are prepared, never for the previews", async () => {
       const f = fakeCtx();
@@ -833,18 +950,22 @@ describe("captions tab", () => {
       await flush();
       expect(f.store["captions-job:seq-1"]).toBe("/j/cap");
       const saved = () => f.disk["/j/cap"]!.panel as Record<string, unknown>;
+      const savedLines = () => unpackLines(saved().lines as PackedLine[]);
       expect(saved()).toMatchObject({
         seqId: "seq-1",
         rangeStartS: 0,
         durationS: 60,
         language: "tr",
-        lines: [{ text: "Bugün Topview'i deneyeceğiz." }, { text: "Hadi başlayalım." }],
         placed: null,
       });
+      expect(savedLines().map((l) => l.text)).toEqual([
+        "Bugün Topview'i deneyeceğiz.",
+        "Hadi başlayalım.",
+      ]);
       captionsAct(st, f.ctx, "captions-split", "0");
       captionsAct(st, f.ctx, "captions-look", "loud");
       await flush();
-      expect((saved().lines as { text: string }[]).map((l) => l.text)).toEqual([
+      expect(savedLines().map((l) => l.text)).toEqual([
         "Bugün",
         "Topview'i deneyeceğiz.",
         "Hadi başlayalım.",

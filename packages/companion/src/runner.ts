@@ -1,6 +1,7 @@
 import {
   CAPTION_LOOKS,
   type CaptionColors,
+  type CaptionDoc,
   correctCaptionWords,
   previewCaptionStill,
   renderCaptions,
@@ -16,6 +17,7 @@ import {
   rewriteSectionPrompt,
   NoSpeechError,
   splitLong,
+  unpackLines,
   transcribe,
   writeMusicPlan,
   type Transcript,
@@ -464,6 +466,11 @@ async function captionsTextJob(
   return result;
 }
 
+/** The doc as the core takes it: the lines unpacked. */
+function docOf(doc: CaptionsRenderJobParams["doc"]): CaptionDoc {
+  return { ...doc, lines: unpackLines(doc.lines) };
+}
+
 /** The colours as the core takes them: no `box` key at all when the look has none. */
 function captionColors(c: {
   text: string;
@@ -491,9 +498,10 @@ async function captionsRenderJob(
 ) {
   const preview = params.preview;
   const outDir = preview ? captionPreviewRun() : params.outDir;
+  const doc = docOf(params.doc);
   try {
     const r = await renderCaptions({
-      doc: params.doc,
+      doc,
       look: params.look,
       colors: captionColors(params.colors),
       outDir,
@@ -503,7 +511,7 @@ async function captionsRenderJob(
     if (!preview) return { kind: "captions-render", video: r.video, srt: r.srt };
     stopIfCancelled(signal);
     const frame = preview.frame ?? null;
-    const frames = captionFrames(r.video, frame, params.doc.durationS, preview.stills, outDir);
+    const frames = captionFrames(r.video, frame, doc.durationS, preview.stills, outDir);
     stopIfCancelled(signal);
     return {
       kind: "captions-render",
@@ -522,6 +530,7 @@ async function captionsRenderJob(
  */
 async function captionsPreviewJob(params: CaptionsPreviewJobParams, signal: AbortSignal) {
   const run = captionPreviewRun();
+  const doc = docOf(params.doc);
   try {
     const images: Record<string, string | null> = {};
     let firstError: unknown = null;
@@ -529,7 +538,7 @@ async function captionsPreviewJob(params: CaptionsPreviewJobParams, signal: Abor
       stopIfCancelled(signal);
       try {
         const png = await previewCaptionStill({
-          doc: params.doc,
+          doc,
           look,
           colors: captionColors(params.colors ?? CAPTION_LOOKS[look].colors),
           atS: params.atS,
