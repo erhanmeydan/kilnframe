@@ -17,6 +17,12 @@ describe("upperCase", () => {
     expect(upperCase("aileler", "tr", ["AI"])).toBe("AİLELER");
     expect(upperCase("AI'ın", "tr", ["AI"])).toBe("AI'IN");
   });
+  it("matches kept names regardless of dotted or dotless i in the text", () => {
+    expect(upperCase("ai'ın", "tr", ["AI"])).toBe("AI'IN");
+    expect(upperCase("Ai", "tr", ["AI"])).toBe("AI");
+    expect(upperCase("iphone", "tr", ["iPhone"])).toBe("IPHONE");
+    expect(upperCase("istanbul", "tr", ["İstanbul"])).toBe("İSTANBUL");
+  });
   it("folds case with the Turkish locale so a leading İ keeps its length", () => {
     expect(upperCase("İstanbul'un", "tr", ["İstanbul"])).toBe("İSTANBUL'UN");
   });
