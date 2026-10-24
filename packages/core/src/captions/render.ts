@@ -40,6 +40,8 @@ export interface RenderCaptionsOptions {
   look: CaptionStyleId;
   colors: CaptionColors;
   outDir: string;
+  /** Where the doc starts in the sequence: the SRT counts from the sequence's start (0 unless given). */
+  srtOffsetS?: number;
   /** Length of the pieces a long doc renders in (CAPTION_SEGMENT_S unless given). */
   segmentS?: number;
   onProgress?: (message: string) => void;
@@ -134,7 +136,7 @@ export async function renderCaptions(
     rmSync(join(projectDir, "pieces.txt"), { force: true });
   }
   const srt = join(outDir, `captions-${n}.srt`);
-  writeFileSync(srt, `${toSrt(captionLines(o.doc.lines))}\n`);
+  writeFileSync(srt, `${toSrt(captionLines(o.doc.lines), o.srtOffsetS ?? 0)}\n`);
   return { video, srt };
 }
 

@@ -88,4 +88,8 @@ describe("toSrt", () => {
       "1\n00:00:00,220 --> 00:00:02,400\nMerhaba\n\n2\n00:00:02,500 --> 01:01:01,007\ndünya",
     );
   });
+  it("counts from the sequence start when the doc starts later (an In/Out range)", () => {
+    const line = { start: 0.2, end: 1.4, text: "Merhaba", words: [], changed: false };
+    expect(toSrt([line], 75.5)).toBe("1\n00:01:15,700 --> 00:01:16,900\nMerhaba");
+  });
 });

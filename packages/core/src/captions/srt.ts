@@ -10,8 +10,12 @@ function stamp(seconds: number): string {
   return `${two(h)}:${two(m)}:${two(s)},${String(ms).padStart(3, "0")}`;
 }
 
-export function toSrt(lines: CaptionLine[]): string {
+/** SubRip cues of the lines; `offsetS` is where the lines' zero lies in the sequence (an In/Out range's start). */
+export function toSrt(lines: CaptionLine[], offsetS = 0): string {
   return lines
-    .map((line, i) => `${i + 1}\n${stamp(line.start)} --> ${stamp(line.end)}\n${line.text}`)
+    .map(
+      (line, i) =>
+        `${i + 1}\n${stamp(offsetS + line.start)} --> ${stamp(offsetS + line.end)}\n${line.text}`,
+    )
     .join("\n\n");
 }

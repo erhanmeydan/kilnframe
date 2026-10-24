@@ -178,6 +178,15 @@ describe.skipIf(!RENDER)("caption render", () => {
     expect(after.size).toBe(before.size);
     // the full-length intermediate render is not kept
     expect(existsSync(join(out, "captions-project", "renders"))).toBe(false);
+    // an In/Out range: the SRT is in the sequence's time
+    const third = await renderCaptions({
+      doc: d,
+      look: "bant",
+      colors: CAPTION_LOOKS.bant.colors,
+      outDir: out,
+      srtOffsetS: 10,
+    });
+    expect(readFileSync(third.srt, "utf8")).toMatch(/^1\n00:00:10,200 --> 00:00:11,400\n/);
   }, 600_000);
 
   it("renders a long doc in segments joined into one clip and removes the pieces", async () => {
