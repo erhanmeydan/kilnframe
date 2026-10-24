@@ -70,6 +70,12 @@ export interface CompanionOptions {
   appUpdates?: AppUpdates | undefined;
   /** Whether a job is running or waiting, for the app: it holds off quitting while the companion is busy. */
   onBusy?: (busy: boolean) => void;
+  /** The folder for the Captions tab's preview frames (under the app's own folder). */
+  captionPreviews?: () => Promise<string>;
+  /** Keeps the Captions tab's state in a caption job folder. */
+  saveCaptions?: (jobDir: string, state: Record<string, unknown>) => Promise<void>;
+  /** What a caption job folder keeps, or null. */
+  loadCaptions?: (jobDir: string) => Promise<unknown>;
   /** Creates a job folder next to the Premiere project and returns its path. */
   prepareJob?: (
     projectPath: string | undefined,
@@ -250,6 +256,31 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             send({
               type: "job.prepared",
               jobDir: await o.prepareJob(msg.projectPath, msg.sequenceName, msg.jobRoot),
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "captions.previews":
+            if (!o.captionPreviews) throw new Error("captions are not supported");
+            send({
+              type: "captions.previews",
+              dir: await o.captionPreviews(),
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "captions.save":
+            if (!o.saveCaptions) throw new Error("captions are not supported");
+            await o.saveCaptions(msg.jobDir, msg.state);
+            send({
+              type: "captions.saved",
+              jobDir: msg.jobDir,
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "captions.load":
+            send({
+              type: "captions.loaded",
+              jobDir: msg.jobDir,
+              state: o.loadCaptions ? await o.loadCaptions(msg.jobDir) : null,
               ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;

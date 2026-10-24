@@ -36,7 +36,11 @@ import { type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands
 import { OsKeyStore } from "./keys.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
 import {
+  captionPreviewFrames,
+  clearCaptionPreviews,
   deleteUserStyle,
+  loadCaptionsState,
+  saveCaptionsState,
   findPreviewPreset,
   findWavPreset,
   inspectImages,
@@ -70,6 +74,8 @@ const hardware = keepWhen(
 async function main() {
   // data kept under the old name (motion-insert, until 9 Oct 2026) moves over before anything reads it
   for (const moved of moveLegacyFolders()) process.stderr.write(`moved old data to ${moved}\n`);
+  // caption previews a stopped job or a quit left behind
+  clearCaptionPreviews();
   const token = randomBytes(32).toString("hex");
   const keys = new OsKeyStore();
   const defaults = loadDefaults();
@@ -114,6 +120,9 @@ async function main() {
       ),
     prepareJob: async (projectPath, sequenceName, jobRoot) =>
       prepareJobDir(projectPath, sequenceName, new Date(), { jobRoot }),
+    captionPreviews: async () => captionPreviewFrames(),
+    saveCaptions: async (jobDir, state) => saveCaptionsState(jobDir, state),
+    loadCaptions: async (jobDir) => loadCaptionsState(jobDir),
     deleteStyle: async (name) => deleteUserStyle(name),
     listVoices: async () => {
       const defaults = loadDefaults();

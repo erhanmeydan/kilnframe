@@ -378,6 +378,38 @@ describe("companion server", () => {
     expect(await c.next((m) => m.type === "job.accepted")).toMatchObject({ ref: "r1" });
   });
 
+  it("hands the Captions tab its preview folder and keeps its state in the job folder", async () => {
+    const saved: [string, unknown][] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      version: "test",
+      port: 0,
+      captionPreviews: async () => "/home/.kilnframe/previews/captions/frames",
+      saveCaptions: async (jobDir, state) => {
+        saved.push([jobDir, state]);
+      },
+      loadCaptions: async (jobDir) => ({ panel: { from: jobDir } }),
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "captions.previews", ref: "a" });
+    expect(await c.next((m) => m.type === "captions.previews")).toMatchObject({
+      dir: "/home/.kilnframe/previews/captions/frames",
+      ref: "a",
+    });
+    c.send({ type: "captions.save", jobDir: "/j/cap", state: { look: "loud" }, ref: "b" });
+    expect(await c.next((m) => m.type === "captions.saved")).toMatchObject({ ref: "b" });
+    expect(saved).toEqual([["/j/cap", { look: "loud" }]]);
+    c.send({ type: "captions.load", jobDir: "/j/cap", ref: "c" });
+    expect(await c.next((m) => m.type === "captions.loaded")).toMatchObject({
+      state: { panel: { from: "/j/cap" } },
+      ref: "c",
+    });
+  });
+
   it("validates job parameters", async () => {
     companion = await startCompanion({
       token: TOKEN,

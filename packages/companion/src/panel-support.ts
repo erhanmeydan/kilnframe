@@ -1,5 +1,14 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve as resolvePath, sep } from "node:path";
 import {
@@ -464,4 +473,72 @@ export function withoutLongPathPrefix(path: string): string {
   if (path.startsWith("\\\\?\\UNC\\")) return `\\\\${path.slice(8)}`;
   if (path.startsWith("\\\\?\\") || path.startsWith("//?/")) return path.slice(4);
   return path;
+}
+
+/**
+ * The Captions tab's previews live under the app's own folder, never in the editor's project: `frames/` holds
+ * the footage frames the panel exports for them (a fixed name per use, overwritten), `runs/` one folder per
+ * preview job. A stopped preview's worker is killed before it can clean up, so `runs/` is emptied when the
+ * next preview starts and the whole folder when the app starts.
+ */
+export function captionPreviewRoot(): string {
+  return join(process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"), "previews", "captions");
+}
+
+/** The folder the panel exports the previews' footage frames into. */
+export function captionPreviewFrames(): string {
+  const dir = join(captionPreviewRoot(), "frames");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** A new, empty folder for one preview job; whatever earlier (stopped) previews left is removed first. */
+export function captionPreviewRun(): string {
+  const runs = join(captionPreviewRoot(), "runs");
+  rmSync(runs, { recursive: true, force: true });
+  const dir = join(runs, randomUUID().slice(0, 8));
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** Removes every caption preview file; the app calls it when it starts. */
+export function clearCaptionPreviews(): void {
+  rmSync(captionPreviewRoot(), { recursive: true, force: true });
+}
+
+/** The caption job folder's own file: the text job's words, and the tab's lines and choices under `panel`. */
+const CAPTIONS_FILE = "captions.json";
+
+/**
+ * Keeps the Captions tab's state (lines with the editor's edits, look, colours, range, the placed clip) in its
+ * job folder, beside what the text job wrote there, so the tab can come back to the text later.
+ */
+export function saveCaptionsState(jobDir: string, state: unknown): void {
+  const dir = resolvePath(jobDir);
+  if (!existsSync(dir) || !statSync(dir).isDirectory())
+    throw new Error(`There is no caption job folder at ${jobDir}`);
+  const file = join(dir, CAPTIONS_FILE);
+  let kept: Record<string, unknown> = {};
+  try {
+    const read = JSON.parse(readFileSync(file, "utf8")) as unknown;
+    if (read && typeof read === "object" && !Array.isArray(read))
+      kept = read as Record<string, unknown>;
+  } catch {
+    // no file yet, or one that cannot be read: written anew
+  }
+  writeFileSync(file, JSON.stringify({ ...kept, panel: state }, null, 2));
+}
+
+/** What a caption job folder keeps (see saveCaptionsState), or null when it has nothing readable. */
+export function loadCaptionsState(jobDir: string): Record<string, unknown> | null {
+  try {
+    const read = JSON.parse(
+      readFileSync(join(resolvePath(jobDir), CAPTIONS_FILE), "utf8"),
+    ) as unknown;
+    return read && typeof read === "object" && !Array.isArray(read)
+      ? (read as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
 }

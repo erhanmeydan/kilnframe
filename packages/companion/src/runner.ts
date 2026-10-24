@@ -40,11 +40,10 @@ import {
   type Plan,
   type RenderPlanResult,
 } from "@kilnframe/core";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { captionClip, captionFrames, stillImages } from "./panel-support.js";
+import { captionClip, captionFrames, captionPreviewRun, stillImages } from "./panel-support.js";
 import type { KeyStore } from "./keys.js";
 import type {
   CaptionsPreviewJobParams,
@@ -406,6 +405,7 @@ async function musicMakeJob(
 /**
  * The Captions tab's first step: Whisper's words for the range, then the text model's corrections.
  * A correction that cannot run (no key, a bad reply) is not a failure: the Whisper words go back as they are.
+ * `correctionError` says when the correction failed, or when only some of its parts could be corrected.
  */
 async function captionsTextJob(
   params: CaptionsTextJobParams,
@@ -443,6 +443,8 @@ async function captionsTextJob(
     if (result.corrected) {
       words = result.words;
       corrected = true;
+      // some parts kept Whisper's text: said all the same
+      if (result.error) correctionError = result.error;
     } else correctionError = result.error ?? "The text was not corrected.";
   } catch (err) {
     correctionError = err instanceof Error ? err.message : String(err);
@@ -478,8 +480,9 @@ function stopIfCancelled(signal: AbortSignal): void {
 
 /**
  * Renders the approved caption lines as a transparent clip and an SRT in the job folder. With `preview` (the
- * panel's "Play") it renders into a folder of its own, returns the clip only as frames over the footage
- * frame (and a small H.264 clip) and deletes that folder: nothing of a preview stays on disk.
+ * panel's "Play") it renders into a preview run folder under the app's own folder instead, returns the clip
+ * only as frames over the footage frame (and a small H.264 clip) and deletes that folder: nothing of a
+ * preview stays on disk, and nothing of it ever lands in the job folder.
  */
 async function captionsRenderJob(
   params: CaptionsRenderJobParams,
@@ -487,13 +490,14 @@ async function captionsRenderJob(
   signal: AbortSignal,
 ) {
   const preview = params.preview;
-  const outDir = preview ? join(params.outDir, randomUUID().slice(0, 8)) : params.outDir;
+  const outDir = preview ? captionPreviewRun() : params.outDir;
   try {
     const r = await renderCaptions({
       doc: params.doc,
       look: params.look,
       colors: captionColors(params.colors),
       outDir,
+      ...(params.srtOffsetS ? { srtOffsetS: params.srtOffsetS } : {}),
       onProgress: progress,
     });
     if (!preview) return { kind: "captions-render", video: r.video, srt: r.srt };
@@ -507,17 +511,7 @@ async function captionsRenderJob(
       clip: preview.video ? captionClip(r.video, frame, outDir) : null,
     };
   } finally {
-    if (preview) removePreviewFolder(outDir, params.outDir);
-  }
-}
-
-/** Deletes a preview's own folder, and the previews' folder too once nothing else is in it. */
-function removePreviewFolder(run: string, parent: string): void {
-  rmSync(run, { recursive: true, force: true });
-  try {
-    if (readdirSync(parent).length === 0) rmSync(parent, { recursive: true, force: true });
-  } catch {
-    // already gone
+    if (preview) rmSync(outDir, { recursive: true, force: true });
   }
 }
 
@@ -527,8 +521,7 @@ function removePreviewFolder(run: string, parent: string): void {
  * be drawn gets null and the others still come; only when none can be drawn does the job fail.
  */
 async function captionsPreviewJob(params: CaptionsPreviewJobParams, signal: AbortSignal) {
-  const run = join(params.outDir, randomUUID().slice(0, 8));
-  mkdirSync(run, { recursive: true });
+  const run = captionPreviewRun();
   try {
     const images: Record<string, string | null> = {};
     let firstError: unknown = null;
@@ -552,6 +545,6 @@ async function captionsPreviewJob(params: CaptionsPreviewJobParams, signal: Abor
     if (firstError && Object.values(images).every((v) => v === null)) throw firstError;
     return { kind: "captions-preview", images };
   } finally {
-    removePreviewFolder(run, params.outDir);
+    rmSync(run, { recursive: true, force: true });
   }
 }

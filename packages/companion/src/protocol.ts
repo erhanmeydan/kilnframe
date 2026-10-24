@@ -231,10 +231,13 @@ export const CaptionsRenderJobParamsSchema = z.object({
   doc: CaptionDocSchema,
   look: CaptionLookSchema,
   colors: CaptionColorsSchema,
+  /** The job folder; a preview renders under the app's own preview folder instead. */
   outDir: z.string().min(1),
+  /** Where the doc starts in the sequence (an In/Out range): the SRT's times count from the sequence start. */
+  srtOffsetS: z.number().min(0).optional(),
   /**
-   * The panel's "Play": the clip also comes back as `stills` frames over the footage frame (a panel that
-   * cannot play video) and, with `video`, as a small H.264 clip.
+   * The panel's "Play": the clip comes back only as `stills` frames over the footage frame (a panel that
+   * cannot play video) and, with `video`, as a small H.264 clip; no file of it stays on disk.
    */
   preview: z
     .object({
@@ -255,7 +258,6 @@ export const CaptionsPreviewJobParamsSchema = z.object({
   atS: z.number().min(0),
   /** A frame of the footage to lay the captions over; transparent when omitted. */
   frame: z.string().min(1).optional(),
-  outDir: z.string().min(1),
 });
 
 export const JobParamsSchema = z.union([
@@ -305,6 +307,21 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     /** A folder for the job folders when there is no project file (Resolve); inside the home folder. */
     jobRoot: z.string().min(1).optional(),
     /** Echoed in job.prepared, as job.start's is in job.accepted. */
+    ref: z.string().optional(),
+  }),
+  /** The folder the Captions tab exports its previews' footage frames into (the app's own, not the project's). */
+  z.object({ type: z.literal("captions.previews"), ref: z.string().optional() }),
+  /** Keeps the Captions tab's lines and choices in its job folder's captions.json. */
+  z.object({
+    type: z.literal("captions.save"),
+    jobDir: z.string().min(1),
+    state: z.record(z.string(), z.unknown()),
+    ref: z.string().optional(),
+  }),
+  /** What a caption job folder keeps, for the tab to come back to its text. */
+  z.object({
+    type: z.literal("captions.load"),
+    jobDir: z.string().min(1),
     ref: z.string().optional(),
   }),
   z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
@@ -385,6 +402,9 @@ export type ServerMessage =
   | { type: "job.accepted"; jobId: string; ref?: string }
   | { type: "styles"; styles: unknown[] }
   | { type: "job.prepared"; jobDir: string; ref?: string }
+  | { type: "captions.previews"; dir: string; ref?: string }
+  | { type: "captions.saved"; jobDir: string; ref?: string }
+  | { type: "captions.loaded"; jobDir: string; state: unknown; ref?: string }
   | { type: "job.progress"; jobId: string; message: string }
   | { type: "job.done"; jobId: string; result: unknown }
   | { type: "job.error"; jobId: string; message: string; kind?: string | undefined }
