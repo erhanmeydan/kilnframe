@@ -12,3 +12,20 @@ export interface CaptionLine {
   /** True when the correction step or a manual edit changed this line's text. */
   changed: boolean;
 }
+
+export type CaptionStyleId =
+  | "kil-lacivert"
+  | "loud"
+  | "dinamik"
+  | "hap"
+  | "karaoke"
+  | "daktilo"
+  | "sakin"
+  | "bant"
+  | "editoryal";
+
+export interface CaptionColors {
+  text: string;
+  accent: string;
+  box?: string;
+}
