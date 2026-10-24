@@ -23,7 +23,7 @@ The text is Turkish. Also apply these rules:
 - Spelling follows the TDK (Turkish Language Association) rules.
 - Spoken forms become written Turkish: yapıcam becomes yapacağım, bi becomes bir, napıyosun becomes ne yapıyorsun, geliyo becomes geliyor, gidiyom becomes gidiyorum.
 - Write de/da and ki correctly: the conjunction is separate (ben de, o da, sen ki), the locative suffix is attached (evde, okulda), and fixed words such as sanki, çünkü, mademki follow the dictionary.
-- Put an apostrophe between a proper noun and its suffix: TopView'in, Ankara'da, Erhan'ın. Do not use an apostrophe for common nouns.
+- Put an apostrophe between a proper noun and its suffix: TopView'in, Ankara'da, Ayşe'nin. Do not use an apostrophe for common nouns.
 - Capitalize the start of sentences and proper nouns. Use the Turkish letters İ, ı, Ş, ş, Ğ, ğ, Ç, ç, Ö, ö, Ü, ü correctly, and keep the dotted capital İ and dotless ı distinct.
 - Correct misheard brand and product names when the context shows what they are (for example "top view e" is TopView'e).
 - This is still a correction, never a rewrite: the sentences keep exactly the words the speaker used, only in their written form.

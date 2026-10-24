@@ -13,6 +13,7 @@ export default tseslint.config(
       "out/**",
       "examples/**",
       "styles/**",
+      ".superpowers/**",
     ],
   },
   js.configs.recommended,
