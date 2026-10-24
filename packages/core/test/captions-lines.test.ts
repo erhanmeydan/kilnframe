@@ -64,31 +64,49 @@ describe("splitLines", () => {
     expect([lines[0]!.start, lines[0]!.end]).toEqual([0.22, 4.1]);
   });
 
-  it("does not leave the last word of a sentence alone when maxLines is 2", () => {
-    const lines = splitLines(reels, { maxChars: 32, maxLines: 2 });
-    expect(lines.some((l) => l.text === "yazıyoruz.")).toBe(false);
-  });
-
-  it("joins a lone last word to the line before when it fits", () => {
+  it("joins a lone last word to a block that stops mid-sentence after a short pause", () => {
     const words: CaptionWord[] = [
       { text: "Bu", start: 0, end: 0.3 },
       { text: "çok", start: 0.3, end: 0.6 },
       { text: "iyi", start: 0.6, end: 0.9 },
-      { text: "oldu.", start: 2, end: 2.4 },
+      { text: "oldu.", start: 1.5, end: 1.9 },
     ];
-    const lines = splitLines(words, { maxChars: 32, maxLines: 2 });
-    expect(lines.map((l) => l.text)).toEqual(["Bu çok iyi oldu."]);
+    expect(splitLines(words, { maxChars: 32, maxLines: 2 }).map((l) => l.text)).toEqual([
+      "Bu çok iyi oldu.",
+    ]);
+  });
+
+  it("keeps a one-word sentence apart from a finished sentence", () => {
+    const words: CaptionWord[] = [
+      { text: "Bu", start: 0, end: 0.3 },
+      { text: "iyi", start: 0.3, end: 0.6 },
+      { text: "oldu.", start: 0.6, end: 1.0 },
+      { text: "Evet.", start: 1.2, end: 1.5 },
+    ];
+    expect(splitLines(words, { maxChars: 32, maxLines: 2 }).map((l) => l.text)).toEqual([
+      "Bu iyi oldu.",
+      "Evet.",
+    ]);
+  });
+
+  it("keeps a lone word apart after a long silence", () => {
+    const words: CaptionWord[] = [
+      { text: "Bu", start: 0, end: 0.3 },
+      { text: "çok", start: 0.3, end: 0.6 },
+      { text: "oldu.", start: 3, end: 3.4 },
+    ];
+    expect(splitLines(words, { maxChars: 32, maxLines: 2 })).toHaveLength(2);
   });
 
   it("keeps a lone word apart when the joined block would not fit", () => {
     const words: CaptionWord[] = [
       { text: "aaaaaaaaaa", start: 0, end: 0.3 },
       { text: "bbbbbbbbbb", start: 0.3, end: 0.6 },
-      { text: "cccccccccc", start: 2, end: 2.4 },
+      { text: "cccccccccc.", start: 1.1, end: 1.4 },
     ];
     expect(splitLines(words, { maxChars: 10, maxLines: 2 }).map((l) => l.text)).toEqual([
       "aaaaaaaaaa bbbbbbbbbb",
-      "cccccccccc",
+      "cccccccccc.",
     ]);
   });
 

@@ -35,8 +35,9 @@ type Step = "one" | "merge" | "split" | "dropOriginal" | "dropCorrected";
 /**
  * Carries the times of the original (Whisper) words over to a corrected text.
  * Words matched one to one keep their own times, a merged word spans the words it
- * came from, a split word shares its time equally, and a word with no source sits
- * at the end of the word before it.
+ * came from, a split word shares its time equally, and a word the correction removed or
+ * inserted is folded into its neighbour's time rather than skipped (a word with no
+ * source at all sits at the end of the word before it).
  */
 export function alignWords(original: CaptionWord[], corrected: string): CaptionWord[] {
   const target = corrected.split(/\s+/).filter(Boolean);

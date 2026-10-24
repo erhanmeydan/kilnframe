@@ -48,7 +48,7 @@ function toLine(words: CaptionWord[], changed = false): CaptionLine {
  * Groups words into caption lines (blocks of up to maxLines rows). A block ends at
  * a sentence end, at a pause longer than pauseS, or when the next word would not fit.
  * A block holding only the last word of a sentence is joined to the block before when
- * the two fit together.
+ * that block stops mid-sentence, the gap is at most twice pauseS and the two fit together.
  */
 export function splitLines(
   words: CaptionWord[],
@@ -75,16 +75,15 @@ export function splitLines(
   const merged: CaptionWord[][] = [];
   for (const b of blocks) {
     const before = merged[merged.length - 1];
-    if (
-      before &&
+    const joins =
+      before !== undefined &&
       b.length === 1 &&
       endsSentence(b[0]!) &&
-      wrap([...before, ...b], o.maxChars).length <= o.maxLines
-    ) {
-      before.push(...b);
-    } else {
-      merged.push(b);
-    }
+      !endsSentence(before[before.length - 1]!) &&
+      b[0]!.start - before[before.length - 1]!.end <= 2 * pauseS &&
+      wrap([...before, ...b], o.maxChars).length <= o.maxLines;
+    if (joins) before.push(...b);
+    else merged.push(b);
   }
   return merged.map((b) => toLine(b));
 }
