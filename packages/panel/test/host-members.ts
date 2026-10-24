@@ -12,6 +12,7 @@ export const HOST_MEMBERS = [
   "replaceCaptionClip",
   "createStorySequence",
   "pickImages",
+  "saveFileCopy",
   "openUrl",
   "uiLocale",
   "pluginVersion",

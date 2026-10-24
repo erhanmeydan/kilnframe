@@ -164,7 +164,13 @@
       {
         host: { uiLocale: lang === "tr" ? "tr_TR" : "en_US" },
         shell: { openExternal: async (url) => console.log("[demo] open", url) },
-        storage: { localFileSystem: { getFileForOpening: async () => null } },
+        // the demo writes no files: its open and save dialogs come back cancelled
+        storage: {
+          localFileSystem: {
+            getFileForOpening: async () => null,
+            getFileForSaving: async () => null,
+          },
+        },
       },
       "uxp",
     ),

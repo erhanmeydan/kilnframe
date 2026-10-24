@@ -193,8 +193,9 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
       },
     },
   };
+  const files = new Map<string, string>();
   const fs = {
-    readFile: vi.fn(async () => "{}"),
+    readFile: vi.fn(async (path: string) => files.get(path) ?? "{}"),
     writeFile: vi.fn(async () => undefined),
     lstat: vi.fn(async () => ({})),
   };
@@ -210,27 +211,29 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
     overwrites,
     video,
     lengths,
+    files,
     make,
     setHome: (h: string) => (home = h),
   };
 }
 
 describe("premiere host", () => {
-  it("saves a text file where the editor picks in UXP's save dialog", async () => {
+  it("copies a file where the editor picks in UXP's save dialog", async () => {
     const f = fakePremiere();
     const written: string[] = [];
     f.uxp.storage.localFileSystem.getFileForSaving.mockImplementationOnce(async () => ({
       nativePath: "/Users/me/Talk.srt",
       write: async (d: string) => void written.push(d),
     }));
+    f.files.set("/j/cap/captions-1.srt", "1\n");
     const h = f.make();
-    expect(await h.saveTextFile!("Talk.srt", "1\n")).toBe("/Users/me/Talk.srt");
+    expect(await h.saveFileCopy("/j/cap/captions-1.srt", "Talk.srt")).toBe("/Users/me/Talk.srt");
     expect(f.uxp.storage.localFileSystem.getFileForSaving).toHaveBeenCalledWith("Talk.srt", {
       types: ["srt"],
     });
     expect(written).toEqual(["1\n"]);
     // cancelled
-    expect(await h.saveTextFile!("Talk.srt", "1\n")).toBeNull();
+    expect(await h.saveFileCopy("/j/cap/captions-1.srt", "Talk.srt")).toBeNull();
   });
 
   it("implements every member of Host", () => {
@@ -375,8 +378,32 @@ describe("premiere host", () => {
     f.lengths.set(next, 10 - 1 / 25);
     const h = f.make();
     const seq = await h.currentSequence();
-    await h.replaceCaptionClip(seq, captions, next, 2, 10, 1);
+    const old = { path: captions, atS: 2, durationS: 10 };
+    expect(await h.replaceCaptionClip(seq, old, next, 2, 10, 1)).toBe(true);
     expect(f.video[1]).toEqual([{ path: next, start: 2, end: 12 - 1 / 25 }]);
     expect(f.video[0]).toEqual([footage]);
+  });
+
+  it("takes the old clip off where it lay and places the new one at another range", async () => {
+    const f = fakePremiere({ video: [[footage], [{ path: captions, start: 0, end: 30 }]] });
+    const next = "/Edits/Kilnframe/Main-Captions-20261024/captions-2.mov";
+    f.lengths.set(next, 10);
+    const h = f.make();
+    const seq = await h.currentSequence();
+    const old = { path: captions, atS: 0, durationS: 30 };
+    expect(await h.replaceCaptionClip(seq, old, next, 5, 10, 1)).toBe(true);
+    expect(f.video[1]).toEqual([{ path: next, start: 5, end: 15 }]);
+  });
+
+  it("changes nothing when the old clip is no longer where it lay", async () => {
+    const f = fakePremiere({ video: [[footage], [{ path: captions, start: 0, end: 30 }]] });
+    const next = "/Edits/Kilnframe/Main-Captions-20261024/captions-2.mov";
+    f.lengths.set(next, 10);
+    const h = f.make();
+    const seq = await h.currentSequence();
+    // looked up by the new range's numbers, as before the fix: not found
+    const old = { path: captions, atS: 5, durationS: 10 };
+    expect(await h.replaceCaptionClip(seq, old, next, 5, 10, 1)).toBe(false);
+    expect(f.video[1]).toEqual([{ path: captions, start: 0, end: 30 }]);
   });
 });

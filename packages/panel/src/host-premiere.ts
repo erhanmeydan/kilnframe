@@ -552,27 +552,23 @@ export function createPremiereHost(
     // inside that callback, with nothing asynchronous in it: so the whole transaction runs there, one undo step.
     // developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/sequenceeditor/ and
     // developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/trackitemselection/
-    async replaceCaptionClip(seq, oldPath, file, atS, durationS, videoTrack) {
+    async replaceCaptionClip(seq, before, file, atS, durationS, videoTrack) {
       const { project, sequence } = await sequenceOf(seq);
       const clips = (await videoClips(sequence))[videoTrack] ?? [];
-      const old = await captionClips(sequence, clips, oldPath, atS, durationS);
+      const old = await captionClips(sequence, clips, before.path, before.atS, before.durationS);
+      // moved, trimmed or gone since it was found: never overwrite whatever lies there now
+      if (!old.length) return false;
       const item = await importToBin(project, file);
       // a caption clip has no sound; an empty audio track all the same, so nothing lands on the editor's own
       const { audioTrack } = await freeTracks(sequence);
       const editor = ppro.SequenceEditor.getEditor(sequence);
       let ok = false;
-      const replace = (selection: TrackItemSelection | null) =>
+      const replace = (selection: TrackItemSelection) =>
         project.lockedAccess(() => {
           ok = project.executeTransaction((compound) => {
-            if (selection)
-              compound.addAction(
-                editor.createRemoveItemsAction(
-                  selection,
-                  false,
-                  ppro.Constants.MediaType.ANY,
-                  false,
-                ),
-              );
+            compound.addAction(
+              editor.createRemoveItemsAction(selection, false, ppro.Constants.MediaType.ANY, false),
+            );
             compound.addAction(
               editor.createOverwriteItemAction(
                 item,
@@ -583,13 +579,12 @@ export function createPremiereHost(
             );
           }, t("premiere.undoPlace"));
         });
-      if (!old.length) replace(null);
-      else
-        ppro.TrackItemSelection.createEmptySelection((selection) => {
-          for (const clip of old) selection.addItem(clip as never, true);
-          replace(selection);
-        });
+      ppro.TrackItemSelection.createEmptySelection((selection) => {
+        for (const clip of old) selection.addItem(clip as never, true);
+        replace(selection);
+      });
       if (!ok) throw new Error(t("premiere.placeFailed"));
+      return true;
     },
     async createStorySequence(template, name, narration, music, format) {
       const { project, sequence } = await sequenceOf(template);
@@ -603,14 +598,14 @@ export function createPremiereHost(
       const files = !picked ? [] : Array.isArray(picked) ? picked : [picked];
       return files.map((f) => f.nativePath).filter(Boolean);
     },
-    async saveTextFile(suggestedName, text) {
+    async saveFileCopy(source, suggestedName) {
       // UXP's own save dialog; the file it returns may be written to without a further permission
       const ext = suggestedName.split(".").pop() ?? "txt";
       const file = await uxp.storage.localFileSystem.getFileForSaving(suggestedName, {
         types: [ext],
       });
       if (!file) return null;
-      await file.write(text);
+      await file.write(await fs.readFile(native(source), { encoding: "utf-8" }));
       return file.nativePath;
     },
     async openUrl(url) {

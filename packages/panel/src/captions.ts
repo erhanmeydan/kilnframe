@@ -74,6 +74,8 @@ export interface CaptionsState {
   /** The editor split, joined or retyped a line: another look keeps the lines as they are. */
   edited: boolean;
   correctionError: string | null;
+  /** The correction ran, but some of its parts kept Whisper's text (`correctionError` says why). */
+  partlyCorrected: boolean;
   placed: PlacedCaptions | null;
   /** A calm one-line note (no speech, a new track, where the SRT went). */
   notice: string | null;
@@ -91,8 +93,10 @@ export interface CaptionsState {
   /** The selected look in the editor's colours. */
   tinted: { key: string; look: CaptionStyleId; image: string } | null;
   tintFailed: { key: string; at: number } | null;
-  /** A job folder for previews made before there is any text. */
+  /** The app's own folder for the previews' footage frames (never the editor's project folder). */
   previewDir: string | null;
+  /** The sequence whose job folder was last looked into for text to come back to. */
+  restoredFor: string | null;
   /** The line being prepared for "Play". */
   playing: number | null;
   /** The last "Play": its frames (and a small clip where the panel plays video). */
@@ -132,6 +136,7 @@ export function newCaptions(): CaptionsState {
     drafts: [],
     edited: false,
     correctionError: null,
+    partlyCorrected: false,
     placed: null,
     notice: null,
     error: null,
@@ -143,6 +148,7 @@ export function newCaptions(): CaptionsState {
     tinted: null,
     tintFailed: null,
     previewDir: null,
+    restoredFor: null,
     playing: null,
     play: null,
   };
@@ -187,14 +193,18 @@ export interface CaptionsCtx {
     atS: number,
     durationS: number,
   ): Promise<{ videoTrack: number } | null>;
+  /**
+   * The earlier clip, looked up where it lay (`old`), replaced by `file` at `atS` for `durationS` on the same
+   * track. False when the earlier clip is no longer there as it was: nothing was changed.
+   */
   replaceCaptionClip(
     target: HostSequence,
-    oldPath: string,
+    old: { path: string; atS: number; durationS: number },
     file: string,
     atS: number,
     durationS: number,
     videoTrack: number,
-  ): Promise<void>;
+  ): Promise<boolean>;
   /** Where the caret stands in a field, when the editor can say. */
   caret(id: string): number | null;
   /** A still of the sequence at `seconds` written into `dir`; its path, or null when none was written. */
@@ -216,14 +226,14 @@ export interface CaptionsCtx {
   swapImage(key: string, src: string): void;
   stored(key: string): string | null;
   store(key: string, value: string): void;
-  readTextFile(path: string): Promise<string>;
-  writeTextFile(path: string, text: string): Promise<void>;
-  /** The editor's own save dialog; the saved path, or null when the editor cancelled. */
-  saveTextFile?(suggestedName: string, text: string): Promise<string | null>;
+  /** A copy of `source` where the editor picks in its save dialog; the path, or null when cancelled. */
+  saveFileCopy(source: string, suggestedName: string): Promise<string | null>;
 }
 
 const settingsKey = (seqId: string) => `captions:${seqId}`;
 const languageKey = (seqId: string) => `captions-lang:${seqId}`;
+/** The sequence's last caption job folder: its captions.json brings the text back. */
+const jobKey = (seqId: string) => `captions-job:${seqId}`;
 
 /** The look in use: the editor's, else the grid's first. */
 export function lookOf(st: CaptionsState, videoStyle: string | null): CaptionLook {
@@ -255,8 +265,10 @@ function readSettings(raw: string | null): CaptionsSettings {
 }
 
 /**
- * The panel read the sequence: another one is open. Its text and clip belong to the last sequence, so they are
- * forgotten and the new one's settings come in, unless a caption job is running (it finishes for its own).
+ * The panel read the sequence: another one is open. The new one's settings come in, and its last job folder is
+ * looked into once the tab shows (captionsBox). A caption job running for the last sequence finishes for its
+ * own, and a finished text stays with its sequence (also while its look is being changed on step 1): rendering
+ * it asks for that sequence to be open again.
  */
 export function captionsSwitch(
   st: CaptionsState,
@@ -266,11 +278,12 @@ export function captionsSwitch(
 ): void {
   if (st.stage === "texting" || st.stage === "rendering" || st.stage === "placing") return;
   if (st.seqId === next) return;
-  // a finished text stays for its own sequence; rendering it asks for that sequence to be open
-  if ((st.stage === "review" || st.stage === "placed") && st.lines.length) return;
+  if (st.lines.length) return;
   const settings = readSettings(stored(settingsKey(next)));
   Object.assign(st, newCaptions(), {
     scope: st.scope,
+    // the app's preview folder serves every sequence
+    previewDir: st.previewDir,
     seqId: next,
     settings,
     glossaryText: settings.glossary.join(", "),
@@ -528,7 +541,7 @@ function lineRows(st: CaptionsState, ctx: CaptionsCtx): string {
 function reviewScreen(st: CaptionsState, ctx: CaptionsCtx): string {
   const placed = st.stage === "placed" && st.placed;
   const fixed = st.correctionError
-    ? `<div class="small warn-text">${t("captions.notCorrected")}</div>`
+    ? `<div class="small warn-text">${t(st.partlyCorrected ? "captions.partlyCorrected" : "captions.notCorrected")}</div>`
     : `<div class="small muted">${t("captions.checkHelp")}</div>`;
   return `<div class="lbl">${t("captions.check")}</div>${fixed}
   <div class="clines">${lineRows(st, ctx)}</div>
@@ -568,6 +581,7 @@ export function captionsBox(st: CaptionsState, ctx: CaptionsCtx): string {
     return top + busyBox(st, ctx);
   if ((st.stage === "review" || st.stage === "placed") && st.lines.length)
     return top + reviewScreen(st, ctx);
+  wantRestore(st, ctx);
   return top + stepOne(st, ctx);
 }
 
@@ -680,9 +694,8 @@ async function makeText(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
           warning: null,
         };
   try {
-    // the previews' folder, when they already made one for this sequence
-    const jobDir =
-      st.previewDir && st.seqId === target.id ? st.previewDir : await prepareDir(ctx, target);
+    // the job folder is made here, for the text: previews never make one
+    const jobDir = await prepareDir(ctx, target);
     const audioPath = `${jobDir}/sequence.wav`;
     // the editor's own speech: Kilnframe's inserts and music over the range are switched off for the export
     const audio = await ctx.withoutOurInserts(target, range, () =>
@@ -721,8 +734,10 @@ async function makeText(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
         st.words = (result.words as CaptionWord[]) ?? [];
         st.original = (result.original as CaptionWord[] | undefined) ?? [];
         st.correctionError = result.correctionError ? String(result.correctionError) : null;
+        st.partlyCorrected = result.corrected === true && st.correctionError !== null;
         linesFor(st, lookOf(st, ctx.videoStyle()), st.format);
         st.stage = "review";
+        persist(st, ctx);
       },
       (message) => {
         if (!/no speech/i.test(message)) return false;
@@ -809,6 +824,8 @@ async function renderCaptions(st: CaptionsState, ctx: CaptionsCtx): Promise<void
       look: look.id,
       colors: colorsOf(st, look),
       outDir: st.jobDir,
+      // the lines count from the range's start; the SRT is in the sequence's time
+      srtOffsetS: st.rangeStartS,
     },
     back,
     (result) => place(st, ctx, target, String(result.video), String(result.srt), back),
@@ -841,7 +858,11 @@ async function hiddenSpans(
   }
 }
 
-/** The new clip goes where the last one was when that one is untouched, else on a new track. */
+/**
+ * The new clip replaces the last one, on its track, when that one is still where it was placed and untouched
+ * (looked up by its own start and length, which a new transcript of another range does not share); else the new
+ * clip goes on a new track and the editor is told. The earlier clip is never overwritten in place.
+ */
 async function place(
   st: CaptionsState,
   ctx: CaptionsCtx,
@@ -859,17 +880,27 @@ async function place(
     const found = before
       ? await ctx.findCaptionClip(target, before.video, before.atS, before.durationS)
       : null;
+    const replaced =
+      before && found
+        ? await ctx.replaceCaptionClip(
+            target,
+            { path: before.video, atS: before.atS, durationS: before.durationS },
+            video,
+            atS,
+            durationS,
+            found.videoTrack,
+          )
+        : false;
     let videoTrack: number;
-    if (before && found) {
-      await ctx.replaceCaptionClip(target, before.video, video, atS, durationS, found.videoTrack);
-      videoTrack = found.videoTrack;
-    } else {
+    if (replaced && found) videoTrack = found.videoTrack;
+    else {
       videoTrack = (await ctx.placeInsert(target, { video, sfx: null }, atS, 0, durationS))
         .videoTrack;
       if (before) st.notice = t("captions.newTrack");
     }
     st.placed = { video, srt, atS, durationS, videoTrack };
     st.stage = "placed";
+    persist(st, ctx);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     st.error = message === t("premiere.placeFailed") ? t("captions.placeFailed") : message;
@@ -882,16 +913,11 @@ async function saveSrt(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
   if (!placed) return;
   st.error = null;
   try {
-    const text = await ctx.readTextFile(placed.srt);
-    let where: string | null;
-    if (ctx.saveTextFile) where = await ctx.saveTextFile(`${st.seqName || "captions"}.srt`, text);
-    else {
-      // no save dialog in this editor: next to the project, named after the sequence and the render
-      const dir = st.projectPath.replace(/[\\/][^\\/]*$/, "");
-      const name = placed.srt.split(/[\\/]/).pop() ?? "captions.srt";
-      where = `${dir}/${st.seqName.replace(/[\\/:*?"<>|]/g, "-")} ${name}`;
-      await ctx.writeTextFile(where, text);
-    }
+    // named after the sequence and the render: "Talk captions-2.srt"
+    const file = placed.srt.split(/[\\/]/).pop() ?? "captions.srt";
+    const name = st.seqName ? `${st.seqName.replace(/[\\/:*?"<>|]/g, "-")} ${file}` : file;
+    const where = await ctx.saveFileCopy(placed.srt, name);
+    // cancelled: nothing to say
     if (where) st.notice = t("captions.srtSaved", { path: where });
   } catch (err) {
     st.error = t("captions.srtFailed", {
@@ -912,6 +938,116 @@ async function prepareDir(ctx: CaptionsCtx, target: HostSequence): Promise<strin
     "job.prepared",
   );
   return String(prepared.jobDir);
+}
+
+// ---------- the job folder's own record ----------
+
+/** What the job folder keeps of the tab (captions.json's `panel`), to come back to the text later. */
+interface SavedCaptions {
+  seqId: string;
+  seqName: string;
+  projectPath: string;
+  scope: CaptionsState["scope"];
+  rangeStartS: number;
+  durationS: number;
+  format: CaptionsState["format"];
+  language: string | null;
+  lines: CaptionLine[];
+  drafts: string[];
+  edited: boolean;
+  correctionError: string | null;
+  partlyCorrected: boolean;
+  settings: CaptionsSettings;
+  placed: PlacedCaptions | null;
+}
+
+/**
+ * Keeps the text with the editor's edits, the choices and the placed clip in the job folder, and remembers the
+ * folder for the sequence: a reloaded panel or a restarted editor comes back to step 2 from there.
+ */
+function persist(st: CaptionsState, ctx: CaptionsCtx): void {
+  if (!st.jobDir || !st.seqId || !st.lines.length) return;
+  ctx.store(jobKey(st.seqId), st.jobDir);
+  const state: SavedCaptions = {
+    seqId: st.seqId,
+    seqName: st.seqName,
+    projectPath: st.projectPath,
+    scope: st.scope,
+    rangeStartS: st.rangeStartS,
+    durationS: st.durationS,
+    format: st.format,
+    language: st.language,
+    lines: st.lines,
+    drafts: st.drafts,
+    edited: st.edited,
+    correctionError: st.correctionError,
+    partlyCorrected: st.partlyCorrected,
+    settings: st.settings,
+    placed: st.placed,
+  };
+  ctx
+    .request({ type: "captions.save", jobDir: st.jobDir, state }, "captions.saved")
+    .catch((err: unknown) => ctx.trace(`captions: save failed ${String(err)}`));
+}
+
+/** Step 1 shows for a sequence with no text: its last job folder is read once, and its text comes back. */
+function wantRestore(st: CaptionsState, ctx: CaptionsCtx): void {
+  const seqId = st.seqId;
+  if (!seqId || st.restoredFor === seqId || st.stage !== "idle" || st.lines.length) return;
+  if (!ctx.connected()) return;
+  st.restoredFor = seqId;
+  const jobDir = ctx.stored(jobKey(seqId));
+  if (!jobDir) return;
+  ctx
+    .request({ type: "captions.load", jobDir }, "captions.loaded")
+    .then((reply) => {
+      // the editor moved on meanwhile (another sequence, a new text)
+      if (st.seqId !== seqId || st.stage !== "idle" || st.lines.length) return;
+      if (restore(st, jobDir, reply.state)) ctx.render();
+    })
+    .catch((err: unknown) => ctx.trace(`captions: load failed ${String(err)}`));
+}
+
+/** Takes the tab's state back from a job folder's captions.json; false when it holds nothing for this sequence. */
+function restore(st: CaptionsState, jobDir: string, kept: unknown): boolean {
+  const file = (kept ?? {}) as {
+    panel?: Partial<SavedCaptions>;
+    words?: unknown;
+    original?: unknown;
+  };
+  const p = file.panel;
+  if (!p || p.seqId !== st.seqId || !Array.isArray(p.lines) || !p.lines.length) return false;
+  const lines = p.lines;
+  const drafts =
+    Array.isArray(p.drafts) && p.drafts.length === lines.length
+      ? p.drafts.map(String)
+      : lines.map((l) => l.text);
+  const settings = p.settings ? readSettings(JSON.stringify(p.settings)) : st.settings;
+  Object.assign(st, {
+    jobDir,
+    seqName: String(p.seqName ?? ""),
+    projectPath: String(p.projectPath ?? ""),
+    scope: p.scope === "range" ? "range" : "all",
+    rangeStartS: Number(p.rangeStartS) || 0,
+    durationS: Number(p.durationS) || 0,
+    format: p.format ?? "landscape",
+    language: p.language ?? st.language,
+    // the corrected words, to split again for another look; else the lines' own
+    words: Array.isArray(file.words)
+      ? (file.words as CaptionWord[])
+      : lines.flatMap((l) => l.words),
+    original: Array.isArray(file.original) ? (file.original as CaptionWord[]) : [],
+    lines,
+    drafts,
+    edited: p.edited === true,
+    correctionError: p.correctionError ?? null,
+    partlyCorrected: p.partlyCorrected === true,
+    settings,
+    glossaryText: settings.glossary.join(", "),
+    placed: p.placed ?? null,
+    stage: p.placed ? "placed" : "review",
+  });
+  return true;
 }
 
 // ---------- previews ----------
@@ -1081,14 +1217,12 @@ function stillMoment(line: CaptionLine): number {
   return last.start + Math.min(0.15, (last.end - last.start) / 2);
 }
 
-/** The folder previews write into: the text's job folder, else one made for the previews. */
-async function previewFolder(
-  st: CaptionsState,
-  ctx: CaptionsCtx,
-  target: HostSequence,
-): Promise<string> {
-  if (st.jobDir && st.seqId === target.id) return st.jobDir;
-  if (!st.previewDir) st.previewDir = await prepareDir(ctx, target);
+/** The folder the previews' footage frames go into: the app's own, so browsing leaves nothing in the project. */
+async function previewFolder(st: CaptionsState, ctx: CaptionsCtx): Promise<string> {
+  if (!st.previewDir)
+    st.previewDir = String(
+      (await ctx.request({ type: "captions.previews" }, "captions.previews")).dir,
+    );
   return st.previewDir;
 }
 
@@ -1178,7 +1312,7 @@ function wantTiles(st: CaptionsState, ctx: CaptionsCtx): void {
     try {
       const target = await ctx.readSequence();
       if (!target || target.id !== st.seqId) return;
-      const dir = await previewFolder(st, ctx, target);
+      const dir = await previewFolder(st, ctx);
       const frame = await footageFrame(
         ctx,
         target,
@@ -1194,7 +1328,6 @@ function wantTiles(st: CaptionsState, ctx: CaptionsCtx): void {
         looks: captionGrid(ctx.videoStyle()),
         atS,
         ...(frame ? { frame } : {}),
-        outDir: `${dir}/preview`,
       });
       if (st.tilesKey !== key) return;
       const images = (result.images ?? {}) as Record<string, string | null>;
@@ -1232,7 +1365,7 @@ function wantTint(st: CaptionsState, ctx: CaptionsCtx): void {
     try {
       const target = await ctx.readSequence();
       if (!target || target.id !== st.seqId) return;
-      const dir = await previewFolder(st, ctx, target);
+      const dir = await previewFolder(st, ctx);
       // the tiles' own frame when it is still theirs
       const frame =
         st.tilesFrame?.key === tilesKey
@@ -1246,7 +1379,6 @@ function wantTint(st: CaptionsState, ctx: CaptionsCtx): void {
         colors,
         atS,
         ...(frame ? { frame } : {}),
-        outDir: `${dir}/preview`,
       });
       const image = ((result.images ?? {}) as Record<string, string | null>)[look.id];
       if (!image) throw new Error(`no still for ${look.id}`);
@@ -1282,6 +1414,7 @@ export function captionsColorInput(
       if (!colors) return;
       st.settings = { ...st.settings, colors };
       saveSettings(st, ctx);
+      persist(st, ctx);
       wantTint(st, ctx);
     }, 400),
   );
@@ -1389,7 +1522,7 @@ function playLine(st: CaptionsState, ctx: CaptionsCtx, i: number): void {
       const frame = await footageFrame(
         ctx,
         target,
-        jobDir,
+        await previewFolder(st, ctx),
         st.rangeStartS + (fromS + toS) / 2,
         "caption-play-frame.png",
       );
@@ -1411,7 +1544,8 @@ function playLine(st: CaptionsState, ctx: CaptionsCtx, i: number): void {
         },
         look: look.id,
         colors,
-        outDir: `${jobDir}/preview`,
+        // a preview renders under the app's own folder; the job folder only names the job
+        outDir: jobDir,
         preview: {
           ...(frame ? { frame } : {}),
           stills: PLAY_STILLS,
@@ -1458,6 +1592,19 @@ const CAPTIONS_ACTS = new Set([
   "captions-play",
 ]);
 
+/** The clicks that change what the job folder keeps (the text, its edits, the choices). */
+const KEPT_ACTS = new Set([
+  "captions-look",
+  "captions-colors-reset",
+  "captions-mode",
+  "captions-over",
+  "captions-back",
+  "captions-style",
+  "captions-split",
+  "captions-merge",
+  "captions-render",
+]);
+
 /** The tab's clicks. Returns true when it handled `act`. */
 export function captionsAct(
   st: CaptionsState,
@@ -1502,5 +1649,6 @@ export function captionsAct(
   else if (act === "captions-render") void renderCaptions(st, ctx);
   else if (act === "captions-srt") void saveSrt(st, ctx);
   else if (act === "captions-play") playLine(st, ctx, Number(val));
+  if (KEPT_ACTS.has(act)) persist(st, ctx);
   return true;
 }

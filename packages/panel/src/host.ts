@@ -97,15 +97,19 @@ export interface Host {
     atS: number,
     durationS: number,
   ): Promise<{ videoTrack: number } | null>;
-  /** Takes the clip of `oldPath` at `atS` off the 0-based video track and places `file` there instead. */
+  /**
+   * Takes the earlier caption clip off the 0-based video track, looked up where it lay (`old`: its file, start
+   * and length), and places `file` on that track at `atS` for `durationS`. False, with nothing changed, when the
+   * earlier clip is no longer there as it was; the caller then places the new clip on a new track.
+   */
   replaceCaptionClip(
     seq: HostSequence,
-    oldPath: string,
+    old: { path: string; atS: number; durationS: number },
     file: string,
     atS: number,
     durationS: number,
     videoTrack: number,
-  ): Promise<void>;
+  ): Promise<boolean>;
   /** A new sequence holding the narration (and music); it becomes the active sequence. */
   createStorySequence(
     template: HostSequence,
@@ -115,8 +119,11 @@ export interface Host {
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
   pickImages(types: string[]): Promise<string[]>;
-  /** The editor's save dialog for a text file: the path it was saved to, or null when the editor cancelled. */
-  saveTextFile?(suggestedName: string, text: string): Promise<string | null>;
+  /**
+   * A copy of the text file `source` (one the companion wrote, a caption job's SRT) where the editor picks in
+   * the host's save dialog: the path it was saved to, or null when the editor cancelled.
+   */
+  saveFileCopy(source: string, suggestedName: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
   /** The editor's interface language ("tr_TR"), or null when it does not say. */
   uiLocale(): string | null;

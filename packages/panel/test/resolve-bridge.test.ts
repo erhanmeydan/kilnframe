@@ -522,7 +522,8 @@ describe("resolve bridge", () => {
     const b = bridge(f);
     const seq = await b.currentSequence();
     const next = "/m/Kilnframe/Probe-Captions-20261024/captions-2.mov";
-    await b.replaceCaptionClip(seq.id, captions, next, 2, 10, 1);
+    const old = { path: captions, atS: 2, durationS: 10 };
+    expect(await b.replaceCaptionClip(seq.id, old, next, 2, 10, 1)).toBe(true);
     const items = f.project.timeline.tracks.video[1]!.items;
     expect(items.map((i) => [i.start, i.end, i.path])).toEqual([[90050, 90300, next]]);
     expect(f.project.timeline.tracks.video[0]!.items).toHaveLength(1);
@@ -537,7 +538,14 @@ describe("resolve bridge", () => {
     const b = bridge(f);
     const seq = await b.currentSequence();
     await expect(
-      b.replaceCaptionClip(seq.id, captions, "/m/Kilnframe/x/captions-2.mov", 2, 10, 1),
+      b.replaceCaptionClip(
+        seq.id,
+        { path: captions, atS: 2, durationS: 10 },
+        "/m/Kilnframe/x/captions-2.mov",
+        2,
+        10,
+        1,
+      ),
     ).rejects.toThrow("PLACE_FAILED");
     expect(v2.items.map((i) => i.path)).toEqual([captions]);
   });
@@ -551,9 +559,34 @@ describe("resolve bridge", () => {
     f.project.timeline.tracks.video.push(v2);
     const b = bridge(f);
     const seq = await b.currentSequence();
-    await expect(b.replaceCaptionClip(seq.id, captions, next, 2, 10, 1)).rejects.toThrow(
-      "PLACE_FAILED",
-    );
+    await expect(
+      b.replaceCaptionClip(seq.id, { path: captions, atS: 2, durationS: 10 }, next, 2, 10, 1),
+    ).rejects.toThrow("PLACE_FAILED");
     expect(v2.items.map((i) => [i.start, i.end, i.path])).toEqual([[90050, 90300, captions]]);
+  });
+
+  it("takes the old caption clip off where it lay and places the new one at another range", async () => {
+    const f = makeFakeResolve();
+    const v2 = { items: [clip(captions, 90000, 90750)], enabled: true, locked: false };
+    f.project.timeline.tracks.video.push(v2);
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    const next = "/m/Kilnframe/Probe-Captions-20261024/captions-2.mov";
+    const old = { path: captions, atS: 0, durationS: 30 };
+    expect(await b.replaceCaptionClip(seq.id, old, next, 5, 10, 1)).toBe(true);
+    expect(v2.items.map((i) => [i.start, i.end, i.path])).toEqual([[90125, 90375, next]]);
+  });
+
+  it("changes nothing when the old caption clip is no longer where it lay", async () => {
+    const f = makeFakeResolve();
+    const v2 = { items: [clip(captions, 90000, 90750)], enabled: true, locked: false };
+    f.project.timeline.tracks.video.push(v2);
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    const next = "/m/Kilnframe/x/captions-2.mov";
+    // the new range's numbers do not find it: nothing is placed onto its track
+    const old = { path: captions, atS: 5, durationS: 10 };
+    expect(await b.replaceCaptionClip(seq.id, old, next, 5, 10, 1)).toBe(false);
+    expect(v2.items.map((i) => [i.start, i.end, i.path])).toEqual([[90000, 90750, captions]]);
   });
 });

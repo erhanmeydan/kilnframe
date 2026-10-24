@@ -32,7 +32,8 @@ function fakeApi(over: Partial<KilnframeResolveApi> = {}): KilnframeResolveApi {
     createStorySequence: vi.fn(async () => undefined),
     ourInsertSpans: vi.fn(async () => [{ startS: 2, endS: 7 }]),
     findCaptionClip: vi.fn(async () => ({ videoTrack: 2 })),
-    replaceCaptionClip: vi.fn(async () => undefined),
+    replaceCaptionClip: vi.fn(async () => true),
+    saveFileCopy: vi.fn(async () => "/Users/e/Desktop/Talk captions-1.srt"),
     isRendering: vi.fn(async () => false),
     cancelExports: vi.fn(async () => undefined),
     pickImages: vi.fn(async () => []),
@@ -182,14 +183,20 @@ describe("resolve host", () => {
     expect(api.ourInsertSpans).toHaveBeenCalledWith("tl-1");
     expect(await h.findCaptionClip(s, "/j/captions-1.mov", 2, 10)).toEqual({ videoTrack: 2 });
     expect(api.findCaptionClip).toHaveBeenCalledWith("tl-1", "/j/captions-1.mov", 2, 10);
-    await h.replaceCaptionClip(s, "/j/captions-1.mov", "/j/captions-2.mov", 2, 10, 2);
-    expect(api.replaceCaptionClip).toHaveBeenCalledWith(
-      "tl-1",
-      "/j/captions-1.mov",
-      "/j/captions-2.mov",
-      2,
-      10,
-      2,
+    const old = { path: "/j/captions-1.mov", atS: 0, durationS: 30 };
+    expect(await h.replaceCaptionClip(s, old, "/j/captions-2.mov", 2, 10, 2)).toBe(true);
+    expect(api.replaceCaptionClip).toHaveBeenCalledWith("tl-1", old, "/j/captions-2.mov", 2, 10, 2);
+  });
+
+  it("copies the SRT through the app's own save dialog", async () => {
+    const api = fakeApi();
+    const h = createResolveHost(api);
+    expect(
+      await h.saveFileCopy("/Users/e/Movies/Kilnframe/P/c/captions-1.srt", "Talk captions-1.srt"),
+    ).toBe("/Users/e/Desktop/Talk captions-1.srt");
+    expect(api.saveFileCopy).toHaveBeenCalledWith(
+      "/Users/e/Movies/Kilnframe/P/c/captions-1.srt",
+      "Talk captions-1.srt",
     );
   });
 
@@ -199,8 +206,8 @@ describe("resolve host", () => {
       fakeApi({ replaceCaptionClip: vi.fn(async () => Promise.reject(new Error("PLACE_FAILED"))) }),
     );
     const s = await h.currentSequence();
-    await expect(h.replaceCaptionClip(s, "/a", "/b", 0, 1, 0)).rejects.toThrow(
-      "The animation could not be placed on the timeline.",
-    );
+    await expect(
+      h.replaceCaptionClip(s, { path: "/a", atS: 0, durationS: 1 }, "/b", 0, 1, 0),
+    ).rejects.toThrow("The animation could not be placed on the timeline.");
   });
 });

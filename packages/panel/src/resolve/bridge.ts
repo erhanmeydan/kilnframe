@@ -611,15 +611,17 @@ export function createResolveBridge(
     // {mediaPoolItem, startFrame, endFrame, mediaType: 1 (video only), trackIndex, recordFrame} places the new
     // one; Timeline.GetIsTrackLocked(type, index): a locked track takes neither. DaVinci Resolve Scripting README,
     // MediaPool and Timeline (Help > Documentation > Developer, Scripting/README.md).
-    replaceCaptionClip(id, oldPath, file, atS, durationS, videoTrack) {
+    replaceCaptionClip(id, earlier, file, atS, durationS, videoTrack) {
       return onTimeline(id, (tl, p) =>
         keepingMarks(tl, async () => {
           const track = videoTrack + 1;
           if (await tl.GetIsTrackLocked("video", track)) throw new Error(PLACE_FAILED);
+          const old = await captionItems(tl, track, earlier.path, earlier.atS, earlier.durationS);
+          // moved, trimmed or gone since it was found: nothing goes onto that track
+          if (!old.length) return false;
           const rate = await rateOf(tl);
           const start = (await tl.GetStartFrame()) as number;
           const [item] = await importFiles(p, [file]);
-          const old = await captionItems(tl, track, oldPath, atS, durationS);
           // the old clip as it lay, to put back when the new one cannot be placed
           const before = await Promise.all(
             old.map(async (x) => {
@@ -637,7 +639,7 @@ export function createResolveBridge(
               };
             }),
           );
-          if (old.length && !(await tl.DeleteClips(old, false))) throw new Error(PLACE_FAILED);
+          if (!(await tl.DeleteClips(old, false))) throw new Error(PLACE_FAILED);
           const from = Math.round(atS * rate.fps);
           const to = Math.round((atS + durationS) * rate.fps);
           try {
@@ -652,9 +654,10 @@ export function createResolveBridge(
               },
             ]);
           } catch (err) {
-            if (before.length) await append(tl, p, before).catch(() => undefined);
+            await append(tl, p, before).catch(() => undefined);
             throw err;
           }
+          return true;
         }),
       );
     },

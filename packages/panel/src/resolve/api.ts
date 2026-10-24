@@ -77,15 +77,18 @@ export interface ResolveBridge {
     atS: number,
     durationS: number,
   ): Promise<{ videoTrack: number } | null>;
-  /** The clip of `oldPath` at `atS` on the 0-based video track replaced by `file`; the old one back on failure. */
+  /**
+   * The earlier caption clip, looked up on the 0-based video track where it lay (`old`), replaced by `file` at
+   * `atS` for `durationS`; the old one back on failure. False, with nothing changed, when it is not there.
+   */
   replaceCaptionClip(
     id: string,
-    oldPath: string,
+    old: { path: string; atS: number; durationS: number },
     file: string,
     atS: number,
     durationS: number,
     videoTrack: number,
-  ): Promise<void>;
+  ): Promise<boolean>;
   createStorySequence(
     templateId: string,
     name: string,
@@ -97,6 +100,8 @@ export interface ResolveBridge {
 
 export interface KilnframeResolveApi extends ResolveBridge {
   pickImages(types: string[]): Promise<string[]>;
+  /** A caption SRT copied to where the editor picks in a save dialog; null when cancelled. */
+  saveFileCopy(source: string, suggestedName: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
   readTextFile(path: string): Promise<string>;
   writeTextFile(path: string, text: string): Promise<void>;

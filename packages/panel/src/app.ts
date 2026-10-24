@@ -2451,8 +2451,8 @@ const captionsCtx: CaptionsCtx = {
     host().placeInsert(target, files, atS, handlesS, durationS),
   findCaptionClip: (target, mediaPath, atS, durationS) =>
     host().findCaptionClip(target, mediaPath, atS, durationS),
-  replaceCaptionClip: (target, oldPath, file, atS, durationS, videoTrack) =>
-    host().replaceCaptionClip(target, oldPath, file, atS, durationS, videoTrack),
+  replaceCaptionClip: (target, old, file, atS, durationS, videoTrack) =>
+    host().replaceCaptionClip(target, old, file, atS, durationS, videoTrack),
   caret: (id) => {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     return typeof el?.selectionStart === "number" ? el.selectionStart : null;
@@ -2476,13 +2476,7 @@ const captionsCtx: CaptionsCtx = {
   swapImage: (key, src) => images.get(key)?.setAttribute("src", src),
   stored: (key) => stored(key),
   store: (key, value) => store(key, value),
-  readTextFile: (path) => host().readTextFile(path),
-  writeTextFile: (path, text) => host().writeTextFile(path, text),
-  // Premiere's save dialog; an editor without one gets the SRT next to its project
-  get saveTextFile() {
-    const h = host();
-    return h.saveTextFile?.bind(h);
-  },
+  saveFileCopy: (source, suggestedName) => host().saveFileCopy(source, suggestedName),
 };
 
 async function readSequence(): Promise<HostSequence | null> {

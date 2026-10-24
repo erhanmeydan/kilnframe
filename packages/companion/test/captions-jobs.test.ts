@@ -11,6 +11,7 @@ import {
   renderCaptions,
   transcribe,
 } from "@kilnframe/core";
+import type * as Core from "@kilnframe/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAPTION_LOOK_IDS, MemoryKeyStore, type JobParams } from "../src/index.js";
 import {
@@ -24,7 +25,7 @@ import { pipelineRunner } from "../src/runner.js";
 
 // the real still by default; a test makes a look fail (or draw at once) without a browser
 vi.mock("@kilnframe/core", async (importOriginal) => {
-  const core = await importOriginal<typeof import("@kilnframe/core")>();
+  const core = await importOriginal<typeof Core>();
   return {
     ...core,
     previewCaptionStill: vi.fn(core.previewCaptionStill),

@@ -20,6 +20,7 @@ const ASYNC = [
   "isRendering",
   "cancelExports",
   "pickImages",
+  "saveFileCopy",
   "openUrl",
   "readTextFile",
   "writeTextFile",

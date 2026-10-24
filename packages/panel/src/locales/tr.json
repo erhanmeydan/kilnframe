@@ -528,6 +528,7 @@
   "captions.check": "Metni Kontrol Et",
   "captions.checkHelp": "Bir kelimeyi kendi satırında düzeltin, zamanlama korunur. Yapay zekanın değiştirdiği satırlar işaretli.",
   "captions.notCorrected": "Metin düzeltilemedi, Whisper'ın metni kullanılıyor.",
+  "captions.partlyCorrected": "Bazı bölümler düzeltilemedi, onlarda duyulan metin kaldı.",
   "captions.changed": "Düzeltildi",
   "captions.split": "Böl",
   "captions.merge": "Sonrakiyle Birleştir",

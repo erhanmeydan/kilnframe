@@ -9,7 +9,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath, sep } from "node:path";
 import { createResolveBridge } from "./bridge";
 import { untilItWorks } from "./once";
-import { kilnframeFile } from "./paths";
+import { kilnframeFile, saveCopy } from "./paths";
 import type { ResolveBridge } from "./api";
 
 const PLUGIN_ID = "com.kilnframe.resolve";
@@ -117,6 +117,16 @@ function register() {
     });
     return r.canceled ? [] : r.filePaths;
   });
+  // the caption SRT the companion wrote, copied to where the editor picks (the job folder is outside ~/.kilnframe)
+  ipcMain.handle("kilnframe:saveFileCopy", (_e, source: string, suggestedName: string) =>
+    saveCopy(source, suggestedName, home, async (name) => {
+      const r = await dialog.showSaveDialog(win!, {
+        defaultPath: join(app.getPath("documents"), name),
+        filters: [{ name: "SubRip", extensions: ["srt"] }],
+      });
+      return r.canceled || !r.filePath ? null : r.filePath;
+    }),
+  );
   ipcMain.handle("kilnframe:openUrl", async (_e, url: string) => {
     if (!/^(https|kilnframe):/i.test(url)) throw new Error(`Not opened: ${url}`);
     await shell.openExternal(url);

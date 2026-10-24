@@ -54,6 +54,9 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
   const replaced: unknown[][] = [];
   const written: [string, string][] = [];
   const store: Record<string, string> = {};
+  /** captions.json per job folder, as the companion keeps it. */
+  const disk: Record<string, Record<string, unknown>> = {};
+  const prepared: string[] = [];
   const listeners = new Set<Listener>();
   const frames: number[] = [];
   const frameCalls: {
@@ -81,7 +84,19 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     readSequence: async () => seq,
     request: async (m) => {
       const msg = m as Record<string, unknown>;
-      if (msg.type === "job.prepare") return { type: "job.prepared", jobDir: "/j/cap" };
+      if (msg.type === "job.prepare") {
+        prepared.push(String(msg.sequenceName));
+        return { type: "job.prepared", jobDir: "/j/cap" };
+      }
+      if (msg.type === "captions.previews")
+        return { type: "captions.previews", dir: "/kf/previews" };
+      if (msg.type === "captions.save") {
+        const dir = String(msg.jobDir);
+        disk[dir] = { ...disk[dir], panel: JSON.parse(JSON.stringify(msg.state)) };
+        return { type: "captions.saved", jobDir: dir };
+      }
+      if (msg.type === "captions.load")
+        return { type: "captions.loaded", state: disk[String(msg.jobDir)] ?? null };
       if (msg.type === "job.start") {
         sent.push(msg.params as Record<string, unknown>);
         return { type: "job.accepted", jobId: `job-${++jobs}` };
@@ -112,6 +127,7 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     findCaptionClip: async () => ({ videoTrack: 2 }),
     replaceCaptionClip: async (...a) => {
       replaced.push(a);
+      return true;
     },
     caret: () => null,
     exportFrame: async (_s, seconds, dir, name, width, height) => {
@@ -127,9 +143,9 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     store: (k, v) => {
       store[k] = v;
     },
-    readTextFile: async () => "1\n00:00:00,200 --> 00:00:01,600\nBugün\n",
-    writeTextFile: async (p, text) => {
-      written.push([p, text]);
+    saveFileCopy: async (source, name) => {
+      written.push([source, name]);
+      return `/Users/me/Desktop/${name}`;
     },
     ...over,
   };
@@ -146,6 +162,8 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     replaced,
     written,
     store,
+    disk,
+    prepared,
     frames,
     frameCalls,
     hidden,
@@ -438,7 +456,16 @@ describe("captions tab", () => {
     });
     await tick();
     await tick();
-    expect(f.replaced).toEqual([[seq, "/j/cap/captions-1.mov", "/j/cap/captions-2.mov", 0, 60, 2]]);
+    expect(f.replaced).toEqual([
+      [
+        seq,
+        { path: "/j/cap/captions-1.mov", atS: 0, durationS: 60 },
+        "/j/cap/captions-2.mov",
+        0,
+        60,
+        2,
+      ],
+    ]);
     expect(f.placed).toHaveLength(1);
     expect(st.placed?.video).toBe("/j/cap/captions-2.mov");
   });
@@ -489,14 +516,8 @@ describe("captions tab", () => {
     expect(st.stage).toBe("review");
   });
 
-  it("saves the SRT where the editor picks, or next to the project when the editor has no save dialog", async () => {
-    const saved: string[] = [];
-    const f = fakeCtx({
-      saveTextFile: async (name, text) => {
-        saved.push(name, text);
-        return "/Users/me/Desktop/Talk.srt";
-      },
-    });
+  it("copies the SRT the app wrote to where the editor picks, and says nothing on cancel", async () => {
+    const f = fakeCtx();
     const st = await toReview(f);
     st.stage = "placed";
     st.placed = {
@@ -509,25 +530,21 @@ describe("captions tab", () => {
     captionsAct(st, f.ctx, "captions-srt", "");
     await tick();
     await tick();
-    expect(saved[0]).toBe("Talk.srt");
-    expect(saved[1]).toContain("Bugün");
-    expect(st.notice).toBe(t("captions.srtSaved", { path: "/Users/me/Desktop/Talk.srt" }));
+    // the file itself is copied: the panel never has to read the job folder
+    expect(f.written).toEqual([["/j/cap/captions-1.srt", "Talk captions-1.srt"]]);
+    expect(st.notice).toBe(
+      t("captions.srtSaved", { path: "/Users/me/Desktop/Talk captions-1.srt" }),
+    );
 
-    const g = fakeCtx();
+    const g = fakeCtx({ saveFileCopy: async () => null });
     const st2 = await toReview(g);
     st2.stage = "placed";
-    st2.placed = {
-      video: "/j/cap/captions-1.mov",
-      srt: "/j/cap/captions-1.srt",
-      atS: 0,
-      durationS: 60,
-      videoTrack: 2,
-    };
+    st2.placed = st.placed;
     captionsAct(st2, g.ctx, "captions-srt", "");
     await tick();
     await tick();
-    expect(g.written[0]![0]).toBe("/p/Talk captions-1.srt");
-    expect(st2.notice).toBe(t("captions.srtSaved", { path: "/p/Talk captions-1.srt" }));
+    expect(st2.notice).toBeNull();
+    expect(st2.error).toBeNull();
   });
 
   it("keeps a running caption job when another sequence opens, and forgets the old one's text otherwise", () => {
@@ -666,8 +683,234 @@ describe("captions tab", () => {
       srt: "/j/cap/captions-2.srt",
     });
     await tick();
-    expect(f.replaced).toEqual([[seq, "/j/cap/captions-1.mov", "/j/cap/captions-2.mov", 0, 60, 2]]);
+    expect(f.replaced).toEqual([
+      [
+        seq,
+        { path: "/j/cap/captions-1.mov", atS: 0, durationS: 60 },
+        "/j/cap/captions-2.mov",
+        0,
+        60,
+        2,
+      ],
+    ]);
     expect(f.placed).toEqual([]);
+  });
+
+  it("looks the earlier clip up where it lay and places the new one at the new range", async () => {
+    const range = {
+      startS: 10,
+      endS: 40,
+      durationS: 30,
+      source: "inout" as const,
+      warning: null,
+    };
+    const looked: unknown[][] = [];
+    const f = fakeCtx({
+      inOut: () => range,
+      findCaptionClip: async (...a) => {
+        looked.push(a);
+        return { videoTrack: 2 };
+      },
+    });
+    const st = await toReview(f);
+    Object.assign(st, {
+      stage: "placed",
+      placed: {
+        video: "/j/cap/captions-1.mov",
+        srt: "/j/cap/captions-1.srt",
+        atS: 0,
+        durationS: 60,
+        videoTrack: 2,
+      },
+    });
+    captionsAct(st, f.ctx, "captions-style", "");
+    captionsAct(st, f.ctx, "captions-scope", "range");
+    captionsAct(st, f.ctx, "captions-make", "");
+    await tick();
+    f.finish({ ...textResult, durationS: 30 });
+    captionsAct(st, f.ctx, "captions-render", "");
+    await tick();
+    f.finish({
+      kind: "captions-render",
+      video: "/j/cap/captions-2.mov",
+      srt: "/j/cap/captions-2.srt",
+    });
+    await tick();
+    expect(looked).toEqual([[seq, "/j/cap/captions-1.mov", 0, 60]]);
+    expect(f.replaced).toEqual([
+      [
+        seq,
+        { path: "/j/cap/captions-1.mov", atS: 0, durationS: 60 },
+        "/j/cap/captions-2.mov",
+        10,
+        30,
+        2,
+      ],
+    ]);
+    expect(st.placed).toMatchObject({ video: "/j/cap/captions-2.mov", atS: 10, durationS: 30 });
+  });
+
+  it("places on a new track and says so when the host could not take the earlier clip off", async () => {
+    const f = fakeCtx({ replaceCaptionClip: async () => false });
+    const st = await toReview(f);
+    st.stage = "placed";
+    st.placed = {
+      video: "/j/cap/captions-1.mov",
+      srt: "/j/cap/captions-1.srt",
+      atS: 0,
+      durationS: 60,
+      videoTrack: 2,
+    };
+    captionsAct(st, f.ctx, "captions-render", "");
+    await tick();
+    await tick();
+    f.finish({
+      kind: "captions-render",
+      video: "/j/cap/captions-2.mov",
+      srt: "/j/cap/captions-2.srt",
+    });
+    await tick();
+    await tick();
+    expect(f.placed).toEqual([[seq, { video: "/j/cap/captions-2.mov", sfx: null }, 0, 0, 60]]);
+    expect(st.notice).toBe(t("captions.newTrack"));
+    expect(st.placed).toMatchObject({ video: "/j/cap/captions-2.mov", videoTrack: 2 });
+  });
+
+  it("writes the SRT in the sequence's time for an In/Out range", async () => {
+    const range = {
+      startS: 75.5,
+      endS: 135.5,
+      durationS: 60,
+      source: "inout" as const,
+      warning: null,
+    };
+    const f = fakeCtx({ inOut: () => range });
+    const st = newCaptions();
+    captionsAct(st, f.ctx, "captions-scope", "range");
+    captionsAct(st, f.ctx, "captions-make", "");
+    await tick();
+    await tick();
+    f.finish(textResult);
+    captionsAct(st, f.ctx, "captions-render", "");
+    await tick();
+    await tick();
+    expect(f.sent.find((p) => p.kind === "captions-render")).toMatchObject({ srtOffsetS: 75.5 });
+  });
+
+  it("says in one line when only some parts could be corrected", async () => {
+    const f = fakeCtx();
+    const st = await toReview(f, {
+      ...textResult,
+      corrected: true,
+      correctionError: "1 of 3 parts kept the original text: 429",
+    });
+    const html = captionsBox(st, f.ctx);
+    expect(html).toContain(t("captions.partlyCorrected"));
+    expect(html).not.toContain(t("captions.notCorrected"));
+    expect(t("captions.partlyCorrected")).not.toBe("captions.partlyCorrected");
+    setLang("tr");
+    expect(t("captions.partlyCorrected")).not.toMatch(/[—–]/);
+  });
+
+  describe("the job folder", () => {
+    it("makes a job folder only when the captions are prepared, never for the previews", async () => {
+      const f = fakeCtx();
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      await flush();
+      f.finish({ kind: "captions-preview", images: {} });
+      await flush();
+      expect(f.prepared).toEqual([]);
+      expect(f.frameCalls).toHaveLength(1);
+      captionsAct(st, f.ctx, "captions-make", "");
+      await flush();
+      expect(f.prepared).toEqual(["Talk Captions"]);
+    });
+
+    it("keeps the lines, edits, choices and placed clip in the job folder as they change", async () => {
+      const f = fakeCtx({ caret: () => 8 });
+      const st = await toReview(f);
+      await flush();
+      expect(f.store["captions-job:seq-1"]).toBe("/j/cap");
+      const saved = () => f.disk["/j/cap"]!.panel as Record<string, unknown>;
+      expect(saved()).toMatchObject({
+        seqId: "seq-1",
+        rangeStartS: 0,
+        durationS: 60,
+        language: "tr",
+        lines: [{ text: "Bugün Topview'i deneyeceğiz." }, { text: "Hadi başlayalım." }],
+        placed: null,
+      });
+      captionsAct(st, f.ctx, "captions-split", "0");
+      captionsAct(st, f.ctx, "captions-look", "loud");
+      await flush();
+      expect((saved().lines as { text: string }[]).map((l) => l.text)).toEqual([
+        "Bugün",
+        "Topview'i deneyeceğiz.",
+        "Hadi başlayalım.",
+      ]);
+      expect(saved()).toMatchObject({ edited: true, settings: { look: "loud" } });
+      captionsAct(st, f.ctx, "captions-render", "");
+      await flush();
+      f.finish({
+        kind: "captions-render",
+        video: "/j/cap/captions-1.mov",
+        srt: "/j/cap/captions-1.srt",
+      });
+      await flush();
+      expect(saved().placed).toMatchObject({ video: "/j/cap/captions-1.mov", videoTrack: 2 });
+    });
+
+    it("comes back to the text and the placed clip when the tab opens on the sequence again", async () => {
+      const f = fakeCtx({ caret: () => 8 });
+      const before = await toReview(f);
+      captionsAct(before, f.ctx, "captions-split", "0");
+      before.drafts[2] = "Hadi başlayalım!";
+      captionsAct(before, f.ctx, "captions-render", "");
+      await flush();
+      f.finish({
+        kind: "captions-render",
+        video: "/j/cap/captions-1.mov",
+        srt: "/j/cap/captions-1.srt",
+      });
+      await flush();
+      f.disk["/j/cap"]!.words = words;
+      // the panel reloaded: a fresh tab opens on the same sequence
+      const st = newCaptions();
+      captionsSwitch(st, undefined, "seq-1", f.ctx.stored);
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(st.stage).toBe("placed");
+      expect(st.jobDir).toBe("/j/cap");
+      expect(st.lines.map((l) => l.text)).toEqual([
+        "Bugün",
+        "Topview'i deneyeceğiz.",
+        "Hadi başlayalım.",
+      ]);
+      expect(st.drafts[2]).toBe("Hadi başlayalım!");
+      expect(st.placed).toMatchObject({ video: "/j/cap/captions-1.mov", atS: 0, durationS: 60 });
+      expect(st.words).toEqual(words);
+      expect(captionsBox(st, f.ctx)).toContain(t("captions.rerender"));
+      // another sequence's folder is not taken
+      const other = newCaptions();
+      captionsSwitch(other, undefined, "seq-2", (k) =>
+        k === "captions-job:seq-2" ? "/j/cap" : null,
+      );
+      captionsBox(other, f.ctx);
+      await flush();
+      expect(other.lines).toEqual([]);
+    });
+
+    it("keeps the text when another sequence opens while the style is being changed", async () => {
+      const f = fakeCtx();
+      const st = await toReview(f);
+      captionsAct(st, f.ctx, "captions-style", "");
+      expect(st.stage).toBe("idle");
+      captionsSwitch(st, "seq-1", "seq-2", () => null);
+      expect(st.seqId).toBe("seq-1");
+      expect(st.lines).toHaveLength(2);
+      expect(captionsBox(st, f.ctx)).toContain(t("captions.backToText"));
+    });
   });
 
   describe("previews", () => {
@@ -705,8 +948,9 @@ describe("captions tab", () => {
         "kil-lacivert",
         "editoryal",
       ]);
-      expect(job.frame).toBe("/j/cap/frame-1.png");
-      expect(job.outDir).toBe("/j/cap/preview");
+      // previews live in the app's own folder, not in the editor's project
+      expect(job.frame).toBe("/kf/previews/frame-1.png");
+      expect(job.outDir).toBeUndefined();
       expect(job.colors).toBeUndefined();
       // no transcript yet: the sample text in the speech's language
       expect(job.doc.lines[0]!.text).toBe("Let's make this together today.");
@@ -819,8 +1063,7 @@ describe("captions tab", () => {
       expect(job.doc.lines.map((l) => l.text)).toEqual(["Hadi başlayalım."]);
       expect(job.doc.lines[0]!.start).toBeCloseTo(0.8);
       expect(job.doc).toMatchObject({ width: 270, height: 480 });
-      expect(job.outDir).toBe("/j/cap/preview");
-      expect(job.preview).toEqual({ frame: "/j/cap/frame-1.png", stills: 6, video: false });
+      expect(job.preview).toEqual({ frame: "/kf/previews/frame-1.png", stills: 6, video: false });
       expect(f.frames[0]).toBeCloseTo(3.45);
       // the tab stays usable meanwhile
       expect(st.stage).toBe("review");
@@ -914,7 +1157,7 @@ describe("captions tab", () => {
       await flush();
       const tint = previews(f)[1] as unknown as { frame: string; looks: string[] };
       expect(tint.looks).toEqual(["bant"]);
-      expect(tint.frame).toBe("/j/cap/frame-1.png");
+      expect(tint.frame).toBe("/kf/previews/frame-1.png");
       expect(f.frameCalls).toHaveLength(1);
     });
 
