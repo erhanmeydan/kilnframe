@@ -9,6 +9,10 @@ export interface CaptionLook {
   font: string;
   /** Italic file used for the active word, when the look has one. */
   fontActive?: string;
+  /** CSS weight for the text; static font files must match it. */
+  weight: number;
+  /** Weight of the active word when it differs. */
+  weightActive?: number;
   colors: CaptionColors;
   uppercase: boolean;
   maxLines: 1 | 2;
@@ -20,6 +24,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "kil-lacivert",
     name: { en: "Kil Navy", tr: "Kil Lacivert" },
     font: "sora/Sora-Variable.ttf",
+    weight: 600,
     colors: { text: "#efe8dd", accent: "#d9875f", box: "#1c2537" },
     uppercase: false,
     maxLines: 2,
@@ -29,6 +34,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "loud",
     name: { en: "Loud", tr: "Loud" },
     font: "anton/Anton-Regular.ttf",
+    weight: 400,
     colors: { text: "#ffffff", accent: "#ffd23f" },
     uppercase: true,
     maxLines: 2,
@@ -38,6 +44,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "dinamik",
     name: { en: "Dynamic", tr: "Dinamik" },
     font: "montserrat/Montserrat-Variable.ttf",
+    weight: 800,
     colors: { text: "#ffffff", accent: "#ffffff", box: "#000000" },
     uppercase: false,
     maxLines: 2,
@@ -47,6 +54,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "hap",
     name: { en: "Pill", tr: "Hap" },
     font: "poppins/Poppins-Bold.ttf",
+    weight: 700,
     colors: { text: "#ffffff", accent: "#ff5a5f", box: "#ff5a5f" },
     uppercase: false,
     maxLines: 2,
@@ -56,6 +64,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "karaoke",
     name: { en: "Karaoke", tr: "Karaoke" },
     font: "montserrat/Montserrat-Variable.ttf",
+    weight: 700,
     colors: { text: "#ffffff", accent: "#7be0ff" },
     uppercase: false,
     maxLines: 2,
@@ -65,6 +74,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "daktilo",
     name: { en: "Typewriter", tr: "Daktilo" },
     font: "ibm-plex-mono/IBMPlexMono-Regular.ttf",
+    weight: 400,
     colors: { text: "#f4f1ea", accent: "#f4f1ea", box: "rgba(10,12,16,0.7)" },
     uppercase: false,
     maxLines: 2,
@@ -74,6 +84,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "sakin",
     name: { en: "Calm", tr: "Sakin" },
     font: "poppins/Poppins-Regular.ttf",
+    weight: 400,
     colors: { text: "#e4e1da", accent: "#e4e1da" },
     uppercase: false,
     maxLines: 1,
@@ -83,6 +94,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     id: "bant",
     name: { en: "Band", tr: "Bant" },
     font: "inter/Inter-Variable.ttf",
+    weight: 600,
     colors: { text: "#ffffff", accent: "#ffffff", box: "rgba(10,12,16,0.62)" },
     uppercase: false,
     maxLines: 2,
@@ -93,6 +105,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     name: { en: "Editorial", tr: "Editoryal" },
     font: "playfair-display/PlayfairDisplay-Variable.ttf",
     fontActive: "playfair-display/PlayfairDisplay-Italic-Variable.ttf",
+    weight: 500,
     colors: { text: "#ffffff", accent: "#e8c58a" },
     uppercase: false,
     maxLines: 2,

@@ -13,6 +13,13 @@ describe("upperCase", () => {
     expect(upperCase("istanbul", "tr", [])).toBe("İSTANBUL");
     expect(upperCase("in time", "en", [])).toBe("IN TIME");
   });
+  it("matches a kept name only as a whole word before an apostrophe or punctuation", () => {
+    expect(upperCase("aileler", "tr", ["AI"])).toBe("AİLELER");
+    expect(upperCase("AI'ın", "tr", ["AI"])).toBe("AI'IN");
+  });
+  it("folds case with the Turkish locale so a leading İ keeps its length", () => {
+    expect(upperCase("İstanbul'un", "tr", ["İstanbul"])).toBe("İSTANBUL'UN");
+  });
 });
 
 describe("captionGrid", () => {
@@ -32,6 +39,15 @@ describe("CAPTION_LOOKS", () => {
   it.each(Object.values(CAPTION_LOOKS))("$id fonts exist", (look) => {
     expect(existsSync(join(vendorFonts, look.font))).toBe(true);
     if (look.fontActive) expect(existsSync(join(vendorFonts, look.fontActive))).toBe(true);
+  });
+  it("gives every look a weight, matching static font files", () => {
+    const names: Record<string, number> = { Regular: 400, Medium: 500, SemiBold: 600, Bold: 700 };
+    for (const look of Object.values(CAPTION_LOOKS)) {
+      expect(look.weight).toBeGreaterThanOrEqual(100);
+      expect(look.weight).toBeLessThanOrEqual(900);
+      const m = /^poppins\/Poppins-(\w+)\.ttf$/.exec(look.font);
+      if (m) expect(names[m[1]]).toBe(look.weight);
+    }
   });
   it("keeps Sakin on one line", () => {
     expect(CAPTION_LOOKS.sakin.maxLines).toBe(1);
