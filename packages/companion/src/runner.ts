@@ -1,5 +1,6 @@
 import {
   CAPTION_LOOKS,
+  type CaptionColors,
   correctCaptionWords,
   previewCaptionStill,
   renderCaptions,
@@ -39,7 +40,7 @@ import {
   type Plan,
   type RenderPlanResult,
 } from "@kilnframe/core";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -68,8 +69,9 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
     const defaults = loadDefaults();
     if (params.kind === "captions-text")
       return captionsTextJob(params, keys, defaults, events.progress);
-    if (params.kind === "captions-render") return captionsRenderJob(params, events.progress);
-    if (params.kind === "captions-preview") return captionsPreviewJob(params);
+    if (params.kind === "captions-render")
+      return captionsRenderJob(params, events.progress, events.signal);
+    if (params.kind === "captions-preview") return captionsPreviewJob(params, events.signal);
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
     if (params.kind === "music-make")
       return musicMakeJob(params, keys, events.progress, events.signal);
@@ -460,50 +462,96 @@ async function captionsTextJob(
   return result;
 }
 
-/** Renders the approved caption lines as a transparent clip and an SRT in the job folder. */
+/** The colours as the core takes them: no `box` key at all when the look has none. */
+function captionColors(c: {
+  text: string;
+  accent: string;
+  box?: string | undefined;
+}): CaptionColors {
+  return { text: c.text, accent: c.accent, ...(c.box ? { box: c.box } : {}) };
+}
+
+/** Stops a caption job the editor (or the panel, for a newer preview) cancelled, between its steps. */
+function stopIfCancelled(signal: AbortSignal): void {
+  if (signal.aborted) throw new Error("The job was stopped.");
+}
+
+/**
+ * Renders the approved caption lines as a transparent clip and an SRT in the job folder. With `preview` (the
+ * panel's "Play") it renders into a folder of its own, returns the clip only as frames over the footage
+ * frame (and a small H.264 clip) and deletes that folder: nothing of a preview stays on disk.
+ */
 async function captionsRenderJob(
   params: CaptionsRenderJobParams,
   progress: (message: string) => void,
+  signal: AbortSignal,
 ) {
-  const r = await renderCaptions({
-    doc: params.doc,
-    look: params.look,
-    colors: params.colors,
-    outDir: params.outDir,
-    onProgress: progress,
-  });
   const preview = params.preview;
-  if (!preview) return { kind: "captions-render", video: r.video, srt: r.srt };
-  const frame = preview.frame ?? null;
-  const dir = join(params.outDir, randomUUID().slice(0, 8));
-  return {
-    kind: "captions-render",
-    video: r.video,
-    srt: r.srt,
-    frames: captionFrames(r.video, frame, params.doc.durationS, preview.stills, dir),
-    clip: preview.video ? captionClip(r.video, frame, dir) : null,
-  };
+  const outDir = preview ? join(params.outDir, randomUUID().slice(0, 8)) : params.outDir;
+  try {
+    const r = await renderCaptions({
+      doc: params.doc,
+      look: params.look,
+      colors: captionColors(params.colors),
+      outDir,
+      onProgress: progress,
+    });
+    if (!preview) return { kind: "captions-render", video: r.video, srt: r.srt };
+    stopIfCancelled(signal);
+    const frame = preview.frame ?? null;
+    const frames = captionFrames(r.video, frame, params.doc.durationS, preview.stills, outDir);
+    stopIfCancelled(signal);
+    return {
+      kind: "captions-render",
+      frames,
+      clip: preview.video ? captionClip(r.video, frame, outDir) : null,
+    };
+  } finally {
+    if (preview) removePreviewFolder(outDir, params.outDir);
+  }
 }
 
-/** One still per asked look, each in the look's own colours unless colours were given. */
-async function captionsPreviewJob(params: CaptionsPreviewJobParams) {
-  mkdirSync(params.outDir, { recursive: true });
-  const run = randomUUID().slice(0, 8);
-  const stills = {} as Record<string, string>;
-  for (const look of params.looks) {
-    stills[look] = await previewCaptionStill({
-      doc: params.doc,
-      look,
-      colors: params.colors ?? CAPTION_LOOKS[look].colors,
-      atS: params.atS,
-      frame: params.frame ?? null,
-      out: join(params.outDir, `preview-${run}-${look}.png`),
-    });
+/** Deletes a preview's own folder, and the previews' folder too once nothing else is in it. */
+function removePreviewFolder(run: string, parent: string): void {
+  rmSync(run, { recursive: true, force: true });
+  try {
+    if (readdirSync(parent).length === 0) rmSync(parent, { recursive: true, force: true });
+  } catch {
+    // already gone
   }
-  // the panel shows them inline as small JPEGs: it cannot read a file by its path
-  const looks = Object.keys(stills);
-  const images = Object.fromEntries(
-    stillImages(Object.values(stills), looks).map((s) => [s.sceneId, s.image]),
-  );
-  return { kind: "captions-preview", stills, images };
+}
+
+/**
+ * One still per asked look, each in the look's own colours unless colours were given, returned as small JPEG
+ * data URLs (the panel cannot read a file by its path); the PNGs are deleted afterwards. A look that cannot
+ * be drawn gets null and the others still come; only when none can be drawn does the job fail.
+ */
+async function captionsPreviewJob(params: CaptionsPreviewJobParams, signal: AbortSignal) {
+  const run = join(params.outDir, randomUUID().slice(0, 8));
+  mkdirSync(run, { recursive: true });
+  try {
+    const images: Record<string, string | null> = {};
+    let firstError: unknown = null;
+    for (const look of params.looks) {
+      stopIfCancelled(signal);
+      try {
+        const png = await previewCaptionStill({
+          doc: params.doc,
+          look,
+          colors: captionColors(params.colors ?? CAPTION_LOOKS[look].colors),
+          atS: params.atS,
+          frame: params.frame ?? null,
+          out: join(run, `${look}.png`),
+        });
+        images[look] = stillImages([png], [look])[0]?.image ?? null;
+      } catch (err) {
+        firstError ??= err;
+        images[look] = null;
+      }
+    }
+    if (firstError && Object.values(images).every((v) => v === null)) throw firstError;
+    return { kind: "captions-preview", images };
+  } finally {
+    removePreviewFolder(run, params.outDir);
+  }
 }

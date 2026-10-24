@@ -178,9 +178,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       }
       const result = ClientMessageSchema.safeParse(parsed);
       if (!result.success) {
+        const ref = (parsed as { ref?: unknown } | null)?.ref;
         send({
           type: "error",
           message: `Invalid message: ${result.error.issues.map((i) => i.message).join("; ")}`,
+          ...(typeof ref === "string" ? { ref } : {}),
         });
         return;
       }
@@ -248,6 +250,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             send({
               type: "job.prepared",
               jobDir: await o.prepareJob(msg.projectPath, msg.sequenceName, msg.jobRoot),
+              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "speech.voices": {
@@ -372,6 +375,8 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
         send({
           type: "error",
           message: `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`,
+          // the request's own ref, so the panel fails that request and no other
+          ...("ref" in msg && msg.ref ? { ref: msg.ref } : {}),
         });
       }
     });

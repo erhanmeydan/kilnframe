@@ -23,3 +23,6 @@ export function safeArea(format: OutputFormat, width: number, height: number): S
       return { top: px(80), right: px(110), bottom: px(120), left: px(110) };
   }
 }
+
+/** Portrait captions sit with their centre at this share of the height (Reels and Shorts keep the bottom). */
+export const PORTRAIT_CENTRE = 0.685;

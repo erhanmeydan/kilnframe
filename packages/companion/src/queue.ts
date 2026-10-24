@@ -120,7 +120,10 @@ export class JobQueue {
               j.params.kind === "story-voice" ||
               j.params.kind === "parts" ||
               j.params.kind === "music-plan" ||
-              j.params.kind === "music-make"
+              j.params.kind === "music-make" ||
+              j.params.kind === "captions-text" ||
+              j.params.kind === "captions-render" ||
+              j.params.kind === "captions-preview"
             ? j.params.kind
             : j.params.style,
       createdAt: j.createdAt.toISOString(),

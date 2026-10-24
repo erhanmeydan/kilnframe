@@ -304,6 +304,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     sequenceName: z.string().min(1),
     /** A folder for the job folders when there is no project file (Resolve); inside the home folder. */
     jobRoot: z.string().min(1).optional(),
+    /** Echoed in job.prepared, as job.start's is in job.accepted. */
+    ref: z.string().optional(),
   }),
   z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
   z.object({ type: z.literal("job.get"), jobId: z.string() }),
@@ -382,7 +384,7 @@ export type ServerMessage =
   | { type: "job.queued"; jobId: string; position: number }
   | { type: "job.accepted"; jobId: string; ref?: string }
   | { type: "styles"; styles: unknown[] }
-  | { type: "job.prepared"; jobDir: string }
+  | { type: "job.prepared"; jobDir: string; ref?: string }
   | { type: "job.progress"; jobId: string; message: string }
   | { type: "job.done"; jobId: string; result: unknown }
   | { type: "job.error"; jobId: string; message: string; kind?: string | undefined }

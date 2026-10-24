@@ -4,7 +4,7 @@ import * as fontkit from "fontkit";
 import { formatOf } from "../format.js";
 import { framesToSeconds, parseFps } from "../fps.js";
 import { vendorDir } from "../project/assemble.js";
-import { safeArea } from "../safe-area.js";
+import { PORTRAIT_CENTRE, safeArea } from "../safe-area.js";
 import { look as bant } from "./looks/bant.js";
 import { look as kilLacivert } from "./looks/kil-lacivert.js";
 import { look as loud } from "./looks/loud.js";
@@ -40,8 +40,7 @@ export interface TimeSpan {
 /** How long a line stays after its last word when the next line has not started yet. */
 export const CAPTION_HOLD_S = 0.35;
 
-/** Portrait captions sit with their centre at this share of the height (Reels and Shorts keep the bottom). */
-export const PORTRAIT_CENTRE = 0.685;
+export { PORTRAIT_CENTRE };
 
 const LOOK_MODULES: Partial<Record<CaptionStyleId, (o: LookInput) => LookParts>> = {
   "kil-lacivert": kilLacivert,

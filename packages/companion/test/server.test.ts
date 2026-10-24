@@ -368,9 +368,11 @@ describe("companion server", () => {
     expect(await c.next((m) => m.type === "styles")).toMatchObject({
       styles: [{ displayName: "Kil Lacivert" }],
     });
-    c.send({ type: "job.prepare", sequenceName: "Sequence 01" });
+    c.send({ type: "job.prepare", sequenceName: "Sequence 01", ref: "p1" });
+    // the ref comes back, so two folders asked for at once are not swapped
     expect(await c.next((m) => m.type === "job.prepared")).toMatchObject({
       jobDir: "/tmp/Sequence 01",
+      ref: "p1",
     });
     c.send({ type: "job.start", params: { ...params, provider: "claude-code" }, ref: "r1" });
     expect(await c.next((m) => m.type === "job.accepted")).toMatchObject({ ref: "r1" });
@@ -593,8 +595,10 @@ describe("companion server", () => {
     c.send({
       type: "job.start",
       params: { kind: "captions-render", doc, look: "neon", colors, outDir: "/tmp/c" },
+      ref: "bad-1",
     });
-    expect(await c.next((m) => m.type === "error")).toBeTruthy();
+    // the error names the request it answers
+    expect(await c.next((m) => m.type === "error")).toMatchObject({ ref: "bad-1" });
     expect(c.messages.slice(before).some((m) => m.type === "job.done")).toBe(false);
   });
 

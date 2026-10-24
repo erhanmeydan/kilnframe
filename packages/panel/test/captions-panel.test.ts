@@ -5,6 +5,7 @@ import {
   captionsColorInput,
   captionsSwitch,
   caretWord,
+  stillWindow,
   newCaptions,
   typedColors,
   type CaptionsCtx,
@@ -55,6 +56,15 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
   const store: Record<string, string> = {};
   const listeners = new Set<Listener>();
   const frames: number[] = [];
+  const frameCalls: {
+    seconds: number;
+    name: string;
+    width: number;
+    height: number;
+    hidden: boolean;
+  }[] = [];
+  const hidden: { startS: number; endS: number }[] = [];
+  let hiding = false;
   let jobs = 0;
   const ctx: CaptionsCtx = {
     esc: (s) => s,
@@ -84,7 +94,15 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
       return () => listeners.delete(fn as Listener);
     },
     providerParams: () => ({ provider: "auto" }),
-    withoutOurInserts: async (_s, _r, fn) => fn(),
+    withoutOurInserts: async (_s, r, fn) => {
+      hidden.push({ startS: r.startS, endS: r.endS });
+      hiding = true;
+      try {
+        return await fn();
+      } finally {
+        hiding = false;
+      }
+    },
     exportAudio: async () => ({ ok: true, offsetSeconds: 0 }),
     ourInsertSpans: async () => [{ startS: 10, endS: 14 }],
     placeInsert: async (...a) => {
@@ -96,8 +114,9 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
       replaced.push(a);
     },
     caret: () => null,
-    exportFrame: async (_s, seconds, dir) => {
+    exportFrame: async (_s, seconds, dir, name, width, height) => {
       frames.push(seconds);
+      frameCalls.push({ seconds, name, width, height, hidden: hiding });
       return `${dir}/frame-${frames.length}.png`;
     },
     playsVideo: () => false,
@@ -117,8 +136,23 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
   const emit = (m: Record<string, unknown>) => [...listeners].forEach((fn) => fn(m));
   const finish = (result: Record<string, unknown>, job = jobs) =>
     emit({ type: "job.done", jobId: `job-${job}`, result });
-  const fail = (message: string) => emit({ type: "job.error", jobId: `job-${jobs}`, message });
-  return { ctx, sent, placed, replaced, written, store, frames, finish, fail };
+  const fail = (message: string, job = jobs) =>
+    emit({ type: "job.error", jobId: `job-${job}`, message });
+  const cancelled = (job: number) => emit({ type: "job.cancelled", jobId: `job-${job}` });
+  return {
+    ctx,
+    sent,
+    placed,
+    replaced,
+    written,
+    store,
+    frames,
+    frameCalls,
+    hidden,
+    finish,
+    fail,
+    cancelled,
+  };
 }
 
 const textResult = {
@@ -862,6 +896,147 @@ describe("captions tab", () => {
       captionsAct(st, f.ctx, "captions-play", "1");
       await flush();
       expect(plays()).toHaveLength(2);
+    });
+
+    it("takes the tiles' frame at quarter size with Kilnframe's inserts off, and reuses it for the colours", async () => {
+      const f = fakeCtx();
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(f.frameCalls).toEqual([
+        { seconds: 20, name: "caption-frame.png", width: 270, height: 480, hidden: true },
+      ]);
+      expect(f.hidden).toEqual([{ startS: 19.5, endS: 20.5 }]);
+      f.finish({ kind: "captions-preview", images: { bant: "data:image/jpeg;base64,QQ==" } });
+      await flush();
+      st.settings.colors = { text: "#ff0000", accent: "#ff0000", box: "rgba(10,12,16,0.62)" };
+      captionsBox(st, f.ctx);
+      await flush();
+      const tint = previews(f)[1] as unknown as { frame: string; looks: string[] };
+      expect(tint.looks).toEqual(["bant"]);
+      expect(tint.frame).toBe("/j/cap/frame-1.png");
+      expect(f.frameCalls).toHaveLength(1);
+    });
+
+    it("stops a running preview before the editor's own text job is sent", async () => {
+      const f = fakeCtx();
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(previews(f)).toHaveLength(1);
+      captionsAct(st, f.ctx, "captions-make", "");
+      await flush();
+      const cancel = f.sent.findIndex((m) => m.type === "job.cancel" && m.jobId === "job-1");
+      const text = f.sent.findIndex((m) => m.kind === "captions-text");
+      expect(cancel).toBeGreaterThanOrEqual(0);
+      expect(text).toBeGreaterThan(cancel);
+      f.cancelled(1);
+      await flush();
+      // nothing new is asked for while the text is made
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(previews(f)).toHaveLength(1);
+      expect(st.error).toBeNull();
+    });
+
+    it("stops the captions' Play preview before rendering the captions", async () => {
+      const f = fakeCtx();
+      const st = await toReview(f);
+      captionsAct(st, f.ctx, "captions-play", "0");
+      await flush();
+      captionsAct(st, f.ctx, "captions-render", "");
+      await flush();
+      expect(f.sent.some((m) => m.type === "job.cancel" && m.jobId === "job-2")).toBe(true);
+      f.cancelled(2);
+      await flush();
+      // a stopped preview is not a failure
+      expect(st.notice).toBeNull();
+    });
+
+    it("stops a running tiles preview when a newer one takes its place", async () => {
+      let style: string | null = null;
+      const f = fakeCtx({ videoStyle: () => style });
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      await flush();
+      style = "kil-lacivert";
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(f.sent.some((m) => m.type === "job.cancel" && m.jobId === "job-1")).toBe(true);
+      f.cancelled(1);
+      await flush();
+      const jobs = previews(f) as unknown as { looks: string[] }[];
+      expect(jobs).toHaveLength(2);
+      expect(jobs[1]!.looks[0]).toBe("kil-lacivert");
+    });
+
+    it("keeps the looks that came when one could not be drawn, and asks again a little later after a failure", async () => {
+      vi.useFakeTimers();
+      try {
+        const f = fakeCtx();
+        const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+        captionsBox(st, f.ctx);
+        await flush();
+        f.finish({
+          kind: "captions-preview",
+          images: { bant: "data:image/jpeg;base64,QQ==", loud: null },
+        });
+        await flush();
+        expect(Object.keys(st.tiles)).toEqual(["bant"]);
+
+        const g = fakeCtx();
+        const failed: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+        captionsBox(failed, g.ctx);
+        await flush();
+        g.fail("HyperFrames could not start");
+        await flush();
+        captionsBox(failed, g.ctx);
+        await flush();
+        expect(previews(g)).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(10_000);
+        captionsBox(failed, g.ctx);
+        await flush();
+        expect(previews(g)).toHaveLength(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not send a failed colour preview again on every render", async () => {
+      const f = fakeCtx();
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      await flush();
+      f.finish({ kind: "captions-preview", images: { bant: "data:image/jpeg;base64,QQ==" } });
+      await flush();
+      st.settings.colors = { text: "#ff0000", accent: "#ff0000", box: "rgba(10,12,16,0.62)" };
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(previews(f)).toHaveLength(2);
+      f.fail("no still");
+      await flush();
+      captionsBox(st, f.ctx);
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(previews(f)).toHaveLength(2);
+    });
+
+    it("looks into each still where its look sets the captions", () => {
+      // landscape: the bottom of the captions (the safe area's edge, 1/9 up) near the bottom of the window
+      const land = stillWindow(110, 9 / 16);
+      const bottom = land.fullH * (1 - 120 / 1080);
+      expect(land.top + land.boxH).toBeGreaterThan(bottom);
+      expect(land.top + land.boxH - bottom).toBeLessThan(land.boxH * 0.2);
+      // portrait: the window centred on the captions' line, 68.5 % down
+      const port = stillWindow(110, 16 / 9);
+      expect(port.top + port.boxH / 2).toBeCloseTo(port.fullH * 0.685, 0);
+      // square: above the square safe area's bottom edge
+      const sq = stillWindow(110, 1);
+      expect(sq.top + sq.boxH).toBeGreaterThan(sq.fullH * (1 - 140 / 1080));
+      for (const w of [land, port, sq]) {
+        expect(w.top).toBeGreaterThanOrEqual(0);
+        expect(w.top + w.boxH).toBeLessThanOrEqual(w.fullH);
+      }
     });
   });
 });

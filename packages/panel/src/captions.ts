@@ -13,6 +13,7 @@ import type {
   CaptionWord,
 } from "../../core/src/captions/types";
 import type { ServerMessage } from "./companion-session";
+import { PORTRAIT_CENTRE, safeArea } from "../../core/src/safe-area";
 import { shapeOf } from "./format-check";
 import type { HostSequence, PlaceResult } from "./host";
 import { lang, t } from "./i18n";
@@ -83,8 +84,13 @@ export interface CaptionsState {
   tilesKey: string | null;
   /** Height over width of the stills (the sequence's shape). */
   tilesAspect: number;
+  /** The frame the tiles lie over, reused for the selected look in the editor's colours. */
+  tilesFrame: { key: string; path: string | null } | null;
+  /** The last tiles preview that failed: asked for again a little later, not on every render. */
+  tilesFailed: { key: string; at: number } | null;
   /** The selected look in the editor's colours. */
   tinted: { key: string; look: CaptionStyleId; image: string } | null;
+  tintFailed: { key: string; at: number } | null;
   /** A job folder for previews made before there is any text. */
   previewDir: string | null;
   /** The line being prepared for "Play". */
@@ -132,7 +138,10 @@ export function newCaptions(): CaptionsState {
     tiles: {},
     tilesKey: null,
     tilesAspect: 9 / 16,
+    tilesFrame: null,
+    tilesFailed: null,
     tinted: null,
+    tintFailed: null,
     previewDir: null,
     playing: null,
     play: null,
@@ -194,6 +203,8 @@ export interface CaptionsCtx {
     seconds: number,
     dir: string,
     name: string,
+    width: number,
+    height: number,
   ): Promise<string | null>;
   /** Whether the panel can play a small H.264 clip; otherwise "Play" steps through stills. */
   playsVideo(): boolean;
@@ -349,6 +360,33 @@ export function captionsWriteFields(st: CaptionsState): void {
 const SAMPLE = { en: ["Make it", "together"], tr: ["Birlikte", "yapalım"] };
 
 /**
+ * Where a tile looks into its still: the still is the whole frame, the tile shows the captions' part of it,
+ * larger. The window (16:9, square in portrait) is placed by where the looks set their lines: centred on the
+ * portrait captions' line, or with the bottom of the landscape and square captions (the safe area's edge)
+ * near its own bottom.
+ */
+export function stillWindow(
+  width: number,
+  aspect: number,
+): { boxW: number; boxH: number; fullW: number; fullH: number; top: number; left: number } {
+  const format = aspect > 1.05 ? "portrait" : aspect > 0.95 ? "square" : "landscape";
+  const zoom = format === "portrait" ? 1.25 : format === "square" ? 1.6 : 1.9;
+  const boxW = width - 4;
+  // the same box as the drawings, so a row of stills and drawings lines up
+  const boxH = format === "portrait" ? boxW : Math.round((width * 9) / 16) - 4;
+  const fullW = Math.round(boxW * zoom);
+  const fullH = Math.round(fullW * aspect);
+  // a frame 1000 wide in the still's shape, to read the safe area as shares of the height
+  const h = Math.round(1000 * aspect);
+  const wanted =
+    format === "portrait"
+      ? fullH * PORTRAIT_CENTRE - boxH / 2
+      : fullH * (1 - safeArea(format, 1000, h).bottom / h) + boxH * 0.1 - boxH;
+  const top = Math.round(Math.max(0, Math.min(fullH - boxH, wanted)));
+  return { boxW, boxH, fullW, fullH, top, left: Math.round((fullW - boxW) / 2) };
+}
+
+/**
  * A look's tile: its still over the footage when there is one, else a small drawing of it (two words in its
  * colours, its box or pill, its case) while the still is on its way or the app is not connected.
  */
@@ -363,18 +401,7 @@ function lookTile(
 ): string {
   const margin = last ? ";margin-right:0" : "";
   if (still) {
-    // the still is the whole frame; the tile shows the captions' part of it, larger: a 16:9 window (square in
-    // portrait) around where the look sets its lines
-    const portrait = still.aspect > 1;
-    const zoom = portrait ? 1.25 : still.aspect > 0.9 ? 1.5 : 1.7;
-    const boxW = width - 4;
-    // the same box as the drawings, so a row of stills and drawings lines up
-    const boxH = portrait ? boxW : Math.round((width * 9) / 16) - 4;
-    const fullW = Math.round(boxW * zoom);
-    const fullH = Math.round(fullW * still.aspect);
-    const centre = portrait ? 0.68 : 0.8;
-    const top = Math.max(0, Math.min(fullH - boxH, Math.round(fullH * centre - boxH / 2)));
-    const left = Math.round((fullW - boxW) / 2);
+    const { boxW, boxH, fullW, fullH, top, left } = stillWindow(width, still.aspect);
     return `<div class="tile${sel ? " sel" : ""}" style="width:${width}px${margin}" data-act="captions-look" data-val="${look.id}"><div class="tile-img cap-still" style="width:${boxW}px;height:${boxH}px"><div style="margin-top:-${top}px;margin-left:-${left}px;width:${fullW}px">${ctx.img(`cap:${look.id}`, still.src, fullW, fullH)}</div></div><div class="tile-name">${sel ? "✓ " : ""}${look.name[lang()]}</div></div>`;
   }
   const height = Math.round((width * 9) / 16);
@@ -634,6 +661,7 @@ async function makeText(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
   st.error = null;
   st.notice = null;
   st.last = "";
+  stopPreviews(st, ctx);
   ctx.render();
   const target = await ctx.readSequence();
   if (!target) {
@@ -753,6 +781,7 @@ async function renderCaptions(st: CaptionsState, ctx: CaptionsCtx): Promise<void
   st.error = null;
   st.notice = null;
   st.last = "";
+  stopPreviews(st, ctx);
   ctx.render();
   const target = await ctx.readSequence();
   if (!target || target.id !== st.seqId) {
@@ -887,57 +916,99 @@ async function prepareDir(ctx: CaptionsCtx, target: HostSequence): Promise<strin
 
 // ---------- previews ----------
 
+type PreviewKind = "tiles" | "tint" | "play";
+
 /**
  * One preview of a kind at a time. A request equal to the running one is dropped; another waits, and a later
- * one takes its place: when the running preview ends, only the latest request runs.
+ * one takes its place: when the running preview ends, only the latest request runs. The running one is
+ * stopped then, since nobody will look at it.
  */
 interface PreviewQueue {
   running: string | null;
   next: { key: string; run: () => Promise<void> } | null;
+  /** The companion's id for the running preview job, once accepted. */
+  jobId: string | null;
+  /** The running preview was stopped before the companion took it: stop it as soon as it has an id. */
+  stopped: boolean;
 }
 
-const queues = new WeakMap<CaptionsState, Record<"tiles" | "tint" | "play", PreviewQueue>>();
+/** A preview stopped by the panel: for a newer request, or for the editor's own job. Not a failure. */
+class PreviewStopped extends Error {}
 
-function queueOf(st: CaptionsState, kind: "tiles" | "tint" | "play"): PreviewQueue {
+const PREVIEW_KINDS: PreviewKind[] = ["tiles", "tint", "play"];
+const queues = new WeakMap<CaptionsState, Record<PreviewKind, PreviewQueue>>();
+
+function queueOf(st: CaptionsState, kind: PreviewKind): PreviewQueue {
   let q = queues.get(st);
   if (!q) {
-    q = {
-      tiles: { running: null, next: null },
-      tint: { running: null, next: null },
-      play: { running: null, next: null },
-    };
+    const fresh = (): PreviewQueue => ({ running: null, next: null, jobId: null, stopped: false });
+    q = { tiles: fresh(), tint: fresh(), play: fresh() };
     queues.set(st, q);
   }
   return q[kind];
 }
 
-function enqueue(q: PreviewQueue, key: string, run: () => Promise<void>): void {
+function stopRunning(q: PreviewQueue, ctx: CaptionsCtx): void {
+  if (q.running === null) return;
+  if (!q.jobId) {
+    q.stopped = true;
+    return;
+  }
+  try {
+    ctx.send({ type: "job.cancel", jobId: q.jobId });
+  } catch (err) {
+    ctx.trace(`captions: preview cancel failed ${String(err)}`);
+  }
+}
+
+function enqueue(q: PreviewQueue, ctx: CaptionsCtx, key: string, run: () => Promise<void>): void {
   if (q.running === key) {
     q.next = null;
     return;
   }
   if (q.running !== null) {
     q.next = { key, run };
+    stopRunning(q, ctx);
     return;
   }
   q.running = key;
+  q.stopped = false;
   // never inside the render that asked for it
   void Promise.resolve()
     .then(run)
     .catch(() => undefined)
     .finally(() => {
       q.running = null;
+      q.jobId = null;
       const next = q.next;
       q.next = null;
-      if (next) enqueue(q, next.key, next.run);
+      if (next) enqueue(q, ctx, next.key, next.run);
     });
 }
 
+/**
+ * The editor's own job comes first: the companion runs one job at a time, so every preview waiting or running
+ * is stopped before the text or the captions are sent.
+ */
+function stopPreviews(st: CaptionsState, ctx: CaptionsCtx): void {
+  for (const kind of PREVIEW_KINDS) {
+    const q = queueOf(st, kind);
+    q.next = null;
+    stopRunning(q, ctx);
+  }
+}
+
+const busy = (st: CaptionsState) =>
+  st.stage === "texting" || st.stage === "rendering" || st.stage === "placing";
+
 /** Starts a preview job and waits for its result; it leaves the tab's own job and stage alone. */
 function previewJob(
+  st: CaptionsState,
   ctx: CaptionsCtx,
+  q: PreviewQueue,
   params: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
+  if (busy(st) || q.stopped) return Promise.reject(new PreviewStopped());
   return new Promise((resolve, reject) => {
     let id: string | null = null;
     const early: ServerMessage[] = [];
@@ -945,7 +1016,10 @@ function previewJob(
       if (m.type === "job.done") {
         off();
         resolve((m.result ?? {}) as Record<string, unknown>);
-      } else if (m.type === "job.error" || m.type === "job.cancelled") {
+      } else if (m.type === "job.cancelled") {
+        off();
+        reject(new PreviewStopped());
+      } else if (m.type === "job.error") {
         off();
         reject(new Error(String(m.message ?? m.type)));
       }
@@ -956,9 +1030,11 @@ function previewJob(
       else if (m.jobId === id) handle(m);
     });
     ctx
-      .request({ type: "job.start", ref: `preview-${Date.now()}`, params }, "job.accepted")
+      .request({ type: "job.start", params }, "job.accepted")
       .then((accepted) => {
         id = String(accepted.jobId);
+        q.jobId = id;
+        if (q.stopped || busy(st)) stopRunning(q, ctx);
         for (const m of early) if (m.jobId === id) handle(m);
       })
       .catch((err: unknown) => {
@@ -1016,22 +1092,49 @@ async function previewFolder(
   return st.previewDir;
 }
 
-let frameCount = 0;
-
-/** A frame of the editor's footage, or null (the previews then lie over a dark ground). */
+/**
+ * A quarter-size frame of the editor's footage, with Kilnframe's own inserts switched off as for the Range
+ * tab's frames (the looks are judged over the footage, not over an animation). Written under one name per use,
+ * so frames do not pile up. Null when none was written: the previews then lie over a dark ground.
+ */
 async function footageFrame(
   ctx: CaptionsCtx,
   target: HostSequence,
   dir: string,
   seconds: number,
+  name: string,
 ): Promise<string | null> {
+  const at = Math.max(0, Math.min(target.endSeconds, seconds));
+  const span: Range = {
+    startS: Math.max(0, at - 0.5),
+    endS: Math.min(target.endSeconds, at + 0.5),
+    durationS: Math.min(target.endSeconds, at + 0.5) - Math.max(0, at - 0.5),
+    source: "sequence",
+    warning: null,
+  };
+  const { width, height } = quarter(target);
   try {
-    return await ctx.exportFrame(target, seconds, dir, `caption-frame-${++frameCount}.png`);
+    return await ctx.withoutOurInserts(target, span, () =>
+      ctx.exportFrame(target, at, dir, name, width, height),
+    );
   } catch (err) {
     ctx.trace(`captions: frame failed ${String(err)}`);
     return null;
   }
 }
+
+/** A third into the range the captions are for: where the tiles' frame is taken. */
+function aThird(st: CaptionsState, ctx: CaptionsCtx, target: HostSequence): number {
+  const inOut = st.scope === "range" ? ctx.inOut() : null;
+  const range = inOut ?? { startS: 0, durationS: target.endSeconds };
+  return range.startS + range.durationS / 3;
+}
+
+/** A failed preview is asked for again after this long (or when what it shows changes). */
+const PREVIEW_RETRY_MS = 10_000;
+
+const failedLately = (failed: { key: string; at: number } | null, key: string) =>
+  failed?.key === key && Date.now() - failed.at < PREVIEW_RETRY_MS;
 
 function tilesKeyOf(st: CaptionsState, ctx: CaptionsCtx): string {
   const range = st.scope === "range" ? ctx.inOut() : null;
@@ -1043,38 +1146,53 @@ function tilesKeyOf(st: CaptionsState, ctx: CaptionsCtx): string {
   ]);
 }
 
+/** The tiles' doc: the sample line alone, at quarter size. */
+function sampleDoc(st: CaptionsState, target: HostSequence) {
+  const { line, language } = sampleLine(st);
+  return {
+    doc: {
+      lines: [line],
+      language,
+      glossary: st.settings.glossary,
+      durationS: line.end + 0.5,
+      ...quarter(target),
+      fps: target.fps,
+      hideSpans: [],
+    },
+    atS: stillMoment(line),
+  };
+}
+
 /** Step 1 is shown: each look's still over the footage, once per sequence, range, line and grid. */
 function wantTiles(st: CaptionsState, ctx: CaptionsCtx): void {
-  if (!st.seqId || !ctx.connected()) return;
+  if (!st.seqId || !ctx.connected() || busy(st)) return;
   const key = tilesKeyOf(st, ctx);
   if (st.tilesKey === key) {
     wantTint(st, ctx);
     return;
   }
+  if (failedLately(st.tilesFailed, key)) return;
   st.tilesKey = key;
-  enqueue(queueOf(st, "tiles"), key, async () => {
+  const q = queueOf(st, "tiles");
+  enqueue(q, ctx, key, async () => {
     try {
       const target = await ctx.readSequence();
       if (!target || target.id !== st.seqId) return;
       const dir = await previewFolder(st, ctx, target);
-      const inOut = st.scope === "range" ? ctx.inOut() : null;
-      const range = inOut ?? { startS: 0, durationS: target.endSeconds };
-      const frame = await footageFrame(ctx, target, dir, range.startS + range.durationS / 3);
+      const frame = await footageFrame(
+        ctx,
+        target,
+        dir,
+        aThird(st, ctx, target),
+        "caption-frame.png",
+      );
       const size = quarter(target);
-      const { line, language } = sampleLine(st);
-      const result = await previewJob(ctx, {
+      const { doc, atS } = sampleDoc(st, target);
+      const result = await previewJob(st, ctx, q, {
         kind: "captions-preview",
-        doc: {
-          lines: [line],
-          language,
-          glossary: st.settings.glossary,
-          durationS: line.end + 0.5,
-          ...size,
-          fps: target.fps,
-          hideSpans: [],
-        },
+        doc,
         looks: captionGrid(ctx.videoStyle()),
-        atS: stillMoment(line),
+        atS,
         ...(frame ? { frame } : {}),
         outDir: `${dir}/preview`,
       });
@@ -1084,10 +1202,17 @@ function wantTiles(st: CaptionsState, ctx: CaptionsCtx): void {
       for (const [look, src] of Object.entries(images))
         if (src && look in CAPTION_LOOKS) st.tiles[look as CaptionStyleId] = src;
       st.tilesAspect = size.height / size.width;
+      st.tilesFrame = { key, path: frame };
       st.tinted = null;
+      st.tilesFailed = null;
       ctx.refresh(Object.fromEntries(Object.entries(st.tiles).map(([k, v]) => [`cap:${k}`, v])));
       wantTint(st, ctx);
     } catch (err) {
+      if (st.tilesKey !== key) return;
+      // asked again by the next render: at once when it was only stopped, a little later when it failed
+      st.tilesKey = null;
+      if (err instanceof PreviewStopped) return;
+      st.tilesFailed = { key, at: Date.now() };
       ctx.trace(`captions: preview failed ${err instanceof Error ? err.message : String(err)}`);
     }
   });
@@ -1095,44 +1220,43 @@ function wantTiles(st: CaptionsState, ctx: CaptionsCtx): void {
 
 /** The selected look in the editor's own colours, when they differ from the look's. */
 function wantTint(st: CaptionsState, ctx: CaptionsCtx): void {
-  if (!st.seqId || !st.tilesKey || !ctx.connected()) return;
+  if (!st.seqId || !st.tilesKey || !ctx.connected() || busy(st)) return;
   const look = lookOf(st, ctx.videoStyle());
   const colors = colorsOf(st, look);
   if (JSON.stringify(colors) === JSON.stringify(look.colors)) return;
   const key = JSON.stringify([st.tilesKey, look.id, colors]);
-  if (st.tinted?.key === key) return;
+  if (st.tinted?.key === key || failedLately(st.tintFailed, key)) return;
   const tilesKey = st.tilesKey;
-  enqueue(queueOf(st, "tint"), key, async () => {
+  const q = queueOf(st, "tint");
+  enqueue(q, ctx, key, async () => {
     try {
       const target = await ctx.readSequence();
       if (!target || target.id !== st.seqId) return;
       const dir = await previewFolder(st, ctx, target);
-      const inOut = st.scope === "range" ? ctx.inOut() : null;
-      const range = inOut ?? { startS: 0, durationS: target.endSeconds };
-      const frame = await footageFrame(ctx, target, dir, range.startS + range.durationS / 3);
-      const { line, language } = sampleLine(st);
-      const result = await previewJob(ctx, {
+      // the tiles' own frame when it is still theirs
+      const frame =
+        st.tilesFrame?.key === tilesKey
+          ? st.tilesFrame.path
+          : await footageFrame(ctx, target, dir, aThird(st, ctx, target), "caption-frame.png");
+      const { doc, atS } = sampleDoc(st, target);
+      const result = await previewJob(st, ctx, q, {
         kind: "captions-preview",
-        doc: {
-          lines: [line],
-          language,
-          glossary: st.settings.glossary,
-          durationS: line.end + 0.5,
-          ...quarter(target),
-          fps: target.fps,
-          hideSpans: [],
-        },
+        doc,
         looks: [look.id],
         colors,
-        atS: stillMoment(line),
+        atS,
         ...(frame ? { frame } : {}),
         outDir: `${dir}/preview`,
       });
       const image = ((result.images ?? {}) as Record<string, string | null>)[look.id];
-      if (!image || st.tilesKey !== tilesKey) return;
+      if (!image) throw new Error(`no still for ${look.id}`);
+      if (st.tilesKey !== tilesKey) return;
       st.tinted = { key, look: look.id, image };
+      st.tintFailed = null;
       ctx.refresh({ [`cap:${look.id}`]: image });
     } catch (err) {
+      if (err instanceof PreviewStopped) return;
+      st.tintFailed = { key, at: Date.now() };
       ctx.trace(`captions: preview failed ${err instanceof Error ? err.message : String(err)}`);
     }
   });
@@ -1254,16 +1378,23 @@ function playLine(st: CaptionsState, ctx: CaptionsCtx, i: number): void {
     return;
   }
   const jobDir = st.jobDir;
-  enqueue(queueOf(st, "play"), key, async () => {
+  const q = queueOf(st, "play");
+  enqueue(q, ctx, key, async () => {
     st.playing = i;
     ctx.render();
     try {
       const target = await ctx.readSequence();
       if (!target || target.id !== st.seqId) throw new Error(t("captions.otherSequence"));
       const { fromS, toS } = playWindow(line, st.durationS);
-      const frame = await footageFrame(ctx, target, jobDir, st.rangeStartS + (fromS + toS) / 2);
+      const frame = await footageFrame(
+        ctx,
+        target,
+        jobDir,
+        st.rangeStartS + (fromS + toS) / 2,
+        "caption-play-frame.png",
+      );
       const size = quarter(target);
-      const result = await previewJob(ctx, {
+      const result = await previewJob(st, ctx, q, {
         kind: "captions-render",
         doc: {
           lines: windowLines(
@@ -1296,9 +1427,10 @@ function playLine(st: CaptionsState, ctx: CaptionsCtx, i: number): void {
         aspect: size.height / size.width,
       };
     } catch (err) {
-      st.notice = t("captions.playFailed", {
-        message: err instanceof Error ? err.message : String(err),
-      });
+      if (!(err instanceof PreviewStopped))
+        st.notice = t("captions.playFailed", {
+          message: err instanceof Error ? err.message : String(err),
+        });
     } finally {
       st.playing = null;
       ctx.render();

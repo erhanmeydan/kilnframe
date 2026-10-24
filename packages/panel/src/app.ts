@@ -2457,8 +2457,8 @@ const captionsCtx: CaptionsCtx = {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     return typeof el?.selectionStart === "number" ? el.selectionStart : null;
   },
-  exportFrame: async (target, seconds, dir, name) =>
-    (await host().exportFrame(target, seconds, `${dir}/`, name, target.width, target.height))
+  exportFrame: async (target, seconds, dir, name, width, height) =>
+    (await host().exportFrame(target, seconds, `${dir}/`, name, width, height))
       ? `${dir}/${name}`
       : null,
   // UXP has a <video> element (its changelog adds timeUpdate in UXP 9.1 and the poster attribute, macOS only,
