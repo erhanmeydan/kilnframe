@@ -16,10 +16,15 @@ export function look(o: LookInput): LookParts {
     wordSpacingEm: 0,
     padX,
     wordMarkup: (w, id) => `<span class="w" id="${id}">${escapeHtml(w.text)}</span>`,
-    animate: (line, i, end) => {
+    animate: (_line, i, { enterS, endS }) => {
       const sel = `"#l${i} .block"`;
-      const out = Math.max(line.start + 0.2, end - 0.14);
-      return `tl.fromTo(${sel},{opacity:0,y:${Math.round(8 * k)}},{opacity:1,y:0,duration:0.2,ease:"power2.out"},${t(line.start)});tl.to(${sel},{opacity:0,duration:${t(Math.min(0.14, end - out))},ease:"power1.in"},${t(out)});\n`;
+      const out = Math.max(enterS + 0.2, endS - 0.14);
+      // a line that came in before this composition starts is already on screen
+      const enter =
+        enterS >= 0
+          ? `tl.fromTo(${sel},{opacity:0,y:${Math.round(8 * k)}},{opacity:1,y:0,duration:0.2,ease:"power2.out"},${t(enterS)});`
+          : "";
+      return `${enter}tl.to(${sel},{opacity:0,duration:${t(Math.min(0.14, endS - out))},ease:"power1.in"},${t(out)});\n`;
     },
   };
 }

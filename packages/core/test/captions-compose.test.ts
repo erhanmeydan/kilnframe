@@ -7,8 +7,11 @@ import {
   buildCaptionProject,
   captionHtml,
   captionLines,
+  captionSegments,
   captionWindows,
   type CaptionDoc,
+  type CaptionSegment,
+  type TimeSpan,
 } from "../src/captions/compose.js";
 import { nextCaptionNumber } from "../src/captions/render.js";
 import { CAPTION_LOOKS } from "../src/captions/styles.js";
@@ -223,4 +226,110 @@ describe("nextCaptionNumber", () => {
     expect(nextCaptionNumber(dir)).toBe(1);
     expect(nextCaptionNumber(join(dir, "missing"))).toBe(1);
   });
+});
+
+describe("captionSegments", () => {
+  // ~1000 lines over an hour, with hidden spans, some lines crossing segment edges
+  const hour = (() => {
+    const lines: CaptionLine[] = [];
+    for (let k = 0; k < 1000; k++) {
+      const start = k * 3.6 + (k % 7) * 0.05;
+      lines.push(line(`satır ${k} burada`, start, start + 2.9 + (k % 3) * 0.4));
+    }
+    return doc(lines, {
+      durationS: 3600,
+      fps: "30000/1001",
+      hideSpans: [
+        { startS: 478, endS: 483 },
+        { startS: 1500, endS: 1530.5 },
+      ],
+    });
+  })();
+
+  it("keeps a doc shorter than one segment in one piece", () => {
+    const segments = captionSegments(sample, 480);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]).toMatchObject({ startS: 0, endS: 10 });
+  });
+
+  it("cuts on frame edges into touching segments that cover the doc", () => {
+    const segments = captionSegments(hour, 480);
+    expect(segments).toHaveLength(8);
+    expect(segments[0]?.startS).toBe(0);
+    expect(segments.at(-1)?.endS).toBe(3600);
+    segments.forEach((s, k) => {
+      if (k) expect(s.startS).toBe(segments[k - 1]?.endS);
+      const frames = (s.startS * 30000) / 1001;
+      expect(Math.abs(frames - Math.round(frames))).toBeLessThan(1e-6);
+    });
+  });
+
+  it("joins back to the whole doc's windows with no gaps or doubles at the edges", () => {
+    const lines = captionLines(hour.lines);
+    const whole = captionWindows(lines, hour.durationS, hour.hideSpans);
+    const joined: TimeSpan[][] = lines.map(() => []);
+    let entrances = 0;
+    for (const s of captionSegments(hour, 480)) {
+      for (const e of s.entries) {
+        expect(e.line.text).toBe(lines[e.index]?.text);
+        expect(e.line.start).toBeCloseTo((lines[e.index] as CaptionLine).start - s.startS, 9);
+        if (e.timing.enterS >= 0 && e.timing.enterS < s.endS - s.startS) entrances++;
+        for (const w of e.windows) {
+          expect(w.startS).toBeGreaterThanOrEqual(0);
+          expect(w.endS).toBeLessThanOrEqual(s.endS - s.startS + 1e-9);
+          const back = { startS: w.startS + s.startS, endS: w.endS + s.startS };
+          const list = joined[e.index] as TimeSpan[];
+          const last = list.at(-1);
+          expect(last && back.startS < last.endS - 1e-9).toBeFalsy();
+          // a window cut at an edge continues in the next segment
+          if (last && Math.abs(last.endS - back.startS) < 1e-9) last.endS = back.endS;
+          else list.push(back);
+        }
+      }
+    }
+    joined.forEach((list, i) => {
+      const want = whole[i] as TimeSpan[];
+      expect(list).toHaveLength(want.length);
+      list.forEach((w, k) => {
+        expect(w.startS).toBeCloseTo((want[k] as TimeSpan).startS, 9);
+        expect(w.endS).toBeCloseTo((want[k] as TimeSpan).endS, 9);
+      });
+    });
+    // each shown line enters once, in the segment where it first appears
+    expect(entrances).toBe(whole.filter((w) => w.length).length);
+  });
+
+  it("writes a segment's composition with only its lines, timed from its start", () => {
+    const segments = captionSegments(hour, 480);
+    const second = segments[1] as CaptionSegment;
+    const html = captionHtml(hour, "bant", CAPTION_LOOKS.bant.colors, second);
+    expect(html).toContain(
+      `data-duration="${(second.endS - second.startS).toFixed(6).replace(/\.?0+$/, "")}"`,
+    );
+    expect(html).not.toContain(">satır 0 <");
+    expect(html.match(/class="line"/g)).toHaveLength(second.entries.length);
+    expect(html).not.toMatch(/},-/);
+  });
+});
+
+describe("entrance", () => {
+  it.each(LOOKS)("plays the %s entrance when a hidden span covering the start ends", (look) => {
+    const d = doc([line("gizli başlayan satır", 3, 7)], { hideSpans: [{ startS: 2, endS: 4.5 }] });
+    const html = captionHtml(d, look, CAPTION_LOOKS[look].colors);
+    const entrance = /tl\.fromTo\("#l0 \.block",[^;]*?,([\d.]+)\);/.exec(html);
+    expect(Number(entrance?.[1])).toBe(4.5);
+  });
+
+  it.each(LOOKS)(
+    "skips the %s entrance and past words for a line that came in before the segment",
+    (look) => {
+      const d = doc([line("kenarı geçen satır burada", 9, 13)], { durationS: 20 });
+      const [, second] = captionSegments(d, 10);
+      const html = captionHtml(d, look, CAPTION_LOOKS[look].colors, second);
+      expect(html).not.toMatch(/tl\.fromTo\("#l0 \.block"/);
+      // word 0 (9-10 s) is over before the segment starts at 10 s; word 1 (10-11 s) still plays
+      expect(html).not.toContain('"#w0_0');
+      if (look !== "bant") expect(html).toContain('"#w0_1');
+    },
+  );
 });

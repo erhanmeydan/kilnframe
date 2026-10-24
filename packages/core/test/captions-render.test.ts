@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -176,6 +176,50 @@ describe.skipIf(!RENDER)("caption render", () => {
     const after = statSync(first.video);
     expect(after.mtimeMs).toBe(before.mtimeMs);
     expect(after.size).toBe(before.size);
+    // the full-length intermediate render is not kept
+    expect(existsSync(join(out, "captions-project", "renders"))).toBe(false);
+  }, 600_000);
+
+  it("renders a long doc in segments joined into one clip and removes the pieces", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-caption-segments-"));
+    const d = doc(
+      [
+        line("Bir iki üç", 0.2, 1.4),
+        line("kenarı geçen satır", 1.6, 2.8),
+        line("yedi sekiz", 3.0, 4.4),
+      ],
+      { durationS: 5 },
+    );
+    const r = await renderCaptions({
+      doc: d,
+      look: "kil-lacivert",
+      colors: CAPTION_LOOKS["kil-lacivert"].colors,
+      outDir: out,
+      segmentS: 2,
+    });
+    const info = probe(r.video);
+    expect(info.codec_name).toBe("prores");
+    expect(Math.abs(Number(info.duration) - 5)).toBeLessThanOrEqual(1 / 25 + 1e-6);
+    expect(readFileSync(r.srt, "utf8").match(/ --> /g)).toHaveLength(3);
+    // the line crossing the 2 s edge shows on both sides of it
+    for (const at of [1.9, 2.1]) {
+      const png = join(out, `at-${at}.png`);
+      execFileSync(ffmpegPath(), [
+        "-v",
+        "error",
+        "-ss",
+        String(at),
+        "-i",
+        r.video,
+        "-frames:v",
+        "1",
+        png,
+      ]);
+      expect(opaqueRows(png, 1080, 1920).length).toBeGreaterThan(0);
+    }
+    const left = readdirSync(join(out, "captions-project"), { recursive: true }).map(String);
+    expect(left.filter((f) => f.endsWith(".mov"))).toEqual([]);
+    expect(left.filter((f) => /^part-\d+\/index\.html$/.test(f))).toHaveLength(3);
   }, 600_000);
 
   it("makes a still over a frame of the footage", async () => {

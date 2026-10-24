@@ -1,5 +1,13 @@
 import { CAPTION_LOOKS } from "../styles.js";
-import { CAPTION_FONT, escapeHtml, scaleOf, t, type LookInput, type LookParts } from "./shared.js";
+import {
+  CAPTION_FONT,
+  escapeHtml,
+  liveWords,
+  scaleOf,
+  t,
+  type LookInput,
+  type LookParts,
+} from "./shared.js";
 
 /** Big, heavy, outlined capitals; the spoken word takes the accent colour with a short pop. */
 export function look(o: LookInput): LookParts {
@@ -18,12 +26,16 @@ export function look(o: LookInput): LookParts {
     // the stroke and the pop of an edge word reach past the row
     padX: Math.round(fontPx * 0.08) + stroke,
     wordMarkup: (w, id) => `<span class="w" id="${id}">${escapeHtml(w.text)}</span>`,
-    animate: (line, i) => {
-      let a = `tl.fromTo("#l${i} .block",{opacity:0},{opacity:1,duration:0.06},${t(line.start)});\n`;
-      line.words.forEach((w, n) => {
+    animate: (line, i, timing) => {
+      // a line that came in before this composition starts is already on screen
+      let a =
+        timing.enterS >= 0
+          ? `tl.fromTo("#l${i} .block",{opacity:0},{opacity:1,duration:0.06},${t(timing.enterS)});\n`
+          : "";
+      for (const { w, n } of liveWords(line)) {
         const id = `#w${i}_${n}`;
         a += `tl.set("${id}",{color:"${accent}"},${t(w.start)});tl.fromTo("${id}",{scale:1},{scale:1.12,duration:0.08,ease:"power2.out"},${t(w.start)});tl.to("${id}",{scale:1,duration:0.08,ease:"power2.in"},${t(w.start + 0.08)});tl.set("${id}",{color:"${text}"},${t(Math.max(w.end, w.start + 0.16))});\n`;
-      });
+      }
       return a;
     },
   };

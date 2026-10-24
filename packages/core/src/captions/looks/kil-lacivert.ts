@@ -1,5 +1,13 @@
 import { CAPTION_LOOKS } from "../styles.js";
-import { CAPTION_FONT, escapeHtml, scaleOf, t, type LookInput, type LookParts } from "./shared.js";
+import {
+  CAPTION_FONT,
+  escapeHtml,
+  liveWords,
+  scaleOf,
+  t,
+  type LookInput,
+  type LookParts,
+} from "./shared.js";
 
 /** Navy card, cream text; a clay underline grows under the spoken word. */
 export function look(o: LookInput): LookParts {
@@ -19,12 +27,16 @@ export function look(o: LookInput): LookParts {
     wordSpacingEm: 0,
     padX,
     wordMarkup: (w, id) => `<span class="w" id="${id}">${escapeHtml(w.text)}<i></i></span>`,
-    animate: (line, i) => {
-      let a = `tl.fromTo("#l${i} .block",{opacity:0,y:${Math.round(10 * k)}},{opacity:1,y:0,duration:0.16,ease:"power2.out"},${t(line.start)});\n`;
-      line.words.forEach((w, n) => {
+    animate: (line, i, timing) => {
+      // a line that came in before this composition starts is already on screen
+      let a =
+        timing.enterS >= 0
+          ? `tl.fromTo("#l${i} .block",{opacity:0,y:${Math.round(10 * k)}},{opacity:1,y:0,duration:0.16,ease:"power2.out"},${t(timing.enterS)});\n`
+          : "";
+      for (const { w, n } of liveWords(line)) {
         const id = `#w${i}_${n} i`;
         a += `tl.fromTo("${id}",{scaleX:0},{scaleX:1,duration:${t(Math.max(0.12, w.end - w.start))},ease:"power1.out"},${t(w.start)});tl.set("${id}",{scaleX:0},${t(w.end)});\n`;
-      });
+      }
       return a;
     },
   };

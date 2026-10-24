@@ -2,6 +2,7 @@ import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as fontkit from "fontkit";
 import { formatOf } from "../format.js";
+import { framesToSeconds, parseFps } from "../fps.js";
 import { vendorDir } from "../project/assemble.js";
 import { safeArea } from "../safe-area.js";
 import { look as bant } from "./looks/bant.js";
@@ -85,6 +86,78 @@ export function captionWindows(
   });
 }
 
+/** Long captions render in pieces of about this length, joined into one clip afterwards. */
+export const CAPTION_SEGMENT_S = 480;
+
+export interface SegmentEntry {
+  /** The line's number among the doc's visible lines (its block id). */
+  index: number;
+  /** The line with its times relative to the segment start. */
+  line: CaptionLine;
+  /** Where the line shows inside the segment, relative to its start. */
+  windows: TimeSpan[];
+  /** Entrance and exit relative to the segment start (outside it when the line crosses an edge). */
+  timing: { enterS: number; endS: number };
+}
+
+export interface CaptionSegment {
+  startS: number;
+  endS: number;
+  entries: SegmentEntry[];
+}
+
+/**
+ * Cuts the doc into segments on frame edges, each holding the lines that show inside it with their
+ * windows clipped to its edges. A doc no longer than segmentS is one segment.
+ */
+export function captionSegments(doc: CaptionDoc, segmentS = CAPTION_SEGMENT_S): CaptionSegment[] {
+  const lines = captionLines(doc.lines);
+  const windows = captionWindows(lines, doc.durationS, doc.hideSpans);
+  const fps = parseFps(doc.fps);
+  const edges = [0];
+  if (doc.durationS > segmentS) {
+    const frames = Math.max(1, Math.round((segmentS * fps.num) / fps.den));
+    for (let k = 1; ; k++) {
+      const at = framesToSeconds(k * frames, fps);
+      if (at >= doc.durationS - 1e-6) break;
+      edges.push(at);
+    }
+  }
+  edges.push(doc.durationS);
+  const shift = (v: number, by: number) => v - by;
+  return edges.slice(0, -1).map((startS, k) => {
+    const endS = edges[k + 1] as number;
+    const entries: SegmentEntry[] = [];
+    lines.forEach((line, index) => {
+      const shown = windows[index] as TimeSpan[];
+      const inside = shown
+        .map((w) => ({ startS: Math.max(w.startS, startS), endS: Math.min(w.endS, endS) }))
+        .filter((w) => w.endS - w.startS > 1e-6)
+        .map((w) => ({ startS: shift(w.startS, startS), endS: shift(w.endS, startS) }));
+      if (!inside.length) return;
+      entries.push({
+        index,
+        line: {
+          ...line,
+          start: shift(line.start, startS),
+          end: shift(line.end, startS),
+          words: line.words.map((w) => ({
+            ...w,
+            start: shift(w.start, startS),
+            end: shift(w.end, startS),
+          })),
+        },
+        windows: inside,
+        timing: {
+          enterS: shift((shown[0] as TimeSpan).startS, startS),
+          endS: shift((shown[shown.length - 1] as TimeSpan).endS, startS),
+        },
+      });
+    });
+    return { startS, endS, entries };
+  });
+}
+
 const rowLength = (words: string[]) => words.join(" ").length;
 
 /**
@@ -137,11 +210,15 @@ function seconds(s: number): string {
   return s.toFixed(6).replace(/\.?0+$/, "") || "0";
 }
 
-/** The caption composition: one block per line on a transparent page, one paused GSAP timeline. */
+/**
+ * The caption composition: one block per line on a transparent page, one paused GSAP timeline. Given a
+ * segment (captionSegments) it holds only that segment's lines, timed from the segment's start.
+ */
 export function captionHtml(
   doc: CaptionDoc,
   lookId: CaptionStyleId,
   colors: CaptionColors,
+  segment: CaptionSegment = captionSegments(doc, Infinity)[0] as CaptionSegment,
 ): string {
   const style = CAPTION_LOOKS[lookId];
   const { width, height } = doc;
@@ -152,20 +229,17 @@ export function captionHtml(
   const maxRowPx = width - safe.left - safe.right - 2 * parts.padX;
   const maxChars = style.maxChars[format];
 
-  const lines = captionLines(doc.lines).map((line) => ({
-    ...line,
-    words: line.words.map((w) => ({
-      ...w,
-      text: style.uppercase ? upperCase(w.text, doc.language, doc.glossary) : w.text,
-    })),
-  }));
-  const windows = captionWindows(lines, doc.durationS, doc.hideSpans);
-
   const blocks: string[] = [];
   let script = "";
-  lines.forEach((line, i) => {
-    const shown = windows[i] as TimeSpan[];
-    if (!shown.length) return;
+  for (const entry of segment.entries) {
+    const i = entry.index;
+    const line = {
+      ...entry.line,
+      words: entry.line.words.map((w) => ({
+        ...w,
+        text: style.uppercase ? upperCase(w.text, doc.language, doc.glossary) : w.text,
+      })),
+    };
     const ids = new Map(line.words.map((w, n) => [w, `w${i}_${n}`]));
     const rows = blockRows(
       line.words.map((w) => w.text),
@@ -193,10 +267,10 @@ export function captionHtml(
     blocks.push(
       `<div class="line" id="l${i}"><div class="block" style="font-size:${size}px">${markup}</div></div>`,
     );
-    for (const w of shown)
+    for (const w of entry.windows)
       script += `tl.set("#l${i}",{opacity:1},${w.startS.toFixed(3)});tl.set("#l${i}",{opacity:0},${w.endS.toFixed(3)});\n`;
-    script += parts.animate(line, i, (shown[shown.length - 1] as TimeSpan).endS);
-  });
+    script += parts.animate(line, i, entry.timing);
+  }
 
   const placement =
     format === "portrait"
@@ -205,7 +279,7 @@ export function captionHtml(
   const active = style.fontActive
     ? `\n@font-face{font-family:"${CAPTION_FONT_ACTIVE}";src:url("font-active.ttf") format("truetype");font-weight:${style.weightActive ?? style.weight}}`
     : "";
-  const duration = seconds(doc.durationS);
+  const duration = seconds(segment.endS - segment.startS);
   return `<!doctype html>
 <html lang="${doc.language}">
 <head>
@@ -244,10 +318,11 @@ export function buildCaptionProject(
   look: CaptionStyleId,
   colors: CaptionColors,
   dir: string,
+  segment?: CaptionSegment,
 ): void {
   const style = CAPTION_LOOKS[look];
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "index.html"), captionHtml(doc, look, colors));
+  writeFileSync(join(dir, "index.html"), captionHtml(doc, look, colors, segment));
   copyFileSync(join(vendorDir(), "gsap", "gsap.min.js"), join(dir, "gsap.min.js"));
   copyFileSync(fontFile(style), join(dir, "font.ttf"));
   if (style.fontActive)
