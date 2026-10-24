@@ -451,6 +451,8 @@ async function captionsTextJob(
     language,
     words,
     corrected,
+    // Whisper's own words, so the panel can mark the lines the correction changed
+    ...(corrected ? { original: transcript.words } : {}),
     ...(correctionError ? { correctionError } : {}),
     durationS,
   };

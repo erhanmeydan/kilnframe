@@ -16,6 +16,15 @@ import {
   watchesSequence,
   type MusicCtx,
 } from "./music";
+import {
+  captionsAct,
+  captionsBox,
+  captionsReadFields,
+  captionsSwitch,
+  captionsWriteFields,
+  newCaptions,
+  type CaptionsCtx,
+} from "./captions";
 import { feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
@@ -190,6 +199,7 @@ interface Lightbox {
   index: number;
 }
 
+type Tab = "range" | "story" | "music" | "captions";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
@@ -345,10 +355,11 @@ const state = {
   /** A long range made part by part, also when it was started before a reload. */
   series: loadSeries(),
   lightbox: null as Lightbox | null,
-  /** The home screen's ways to make something: an animation for a range, a story, music. */
-  tab: "range" as "range" | "story" | "music",
+  /** The home screen's ways to make something: an animation for a range, a story, music, captions. */
+  tab: "range" as Tab,
   story: newStory(),
   music: newMusic(),
+  captions: newCaptions(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -760,8 +771,17 @@ function home(): string {
     ["range", t("tab.range")],
     ["story", t("tab.story")],
     ["music", t("tab.music")],
+    ["captions", t("tab.captions")],
   ])}
-  ${state.tab === "story" ? storyBox() : state.tab === "music" ? musicBox(state.music, musicCtx) : rangeHome(done)}`;
+  ${
+    state.tab === "story"
+      ? storyBox()
+      : state.tab === "music"
+        ? musicBox(state.music, musicCtx)
+        : state.tab === "captions"
+          ? captionsBox(state.captions, captionsCtx)
+          : rangeHome(done)
+  }`;
 }
 
 /** A long range left unfinished (reload, restart, an error, or Continue Later): where it stands. */
@@ -2183,6 +2203,7 @@ function render() {
     if (el) state.story[key] = el.value ?? "";
   }
   musicReadFields(state.music);
+  captionsReadFields(state.captions);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
   const baseField = document.getElementById("base-input") as HTMLInputElement | null;
@@ -2247,6 +2268,7 @@ function render() {
     if (el) el.value = state.story[key];
   }
   musicWriteFields(state.music);
+  captionsWriteFields(state.captions);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
   if (state.own) {
@@ -2388,6 +2410,52 @@ const musicCtx: MusicCtx = {
   openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
 };
 
+/** What the Captions tab (captions.ts) uses from the rest of the panel. */
+const captionsCtx: CaptionsCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  seg: (name, value, options) => seg(name, value, options),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: (scope) => musicRangeLine(scope),
+  videoStyle: () => state.style || null,
+  tileWidth: () => Math.floor((contentWidth() - 3 * 8) / 3),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  providerParams: () => providerParams(),
+  withoutOurInserts: (target, range, fn) =>
+    host().withoutOurInserts(target, range.startS, range.endS, fn),
+  exportAudio: (target, range, file) =>
+    host().exportRangeAudio(target, range.startS, range.endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  ourInsertSpans: (target) => host().ourInsertSpans(target),
+  placeInsert: (target, files, atS, handlesS, durationS) =>
+    host().placeInsert(target, files, atS, handlesS, durationS),
+  findCaptionClip: (target, mediaPath, atS, durationS) =>
+    host().findCaptionClip(target, mediaPath, atS, durationS),
+  replaceCaptionClip: (target, oldPath, file, atS, durationS, videoTrack) =>
+    host().replaceCaptionClip(target, oldPath, file, atS, durationS, videoTrack),
+  caret: (id) => {
+    const el = document.getElementById(id) as HTMLTextAreaElement | null;
+    return typeof el?.selectionStart === "number" ? el.selectionStart : null;
+  },
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  readTextFile: (path) => host().readTextFile(path),
+  writeTextFile: (path, text) => host().writeTextFile(path, text),
+  // Premiere's save dialog; an editor without one gets the SRT next to its project
+  get saveTextFile() {
+    const h = host();
+    return h.saveTextFile?.bind(h);
+  },
+};
+
 async function readSequence(): Promise<HostSequence | null> {
   try {
     const seq = await host().currentSequence();
@@ -2403,6 +2471,8 @@ async function readSequence(): Promise<HostSequence | null> {
       state.note = "";
       state.images = [];
     }
+    // the captions follow the open sequence, unless a caption job is running for the last one
+    captionsSwitch(state.captions, state.seq?.guid, seq.id, stored);
     // the field stays "guid": unfinished series and pending jobs saved before the host interface use it
     state.seq = {
       name: seq.name,
@@ -3462,7 +3532,7 @@ function runAction(el: HTMLElement) {
     state.lightbox = null;
   } else if (act === "lb-close") state.lightbox = null;
   else if (act === "tab") {
-    state.tab = val as "range" | "story" | "music";
+    state.tab = val as Tab;
     // the music needs the Gemini key: its state comes with the voices
     if (state.tab === "music" && state.conn === "ok")
       void loadVoices()
@@ -3470,6 +3540,8 @@ function runAction(el: HTMLElement) {
         .catch(() => undefined);
   } else if (act && musicAct(state.music, musicCtx, act, val)) {
     /* handled by the Music tab */
+  } else if (act && captionsAct(state.captions, captionsCtx, act, val)) {
+    /* handled by the Captions tab */
   } else if (act === "music-level") {
     state.settings = { ...state.settings, musicLevel: Number(val) };
     store("settings", JSON.stringify(state.settings));
@@ -3800,7 +3872,7 @@ setInterval(() => {
   watchTick++;
   if (
     state.screen !== "home" ||
-    !watchesSequence(state.tab, state.music.stage) ||
+    !watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
     state.lightbox ||
     pressed
   )

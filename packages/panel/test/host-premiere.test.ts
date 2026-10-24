@@ -183,7 +183,15 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
     host: { uiLocale: "tr_TR" },
     versions: { plugin: "0.1.2" },
     shell: { openExternal: vi.fn(async () => undefined) },
-    storage: { localFileSystem: { getFileForOpening: vi.fn(async () => null) } },
+    storage: {
+      localFileSystem: {
+        getFileForOpening: vi.fn(async () => null),
+        getFileForSaving: vi.fn(
+          async (): Promise<{ nativePath: string; write: (d: string) => Promise<void> } | null> =>
+            null,
+        ),
+      },
+    },
   };
   const fs = {
     readFile: vi.fn(async () => "{}"),
@@ -208,6 +216,23 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
 }
 
 describe("premiere host", () => {
+  it("saves a text file where the editor picks in UXP's save dialog", async () => {
+    const f = fakePremiere();
+    const written: string[] = [];
+    f.uxp.storage.localFileSystem.getFileForSaving.mockImplementationOnce(async () => ({
+      nativePath: "/Users/me/Talk.srt",
+      write: async (d: string) => void written.push(d),
+    }));
+    const h = f.make();
+    expect(await h.saveTextFile!("Talk.srt", "1\n")).toBe("/Users/me/Talk.srt");
+    expect(f.uxp.storage.localFileSystem.getFileForSaving).toHaveBeenCalledWith("Talk.srt", {
+      types: ["srt"],
+    });
+    expect(written).toEqual(["1\n"]);
+    // cancelled
+    expect(await h.saveTextFile!("Talk.srt", "1\n")).toBeNull();
+  });
+
   it("implements every member of Host", () => {
     const h = fakePremiere().make();
     for (const m of HOST_MEMBERS)

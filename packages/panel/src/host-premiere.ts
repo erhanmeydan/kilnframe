@@ -25,6 +25,10 @@ export interface UxpModule {
         allowMultiple: boolean;
         types: string[];
       }): Promise<{ nativePath: string }[] | { nativePath: string } | null>;
+      getFileForSaving(
+        suggestedName: string,
+        o: { types: string[] },
+      ): Promise<{ nativePath: string; write(data: string): Promise<unknown> } | null>;
     };
   };
 }
@@ -598,6 +602,16 @@ export function createPremiereHost(
       });
       const files = !picked ? [] : Array.isArray(picked) ? picked : [picked];
       return files.map((f) => f.nativePath).filter(Boolean);
+    },
+    async saveTextFile(suggestedName, text) {
+      // UXP's own save dialog; the file it returns may be written to without a further permission
+      const ext = suggestedName.split(".").pop() ?? "txt";
+      const file = await uxp.storage.localFileSystem.getFileForSaving(suggestedName, {
+        types: [ext],
+      });
+      if (!file) return null;
+      await file.write(text);
+      return file.nativePath;
     },
     async openUrl(url) {
       await uxp.shell.openExternal(url);

@@ -160,11 +160,19 @@ export function afterMake(
 }
 
 /**
- * Whether the home screen should keep reading the sequence for a new In/Out: the range tab, and the Music
- * tab before a plan is made (a plan belongs to the range it was made for).
+ * Whether the home screen should keep reading the sequence for a new In/Out: the range tab, and the Music and
+ * Captions tabs on their first step (a plan or a text belongs to the range it was made for).
  */
-export function watchesSequence(tab: string, musicStage: MusicState["stage"]): boolean {
-  return tab === "range" || (tab === "music" && musicStage === "idle");
+export function watchesSequence(
+  tab: string,
+  musicStage: MusicState["stage"],
+  captionsStage = "idle",
+): boolean {
+  return (
+    tab === "range" ||
+    (tab === "music" && musicStage === "idle") ||
+    (tab === "captions" && captionsStage === "idle")
+  );
 }
 
 export function clock(seconds: number): string {

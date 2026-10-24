@@ -749,6 +749,114 @@
         background: #5b8cff;
         border-radius: 2px;
       }
+      .cap-top {
+        margin-top: 10px;
+      }
+      /* the Captions tab: each look drawn small in its own colours, over a neutral frame */
+      .cap-frame {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        background: #484848;
+        overflow: hidden;
+      }
+      .cap-sample {
+        margin-bottom: 8px;
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 9px;
+        line-height: 13px;
+        white-space: nowrap;
+      }
+      .cap-condensed {
+        font-family: Impact, "Arial Narrow", sans-serif;
+        font-size: 10px;
+        letter-spacing: 0.3px;
+      }
+      .cap-mono {
+        font-family: Menlo, Consolas, monospace;
+      }
+      .cap-serif {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 10px;
+      }
+      .cw.pill {
+        border-radius: 5px;
+        padding: 0 3px;
+      }
+      .swatches {
+        display: flex;
+        flex-direction: row;
+      }
+      .swatch {
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      .swatch + .swatch {
+        margin-left: 10px;
+      }
+      .chip {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        border: 1px solid #4a4a4a;
+        margin-right: 6px;
+        flex-shrink: 0;
+      }
+      .swatch-text {
+        flex: 1;
+      }
+      .swatch-text .img-note {
+        margin-top: 2px;
+      }
+      .check {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        cursor: pointer;
+        color: #d0d0d0;
+        padding: 4px 0;
+      }
+      .box-mark {
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+        text-align: center;
+        font-size: 10px;
+        color: #fff;
+        border: 1px solid #6a6a6a;
+        border-radius: 3px;
+        margin-right: 8px;
+      }
+      .box-mark.on {
+        background: #2d64c8;
+        border-color: #2d64c8;
+      }
+      /* the lines to check: a corrected one carries the accent on its left edge */
+      .clines {
+        margin-top: 6px;
+        border-top: 1px solid #303030;
+      }
+      .cline {
+        border-bottom: 1px solid #303030;
+        border-left: 2px solid transparent;
+        padding: 6px 0 3px 8px;
+      }
+      .cline.changed {
+        border-left-color: #5b8cff;
+      }
+      .ctag {
+        font-size: 10px;
+        color: #9db6ff;
+      }
+      .cline-text {
+        min-height: 36px;
+        margin-top: 3px;
+        font-family: inherit;
+      }
     </style>
   </head>
   <body>

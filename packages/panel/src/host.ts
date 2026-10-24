@@ -115,6 +115,8 @@ export interface Host {
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
   pickImages(types: string[]): Promise<string[]>;
+  /** The editor's save dialog for a text file: the path it was saved to, or null when the editor cancelled. */
+  saveTextFile?(suggestedName: string, text: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
   /** The editor's interface language ("tr_TR"), or null when it does not say. */
   uiLocale(): string | null;
