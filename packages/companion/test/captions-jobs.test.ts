@@ -73,13 +73,46 @@ describe("caption jobs", () => {
         looks: ["kil-lacivert", "loud"],
         atS: 0.5,
         outDir: dir,
-      })) as { kind: string; stills: Record<string, string> };
+      })) as { kind: string; stills: Record<string, string>; images: Record<string, string> };
       expect(r.kind).toBe("captions-preview");
       expect(Object.keys(r.stills).sort()).toEqual(["kil-lacivert", "loud"]);
       for (const png of Object.values(r.stills)) {
         expect(existsSync(png)).toBe(true);
         expect(readFileSync(png).subarray(1, 4).toString()).toBe("PNG");
       }
+      // the panel shows them inline: it cannot read a file by its path
+      expect(Object.keys(r.images).sort()).toEqual(["kil-lacivert", "loud"]);
+      for (const url of Object.values(r.images)) expect(url).toMatch(/^data:image\/jpeg;base64,/);
+    },
+    300_000,
+  );
+
+  it.runIf(SLOW)(
+    "renders a short preview clip as frames over the footage",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "kf-captions-"));
+      const word = (text: string, start: number) => ({ text, start, end: start + 0.4 });
+      const words = [word("Merhaba", 0.2), word("dünya", 0.6)];
+      const doc = {
+        lines: [{ start: 0.2, end: 1.0, text: "Merhaba dünya", words, changed: false }],
+        language: "tr",
+        glossary: [],
+        durationS: 2.5,
+        width: 480,
+        height: 270,
+        fps: "25",
+        hideSpans: [],
+      };
+      const r = (await run({
+        kind: "captions-render",
+        doc,
+        look: "bant",
+        colors: CAPTION_LOOKS.bant.colors,
+        outDir: dir,
+        preview: { stills: 6, video: true },
+      })) as { frames: string[]; clip: string | null };
+      expect(r.frames).toHaveLength(6);
+      expect(r.clip).toMatch(/^data:video\/mp4;base64,/);
     },
     300_000,
   );

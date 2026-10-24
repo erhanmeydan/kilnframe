@@ -232,6 +232,17 @@ export const CaptionsRenderJobParamsSchema = z.object({
   look: CaptionLookSchema,
   colors: CaptionColorsSchema,
   outDir: z.string().min(1),
+  /**
+   * The panel's "Play": the clip also comes back as `stills` frames over the footage frame (a panel that
+   * cannot play video) and, with `video`, as a small H.264 clip.
+   */
+  preview: z
+    .object({
+      frame: z.string().min(1).optional(),
+      stills: z.number().int().min(1).max(12),
+      video: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 /** The Captions tab, step 2: one still per look at a moment of the doc (no model call). */

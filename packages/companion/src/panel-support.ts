@@ -234,6 +234,83 @@ export function stillImages(
   });
 }
 
+/**
+ * The caption clip's inputs for a preview: the transparent clip first, then the footage frame (or a dark
+ * ground) as a looping picture that the filter scales to the clip's size.
+ */
+function overFootage(video: string, frame: string | null): string[] {
+  return [
+    "-i",
+    video,
+    ...(frame ? ["-loop", "1", "-i", frame] : ["-f", "lavfi", "-i", "color=c=0x1e1e1e:s=16x16"]),
+  ];
+}
+const OVER = "[1:v][0:v]scale2ref[bg][fg];[bg][fg]overlay=shortest=1:format=auto";
+
+/**
+ * The Captions tab's "Play" for a panel that cannot play video: `count` frames spread over the caption clip,
+ * each over the footage frame, as small JPEG data URLs in time order.
+ */
+export function captionFrames(
+  video: string,
+  frame: string | null,
+  durationS: number,
+  count: number,
+  outDir: string,
+): string[] {
+  mkdirSync(outDir, { recursive: true });
+  const step = durationS / count;
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const file = join(outDir, `frame-${i + 1}.jpg`);
+    const r = spawnSync(ffmpegPath(), [
+      "-v",
+      "error",
+      "-y",
+      ...overFootage(video, frame),
+      "-filter_complex",
+      `${OVER},scale='min(480,iw)':-2`,
+      // seeking the output, not the clip: a seeked clip loses its timing against the looped frame and the
+      // overlay shows the footage alone
+      "-ss",
+      ((i + 0.5) * step).toFixed(3),
+      "-frames:v",
+      "1",
+      "-q:v",
+      "4",
+      file,
+    ]);
+    if (r.status !== 0) throw new Error(`could not take frame ${i + 1} of the caption preview`);
+    out.push(`data:image/jpeg;base64,${readFileSync(file).toString("base64")}`);
+  }
+  return out;
+}
+
+/** The same preview as a short H.264 clip over the footage frame, for a panel that plays video. */
+export function captionClip(video: string, frame: string | null, outDir: string): string | null {
+  mkdirSync(outDir, { recursive: true });
+  const file = join(outDir, "preview.mp4");
+  const r = spawnSync(ffmpegPath(), [
+    "-v",
+    "error",
+    "-y",
+    ...overFootage(video, frame),
+    "-filter_complex",
+    `${OVER},scale='min(480,iw)':-2,format=yuv420p`,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "26",
+    "-movflags",
+    "+faststart",
+    "-an",
+    file,
+  ]);
+  return r.status === 0 ? `data:video/mp4;base64,${readFileSync(file).toString("base64")}` : null;
+}
+
 /** What the panel shows for one image the editor picked, or why it cannot be used. */
 export interface ImageCard {
   path: string;

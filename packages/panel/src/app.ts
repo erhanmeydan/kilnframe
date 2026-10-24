@@ -19,9 +19,11 @@ import {
 import {
   captionsAct,
   captionsBox,
+  captionsColorInput,
   captionsReadFields,
   captionsSwitch,
   captionsWriteFields,
+  readColorFields,
   newCaptions,
   type CaptionsCtx,
 } from "./captions";
@@ -607,6 +609,15 @@ function contentWidth(): number {
   // the scroll area inside #app always shows its scrollbar (so the width never jumps): its width comes off
   // here as well as the padding
   return Math.max(240, (root.clientWidth || 320) - 24 - SCROLLBAR);
+}
+
+/**
+ * The scroll area's inner width as laid out, for grids that fill the row exactly; the scrollbar is measured
+ * rather than assumed (UXP always draws it, a browser may overlay it).
+ */
+function scrollInnerWidth(): number {
+  const scroller = document.getElementById("scroll");
+  return scroller && scroller.clientWidth > 0 ? scroller.clientWidth - 24 : contentWidth();
 }
 
 /** 16:9 height for a width, like the video. */
@@ -2421,7 +2432,8 @@ const captionsCtx: CaptionsCtx = {
   inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
   rangeLine: (scope) => musicRangeLine(scope),
   videoStyle: () => state.style || null,
-  tileWidth: () => Math.floor((contentWidth() - 3 * 8) / 3),
+  // three tiles and two gaps of 8 fill the row: the third tile has no right margin
+  tileWidth: () => Math.floor((scrollInnerWidth() - 2 * 8) / 3),
   readSequence: () => readSequence(),
   request: (message, reply, timeoutMs) =>
     session.request<ServerMessage>(message as never, reply as never, timeoutMs),
@@ -2445,6 +2457,23 @@ const captionsCtx: CaptionsCtx = {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     return typeof el?.selectionStart === "number" ? el.selectionStart : null;
   },
+  exportFrame: async (target, seconds, dir, name) =>
+    (await host().exportFrame(target, seconds, `${dir}/`, name, target.width, target.height))
+      ? `${dir}/${name}`
+      : null,
+  // UXP has a <video> element (its changelog adds timeUpdate in UXP 9.1 and the poster attribute, macOS only,
+  // in 9.3: https://blog.developer.adobe.com/en/publish/2026/07/uxp-changelog-and-support-matrix), but neither
+  // the HTML element list (https://developer.adobe.com/premiere-pro/uxp/) nor the Premiere samples say which
+  // codecs or sources (a data: URL of an H.264 clip) it plays inside Premiere. Until that is tried there,
+  // Premiere steps through stills; Resolve's panel is Chromium (Electron) and plays the clip.
+  playsVideo: () => host().kind === "resolve",
+  img: (key, src, width, height) => imgSlot(key, src, width, height),
+  refresh: (pictures) => {
+    for (const [key, src] of Object.entries(pictures)) images.get(key)?.setAttribute("src", src);
+    // a render now would take the focus from the colour field the editor is typing in
+    if (!focusedField) render();
+  },
+  swapImage: (key, src) => images.get(key)?.setAttribute("src", src),
   stored: (key) => stored(key),
   store: (key, value) => store(key, value),
   readTextFile: (path) => host().readTextFile(path),
@@ -3326,6 +3355,12 @@ root.addEventListener("focusout", (event) => {
 root.addEventListener("keydown", () => {
   lastTyped = Date.now();
 });
+// the Captions tab previews the selected look in the colours being typed, once the typing pauses
+root.addEventListener("input", (event) => {
+  const id = (event.target as HTMLElement | null)?.id ?? "";
+  if (id.startsWith("cap-color-"))
+    captionsColorInput(state.captions, captionsCtx, () => readColorFields());
+});
 root.addEventListener("pointermove", (event) => {
   if (!focusedField || Date.now() - lastTyped < 500) return;
   if (!actionTarget(event.target)) return;
@@ -3902,6 +3937,7 @@ connectCompanion().catch((e: unknown) => trace(`connectCompanion threw: ${String
   connectCompanion,
   session,
   render,
+  captionsCtx,
 };
 
 /**

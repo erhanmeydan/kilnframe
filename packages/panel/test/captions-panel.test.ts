@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   captionsAct,
   captionsBox,
+  captionsColorInput,
   captionsSwitch,
   caretWord,
   newCaptions,
@@ -15,6 +16,10 @@ import tr from "../src/locales/tr.json";
 import { watchesSequence } from "../src/music";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
+/** Lets the preview chain (sequence, folder, frame, job) run its awaits. */
+const flush = async () => {
+  for (let i = 0; i < 12; i++) await Promise.resolve();
+};
 
 const seq = {
   id: "seq-1",
@@ -48,7 +53,8 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
   const replaced: unknown[][] = [];
   const written: [string, string][] = [];
   const store: Record<string, string> = {};
-  let listener: Listener = () => undefined;
+  const listeners = new Set<Listener>();
+  const frames: number[] = [];
   let jobs = 0;
   const ctx: CaptionsCtx = {
     esc: (s) => s,
@@ -74,8 +80,8 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     },
     send: (m) => sent.push(m as Record<string, unknown>),
     on: (fn) => {
-      listener = fn as Listener;
-      return () => undefined;
+      listeners.add(fn as Listener);
+      return () => listeners.delete(fn as Listener);
     },
     providerParams: () => ({ provider: "auto" }),
     withoutOurInserts: async (_s, _r, fn) => fn(),
@@ -90,6 +96,14 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
       replaced.push(a);
     },
     caret: () => null,
+    exportFrame: async (_s, seconds, dir) => {
+      frames.push(seconds);
+      return `${dir}/frame-${frames.length}.png`;
+    },
+    playsVideo: () => false,
+    img: (key, src, width, height) => `<slot key="${key}" src="${src}" w="${width}" h="${height}">`,
+    refresh: () => undefined,
+    swapImage: () => undefined,
     stored: (k) => store[k] ?? null,
     store: (k, v) => {
       store[k] = v;
@@ -100,10 +114,11 @@ function fakeCtx(over: Partial<CaptionsCtx> = {}) {
     },
     ...over,
   };
-  const finish = (result: Record<string, unknown>) =>
-    listener({ type: "job.done", jobId: `job-${jobs}`, result });
-  const fail = (message: string) => listener({ type: "job.error", jobId: `job-${jobs}`, message });
-  return { ctx, sent, placed, replaced, written, store, finish, fail };
+  const emit = (m: Record<string, unknown>) => [...listeners].forEach((fn) => fn(m));
+  const finish = (result: Record<string, unknown>, job = jobs) =>
+    emit({ type: "job.done", jobId: `job-${job}`, result });
+  const fail = (message: string) => emit({ type: "job.error", jobId: `job-${jobs}`, message });
+  return { ctx, sent, placed, replaced, written, store, frames, finish, fail };
 }
 
 const textResult = {
@@ -619,5 +634,234 @@ describe("captions tab", () => {
     await tick();
     expect(f.replaced).toEqual([[seq, "/j/cap/captions-1.mov", "/j/cap/captions-2.mov", 0, 60, 2]]);
     expect(f.placed).toEqual([]);
+  });
+
+  describe("previews", () => {
+    const previews = (f: ReturnType<typeof fakeCtx>) =>
+      f.sent.filter((p) => p.kind === "captions-preview") as Record<string, never>[];
+
+    it("previews all nine looks once over a frame at a third of the range when step 1 opens", async () => {
+      const f = fakeCtx();
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      captionsBox(st, f.ctx);
+      await flush();
+      captionsBox(st, f.ctx);
+      await flush();
+      const jobs = previews(f);
+      expect(jobs).toHaveLength(1);
+      // a third of the whole 60 s sequence
+      expect(f.frames).toEqual([20]);
+      const job = jobs[0] as unknown as {
+        looks: string[];
+        frame: string;
+        colors?: unknown;
+        atS: number;
+        outDir: string;
+        doc: { lines: { text: string; end: number }[]; width: number; height: number; fps: string };
+      };
+      expect(job.looks).toEqual([
+        "bant",
+        "loud",
+        "dinamik",
+        "hap",
+        "karaoke",
+        "daktilo",
+        "sakin",
+        "kil-lacivert",
+        "editoryal",
+      ]);
+      expect(job.frame).toBe("/j/cap/frame-1.png");
+      expect(job.outDir).toBe("/j/cap/preview");
+      expect(job.colors).toBeUndefined();
+      // no transcript yet: the sample text in the speech's language
+      expect(job.doc.lines[0]!.text).toBe("Let's make this together today.");
+      // quarter size, even numbers
+      expect(job.doc).toMatchObject({ width: 270, height: 480, fps: "25" });
+      expect(job.atS).toBeLessThan(job.doc.lines[0]!.end);
+      // until the stills come the tiles are drawings; then each tile shows its still
+      expect(captionsBox(st, f.ctx)).not.toContain("<slot");
+      f.finish({
+        kind: "captions-preview",
+        stills: {},
+        images: {
+          bant: "data:image/jpeg;base64,QkFOVA==",
+          loud: "data:image/jpeg;base64,TE9VRA==",
+        },
+      });
+      await flush();
+      const html = captionsBox(st, f.ctx);
+      expect(html).toContain('<slot key="cap:bant" src="data:image/jpeg;base64,QkFOVA=="');
+      expect(html).toContain('<slot key="cap:loud"');
+      // a look without a still keeps its drawing
+      expect(html).toMatch(/data-val="hap"><div class="tile-img cap-frame"/);
+      expect(previews(f)).toHaveLength(1);
+    });
+
+    it("uses the Turkish sample text, or the transcript's first line once there is one", async () => {
+      setLang("tr");
+      const f = fakeCtx();
+      const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+      captionsBox(st, f.ctx);
+      await flush();
+      expect(
+        (previews(f)[0] as unknown as { doc: { lines: { text: string }[] } }).doc.lines[0]!.text,
+      ).toBe("Bugün bunu birlikte yapacağız.");
+      const g = fakeCtx();
+      const rv = await toReview(g);
+      captionsAct(rv, g.ctx, "captions-style", "");
+      captionsBox(rv, g.ctx);
+      await flush();
+      const doc = (
+        previews(g)[0] as unknown as {
+          doc: { lines: { text: string; start: number }[]; language: string };
+        }
+      ).doc;
+      expect(doc.lines[0]!.text).toBe("Bugün Topview'i deneyeceğiz.");
+      expect(doc.language).toBe("tr");
+    });
+
+    it("starts no preview while the app is not connected", async () => {
+      const f = fakeCtx({ connected: () => false });
+      captionsBox({ ...newCaptions(), seqId: "seq-1" }, f.ctx);
+      await flush();
+      expect(previews(f)).toEqual([]);
+    });
+
+    it("previews the selected look alone in the typed colours, 400 ms after the last change", async () => {
+      vi.useFakeTimers();
+      try {
+        const f = fakeCtx();
+        const st: CaptionsState = { ...newCaptions(), seqId: "seq-1" };
+        captionsBox(st, f.ctx);
+        await flush();
+        f.finish({ kind: "captions-preview", stills: {}, images: {} });
+        await flush();
+        const typed = { text: "#ff0000", accent: "#ff0000", box: "rgba(10,12,16,0.62)" };
+        captionsColorInput(st, f.ctx, () => ({ ...typed, text: "#ee0000" }));
+        await vi.advanceTimersByTimeAsync(200);
+        captionsColorInput(st, f.ctx, () => typed);
+        await vi.advanceTimersByTimeAsync(399);
+        expect(previews(f)).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(1);
+        await flush();
+        const jobs = previews(f);
+        expect(jobs).toHaveLength(2);
+        expect(jobs[1]).toMatchObject({ looks: ["bant"], colors: typed });
+        expect(st.settings.colors).toEqual(typed);
+        f.finish({
+          kind: "captions-preview",
+          stills: {},
+          images: { bant: "data:image/jpeg;base64,UkVE" },
+        });
+        await flush();
+        expect(captionsBox(st, f.ctx)).toContain(
+          '<slot key="cap:bant" src="data:image/jpeg;base64,UkVE"',
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("plays a 2.5 s window around a line at quarter size, as six stills where the panel has no video", async () => {
+      const f = fakeCtx();
+      const st = await toReview(f);
+      captionsAct(st, f.ctx, "captions-play", "1");
+      await flush();
+      const job = f.sent.find((p) => p.kind === "captions-render") as unknown as {
+        doc: {
+          lines: { text: string; start: number; end: number }[];
+          durationS: number;
+          width: number;
+          height: number;
+        };
+        look: string;
+        outDir: string;
+        preview: { frame: string; stills: number; video: boolean };
+      };
+      expect(job).toBeDefined();
+      // "Hadi başlayalım." runs 3.0 to 3.9 s: the window is 2.2 to 4.7 s
+      expect(job.doc.durationS).toBeCloseTo(2.5);
+      expect(job.doc.lines.map((l) => l.text)).toEqual(["Hadi başlayalım."]);
+      expect(job.doc.lines[0]!.start).toBeCloseTo(0.8);
+      expect(job.doc).toMatchObject({ width: 270, height: 480 });
+      expect(job.outDir).toBe("/j/cap/preview");
+      expect(job.preview).toEqual({ frame: "/j/cap/frame-1.png", stills: 6, video: false });
+      expect(f.frames[0]).toBeCloseTo(3.45);
+      // the tab stays usable meanwhile
+      expect(st.stage).toBe("review");
+      expect(captionsBox(st, f.ctx)).toContain(t("captions.playing"));
+      const frames = [1, 2, 3, 4, 5, 6].map((n) => `data:image/jpeg;base64,${n}`);
+      f.finish({ kind: "captions-render", video: "/j/v.mov", srt: "/j/v.srt", frames, clip: null });
+      await flush();
+      const html = captionsBox(st, f.ctx);
+      expect(html).toContain('<slot key="cap-play" src="data:image/jpeg;base64,1"');
+      expect(html).not.toContain("<video");
+      // nothing was placed: a preview is not the captions
+      expect(f.placed).toEqual([]);
+    });
+
+    it("plays the small clip where the panel can play video", async () => {
+      const f = fakeCtx({ playsVideo: () => true });
+      const st = await toReview(f);
+      captionsAct(st, f.ctx, "captions-play", "0");
+      await flush();
+      const job = f.sent.find((p) => p.kind === "captions-render") as unknown as {
+        doc: { durationS: number; lines: { start: number }[] };
+        preview: { video: boolean };
+      };
+      expect(job.preview.video).toBe(true);
+      // the first line starts the sequence: the window cannot start before 0
+      expect(job.doc.lines[0]!.start).toBeCloseTo(0.2);
+      expect(job.doc.durationS).toBeCloseTo(2.5);
+      f.finish({
+        kind: "captions-render",
+        video: "/j/v.mov",
+        srt: "/j/v.srt",
+        frames: ["data:image/jpeg;base64,1"],
+        clip: "data:video/mp4;base64,AAAA",
+      });
+      await flush();
+      expect(captionsBox(st, f.ctx)).toMatch(/<video[^>]+src="data:video\/mp4;base64,AAAA"/);
+    });
+
+    it("runs one play at a time: a repeat waits for nothing, the latest other request runs next", async () => {
+      const f = fakeCtx();
+      const st = await toReview(f);
+      const plays = () =>
+        f.sent.filter((p) => p.kind === "captions-render") as unknown as {
+          doc: { lines: { text: string }[] };
+        }[];
+      captionsAct(st, f.ctx, "captions-play", "0");
+      await flush();
+      captionsAct(st, f.ctx, "captions-play", "0");
+      captionsAct(st, f.ctx, "captions-play", "1");
+      captionsAct(st, f.ctx, "captions-play", "0");
+      captionsAct(st, f.ctx, "captions-play", "1");
+      await flush();
+      expect(plays()).toHaveLength(1);
+      f.finish({
+        kind: "captions-render",
+        video: "/j/v.mov",
+        srt: "/j/v.srt",
+        frames: ["data:image/jpeg;base64,1"],
+        clip: null,
+      });
+      await flush();
+      expect(plays()).toHaveLength(2);
+      expect(plays()[1]!.doc.lines[0]!.text).toBe("Hadi başlayalım.");
+      // the same line again with nothing changed: shown again without a render
+      f.finish({
+        kind: "captions-render",
+        video: "/j/v.mov",
+        srt: "/j/v.srt",
+        frames: ["data:image/jpeg;base64,2"],
+        clip: null,
+      });
+      await flush();
+      captionsAct(st, f.ctx, "captions-play", "1");
+      await flush();
+      expect(plays()).toHaveLength(2);
+    });
   });
 });

@@ -541,7 +541,7 @@ describe("companion server", () => {
       port: 0,
       runner: async (p) => {
         seen.push(p as { kind?: string });
-        return { kind: (p as { kind?: string }).kind };
+        return { kind: (p as { kind?: string }).kind, n: seen.length };
       },
     });
     const c = await connect(companion.port);
@@ -569,14 +569,26 @@ describe("companion server", () => {
       },
       { kind: "captions-render", doc, look: "loud", colors, outDir: "/tmp/c" },
       { kind: "captions-preview", doc, looks: ["bant", "sakin"], atS: 0.2, outDir: "/tmp/c" },
+      // the panel's "Play": a short clip, shown as frames or a small video over the footage
+      {
+        kind: "captions-render",
+        doc,
+        look: "loud",
+        colors,
+        outDir: "/tmp/c/preview",
+        preview: { frame: "/tmp/c/frame.png", stills: 6, video: true },
+      },
     ];
-    for (const params of jobs) {
+    for (const [i, params] of jobs.entries()) {
       c.send({ type: "job.start", params });
-      await c.next(
-        (m) => m.type === "job.done" && (m.result as { kind?: string }).kind === params.kind,
-      );
+      await c.next((m) => m.type === "job.done" && (m.result as { n?: number }).n === i + 1);
     }
     expect(seen.map((p) => p.kind)).toEqual(jobs.map((j) => j.kind));
+    expect((seen[3] as { preview?: unknown }).preview).toEqual({
+      frame: "/tmp/c/frame.png",
+      stills: 6,
+      video: true,
+    });
     const before = c.messages.length;
     c.send({
       type: "job.start",

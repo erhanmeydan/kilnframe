@@ -43,7 +43,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { stillImages } from "./panel-support.js";
+import { captionClip, captionFrames, stillImages } from "./panel-support.js";
 import type { KeyStore } from "./keys.js";
 import type {
   CaptionsPreviewJobParams,
@@ -472,7 +472,17 @@ async function captionsRenderJob(
     outDir: params.outDir,
     onProgress: progress,
   });
-  return { kind: "captions-render", video: r.video, srt: r.srt };
+  const preview = params.preview;
+  if (!preview) return { kind: "captions-render", video: r.video, srt: r.srt };
+  const frame = preview.frame ?? null;
+  const dir = join(params.outDir, randomUUID().slice(0, 8));
+  return {
+    kind: "captions-render",
+    video: r.video,
+    srt: r.srt,
+    frames: captionFrames(r.video, frame, params.doc.durationS, preview.stills, dir),
+    clip: preview.video ? captionClip(r.video, frame, dir) : null,
+  };
 }
 
 /** One still per asked look, each in the look's own colours unless colours were given. */
@@ -490,5 +500,10 @@ async function captionsPreviewJob(params: CaptionsPreviewJobParams) {
       out: join(params.outDir, `preview-${run}-${look}.png`),
     });
   }
-  return { kind: "captions-preview", stills };
+  // the panel shows them inline as small JPEGs: it cannot read a file by its path
+  const looks = Object.keys(stills);
+  const images = Object.fromEntries(
+    stillImages(Object.values(stills), looks).map((s) => [s.sceneId, s.image]),
+  );
+  return { kind: "captions-preview", stills, images };
 }
