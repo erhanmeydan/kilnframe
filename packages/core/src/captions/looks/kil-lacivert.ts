@@ -9,7 +9,10 @@ import {
   type LookParts,
 } from "./shared.js";
 
-/** Navy card, cream text; a clay underline grows under the spoken word. */
+/** The underline draws in under the whole word this fast, then holds until the word ends. */
+const UNDERLINE_S = 0.06;
+
+/** Navy card, cream text; a clay underline draws in under the spoken word. */
 export function look(o: LookInput): LookParts {
   const k = scaleOf(o);
   const px = (v: number) => `${Math.round(v * k)}px`;
@@ -35,7 +38,7 @@ export function look(o: LookInput): LookParts {
           : "";
       for (const { w, n } of liveWords(line)) {
         const id = `#w${i}_${n} i`;
-        a += `tl.fromTo("${id}",{scaleX:0},{scaleX:1,duration:${t(Math.max(0.12, w.end - w.start))},ease:"power1.out"},${t(w.start)});tl.set("${id}",{scaleX:0},${t(w.end)});\n`;
+        a += `tl.fromTo("${id}",{scaleX:0},{scaleX:1,duration:${t(Math.min(UNDERLINE_S, Math.max(0.01, w.end - w.start)))},ease:"power2.out"},${t(w.start)});tl.set("${id}",{scaleX:0},${t(w.end)});\n`;
       }
       return a;
     },

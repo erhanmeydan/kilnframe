@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as fontkit from "fontkit";
 import { describe, expect, it } from "vitest";
 import {
   blockRows,
@@ -332,4 +333,75 @@ describe("entrance", () => {
       if (look !== "bant") expect(html).toContain('"#w0_1');
     },
   );
+});
+
+describe("Loud's pop", () => {
+  const anton = fontkit.openSync(join(vendorFonts, CAPTION_LOOKS.loud.font)) as fontkit.Font;
+  const em = (s: string) =>
+    anton.layout(s).positions.reduce((a, p) => a + p.xAdvance, 0) / anton.unitsPerEm;
+  const words = "ÇÜNKÜ ELİNDE BİR REFERANS YOK. KULLANMAYACAĞIM. O".split(" ");
+  const d = doc([line(words.join(" "), 1, 8)], { language: "tr" });
+
+  it.each([
+    [1080, 1920],
+    [1920, 1080],
+    [1080, 1080],
+  ])("keeps a clear gap to the neighbours at the peak of the pop (%ix%i)", (width, height) => {
+    const html = captionHtml({ ...d, width, height }, "loud", CAPTION_LOOKS.loud.colors);
+    const ws = Number(/word-spacing:([\d.]+)em/.exec(html)?.[1]);
+    const ls = Number(/letter-spacing:([\d.]+)em/.exec(html)?.[1]);
+    const stroke = Number(/-webkit-text-stroke:(\d+)px/.exec(html)?.[1]);
+    const size = Number(/class="block" style="font-size:([\d.]+)px"/.exec(html)?.[1]);
+    const restGap = em(" ") + ls + ws - stroke / size;
+    const gaps: number[] = [];
+    words.forEach((word, n) => {
+      const sx = Number(
+        new RegExp(`"#w0_${n}",\\{scale(?:X)?:1[^}]*\\},\\{scaleX:([\\d.]+)`).exec(html)?.[1],
+      );
+      expect(sx).toBeGreaterThan(1);
+      // the popped word grows half its extra width on each side
+      gaps.push(restGap - ((sx - 1) * (em(word) + ls * [...word].length)) / 2);
+    });
+    // clear: over a tenth of an em of visible space next to any popped word
+    expect(Math.min(...gaps)).toBeGreaterThan(0.1);
+    // even: every word but the shortest grows by the same width, so its gaps are the same; a short
+    // word grows less and never comes closer
+    const long = gaps.filter((_, n) => em(words[n] as string) > 1.4);
+    expect(long.length).toBeGreaterThan(3);
+    expect(Math.max(...long) - Math.min(...long)).toBeLessThan(0.002);
+    expect(Math.min(...gaps)).toBeCloseTo(Math.min(...long), 6);
+  });
+
+  it("measures the pop room into the row width, so a row that fits only without it is drawn smaller", () => {
+    const parts = { loud: CAPTION_LOOKS.loud };
+    const wide = doc([line("AAAAAA BBBBBB CCCCCC DDDDDD EEEEEE FFFFFF GGG", 1, 4)]);
+    const html = captionHtml(wide, "loud", parts.loud.colors);
+    const size = Number(/class="block" style="font-size:([\d.]+)px"/.exec(html)?.[1]);
+    const rows = [...html.matchAll(/<div class="row">(.*?)<\/div>/g)].map((m) =>
+      m[1]!.replace(/<[^>]+>/g, ""),
+    );
+    const ws = Number(/word-spacing:([\d.]+)em/.exec(html)?.[1]);
+    const widest = Math.max(
+      ...rows.map((r) => (em(r) + 0.01 * [...r].length + ws * (r.split(" ").length - 1)) * size),
+    );
+    const safe = safeArea("portrait", 1080, 1920);
+    const pad = Math.round(104 * 0.08) + 12;
+    expect(widest).toBeLessThanOrEqual(1080 - safe.left - safe.right - 2 * pad + 0.5);
+  });
+});
+
+describe("Kil Lacivert underline", () => {
+  it("spans the whole word within 0.15 s of the word's start and holds until its end", () => {
+    const d = doc([line("referans yok", 10, 12)], { durationS: 20 });
+    const html = captionHtml(d, "kil-lacivert", CAPTION_LOOKS["kil-lacivert"].colors);
+    const draw =
+      /tl\.fromTo\("#w0_0 i",\{scaleX:0\},\{scaleX:1,duration:([\d.]+)[^}]*\},([\d.]+)\)/.exec(
+        html,
+      );
+    expect(Number(draw?.[2])).toBe(10);
+    expect(Number(draw?.[1]) + Number(draw?.[2])).toBeLessThanOrEqual(10.15);
+    expect(html).toContain('tl.set("#w0_0 i",{scaleX:0},11.000)');
+    // the bar is as wide as the word box
+    expect(html).toMatch(/\.w i\{position:absolute;left:0;right:0;/);
+  });
 });

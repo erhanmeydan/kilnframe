@@ -10,6 +10,8 @@ export interface LookInput {
   width: number;
   height: number;
   format: OutputFormat;
+  /** Advance width of text in em in the look's font at its weight (no letter spacing). */
+  measureEm?: (text: string) => number;
 }
 
 /** When a line comes in and goes, in seconds of the composition it is drawn in. */

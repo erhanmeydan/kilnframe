@@ -222,9 +222,11 @@ export function captionHtml(
   const style = CAPTION_LOOKS[lookId];
   const { width, height } = doc;
   const format = formatOf({ width, height });
-  const parts = lookParts(lookId, { colors, width, height, format });
-  const safe = safeArea(format, width, height);
   const font = openFont(fontFile(style), style.weight);
+  const measureEm = (text: string) =>
+    font.layout(text).positions.reduce((sum, p) => sum + p.xAdvance, 0) / font.unitsPerEm;
+  const parts = lookParts(lookId, { colors, width, height, format, measureEm });
+  const safe = safeArea(format, width, height);
   const maxRowPx = width - safe.left - safe.right - 2 * parts.padX;
   const maxChars = style.maxChars[format];
 
