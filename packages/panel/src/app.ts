@@ -1,6 +1,6 @@
 // The Kilnframe panel: home, progress and settings screens. Plain DOM, no framework: UXP supports a subset of
 // the web platform.
-import { PROTOCOL_VERSION } from "./companion";
+import { PROTOCOL_VERSION, protocolMismatch } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
 import { audioRangeParams } from "./audio-range";
@@ -2327,7 +2327,7 @@ async function connectOnce() {
     state.conn = "ok";
     captionsReconnected(state.captions);
     const theirs = session.ready?.protocol ?? PROTOCOL_VERSION;
-    state.mismatch = theirs < PROTOCOL_VERSION ? "app" : theirs > PROTOCOL_VERSION ? "panel" : null;
+    state.mismatch = protocolMismatch(theirs);
     state.appVersion = session.ready?.version || null;
     render();
     // the styles show as soon as they come; the computer check (a GPU probe, seconds) arrives after

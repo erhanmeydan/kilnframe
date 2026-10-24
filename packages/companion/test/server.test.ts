@@ -6,6 +6,7 @@ import {
   type Companion,
   type JobParams,
   type KeyStore,
+  PROTOCOL_VERSION,
   type ServerMessage,
 } from "../src/index.js";
 
@@ -183,7 +184,10 @@ describe("companion server", () => {
     });
     const c = await connect(companion.port);
     c.send({ type: "hello", token: TOKEN });
-    expect(await c.next((m) => m.type === "ready")).toMatchObject({ protocol: 1, version: "test" });
+    expect(await c.next((m) => m.type === "ready")).toMatchObject({
+      protocol: PROTOCOL_VERSION,
+      version: "test",
+    });
     c.send({ type: "job.start", params: { ...params, style: "a" } });
     c.send({ type: "job.start", params: { ...params, style: "boom" } });
     const done = await c.next((m) => m.type === "job.done");

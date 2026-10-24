@@ -1,7 +1,7 @@
 import { MusicPlanSchema } from "@kilnframe/core";
 import { z } from "zod";
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /**
  * The largest message the companion takes. The socket is loopback only and token authenticated; a long

@@ -22,7 +22,12 @@ export async function readConnection(): Promise<ConnectionInfo> {
  * The protocol this panel speaks (packages/companion/src/protocol.ts PROTOCOL_VERSION). The companion says
  * its own in "ready"; when they differ the panel tells which side to update instead of failing oddly.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
+
+/** Which side is out of date, from the protocol the companion reported: an older companion means the app, a newer one the panel. */
+export function protocolMismatch(theirs: number): "app" | "panel" | null {
+  return theirs < PROTOCOL_VERSION ? "app" : theirs > PROTOCOL_VERSION ? "panel" : null;
+}
 
 /** The largest message the companion takes (packages/companion/src/protocol.ts MAX_MESSAGE_BYTES). */
 export const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;

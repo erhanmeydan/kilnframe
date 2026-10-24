@@ -1,4 +1,4 @@
-# Companion protocol (v1)
+# Companion protocol (v2)
 
 The companion is a local Node service. The Premiere panel talks to it over a WebSocket. This page is the
 contract between `packages/panel` (M4) and `packages/companion`.
@@ -10,7 +10,7 @@ contract between `packages/panel` (M4) and `packages/companion`.
   and removes it on exit. `KILNFRAME_HOME` moves the folder.
 - The first message must be `{ "type": "hello", "token": "<token>" }` within 5 seconds. Anything else, a
   wrong token or a non-loopback peer closes the socket with code 1008.
-- After `hello` the server answers `{ "type": "ready", "protocol": 1, "version": "..." }`.
+- After `hello` the server answers `{ "type": "ready", "protocol": 2, "version": "..." }`.
 
 ## Client messages
 
