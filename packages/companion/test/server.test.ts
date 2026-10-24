@@ -532,6 +532,60 @@ describe("companion server", () => {
     expect(await c.next((m) => m.type === "error")).toBeTruthy();
   });
 
+  it("takes caption jobs and refuses an unknown look", async () => {
+    const seen: { kind?: string }[] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      version: "test",
+      port: 0,
+      runner: async (p) => {
+        seen.push(p as { kind?: string });
+        return { kind: (p as { kind?: string }).kind };
+      },
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    const word = { text: "Merhaba", start: 0, end: 0.5 };
+    const doc = {
+      lines: [{ start: 0, end: 0.5, text: "Merhaba", words: [word], changed: false }],
+      language: "tr",
+      glossary: [],
+      durationS: 2,
+      width: 1920,
+      height: 1080,
+      fps: "30000/1001",
+      hideSpans: [{ startS: 1, endS: 1.5 }],
+    };
+    const colors = { text: "#fff", accent: "#f90" };
+    const jobs = [
+      {
+        kind: "captions-text",
+        audioPath: "/a.wav",
+        outDir: "/tmp/c",
+        glossary: ["Kilnframe"],
+        mode: "written",
+      },
+      { kind: "captions-render", doc, look: "loud", colors, outDir: "/tmp/c" },
+      { kind: "captions-preview", doc, looks: ["bant", "sakin"], atS: 0.2, outDir: "/tmp/c" },
+    ];
+    for (const params of jobs) {
+      c.send({ type: "job.start", params });
+      await c.next(
+        (m) => m.type === "job.done" && (m.result as { kind?: string }).kind === params.kind,
+      );
+    }
+    expect(seen.map((p) => p.kind)).toEqual(jobs.map((j) => j.kind));
+    const before = c.messages.length;
+    c.send({
+      type: "job.start",
+      params: { kind: "captions-render", doc, look: "neon", colors, outDir: "/tmp/c" },
+    });
+    expect(await c.next((m) => m.type === "error")).toBeTruthy();
+    expect(c.messages.slice(before).some((m) => m.type === "job.done")).toBe(false);
+  });
+
   it("plays a music clip or preview, and nothing else", async () => {
     const played: string[] = [];
     companion = await startCompanion({

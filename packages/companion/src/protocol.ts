@@ -171,7 +171,86 @@ export const MusicMakeJobParamsSchema = z.object({
   ...ProviderChoice,
 });
 
+export const CAPTION_LOOK_IDS = [
+  "kil-lacivert",
+  "loud",
+  "dinamik",
+  "hap",
+  "karaoke",
+  "daktilo",
+  "sakin",
+  "bant",
+  "editoryal",
+] as const;
+const CaptionLookSchema = z.enum(CAPTION_LOOK_IDS);
+
+const CaptionWordSchema = z.object({
+  text: z.string(),
+  start: z.number().min(0),
+  end: z.number().min(0),
+});
+const CaptionLineSchema = z.object({
+  start: z.number().min(0),
+  end: z.number().min(0),
+  text: z.string(),
+  words: z.array(CaptionWordSchema),
+  changed: z.boolean(),
+});
+/** The caption lines with what the looks need to lay them out (core captions/compose.ts). */
+export const CaptionDocSchema = z.object({
+  lines: z.array(CaptionLineSchema),
+  language: z.string(),
+  glossary: z.array(z.string().max(100)).max(200),
+  durationS: z.number().positive(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  fps: z.string().min(1),
+  hideSpans: z.array(z.object({ startS: z.number().min(0), endS: z.number().min(0) })),
+});
+const CaptionColorsSchema = z.object({
+  text: z.string().min(1),
+  accent: z.string().min(1),
+  box: z.string().min(1).optional(),
+});
+
+/** The Captions tab, step 1: the range's words from Whisper, corrected by the user's text model. */
+export const CaptionsTextJobParamsSchema = z.object({
+  kind: z.literal("captions-text"),
+  audioPath: z.string().min(1),
+  rangeStartS: z.number().min(0).optional(),
+  rangeEndS: z.number().positive().optional(),
+  outDir: z.string().min(1),
+  glossary: z.array(z.string().max(100)).max(200),
+  mode: z.enum(["written", "spoken"]),
+  ...ProviderChoice,
+});
+
+/** The Captions tab, step 3: the approved lines rendered as one transparent clip and an SRT. */
+export const CaptionsRenderJobParamsSchema = z.object({
+  kind: z.literal("captions-render"),
+  doc: CaptionDocSchema,
+  look: CaptionLookSchema,
+  colors: CaptionColorsSchema,
+  outDir: z.string().min(1),
+});
+
+/** The Captions tab, step 2: one still per look at a moment of the doc (no model call). */
+export const CaptionsPreviewJobParamsSchema = z.object({
+  kind: z.literal("captions-preview"),
+  doc: CaptionDocSchema,
+  looks: z.array(CaptionLookSchema).min(1),
+  /** Omitted: each look's own default colours. */
+  colors: CaptionColorsSchema.optional(),
+  atS: z.number().min(0),
+  /** A frame of the footage to lay the captions over; transparent when omitted. */
+  frame: z.string().min(1).optional(),
+  outDir: z.string().min(1),
+});
+
 export const JobParamsSchema = z.union([
+  CaptionsTextJobParamsSchema,
+  CaptionsRenderJobParamsSchema,
+  CaptionsPreviewJobParamsSchema,
   PartsJobParamsSchema,
   StyleJobParamsSchema,
   StoryWriteJobParamsSchema,
@@ -180,6 +259,9 @@ export const JobParamsSchema = z.union([
   MusicMakeJobParamsSchema,
   RenderJobParamsSchema,
 ]);
+export type CaptionsTextJobParams = z.infer<typeof CaptionsTextJobParamsSchema>;
+export type CaptionsRenderJobParams = z.infer<typeof CaptionsRenderJobParamsSchema>;
+export type CaptionsPreviewJobParams = z.infer<typeof CaptionsPreviewJobParamsSchema>;
 export type MusicPlanJobParams = z.infer<typeof MusicPlanJobParamsSchema>;
 export type MusicMakeJobParams = z.infer<typeof MusicMakeJobParamsSchema>;
 export type StoryWriteJobParams = z.infer<typeof StoryWriteJobParamsSchema>;

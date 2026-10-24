@@ -1,4 +1,8 @@
 import {
+  CAPTION_LOOKS,
+  correctCaptionWords,
+  previewCaptionStill,
+  renderCaptions,
   createSpeechProvider,
   createStyle,
   loadPalette,
@@ -37,10 +41,14 @@ import {
 } from "@kilnframe/core";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { stillImages } from "./panel-support.js";
 import type { KeyStore } from "./keys.js";
 import type {
+  CaptionsPreviewJobParams,
+  CaptionsRenderJobParams,
+  CaptionsTextJobParams,
   JobParams,
   MusicMakeJobParams,
   StoryVoiceJobParams,
@@ -58,6 +66,10 @@ function readScript(path: string | undefined): string | undefined {
 export function pipelineRunner(keys: KeyStore): JobRunner {
   return async (params: JobParams, events) => {
     const defaults = loadDefaults();
+    if (params.kind === "captions-text")
+      return captionsTextJob(params, keys, defaults, events.progress);
+    if (params.kind === "captions-render") return captionsRenderJob(params, events.progress);
+    if (params.kind === "captions-preview") return captionsPreviewJob(params);
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
     if (params.kind === "music-make")
       return musicMakeJob(params, keys, events.progress, events.signal);
@@ -387,4 +399,94 @@ async function musicMakeJob(
     textPriceUsd: usage.total().listPriceUsd || 0,
     billing,
   };
+}
+
+/**
+ * The Captions tab's first step: Whisper's words for the range, then the text model's corrections.
+ * A correction that cannot run (no key, a bad reply) is not a failure: the Whisper words go back as they are.
+ */
+async function captionsTextJob(
+  params: CaptionsTextJobParams,
+  keys: KeyStore,
+  defaults: ReturnType<typeof loadDefaults>,
+  progress: (message: string) => void,
+) {
+  mkdirSync(params.outDir, { recursive: true });
+  const ranged = params.rangeStartS !== undefined && params.rangeEndS !== undefined;
+  const speech = ranged ? join(params.outDir, "range.wav") : params.audioPath;
+  if (ranged) await cutAudio(params.audioPath, speech, params.rangeStartS!, params.rangeEndS!);
+  // a range without speech surfaces as the job's error (NoSpeechError, "No speech was found ...")
+  const transcript = await transcribe({ audioPath: speech, defaults, onProgress: progress });
+  const language = transcript.language ?? "";
+  let words = transcript.words;
+  let corrected = false;
+  let correctionError: string | undefined;
+  try {
+    const name = params.provider ?? defaults.text.provider;
+    const provider = createTextProvider(defaults, {
+      provider: name,
+      model: params.model,
+      baseURL: params.baseURL,
+      apiKey: await keys.get(name === "auto" ? "anthropic" : name),
+    });
+    provider.preflight?.();
+    const result = await correctCaptionWords({
+      provider,
+      words,
+      language,
+      glossary: params.glossary,
+      mode: params.mode,
+      onProgress: progress,
+    });
+    if (result.corrected) {
+      words = result.words;
+      corrected = true;
+    } else correctionError = result.error ?? "The text was not corrected.";
+  } catch (err) {
+    correctionError = err instanceof Error ? err.message : String(err);
+  }
+  const durationS = transcript.duration_s;
+  const result = {
+    kind: "captions-text" as const,
+    language,
+    words,
+    corrected,
+    ...(correctionError ? { correctionError } : {}),
+    durationS,
+  };
+  writeFileSync(join(params.outDir, "captions.json"), JSON.stringify(result, null, 2));
+  return result;
+}
+
+/** Renders the approved caption lines as a transparent clip and an SRT in the job folder. */
+async function captionsRenderJob(
+  params: CaptionsRenderJobParams,
+  progress: (message: string) => void,
+) {
+  const r = await renderCaptions({
+    doc: params.doc,
+    look: params.look,
+    colors: params.colors,
+    outDir: params.outDir,
+    onProgress: progress,
+  });
+  return { kind: "captions-render", video: r.video, srt: r.srt };
+}
+
+/** One still per asked look, each in the look's own colours unless colours were given. */
+async function captionsPreviewJob(params: CaptionsPreviewJobParams) {
+  mkdirSync(params.outDir, { recursive: true });
+  const run = randomUUID().slice(0, 8);
+  const stills = {} as Record<string, string>;
+  for (const look of params.looks) {
+    stills[look] = await previewCaptionStill({
+      doc: params.doc,
+      look,
+      colors: params.colors ?? CAPTION_LOOKS[look].colors,
+      atS: params.atS,
+      frame: params.frame ?? null,
+      out: join(params.outDir, `preview-${run}-${look}.png`),
+    });
+  }
+  return { kind: "captions-preview", stills };
 }
