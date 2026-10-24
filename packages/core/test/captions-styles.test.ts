@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toSrt } from "../src/captions/srt.js";
 import { CAPTION_LOOKS, captionGrid } from "../src/captions/styles.js";
-import { upperCase } from "../src/captions/upper.js";
+import { lowerCase, upperCase } from "../src/captions/upper.js";
 
 const vendorFonts = join(import.meta.dirname, "../../../vendor/fonts");
 
@@ -25,6 +25,21 @@ describe("upperCase", () => {
   });
   it("folds case with the Turkish locale so a leading İ keeps its length", () => {
     expect(upperCase("İstanbul'un", "tr", ["İstanbul"])).toBe("İSTANBUL'UN");
+  });
+});
+
+describe("lowerCase", () => {
+  it("uses the Turkish rule for I and İ", () => {
+    expect(lowerCase("IŞIK İstanbul ÇİÇEK", "tr", [])).toBe("ışık istanbul çiçek");
+    expect(lowerCase("I SAW Istanbul", "en", [])).toBe("i saw istanbul");
+  });
+  it("keeps glossary names as written, with the suffix lowered", () => {
+    expect(lowerCase("TopView'İN İÇİNDE", "tr", ["TopView"])).toBe("TopView'in içinde");
+    expect(lowerCase("Blender'ı Claude'a", "tr", ["Blender", "Claude"])).toBe("Blender'ı Claude'a");
+    expect(lowerCase("Using TopView", "en", ["TopView"])).toBe("using TopView");
+  });
+  it("does not keep a name inside a longer word", () => {
+    expect(lowerCase("AİLELER", "tr", ["AI"])).toBe("aileler");
   });
 });
 

@@ -20,7 +20,17 @@ import type { CaptionLine, CaptionStyleId } from "../src/captions/types.js";
 import { safeArea } from "../src/safe-area.js";
 
 const vendorFonts = join(import.meta.dirname, "../../../vendor/fonts");
-const LOOKS: CaptionStyleId[] = ["kil-lacivert", "loud", "dinamik", "hap", "karaoke", "bant"];
+const LOOKS: CaptionStyleId[] = [
+  "kil-lacivert",
+  "loud",
+  "dinamik",
+  "hap",
+  "karaoke",
+  "daktilo",
+  "sakin",
+  "bant",
+  "editoryal",
+];
 
 function line(text: string, start: number, end: number): CaptionLine {
   const parts = text.split(" ").filter(Boolean);
@@ -170,12 +180,6 @@ describe("caption composition", () => {
   it("keeps an ordinary line at the look's size", () => {
     const sizes = fontSizes(captionHtml(sample, "loud", CAPTION_LOOKS.loud.colors));
     expect(new Set(sizes).size).toBe(1);
-  });
-
-  it("refuses looks that are not built yet", () => {
-    expect(() => captionHtml(sample, "editoryal", CAPTION_LOOKS.editoryal.colors)).toThrow(
-      /not available/,
-    );
   });
 });
 
@@ -330,7 +334,7 @@ describe("entrance", () => {
       expect(html).not.toMatch(/tl\.fromTo\("#l0 \.block"/);
       // word 0 (9-10 s) is over before the segment starts at 10 s; word 1 (10-11 s) still plays
       expect(html).not.toContain('"#w0_0');
-      if (look !== "bant") expect(html).toContain('"#w0_1');
+      if (look !== "bant" && look !== "sakin") expect(html).toContain('"#w0_1');
     },
   );
 });
@@ -524,5 +528,129 @@ describe("Karaoke", () => {
     expect(h).toMatch(/<span class="w said" id="w0_0">/);
     expect(h).toMatch(/<span class="w" id="w0_1">/);
     expect(h).toMatch(/\.w\.said\{[^}]*opacity:1/);
+  });
+});
+
+describe("Daktilo", () => {
+  /** Times at which the letters of word n of line 0 are shown, in order. */
+  function letterTimes(html: string, n: number): number[] {
+    return [
+      ...html.matchAll(new RegExp(`tl\\.set\\("#w0_${n}c\\d+",\\{opacity:1\\},([\\d.]+)\\)`, "g")),
+    ].map((m) => Number(m[1]));
+  }
+
+  it("types each word letter by letter and shows the whole word by the word's end", () => {
+    const d = doc([line("referans yok.", 10, 12)], { durationS: 20 });
+    const html = captionHtml(d, "daktilo", CAPTION_LOOKS.daktilo.colors);
+    expect(html).toMatch(/\.ch\{[^}]*opacity:0[;}]/);
+    for (const [n, word, start, end] of [
+      [0, "referans", 10, 11],
+      [1, "yok.", 11, 12],
+    ] as const) {
+      const times = letterTimes(html, n);
+      expect(times).toHaveLength([...word].length);
+      expect(times[0]).toBe(start);
+      // letter by letter: each comes after the one before
+      times.forEach((at, j) => j && expect(at).toBeGreaterThan(times[j - 1] as number));
+      expect(Math.max(...times)).toBeLessThanOrEqual(end);
+    }
+  });
+
+  it("finishes a short word by its end", () => {
+    const quick: CaptionLine = {
+      start: 1,
+      end: 2,
+      text: "kullanmayacağım. o",
+      changed: false,
+      words: [
+        { text: "kullanmayacağım.", start: 1, end: 1.12 },
+        { text: "o", start: 1.12, end: 2 },
+      ],
+    };
+    const html = captionHtml(doc([quick]), "daktilo", CAPTION_LOOKS.daktilo.colors);
+    const times = letterTimes(html, 0);
+    expect(times).toHaveLength(16);
+    expect(Math.max(...times)).toBeLessThanOrEqual(1.12);
+  });
+
+  it("draws the letters of a word said before the segment starts already typed", () => {
+    const long = doc([line("kenarı geçen satır burada", 9, 13)], { durationS: 20 });
+    const [, second] = captionSegments(long, 10);
+    const html = captionHtml(long, "daktilo", CAPTION_LOOKS.daktilo.colors, second);
+    expect(html).toMatch(/<span class="ch on" id="w0_0c0">k/);
+    expect(html).toMatch(/\.ch\.on\{[^}]*opacity:1/);
+  });
+});
+
+describe("Sakin", () => {
+  const d = doc(
+    [line("Işık İstanbul'da TopView'in ÇOK güzel ve uzun bir cümlesi var gerçekten", 1, 6)],
+    { glossary: ["TopView"] },
+  );
+  let html = "";
+  beforeAll(() => {
+    html = captionHtml(d, "sakin", CAPTION_LOOKS.sakin.colors);
+  });
+
+  it("keeps a long line on one row", () => {
+    expect(html.match(/class="row"/g)).toHaveLength(1);
+  });
+
+  it("writes lower case with the language's rule and keeps glossary names", () => {
+    expect(html).toContain("ışık");
+    expect(html).toContain("istanbul'da");
+    expect(html).toContain("TopView'in");
+    expect(html).toContain("çok");
+    const en = captionHtml(
+      doc([line("I SAW TopView In Istanbul", 1, 3)], { language: "en", glossary: ["TopView"] }),
+      "sakin",
+      CAPTION_LOOKS.sakin.colors,
+    );
+    const row = /<div class="row">(.*?)<\/div>/.exec(en)?.[1]?.replace(/<[^>]+>/g, "");
+    expect(row).toBe("i saw TopView in istanbul");
+  });
+
+  it("animates nothing but the line's appearance", () => {
+    const calls = html.match(/tl\.(?:to|from|fromTo)\([^;]*\);/g) ?? [];
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatch(/^tl\.fromTo\("#l0 \.block",\{opacity:0\}/);
+    const sets = html.match(/tl\.set\("([^"]*)"/g) ?? [];
+    expect(sets.every((s) => /^tl\.set\("#l\d+"$/.test(s))).toBe(true);
+  });
+});
+
+describe("Editoryal", () => {
+  const d = doc([line("bir iki üç", 10, 13)], { durationS: 20 });
+  let html = "";
+  beforeAll(() => {
+    html = captionHtml(d, "editoryal", CAPTION_LOOKS.editoryal.colors);
+  });
+
+  it("draws the spoken word in the italic face and the accent colour", () => {
+    expect(html).toMatch(/@font-face\{font-family:"CaptionActive";src:url\("font-active\.ttf"\)/);
+    expect(html).toMatch(
+      new RegExp(
+        `\\.i\\{[^}]*font-family:CaptionActive[^}]*color:${CAPTION_LOOKS.editoryal.colors.accent}`,
+      ),
+    );
+    expect(html).toMatch(/<span class="i" aria-hidden="true">iki<\/span>/);
+    expect(html).toMatch(/tl\.fromTo\("#w0_1 \.i",\{opacity:0\},\{opacity:1[^}]*\},11\.000\)/);
+    expect(html).toContain('tl.set("#w0_1 .r",{opacity:0},11.000)');
+  });
+
+  it("hands the italic over to the next word as it starts and keeps the last one", () => {
+    expect(html).toContain('tl.set("#w0_0 .i",{opacity:0},11.000)');
+    expect(html).toMatch(/tl\.to\("#w0_0 \.r",\{opacity:1[^}]*\},11\.000\)/);
+    expect(html).not.toContain('tl.set("#w0_2 .i",{opacity:0}');
+    // the roman form is never sent to a hidden from-state ahead of its word
+    expect(html).not.toMatch(/tl\.fromTo\("#w0_\d \.r"/);
+  });
+
+  it("copies the italic font next to index.html", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kf-caption-editoryal-"));
+    buildCaptionProject(d, "editoryal", CAPTION_LOOKS.editoryal.colors, dir);
+    expect(readFileSync(join(dir, "font-active.ttf"))).toEqual(
+      readFileSync(join(vendorFonts, CAPTION_LOOKS.editoryal.fontActive as string)),
+    );
   });
 });

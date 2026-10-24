@@ -6,11 +6,14 @@ import { framesToSeconds, parseFps } from "../fps.js";
 import { vendorDir } from "../project/assemble.js";
 import { PORTRAIT_CENTRE, safeArea } from "../safe-area.js";
 import { look as bant } from "./looks/bant.js";
+import { look as daktilo } from "./looks/daktilo.js";
 import { look as dinamik } from "./looks/dinamik.js";
+import { look as editoryal } from "./looks/editoryal.js";
 import { look as hap } from "./looks/hap.js";
 import { look as karaoke } from "./looks/karaoke.js";
 import { look as kilLacivert } from "./looks/kil-lacivert.js";
 import { look as loud } from "./looks/loud.js";
+import { look as sakin } from "./looks/sakin.js";
 import {
   CAPTION_FONT,
   CAPTION_FONT_ACTIVE,
@@ -19,13 +22,13 @@ import {
 } from "./looks/shared.js";
 import { CAPTION_LOOKS, type CaptionLook } from "./styles.js";
 import type { CaptionColors, CaptionLine, CaptionStyleId } from "./types.js";
-import { upperCase } from "./upper.js";
+import { lowerCase, upperCase } from "./upper.js";
 
 export interface CaptionDoc {
   lines: CaptionLine[];
-  /** Language of the speech (Whisper's code); uppercase looks follow its rules. */
+  /** Language of the speech (Whisper's code); uppercase and lowercase looks follow its rules. */
   language: string;
-  /** Names that keep their own spelling in uppercase looks. */
+  /** Names that keep their own spelling in uppercase and lowercase looks. */
   glossary: string[];
   durationS: number;
   width: number;
@@ -45,20 +48,17 @@ export const CAPTION_HOLD_S = 0.35;
 
 export { PORTRAIT_CENTRE };
 
-const LOOK_MODULES: Partial<Record<CaptionStyleId, (o: LookInput) => LookParts>> = {
+const LOOK_MODULES: Record<CaptionStyleId, (o: LookInput) => LookParts> = {
   "kil-lacivert": kilLacivert,
   loud,
   dinamik,
   hap,
   karaoke,
+  daktilo,
+  sakin,
   bant,
+  editoryal,
 };
-
-function lookParts(id: CaptionStyleId, o: LookInput): LookParts {
-  const make = LOOK_MODULES[id];
-  if (!make) throw new Error(`The caption look "${id}" is not available yet.`);
-  return make(o);
-}
 
 /** Lines that have something to show: an emptied or wordless line is left out of the render and the SRT. */
 export function captionLines(lines: CaptionLine[]): CaptionLine[] {
@@ -231,7 +231,7 @@ export function captionHtml(
   const font = openFont(fontFile(style), style.weight);
   const measureEm = (text: string) =>
     font.layout(text).positions.reduce((sum, p) => sum + p.xAdvance, 0) / font.unitsPerEm;
-  const parts = lookParts(lookId, { colors, width, height, format, measureEm });
+  const parts = LOOK_MODULES[lookId]({ colors, width, height, format, measureEm });
   const safe = safeArea(format, width, height);
   const maxRowPx = width - safe.left - safe.right - 2 * parts.padX;
   const maxChars = style.maxChars[format];
@@ -244,7 +244,11 @@ export function captionHtml(
       ...entry.line,
       words: entry.line.words.map((w) => ({
         ...w,
-        text: style.uppercase ? upperCase(w.text, doc.language, doc.glossary) : w.text,
+        text: style.uppercase
+          ? upperCase(w.text, doc.language, doc.glossary)
+          : style.lowercase
+            ? lowerCase(w.text, doc.language, doc.glossary)
+            : w.text,
       })),
     };
     const ids = new Map(line.words.map((w, n) => [w, `w${i}_${n}`]));

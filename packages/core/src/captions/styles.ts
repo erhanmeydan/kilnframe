@@ -15,6 +15,8 @@ export interface CaptionLook {
   weightActive?: number;
   colors: CaptionColors;
   uppercase: boolean;
+  /** Written in lower case (kept names stay as written). */
+  lowercase?: boolean;
   maxLines: 1 | 2;
   maxChars: { portrait: number; landscape: number; square: number };
 }
@@ -87,6 +89,7 @@ export const CAPTION_LOOKS: Record<CaptionStyleId, CaptionLook> = {
     weight: 400,
     colors: { text: "#e4e1da", accent: "#e4e1da" },
     uppercase: false,
+    lowercase: true,
     maxLines: 1,
     maxChars: { portrait: 24, landscape: 44, square: 32 },
   },
