@@ -16,6 +16,13 @@ import { suggestStyles } from "./stages/suggest.js";
 import { createStyle, previewStyle } from "./stages/style-create.js";
 import { storyText, writeStory, type Story } from "./stages/story.js";
 import { createSpeechProvider, loadSpeechCatalog, narrate } from "./speech/index.js";
+import {
+  CAPTION_LOOKS,
+  correctCaptionWords,
+  renderCaptions,
+  splitLines,
+} from "./captions/index.js";
+import { formatOf } from "./format.js";
 import { UsageMeter } from "./providers/types.js";
 
 function log(message: string) {
@@ -234,6 +241,56 @@ async function main(argv: string[]): Promise<number> {
       `${transcript.words.length} words, ${transcript.duration_s.toFixed(2)} s audio, ${((Date.now() - started) / 1000).toFixed(1)} s`,
     );
     log(resolve(args.out));
+    return 0;
+  }
+
+  if (args.command === "captions") {
+    const transcript = await transcribe({
+      audioPath: args.audio,
+      defaults,
+      language: args.language,
+      onProgress: log,
+    });
+    const language = transcript.language ?? args.language ?? "";
+    let words = transcript.words;
+    const provider = createTextProvider(defaults, { ...args, onFallback: log });
+    provider.preflight?.();
+    const usage = new UsageMeter();
+    const corrected = await correctCaptionWords({
+      provider: usage.wrap(provider),
+      words,
+      language,
+      glossary: args.glossary,
+      mode: args.mode,
+      onProgress: log,
+    });
+    if (corrected.corrected) words = corrected.words;
+    else
+      log(
+        `The text was not corrected, using the transcript as is${corrected.error ? `: ${corrected.error}` : ""}`,
+      );
+    const look = CAPTION_LOOKS[args.look];
+    const lines = splitLines(words, {
+      maxChars: look.maxChars[formatOf(args.size)],
+      maxLines: look.maxLines,
+    });
+    const result = await renderCaptions({
+      doc: {
+        lines,
+        language,
+        glossary: args.glossary,
+        durationS: transcript.duration_s,
+        width: args.size.width,
+        height: args.size.height,
+        fps: formatFps(args.fps),
+        hideSpans: [],
+      },
+      look: args.look,
+      colors: look.colors,
+      outDir: resolve(args.out),
+      onProgress: log,
+    });
+    process.stdout.write(`${result.video}\n${result.srt}\n`);
     return 0;
   }
 
