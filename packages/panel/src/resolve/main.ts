@@ -61,6 +61,9 @@ const BRIDGE_CALLS = [
   "placeInsert",
   "placeAudioClips",
   "createStorySequence",
+  "ourInsertSpans",
+  "findCaptionClip",
+  "replaceCaptionClip",
   "isRendering",
   "cancelExports",
 ] as const;

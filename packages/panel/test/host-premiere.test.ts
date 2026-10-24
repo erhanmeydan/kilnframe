@@ -4,12 +4,38 @@ import { HOST_MEMBERS } from "./host-members";
 
 const TICKS_PER_SECOND = 254016000000;
 
-/** A Premiere with one project, sequences that can be switched and removed, a bin and a sequence editor. */
-function fakePremiere(opts: { win?: boolean } = {}) {
+/** A clip on a track of the fake's first sequence, in sequence seconds. */
+interface FakeClip {
+  path: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * A Premiere with one project, sequences that can be switched and removed, a bin and a sequence editor. The first
+ * sequence's tracks hold `video` and `audio` clips; the editor's actions change them when the transaction runs:
+ * an overwrite cuts away what lies under the new clip, a remove takes the selected clips off.
+ */
+function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeClip[][] } = {}) {
   const seqs = new Map<string, ReturnType<typeof makeSeq>>();
   const overwrites: { path: string; at: number; videoTrack: number; audioTrack: number }[] = [];
   const binItems: { name: string; path: string }[] = [];
+  /** A file's length in seconds once imported; 10 when the test does not say. */
+  const lengths = new Map<string, number>();
+  const video: FakeClip[][] = opts.video ?? [[], []];
+  const audio: FakeClip[][] = opts.audio ?? [[], []];
   const tick = (s: number) => ({ seconds: s, ticks: String(s * TICKS_PER_SECOND) });
+  const trackItem = (c: FakeClip) => ({
+    raw: c,
+    getStartTime: async () => tick(c.start),
+    getEndTime: async () => tick(c.end),
+    getProjectItem: async () => ({ path: c.path }),
+  });
+  const trackApi = (clips: FakeClip[]) => ({
+    isMuted: async () => false,
+    setMute: async () => true,
+    getTrackItems: () => clips.map(trackItem),
+  });
   function makeSeq(guid: string, name: string) {
     return {
       guid: { toString: () => guid },
@@ -25,15 +51,17 @@ function fakePremiere(opts: { win?: boolean } = {}) {
       getOutPoint: async () => tick(9),
       getEndTime: async () => tick(30),
       getTimebase: async () => String(TICKS_PER_SECOND / 25),
-      getVideoTrackCount: async () => 2,
-      getAudioTrackCount: async () => 2,
-      getVideoTrack: async () => ({ getTrackItems: () => [] }),
-      getAudioTrack: async () => ({ getTrackItems: () => [] }),
+      getVideoTrackCount: async () => video.length,
+      getAudioTrackCount: async () => audio.length,
+      getVideoTrack: async (i: number) => trackApi(video[i] ?? []),
+      getAudioTrack: async (i: number) => trackApi(audio[i] ?? []),
       createSetSettingsAction: () => ({}),
     };
   }
   let active = makeSeq("guid-1", "Main");
   seqs.set("guid-1", active);
+  /** The sequence whose tracks the fake keeps; edits to the others are only logged. */
+  const first = active;
   const bin = { name: "Kilnframe", getItems: async () => binItems };
   const root = {
     getItems: async () => [bin],
@@ -49,8 +77,13 @@ function fakePremiere(opts: { win?: boolean } = {}) {
       return true;
     },
     lockedAccess: (fn: () => void) => fn(),
-    executeTransaction: (fn: (c: { addAction(a: unknown): boolean }) => void) => {
-      fn({ addAction: () => true });
+    executeTransaction: (fn: (c: { addAction(a: { apply?: () => void }): boolean }) => void) => {
+      fn({
+        addAction: (a) => {
+          a.apply?.();
+          return true;
+        },
+      });
       return true;
     },
     createSequence: async (name: string) => {
@@ -80,7 +113,21 @@ function fakePremiere(opts: { win?: boolean } = {}) {
       getWorkAreaOutPoint: () => ({ seconds: 30 }),
     },
     Exporter: { exportSequenceFrame: vi.fn(async () => true) },
-    Constants: { TrackItemType: { CLIP: 1 }, ExportType: { IMMEDIATELY: 0 } },
+    Constants: {
+      TrackItemType: { CLIP: 1 },
+      ExportType: { IMMEDIATELY: 0 },
+      MediaType: { ANY: 0, DATA: 1, VIDEO: 2, AUDIO: 3 },
+    },
+    TrackItemSelection: {
+      createEmptySelection: (cb: (s: { items: { raw: FakeClip }[] }) => void) => {
+        const items: { raw: FakeClip }[] = [];
+        cb({
+          items,
+          addItem: (it: { raw: FakeClip }) => (items.push(it), true),
+        } as never);
+        return true;
+      },
+    },
     ClipProjectItem: {
       cast: (item: { path?: string }) => ({
         getMediaFilePath: async () => item.path,
@@ -89,7 +136,7 @@ function fakePremiere(opts: { win?: boolean } = {}) {
     },
     FolderItem: { cast: (item: unknown) => item },
     SequenceEditor: {
-      getEditor: () => ({
+      getEditor: (sequence: unknown) => ({
         createOverwriteItemAction: (
           item: { path: string },
           at: { seconds: number },
@@ -97,8 +144,34 @@ function fakePremiere(opts: { win?: boolean } = {}) {
           audioTrack: number,
         ) => {
           overwrites.push({ path: item.path, at: at.seconds, videoTrack, audioTrack });
-          return {};
+          return {
+            apply() {
+              const track = sequence === first ? video[videoTrack] : undefined;
+              if (!track) return;
+              const start = at.seconds;
+              const end = start + (lengths.get(item.path) ?? 10);
+              // what lay under the new clip is cut away, as an overwrite edit does
+              const kept = track.flatMap((c) =>
+                c.end <= start || c.start >= end
+                  ? [c]
+                  : [
+                      ...(c.start < start ? [{ ...c, end: start }] : []),
+                      ...(c.end > end ? [{ ...c, start: end }] : []),
+                    ],
+              );
+              track.splice(0, track.length, ...kept, { path: item.path, start, end });
+            },
+          };
         },
+        createRemoveItemsAction: (selection: { items: { raw: FakeClip }[] }) => ({
+          apply() {
+            for (const track of [...video, ...audio])
+              for (const it of selection.items) {
+                const i = track.indexOf(it.raw);
+                if (i >= 0) track.splice(i, 1);
+              }
+          },
+        }),
       }),
     },
     RectF: class {
@@ -120,7 +193,18 @@ function fakePremiere(opts: { win?: boolean } = {}) {
   let home: string | null = null;
   const os = { homedir: () => home, platform: () => (opts.win ? "win32" : "darwin") };
   const make = () => createPremiereHost(ppro as never, uxp as never, fs as never, os as never);
-  return { ppro, uxp, fs, os, project, overwrites, make, setHome: (h: string) => (home = h) };
+  return {
+    ppro,
+    uxp,
+    fs,
+    os,
+    project,
+    overwrites,
+    video,
+    lengths,
+    make,
+    setHome: (h: string) => (home = h),
+  };
 }
 
 describe("premiere host", () => {
@@ -226,5 +310,48 @@ describe("premiere host", () => {
     expect(after.id).not.toBe(before.id);
     expect(after.name).toBe("Story: Moon");
     expect(f.overwrites[0]).toMatchObject({ path: "/j/s/narration.wav", at: 0, audioTrack: 0 });
+  });
+
+  const insert = "/Edits/Kilnframe/Main-20261024/insert.mov";
+  const captions = "/Edits/Kilnframe/Main-Captions-20261024/captions-1.mov";
+  const footage = { path: "/Footage/interview.mov", start: 0, end: 30 };
+
+  it("lists only the animation inserts' spans, not music, sound effects or captions", async () => {
+    const f = fakePremiere({
+      video: [
+        [footage],
+        [{ path: insert, start: 2, end: 7 }],
+        [{ path: captions, start: 0, end: 30 }],
+      ],
+      audio: [
+        [footage],
+        [{ path: "/Edits/Kilnframe/Main-Music-20261024/music/s1.wav", start: 0, end: 20 }],
+        [{ path: "/Edits/Kilnframe/Main-20261024/sfx_mix.wav", start: 2, end: 7 }],
+      ],
+    });
+    const h = f.make();
+    expect(await h.ourInsertSpans(await h.currentSequence())).toEqual([{ startS: 2, endS: 7 }]);
+  });
+
+  it("finds an untouched caption clip, and not one that was trimmed", async () => {
+    const f = fakePremiere({ video: [[footage], [{ path: captions, start: 2, end: 12 }]] });
+    const h = f.make();
+    const seq = await h.currentSequence();
+    expect(await h.findCaptionClip(seq, captions, 2, 10)).toEqual({ videoTrack: 1 });
+    expect(await h.findCaptionClip(seq, "/Edits/Kilnframe/x/captions-2.mov", 2, 10)).toBeNull();
+    f.video[1]![0]!.end = 11;
+    expect(await h.findCaptionClip(seq, captions, 2, 10)).toBeNull();
+  });
+
+  it("replaces the caption clip in place: one clip on its track, at its start, with the new file", async () => {
+    const f = fakePremiere({ video: [[footage], [{ path: captions, start: 2, end: 12 }]] });
+    const next = "/Edits/Kilnframe/Main-Captions-20261024/captions-2.mov";
+    // a frame shorter than the old clip: an overwrite alone would leave a sliver of it behind
+    f.lengths.set(next, 10 - 1 / 25);
+    const h = f.make();
+    const seq = await h.currentSequence();
+    await h.replaceCaptionClip(seq, captions, next, 2, 10, 1);
+    expect(f.video[1]).toEqual([{ path: next, start: 2, end: 12 - 1 / 25 }]);
+    expect(f.video[0]).toEqual([footage]);
   });
 });

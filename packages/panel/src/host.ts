@@ -85,6 +85,27 @@ export interface Host {
     seq: HostSequence,
     clips: { file: string; atS: number; durationS: number }[],
   ): Promise<{ audioTrack: number }>;
+  /** Where the animation inserts (insert.mov, insert.mp4) lie, in sequence seconds; music, effects and captions not. */
+  ourInsertSpans(seq: HostSequence): Promise<{ startS: number; endS: number }[]>;
+  /**
+   * The video track (0-based) of a clip of `mediaPath` that starts at `atS` and lasts `durationS`, each within a
+   * frame: an earlier caption clip the editor left untouched. Null when there is none.
+   */
+  findCaptionClip(
+    seq: HostSequence,
+    mediaPath: string,
+    atS: number,
+    durationS: number,
+  ): Promise<{ videoTrack: number } | null>;
+  /** Takes the clip of `oldPath` at `atS` off the 0-based video track and places `file` there instead. */
+  replaceCaptionClip(
+    seq: HostSequence,
+    oldPath: string,
+    file: string,
+    atS: number,
+    durationS: number,
+    videoTrack: number,
+  ): Promise<void>;
   /** A new sequence holding the narration (and music); it becomes the active sequence. */
   createStorySequence(
     template: HostSequence,

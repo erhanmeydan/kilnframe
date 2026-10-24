@@ -68,6 +68,24 @@ export interface ResolveBridge {
     id: string,
     clips: { file: string; atS: number; durationS: number }[],
   ): Promise<{ audioTrack: number }>;
+  /** The animation inserts' spans, in seconds from the timeline start. */
+  ourInsertSpans(id: string): Promise<{ startS: number; endS: number }[]>;
+  /** The 0-based video track of an untouched clip of `mediaPath` at `atS` lasting `durationS`, or null. */
+  findCaptionClip(
+    id: string,
+    mediaPath: string,
+    atS: number,
+    durationS: number,
+  ): Promise<{ videoTrack: number } | null>;
+  /** The clip of `oldPath` at `atS` on the 0-based video track replaced by `file`; the old one back on failure. */
+  replaceCaptionClip(
+    id: string,
+    oldPath: string,
+    file: string,
+    atS: number,
+    durationS: number,
+    videoTrack: number,
+  ): Promise<void>;
   createStorySequence(
     templateId: string,
     name: string,

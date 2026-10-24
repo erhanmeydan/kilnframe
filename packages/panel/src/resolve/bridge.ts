@@ -18,7 +18,7 @@ import {
   type ResolveSequence,
 } from "./api";
 import { frameFor } from "../frame";
-import { isOurInsert } from "../our-files";
+import { isOurAnimation, isOurInsert } from "../our-files";
 import { framesToTimecode, parseRate, rateString, type Rate } from "./timecode";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Resolve's promise objects are untyped */
@@ -33,6 +33,11 @@ const READY_LIMIT_MS = 15_000;
 
 const dirOf = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
 const baseOf = (p: string) => p.replace(/^.*[\\/]/, "").replace(/\.[^.]+$/, "");
+/** True when two paths name the same file, whichever slashes and letter case a Windows path came with. */
+const samePath = (a: string, b: string) => {
+  const norm = (p: string) => (/^[a-z]:/i.test(p) ? p.replace(/\//g, "\\").toLowerCase() : p);
+  return norm(a) === norm(b);
+};
 
 export function createResolveBridge(
   resolve: R,
@@ -294,6 +299,51 @@ export function createResolveBridge(
     }
   }
 
+  /** The file behind a timeline item, or null for a title, a generator or an offline clip. */
+  async function pathOf(item: R): Promise<string | null> {
+    const path = await (await item.GetMediaPoolItem())?.GetClipProperty("File Path");
+    return typeof path === "string" && path ? path : null;
+  }
+
+  /**
+   * The clips of `mediaPath` on a video track (1-based) starting at `atS` and lasting `durationS`, each within a
+   * frame, with the item's own start and end frames.
+   */
+  async function captionItems(
+    tl: R,
+    trackIndex: number,
+    mediaPath: string,
+    atS: number,
+    durationS: number,
+  ): Promise<R[]> {
+    const rate = await rateOf(tl);
+    const start = (await tl.GetStartFrame()) as number;
+    const found: R[] = [];
+    for (const item of ((await tl.GetItemListInTrack("video", trackIndex)) ?? []) as R[]) {
+      const path = await pathOf(item);
+      if (!path || !samePath(path, mediaPath)) continue;
+      const from = ((await item.GetStart()) as number) - start;
+      const to = ((await item.GetEnd()) as number) - start;
+      if (Math.abs(from / rate.fps - atS) < 1 / rate.fps)
+        if (Math.abs((to - from) / rate.fps - durationS) < 1 / rate.fps) found.push(item);
+    }
+    return found;
+  }
+
+  /** Runs `fn`, then gives the timeline its In/Out and playhead back: appending clears and moves them. */
+  async function keepingMarks<T>(tl: R, fn: () => Promise<T>): Promise<T> {
+    const mark = markOf(await tl.GetMarkInOut());
+    const playhead = (await tl.GetCurrentTimecode()) as string;
+    try {
+      return await fn();
+    } finally {
+      // Resolve 21.1.1 takes an In alone; an Out alone it cannot set (it clears both), so that one is lost
+      if (mark.in !== undefined && mark.out !== undefined) await tl.SetMarkInOut(mark.in, mark.out);
+      else if (mark.in !== undefined) await tl.SetMarkInOut(mark.in);
+      await tl.SetCurrentTimecode(playhead);
+    }
+  }
+
   return {
     async currentSequence() {
       const p = await project();
@@ -522,6 +572,91 @@ export function createResolveBridge(
           await tl.SetCurrentTimecode(playhead);
         }
       });
+    },
+
+    // Timeline.GetItemListInTrack(type, index), TimelineItem.GetStart/GetEnd (timeline frames, absolute) and
+    // GetMediaPoolItem().GetClipProperty("File Path"): DaVinci Resolve Scripting README, Timeline and
+    // TimelineItem (Help > Documentation > Developer, Scripting/README.md).
+    ourInsertSpans(id) {
+      return onTimeline(id, async (tl) => {
+        const rate = await rateOf(tl);
+        const start = (await tl.GetStartFrame()) as number;
+        const spans: { startS: number; endS: number }[] = [];
+        const count = (await tl.GetTrackCount("video")) as number;
+        for (let i = 1; i <= count; i++)
+          for (const item of ((await tl.GetItemListInTrack("video", i)) ?? []) as R[]) {
+            const path = await pathOf(item);
+            if (!path || !isOurAnimation(path)) continue;
+            spans.push({
+              startS: ((await item.GetStart()) - start) / rate.fps,
+              endS: ((await item.GetEnd()) - start) / rate.fps,
+            });
+          }
+        return spans.sort((a, b) => a.startS - b.startS);
+      });
+    },
+
+    findCaptionClip(id, mediaPath, atS, durationS) {
+      return onTimeline(id, async (tl) => {
+        const count = (await tl.GetTrackCount("video")) as number;
+        for (let i = 1; i <= count; i++)
+          if ((await captionItems(tl, i, mediaPath, atS, durationS)).length)
+            return { videoTrack: i - 1 };
+        return null;
+      });
+    },
+
+    // Timeline.DeleteClips([timelineItems], rippleDelete) takes the old clip off the timeline only (not
+    // MediaPool.DeleteClips, which would take it out of the media pool too); MediaPool.AppendToTimeline with
+    // {mediaPoolItem, startFrame, endFrame, mediaType: 1 (video only), trackIndex, recordFrame} places the new
+    // one; Timeline.GetIsTrackLocked(type, index): a locked track takes neither. DaVinci Resolve Scripting README,
+    // MediaPool and Timeline (Help > Documentation > Developer, Scripting/README.md).
+    replaceCaptionClip(id, oldPath, file, atS, durationS, videoTrack) {
+      return onTimeline(id, (tl, p) =>
+        keepingMarks(tl, async () => {
+          const track = videoTrack + 1;
+          if (await tl.GetIsTrackLocked("video", track)) throw new Error(PLACE_FAILED);
+          const rate = await rateOf(tl);
+          const start = (await tl.GetStartFrame()) as number;
+          const [item] = await importFiles(p, [file]);
+          const old = await captionItems(tl, track, oldPath, atS, durationS);
+          // the old clip as it lay, to put back when the new one cannot be placed
+          const before = await Promise.all(
+            old.map(async (x) => {
+              const from = (await x.GetStart()) as number;
+              const to = (await x.GetEnd()) as number;
+              const sourceIn = (await x.GetSourceStartFrame()) as number;
+              return {
+                mediaPoolItem: await x.GetMediaPoolItem(),
+                startFrame: sourceIn,
+                // exclusive, as measured for AppendToTimeline
+                endFrame: sourceIn + (to - from),
+                mediaType: 1 as const,
+                trackIndex: track,
+                recordFrame: from,
+              };
+            }),
+          );
+          if (old.length && !(await tl.DeleteClips(old, false))) throw new Error(PLACE_FAILED);
+          const from = Math.round(atS * rate.fps);
+          const to = Math.round((atS + durationS) * rate.fps);
+          try {
+            await append(tl, p, [
+              {
+                mediaPoolItem: item,
+                startFrame: 0,
+                endFrame: to - from,
+                mediaType: 1,
+                trackIndex: track,
+                recordFrame: start + from,
+              },
+            ]);
+          } catch (err) {
+            if (before.length) await append(tl, p, before).catch(() => undefined);
+            throw err;
+          }
+        }),
+      );
     },
 
     async createStorySequence(templateId, name, narration, music, format) {

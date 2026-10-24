@@ -260,6 +260,22 @@ describe("earlier inserts on the timeline", () => {
   });
 });
 
+describe("our caption clips", () => {
+  it("knows a caption clip by its job folder and file name, and never counts it as an insert", async () => {
+    const { isOurCaption, isOurInsert } = await import("../src/our-files");
+    expect(isOurCaption("/Projects/Film/Kilnframe/Seq-Captions-20261024/captions-1.mov")).toBe(
+      true,
+    );
+    expect(isOurCaption("C:\\Users\\e\\.kilnframe\\jobs\\Seq\\captions-12.mov")).toBe(true);
+    expect(isOurCaption("/Projects/Film/Kilnframe/Seq/captions-1.srt")).toBe(false);
+    expect(isOurCaption("/Footage/captions-1.mov")).toBe(false);
+    expect(isOurCaption("/Projects/Film/Kilnframe/Seq/insert.mov")).toBe(false);
+    expect(isOurInsert("/Projects/Film/Kilnframe/Seq-Captions-20261024/captions-1.mov")).toBe(
+      false,
+    );
+  });
+});
+
 describe("resolve wording", () => {
   it("tells a Resolve user how to update the Resolve panel, not the Premiere plugin", () => {
     for (const l of [en, tr] as Record<string, string>[]) {

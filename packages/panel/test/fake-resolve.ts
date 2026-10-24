@@ -43,6 +43,8 @@ export interface FakeOptions {
   refuseOffDeliver?: boolean;
   /** After a refused start, Resolve 21.1.1 refuses every later start until the render settings are set again. */
   staleAfterRefusal?: boolean;
+  /** AppendToTimeline places nothing and returns nothing for this file, as for media Resolve cannot use. */
+  appendRefuses?: string;
   /** GetTrackCount throws, as on a timeline deleted while the job ran. */
   failTrackCount?: boolean;
 }
@@ -138,6 +140,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     raw: it,
     GetStart: async () => it.start,
     GetEnd: async () => it.end,
+    GetSourceStartFrame: async () => it.sourceIn,
+    GetSourceEndFrame: async () => it.sourceOut,
     GetTrackTypeAndIndex: async () => [type, idx],
     GetMediaPoolItem: async () => mpi(it.path),
     tl,
@@ -250,6 +254,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       const tl = project.current as FakeTimeline;
       const out = [];
       for (const info of infos) {
+        if (info.mediaPoolItem.path === o.appendRefuses) continue;
         const type = info.mediaType === 2 ? "audio" : "video";
         const t = tl.tracks[type][info.trackIndex - 1] as FakeTrack;
         // a whole clip when no frames are given (a WAV of the fake is 250 frames long); endFrame is exclusive,

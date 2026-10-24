@@ -469,4 +469,91 @@ describe("resolve bridge", () => {
     expect(f.project.current.name).toBe("Story");
     expect(f.log.stills).toEqual(["/jobs/a/f.png"]);
   });
+
+  const insert = "/m/Kilnframe/Probe-20261024/insert.mov";
+  const captions = "/m/Kilnframe/Probe-Captions-20261024/captions-1.mov";
+  const clip = (path: string, start: number, end: number) => ({
+    start,
+    end,
+    sourceIn: 0,
+    sourceOut: end - start,
+    path,
+  });
+
+  it("lists only the animation inserts' spans in timeline seconds, not music, sound effects or captions", async () => {
+    const f = makeFakeResolve();
+    const t = f.project.timeline.tracks;
+    t.video.push({ items: [clip(insert, 90050, 90175)], enabled: true, locked: false });
+    t.video.push({ items: [clip(captions, 90000, 90271)], enabled: true, locked: false });
+    t.audio.push({
+      items: [clip("/m/Kilnframe/Probe-Music-20261024/music/s1.wav", 90000, 90250)],
+      enabled: true,
+      locked: false,
+    });
+    t.audio.push({
+      items: [clip("/m/Kilnframe/Probe-20261024/sfx_mix.wav", 90050, 90175)],
+      enabled: true,
+      locked: false,
+    });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    expect(await b.ourInsertSpans(seq.id)).toEqual([{ startS: 2, endS: 7 }]);
+  });
+
+  it("finds an untouched caption clip, and not one that was trimmed by a second", async () => {
+    const f = makeFakeResolve();
+    const v2 = { items: [clip(captions, 90050, 90300)], enabled: true, locked: false };
+    f.project.timeline.tracks.video.push(v2);
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    expect(await b.findCaptionClip(seq.id, captions, 2, 10)).toEqual({ videoTrack: 1 });
+    expect(await b.findCaptionClip(seq.id, "/m/Kilnframe/x/captions-2.mov", 2, 10)).toBeNull();
+    v2.items[0]!.end = 90275;
+    expect(await b.findCaptionClip(seq.id, captions, 2, 10)).toBeNull();
+  });
+
+  it("replaces the caption clip in place and gives In/Out and the playhead back", async () => {
+    const f = makeFakeResolve({ markIn: 50, markOut: 225, playhead: "01:00:03:00" });
+    f.project.timeline.tracks.video.push({
+      items: [clip(captions, 90050, 90300)],
+      enabled: true,
+      locked: false,
+    });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    const next = "/m/Kilnframe/Probe-Captions-20261024/captions-2.mov";
+    await b.replaceCaptionClip(seq.id, captions, next, 2, 10, 1);
+    const items = f.project.timeline.tracks.video[1]!.items;
+    expect(items.map((i) => [i.start, i.end, i.path])).toEqual([[90050, 90300, next]]);
+    expect(f.project.timeline.tracks.video[0]!.items).toHaveLength(1);
+    expect(f.project.timeline.mark).toEqual({ in: 50, out: 225 });
+    expect(f.project.timeline.playhead).toBe("01:00:03:00");
+  });
+
+  it("leaves the caption clip alone on a locked track and says PLACE_FAILED", async () => {
+    const f = makeFakeResolve();
+    const v2 = { items: [clip(captions, 90050, 90300)], enabled: true, locked: true };
+    f.project.timeline.tracks.video.push(v2);
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(
+      b.replaceCaptionClip(seq.id, captions, "/m/Kilnframe/x/captions-2.mov", 2, 10, 1),
+    ).rejects.toThrow("PLACE_FAILED");
+    expect(v2.items.map((i) => i.path)).toEqual([captions]);
+  });
+
+  it("puts the old caption clip back when Resolve does not place the new one", async () => {
+    const next = "/m/Kilnframe/x/captions-2.mov";
+    const f = makeFakeResolve({ appendRefuses: next });
+    const v2 = { items: [clip(captions, 90050, 90300)], enabled: true, locked: false };
+    v2.items[0]!.sourceIn = 0;
+    v2.items[0]!.sourceOut = 250;
+    f.project.timeline.tracks.video.push(v2);
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.replaceCaptionClip(seq.id, captions, next, 2, 10, 1)).rejects.toThrow(
+      "PLACE_FAILED",
+    );
+    expect(v2.items.map((i) => [i.start, i.end, i.path])).toEqual([[90050, 90300, captions]]);
+  });
 });
