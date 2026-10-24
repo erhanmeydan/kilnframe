@@ -9,7 +9,8 @@ function normalize(text: string): string {
 }
 
 function levenshtein(a: string, b: string): number {
-  const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  const prev = new Uint16Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
   for (let i = 1; i <= a.length; i++) {
     let diagonal = prev[0]!;
     prev[0] = i;
@@ -22,22 +23,26 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length]!;
 }
 
-/** Edit distance relative to the longer word: 0 for equal, 1 for nothing in common. */
-function matchCost(a: string, b: string): number {
-  const x = normalize(a);
-  const y = normalize(b);
+/** Edit distance between two already normalized words, relative to the longer: 0 for equal, 1 for nothing in common. */
+function matchCost(x: string, y: string): number {
+  if (x === y) return 0;
   const longest = Math.max(x.length, y.length);
   return longest === 0 ? 0 : levenshtein(x, y) / longest;
 }
 
+/** Half-width of the diagonal band the alignment searches, in words. */
+const BAND = 30;
+
 type Step = "one" | "merge" | "split" | "dropOriginal" | "dropCorrected";
+const STEPS: Step[] = ["one", "merge", "split", "dropOriginal", "dropCorrected"];
 
 /**
  * Carries the times of the original (Whisper) words over to a corrected text.
  * Words matched one to one keep their own times, a merged word spans the words it
  * came from, a split word shares its time equally, and a word the correction removed or
  * inserted is folded into its neighbour's time rather than skipped (a word with no
- * source at all sits at the end of the word before it).
+ * source at all sits at the end of the word before it). Words are normalized once and
+ * the search is limited to a diagonal band, so long chunks stay fast.
  */
 export function alignWords(original: CaptionWord[], corrected: string): CaptionWord[] {
   const target = corrected.split(/\s+/).filter(Boolean);
@@ -46,32 +51,48 @@ export function alignWords(original: CaptionWord[], corrected: string): CaptionW
   if (m === 0) return [];
   if (n === 0) return target.map((text) => ({ text, start: 0, end: 0 }));
 
-  const cost: number[][] = Array.from({ length: n + 1 }, () =>
-    new Array<number>(m + 1).fill(Infinity),
-  );
-  const step: Step[][] = Array.from({ length: n + 1 }, () => new Array<Step>(m + 1).fill("one"));
-  cost[0]![0] = 0;
+  const orig = original.map((w) => normalize(w.text));
+  const tgt = target.map(normalize);
+
+  // Only cells near the (m/n scaled) diagonal are searched. A row also reaches up to
+  // the next row's diagonal so the band stays connected when the lengths differ a lot.
+  const ratio = m / n;
+  const lo = (i: number) => Math.max(0, Math.floor(i * ratio) - BAND);
+  const hi = (i: number) => Math.min(m, Math.ceil((i + 1) * ratio) + BAND);
+
+  const width = m + 1;
+  const cost = new Float64Array((n + 1) * width).fill(Infinity);
+  const stepAt = new Uint8Array((n + 1) * width);
+  cost[0] = 0;
   const relax = (i: number, j: number, value: number, how: Step) => {
-    if (value < cost[i]![j]!) {
-      cost[i]![j] = value;
-      step[i]![j] = how;
+    if (j < lo(i) || j > hi(i)) return;
+    const k = i * width + j;
+    if (value < cost[k]!) {
+      cost[k] = value;
+      stepAt[k] = STEPS.indexOf(how);
     }
   };
 
   for (let i = 0; i <= n; i++) {
-    for (let j = 0; j <= m; j++) {
-      const here = cost[i]![j]!;
+    const to = hi(i);
+    for (let j = lo(i); j <= to; j++) {
+      const here = cost[i * width + j]!;
       if (here === Infinity) continue;
-      if (i < n && j < m)
-        relax(i + 1, j + 1, here + matchCost(original[i]!.text, target[j]!), "one");
-      if (i + 1 < n && j < m) {
-        const joined = original[i]!.text + original[i + 1]!.text;
-        relax(i + 2, j + 1, here + matchCost(joined, target[j]!) + EXTRA_WORD_COST, "merge");
-      }
-      if (i < n && j + 1 < m) {
-        const joined = target[j]! + target[j + 1]!;
-        relax(i + 1, j + 2, here + matchCost(original[i]!.text, joined) + EXTRA_WORD_COST, "split");
-      }
+      if (i < n && j < m) relax(i + 1, j + 1, here + matchCost(orig[i]!, tgt[j]!), "one");
+      if (i + 1 < n && j < m)
+        relax(
+          i + 2,
+          j + 1,
+          here + matchCost(orig[i]! + orig[i + 1]!, tgt[j]!) + EXTRA_WORD_COST,
+          "merge",
+        );
+      if (i < n && j + 1 < m)
+        relax(
+          i + 1,
+          j + 2,
+          here + matchCost(orig[i]!, tgt[j]! + tgt[j + 1]!) + EXTRA_WORD_COST,
+          "split",
+        );
       if (i < n) relax(i + 1, j, here + SKIP_COST, "dropOriginal");
       if (j < m) relax(i, j + 1, here + SKIP_COST, "dropCorrected");
     }
@@ -82,7 +103,7 @@ export function alignWords(original: CaptionWord[], corrected: string): CaptionW
   let i = n;
   let j = m;
   while (i > 0 || j > 0) {
-    const how = step[i]![j]!;
+    const how = STEPS[stepAt[i * width + j]!]!;
     if (how === "one") [i, j] = [i - 1, j - 1];
     else if (how === "merge") [i, j] = [i - 2, j - 1];
     else if (how === "split") [i, j] = [i - 1, j - 2];
