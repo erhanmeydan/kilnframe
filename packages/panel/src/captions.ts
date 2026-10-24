@@ -209,7 +209,9 @@ export function captionsSwitch(
   stored: (key: string) => string | null,
 ): void {
   if (st.stage === "texting" || st.stage === "rendering" || st.stage === "placing") return;
-  if (previous === next && st.seqId === next) return;
+  if (st.seqId === next) return;
+  // a finished text stays for its own sequence; rendering it asks for that sequence to be open
+  if ((st.stage === "review" || st.stage === "placed") && st.lines.length) return;
   const settings = readSettings(stored(settingsKey(next)));
   Object.assign(st, newCaptions(), {
     scope: st.scope,
@@ -378,7 +380,7 @@ function stepOne(st: CaptionsState, ctx: CaptionsCtx): string {
     hasText
       ? `<div class="btn mt" data-act="captions-back">${t("captions.backToText")}</div>
   <div class="link mt" data-act="captions-make">${t("captions.newTranscript")}</div>`
-      : `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="captions-make">${t("captions.make")}</div>`
+      : `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="captions-make"${ctx.connected() ? "" : " disabled"}>${t("captions.make")}</div>`
   }`;
 }
 
@@ -413,7 +415,7 @@ function reviewScreen(st: CaptionsState): string {
   <div class="row2 mt"><div class="link" data-act="captions-style">${t("captions.changeStyle")}</div></div>`;
 }
 
-function busyBox(st: CaptionsState): string {
+function busyBox(st: CaptionsState, ctx: CaptionsCtx): string {
   const what =
     st.stage === "texting"
       ? "captions.texting"
@@ -421,7 +423,7 @@ function busyBox(st: CaptionsState): string {
         ? "captions.placing"
         : "captions.rendering";
   return `<div class="box"><div class="row"><span>${t(what)}</span></div>${
-    st.last ? `<div class="small muted mt">${st.last}</div>` : ""
+    st.last ? `<div class="small muted mt">${ctx.esc(st.last)}</div>` : ""
   }${
     st.jobId && st.stage !== "placing"
       ? `<div class="link mt" data-act="captions-cancel">${t("progress.stop")}</div>`
@@ -441,7 +443,7 @@ export function captionsBox(st: CaptionsState, ctx: CaptionsCtx): string {
   // the notes keep a little room under the tabs
   const top = notes ? `<div class="cap-top">${notes}</div>` : "";
   if (st.stage === "texting" || st.stage === "rendering" || st.stage === "placing")
-    return top + busyBox(st);
+    return top + busyBox(st, ctx);
   if ((st.stage === "review" || st.stage === "placed") && st.lines.length)
     return top + reviewScreen(st);
   return top + stepOne(st, ctx);
@@ -532,7 +534,7 @@ function linesFor(st: CaptionsState, look: CaptionLook, format: CaptionsState["f
 
 async function makeText(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
   // busy before the first wait: a second click must not start a second export and model call
-  if (st.stage !== "idle") return;
+  if (st.stage !== "idle" || !ctx.connected()) return;
   st.stage = "texting";
   st.error = null;
   st.notice = null;
@@ -579,7 +581,8 @@ async function makeText(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
       rangeStartS: range.startS,
       durationS: range.durationS,
       format: formatOf(target),
-      placed: null,
+      // a new transcript of the same sequence still replaces the clip placed before
+      placed: target.id === st.seqId ? st.placed : null,
     });
     await captionsJob(
       st,
@@ -653,7 +656,11 @@ function mergeLine(st: CaptionsState, i: number): void {
 async function renderCaptions(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
   if ((st.stage !== "review" && st.stage !== "placed") || !st.jobDir) return;
   const lines = withDrafts(st).filter((l): l is CaptionLine => l !== null);
-  if (!lines.length) return;
+  if (!lines.length) {
+    st.notice = t("captions.noLines");
+    return ctx.render();
+  }
+  const back = st.stage;
   st.stage = "rendering";
   st.error = null;
   st.notice = null;
@@ -661,11 +668,10 @@ async function renderCaptions(st: CaptionsState, ctx: CaptionsCtx): Promise<void
   ctx.render();
   const target = await ctx.readSequence();
   if (!target || target.id !== st.seqId) {
-    st.stage = st.placed ? "placed" : "review";
+    st.stage = back;
     if (target) st.error = t("captions.otherSequence");
     return ctx.render();
   }
-  const back = st.stage === "rendering" && st.placed ? "placed" : "review";
   let hideSpans: { startS: number; endS: number }[] = [];
   if (!st.settings.overInserts) {
     try {

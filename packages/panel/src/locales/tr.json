@@ -542,5 +542,6 @@
   "captions.otherSequence": "Bu altyazı başka bir sekansa ait. Render almak için o sekansı açın.",
   "captions.saveSrt": "SRT Dosyasını Kaydet",
   "captions.srtSaved": "SRT kaydedildi: {path}",
-  "captions.srtFailed": "SRT dosyası kaydedilemedi: {message}"
+  "captions.srtFailed": "SRT dosyası kaydedilemedi: {message}",
+  "captions.noLines": "Bütün satırlar boş, render alınacak bir şey yok."
 }

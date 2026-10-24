@@ -542,5 +542,6 @@
   "captions.otherSequence": "These captions belong to another sequence. Open it to render them.",
   "captions.saveSrt": "Save the SRT File",
   "captions.srtSaved": "SRT saved: {path}",
-  "captions.srtFailed": "The SRT file could not be saved: {message}"
+  "captions.srtFailed": "The SRT file could not be saved: {message}",
+  "captions.noLines": "Every line is empty: there is nothing to render."
 }

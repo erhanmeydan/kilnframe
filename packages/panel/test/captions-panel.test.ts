@@ -549,4 +549,75 @@ describe("captions tab", () => {
     expect(watchesSequence("captions", "idle", "review")).toBe(false);
     expect(watchesSequence("music", "idle", "review")).toBe(true);
   });
+  it("keeps a finished text for its own sequence when another one was opened while it was made", async () => {
+    const f = fakeCtx();
+    const st = newCaptions();
+    captionsAct(st, f.ctx, "captions-make", "");
+    await tick();
+    expect(st.stage).toBe("texting");
+    captionsSwitch(st, "seq-1", "seq-2", () => null);
+    f.finish(textResult);
+    expect(st.stage).toBe("review");
+    expect(st.seqId).toBe("seq-1");
+    captionsSwitch(st, "seq-2", "seq-1", () => null);
+    expect(st.lines).toHaveLength(2);
+    captionsSwitch(st, "seq-1", "seq-2", () => null);
+    expect(st.lines).toHaveLength(2);
+    expect(st.seqId).toBe("seq-1");
+  });
+
+  it("does not start a text job while the app is not connected", async () => {
+    const f = fakeCtx({ connected: () => false });
+    const st = newCaptions();
+    expect(captionsBox(st, f.ctx)).toMatch(/data-act="captions-make" disabled/);
+    captionsAct(st, f.ctx, "captions-make", "");
+    await tick();
+    expect(st.stage).toBe("idle");
+    expect(f.sent).toEqual([]);
+  });
+
+  it("escapes the companion's progress text", () => {
+    const f = fakeCtx({ esc: (x) => x.replace(/</g, "&lt;") });
+    const st: CaptionsState = { ...newCaptions(), stage: "texting", last: "<b>50%</b>" };
+    expect(captionsBox(st, f.ctx)).toContain("&lt;b>50%");
+  });
+
+  it("says so when every line was emptied, instead of rendering nothing", async () => {
+    const f = fakeCtx();
+    const st = await toReview(f);
+    st.drafts = ["", " "];
+    captionsAct(st, f.ctx, "captions-render", "");
+    await tick();
+    expect(st.notice).toBe(t("captions.noLines"));
+    expect(st.stage).toBe("review");
+    expect(f.sent.some((p) => p.kind === "captions-render")).toBe(false);
+  });
+
+  it("replaces the placed clip after a new transcript of the same sequence", async () => {
+    const f = fakeCtx();
+    const st = await toReview(f);
+    const placed = {
+      video: "/j/cap/captions-1.mov",
+      srt: "/j/cap/captions-1.srt",
+      atS: 0,
+      durationS: 60,
+      videoTrack: 2,
+    };
+    Object.assign(st, { stage: "placed", placed });
+    captionsAct(st, f.ctx, "captions-style", "");
+    captionsAct(st, f.ctx, "captions-make", "");
+    await tick();
+    f.finish(textResult);
+    expect(st.placed).toEqual(placed);
+    captionsAct(st, f.ctx, "captions-render", "");
+    await tick();
+    f.finish({
+      kind: "captions-render",
+      video: "/j/cap/captions-2.mov",
+      srt: "/j/cap/captions-2.srt",
+    });
+    await tick();
+    expect(f.replaced).toEqual([[seq, "/j/cap/captions-1.mov", "/j/cap/captions-2.mov", 0, 60, 2]]);
+    expect(f.placed).toEqual([]);
+  });
 });
