@@ -30,8 +30,11 @@ export interface LineTiming {
 export interface LookParts {
   css: string;
   wordMarkup: (w: CaptionWord, id: string) => string;
-  /** GSAP calls on `tl` for line i: its entrance at timing.enterS and its spoken words. */
-  animate: (line: CaptionLine, i: number, timing: LineTiming) => string;
+  /**
+   * GSAP calls on `tl` for line i: its entrance at timing.enterS and its spoken words. rows holds the
+   * line's words as they are drawn, row by row.
+   */
+  animate: (line: CaptionLine, i: number, timing: LineTiming, rows: CaptionWord[][]) => string;
   /** Font size of the text in pixels; a block whose widest row would not fit is drawn smaller. */
   fontPx: number;
   letterSpacingEm: number;

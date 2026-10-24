@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as fontkit from "fontkit";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   blockRows,
   buildCaptionProject,
@@ -20,7 +20,7 @@ import type { CaptionLine, CaptionStyleId } from "../src/captions/types.js";
 import { safeArea } from "../src/safe-area.js";
 
 const vendorFonts = join(import.meta.dirname, "../../../vendor/fonts");
-const LOOKS: CaptionStyleId[] = ["kil-lacivert", "loud", "bant"];
+const LOOKS: CaptionStyleId[] = ["kil-lacivert", "loud", "dinamik", "hap", "karaoke", "bant"];
 
 function line(text: string, start: number, end: number): CaptionLine {
   const parts = text.split(" ").filter(Boolean);
@@ -403,5 +403,106 @@ describe("Kil Lacivert underline", () => {
     expect(html).toContain('tl.set("#w0_0 i",{scaleX:0},11.000)');
     // the bar is as wide as the word box
     expect(html).toMatch(/\.w i\{position:absolute;left:0;right:0;/);
+  });
+});
+
+describe("Dinamik", () => {
+  it("uses no colour but the text colour and its outline", () => {
+    const html = captionHtml(sample, "dinamik", {
+      text: "#fafafa",
+      accent: "#00c2a8",
+      box: "#101010",
+    });
+    const colours = html.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/gi) ?? [];
+    expect(colours.length).toBeGreaterThan(0);
+    expect(new Set(colours.map((c) => c.toLowerCase()))).toEqual(new Set(["#fafafa", "#101010"]));
+  });
+
+  it("brings each word in with a small growth and fade when it is said", () => {
+    const d = doc([line("referans yok", 10, 12)], { durationS: 20 });
+    const html = captionHtml(d, "dinamik", CAPTION_LOOKS.dinamik.colors);
+    expect(html).toMatch(/\.w\{[^}]*opacity:0[;}]/);
+    const word =
+      /tl\.fromTo\("#w0_1",\{opacity:0,scale:(0\.\d+)[^}]*\},\{opacity:1,scale:1[^}]*\},([\d.]+)\)/.exec(
+        html,
+      );
+    expect(Number(word?.[1])).toBeGreaterThan(0.7);
+    expect(Number(word?.[2])).toBe(11);
+  });
+});
+
+describe("Hap", () => {
+  const colors = { text: "#ffffff", accent: "#123abc" };
+  const d = doc([line("bir iki üç", 10, 13)], { durationS: 20 });
+  let html = "";
+  beforeAll(() => {
+    html = captionHtml(d, "hap", colors);
+  });
+
+  it("puts the spoken word on a chip filled with the accent colour", () => {
+    expect(html).toMatch(/\.c\{[^}]*background:#123abc/);
+    for (const [n, at] of [
+      [0, 10],
+      [1, 11],
+      [2, 12],
+    ])
+      expect(html).toMatch(
+        new RegExp(
+          `tl\\.set\\("#w0_${n} \\.c",\\{opacity:1\\},${at}\\.000\\)|tl\\.fromTo\\("#w0_${n} \\.c",\\{opacity:0[^}]*\\},\\{opacity:1[^}]*\\},${at}\\.000\\)`,
+        ),
+      );
+  });
+
+  it("moves the chip from the word before and hides that word's chip", () => {
+    expect(html).toMatch(/tl\.fromTo\("#w0_1 \.c",\{left:"-[\d.]+em",width:"[\d.]+em"\}/);
+    // the slide only moves the chip: it stays hidden until its word starts
+    expect(html).not.toMatch(/tl\.fromTo\("#w0_[12] \.c",\{opacity:1/);
+    expect(html).toContain('tl.set("#w0_0 .c",{opacity:0},11.000)');
+  });
+
+  it("brings the chip in afresh on a new row instead of sliding across rows", () => {
+    const two = doc([line("Model her seferinde başka türlü", 1, 6)]);
+    const h = captionHtml(two, "hap", colors);
+    // "başka" opens the second row
+    expect(h).not.toMatch(/tl\.fromTo\("#w0_3 \.c",\{left/);
+    expect(h).toMatch(/tl\.fromTo\("#w0_3 \.c",\{opacity:0/);
+  });
+});
+
+describe("Karaoke", () => {
+  const d = doc([line("bir iki üç", 10, 13)], { durationS: 20 });
+  let html = "";
+  beforeAll(() => {
+    html = captionHtml(d, "karaoke", CAPTION_LOOKS.karaoke.colors);
+  });
+
+  it("keeps words dim until they are said, then bright", () => {
+    const dim = Number(/\.w\{[^}]*opacity:([\d.]+)/.exec(html)?.[1]);
+    expect(dim).toBeLessThan(0.5);
+    expect(dim).toBeGreaterThan(0);
+    for (const [n, at] of [
+      [0, 10],
+      [1, 11],
+      [2, 12],
+    ]) {
+      const sets = [
+        ...html.matchAll(new RegExp(`tl\\.set\\("#w0_${n}",\\{opacity:1\\},([\\d.]+)\\)`, "g")),
+      ];
+      expect(sets.map((m) => Number(m[1]))).toEqual([at]);
+    }
+  });
+
+  it("fills the spoken word with the accent colour as it is said", () => {
+    expect(html).toMatch(new RegExp(`\\.f\\{[^}]*color:${CAPTION_LOOKS.karaoke.colors.accent}`));
+    expect(html).toMatch(/tl\.fromTo\("#w0_1 \.f",\{width:"0%"\},\{width:"100%"[^}]*\},11\.000\)/);
+  });
+
+  it("draws words said before the segment starts bright and filled", () => {
+    const long = doc([line("kenarı geçen satır burada", 9, 13)], { durationS: 20 });
+    const [, second] = captionSegments(long, 10);
+    const h = captionHtml(long, "karaoke", CAPTION_LOOKS.karaoke.colors, second);
+    expect(h).toMatch(/<span class="w said" id="w0_0">/);
+    expect(h).toMatch(/<span class="w" id="w0_1">/);
+    expect(h).toMatch(/\.w\.said\{[^}]*opacity:1/);
   });
 });

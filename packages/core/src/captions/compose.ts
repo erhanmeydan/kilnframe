@@ -6,6 +6,9 @@ import { framesToSeconds, parseFps } from "../fps.js";
 import { vendorDir } from "../project/assemble.js";
 import { PORTRAIT_CENTRE, safeArea } from "../safe-area.js";
 import { look as bant } from "./looks/bant.js";
+import { look as dinamik } from "./looks/dinamik.js";
+import { look as hap } from "./looks/hap.js";
+import { look as karaoke } from "./looks/karaoke.js";
 import { look as kilLacivert } from "./looks/kil-lacivert.js";
 import { look as loud } from "./looks/loud.js";
 import {
@@ -45,6 +48,9 @@ export { PORTRAIT_CENTRE };
 const LOOK_MODULES: Partial<Record<CaptionStyleId, (o: LookInput) => LookParts>> = {
   "kil-lacivert": kilLacivert,
   loud,
+  dinamik,
+  hap,
+  karaoke,
   bant,
 };
 
@@ -270,7 +276,7 @@ export function captionHtml(
     );
     for (const w of entry.windows)
       script += `tl.set("#l${i}",{opacity:1},${w.startS.toFixed(3)});tl.set("#l${i}",{opacity:0},${w.endS.toFixed(3)});\n`;
-    script += parts.animate(line, i, entry.timing);
+    script += parts.animate(line, i, entry.timing, rowWords);
   }
 
   const placement =
