@@ -33,3 +33,4 @@ export * from "./music/index.js";
 export * from "./music/score/index.js";
 export * from "./align.js";
 export * from "./usage-file.js";
+export * from "./captions/index.js";
