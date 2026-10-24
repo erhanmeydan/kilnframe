@@ -465,7 +465,27 @@ describe("Hap", () => {
     const h = captionHtml(two, "hap", colors);
     // "başka" opens the second row
     expect(h).not.toMatch(/tl\.fromTo\("#w0_3 \.c",\{left/);
-    expect(h).toMatch(/tl\.fromTo\("#w0_3 \.c",\{opacity:0/);
+    expect(h).toMatch(/tl\.fromTo\("#w0_3 \.c",\{scale:/);
+  });
+
+  it("hides a fresh chip at the next word even when that word starts before the pop ends", () => {
+    const quick: CaptionLine = {
+      start: 1,
+      end: 2,
+      text: "bir iki",
+      changed: false,
+      words: [
+        { text: "bir", start: 1, end: 1.05 },
+        { text: "iki", start: 1.05, end: 2 },
+      ],
+    };
+    const h = captionHtml(doc([quick]), "hap", colors);
+    const calls = h.match(/tl\.\w+\("#w0_0 \.c",[^;]*\);/g) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    // only sets change the chip's opacity, so no running tween can bring it back after the hand-over
+    const opacity = calls.filter((c) => c.includes("opacity"));
+    expect(opacity.every((c) => c.startsWith("tl.set("))).toBe(true);
+    expect(opacity.at(-1)).toBe('tl.set("#w0_0 .c",{opacity:0},1.050);');
   });
 });
 

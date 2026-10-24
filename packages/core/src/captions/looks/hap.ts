@@ -59,7 +59,9 @@ export function look(o: LookInput): LookParts {
           // the chip stays hidden until the word starts: only its place and size are set up front
           a += `tl.set("${chip}",{opacity:1},${at});tl.fromTo("${chip}",{left:${em(-back - CHIP_PAD_EM)},width:${em(width(prev.text) + 2 * CHIP_PAD_EM)}},{left:${em(-CHIP_PAD_EM)},width:${em(width(w.text) + 2 * CHIP_PAD_EM)},duration:${MOVE_S},ease:"power3.inOut"},${at});\n`;
         } else {
-          a += `tl.fromTo("${chip}",{opacity:0,scale:0.86},{opacity:1,scale:1,duration:0.1,ease:"power2.out"},${at});\n`;
+          // a fresh chip pops in; its opacity only changes through sets, so a hand-over to a word that
+          // starts before the pop ends still hides it
+          a += `tl.set("${chip}",{opacity:1},${at});tl.fromTo("${chip}",{scale:0.86},{scale:1,duration:0.1,ease:"power2.out"},${at});\n`;
         }
         // the chip before hands over; a word over before this composition starts had no chip shown
         if (prev && j > 0) a += `tl.set("#w${i}_${n - 1} .c",{opacity:0},${at});\n`;
