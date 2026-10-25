@@ -424,6 +424,8 @@
   "prov.installThen": "Then type {command} in a new window, sign in in the browser and press Look Again.",
   "prov.howInstall": "How to Install",
   "prov.recheck": "Look Again",
+  "prov.copy": "Copy",
+  "prov.copied": "Copied",
   "prov.agentSignedOut": "Not signed in. Sign In opens the program's own sign-in in a Terminal window; confirm with your account in the browser.",
   "prov.signIn": "Sign In",
   "prov.signOut": "Sign Out",

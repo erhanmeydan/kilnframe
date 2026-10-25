@@ -10,6 +10,7 @@
   },
   "requiredPermissions": {
     "localFileSystem": "fullAccess",
+    "clipboard": "readAndWrite",
     "network": {
       "domains": ["ws://localhost"]
     },
