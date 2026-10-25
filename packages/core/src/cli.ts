@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { CliError, USAGE, describeRun, parseCliArgs } from "./cli/args.js";
 import { loadDefaults } from "./config.js";
+import { exitProcess } from "./exit.js";
 import { formatFps } from "./fps.js";
 import { createTextProvider } from "./providers/index.js";
 import { PlanSchema } from "./schemas/plan.js";
@@ -313,13 +314,13 @@ async function main(argv: string[]): Promise<number> {
 }
 
 main(process.argv.slice(2)).then(
-  (code) => process.exit(code),
+  (code) => exitProcess(code),
   (err: unknown) => {
     if (err instanceof CliError) {
       log(`Error: ${err.message}\n\n${USAGE}`);
-      process.exit(2);
+      return exitProcess(2);
     }
     log(`Error: ${err instanceof Error ? err.message : String(err)}`);
-    process.exit(1);
+    exitProcess(1);
   },
 );

@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hyperframesChrome } from "../../../scripts/deps/pins.mjs";
 import { checkProresAlpha, fetchFfmpeg } from "./ffmpeg.mjs";
+import { addOnnxruntimeX64 } from "./onnxruntime-x64.mjs";
 
 const app = fileURLToPath(new URL("..", import.meta.url));
 const root = join(app, "..", "..");
@@ -34,6 +35,12 @@ const platform =
   process.platform === "darwin" ? "mac" : process.platform === "win32" ? "win" : null;
 if (!platform) throw new Error("Kilnframe Helper is built on macOS or Windows.");
 const arch = process.arch; // arm64 or x64; one build per architecture
+// where the app looks for its updates (GitHub Releases), `--update-repo owner/repo`: an Intel build made
+// outside the main repository points it at the releases that carry Intel builds
+const updateRepoArg = process.argv.indexOf("--update-repo");
+const [updateOwner, updateRepo] =
+  updateRepoArg > 0 ? process.argv[updateRepoArg + 1].split("/") : ["erhanmeydan", "kilnframe"];
+if (!updateOwner || !updateRepo) throw new Error("--update-repo takes owner/repo");
 
 console.log("1/4 production copy");
 run("pnpm", ["-r", "build"]);
@@ -142,8 +149,14 @@ writeFileSync(
 
 console.log("3/4 trimming");
 const modules = join(stage, "node_modules");
-// onnxruntime-node ships every platform's library; keep this platform and architecture. The binding links
-// libonnxruntime.1.dylib, so the identical versioned copy beside it is never loaded (44 MB).
+// Intel Macs: onnxruntime-node has no macOS x64 library of its own any more (scripts/onnxruntime-x64.mjs)
+if (platform === "mac" && arch === "x64")
+  console.log(
+    `onnxruntime darwin/x64: ${await addOnnxruntimeX64(join(modules, "onnxruntime-node"))}`,
+  );
+// onnxruntime-node ships every platform's library; keep this platform and architecture. Where the binding
+// links libonnxruntime.1.dylib, the identical versioned copy beside it is never loaded (44 MB); the Intel
+// binding (1.23.2) links the versioned file itself and has no libonnxruntime.1.dylib.
 const ort = join(modules, "onnxruntime-node", "bin");
 if (existsSync(ort))
   for (const napi of readdirSync(ort))
@@ -156,7 +169,7 @@ if (existsSync(ort))
       for (const a of readdirSync(osDir)) {
         const archDir = join(osDir, a);
         if (a !== arch) rmSync(archDir, { recursive: true });
-        else
+        else if (existsSync(join(archDir, "libonnxruntime.1.dylib")))
           for (const f of readdirSync(archDir))
             if (/^libonnxruntime\.\d+\.\d+\.\d+\.dylib$/.test(f)) rmSync(join(archDir, f));
       }
@@ -188,7 +201,7 @@ writeFileSync(
       // the name decides the Windows install folder (Programs\Kilnframe) and the app's data folder (Roaming\Kilnframe)
       extraMetadata: { name: "kilnframe", productName: "Kilnframe", version },
       // the app reads its updates from here (app-update.yml); the build itself never uploads (--publish never)
-      publish: [{ provider: "github", owner: "erhanmeydan", repo: "kilnframe" }],
+      publish: [{ provider: "github", owner: updateOwner, repo: updateRepo }],
       // kilnframe:// opens the app: the panel's Open Kilnframe button when the app is not running
       protocols: [{ name: "Kilnframe", schemes: ["kilnframe"] }],
       electronVersion,
@@ -245,7 +258,8 @@ writeFileSync(
         allowCurrentUserHome: false,
         scripts: join(app, "build", "pkg-scripts"),
         // the same name in every release, so .../releases/latest/download/Kilnframe-mac.pkg is always the newest
-        artifactName: "Kilnframe-mac.pkg",
+        // (Kilnframe-mac-intel.pkg for Intel Macs)
+        artifactName: arch === "x64" ? "Kilnframe-mac-intel.pkg" : "Kilnframe-mac.pkg",
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",
       },
       win: { target: ["nsis"], icon: join(app, "assets", "icon.png") },

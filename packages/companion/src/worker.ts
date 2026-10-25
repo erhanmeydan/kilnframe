@@ -2,6 +2,7 @@
 // and everything it started (Claude Code, Codex, HyperFrames with its Chrome, FFmpeg), which a promise
 // inside the companion could not do.
 import "./system-certs.js";
+import { exitProcess } from "@kilnframe/core";
 import { OsKeyStore } from "./keys.js";
 import type { JobParams } from "./protocol.js";
 import { errorKind } from "./queue.js";
@@ -31,5 +32,5 @@ process.once("message", (params: JobParams) => {
         kind: errorKind(err),
       }),
     )
-    .finally(() => process.exit(0));
+    .finally(() => exitProcess(0));
 });

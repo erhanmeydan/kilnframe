@@ -26,6 +26,23 @@ const BUILDS = {
       },
     ],
   },
+  // the same 9.0.2 from the same build server, for Intel Macs
+  "mac-x64": {
+    version: "9.0.2",
+    source: "https://ffmpeg.martin-riedl.de/info/detail/macos/amd64/1789931006_9.0.2",
+    files: [
+      {
+        url: "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip",
+        sha256: "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4",
+        binaries: { ffmpeg: "ffmpeg" },
+      },
+      {
+        url: "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffprobe.zip",
+        sha256: "2322438ed2f6319a691291b247d09c69dcaa3a982460d1f269a7e1af335cfdfd",
+        binaries: { ffprobe: "ffprobe" },
+      },
+    ],
+  },
   // BtbN's month-end build (kept for two years), GPL, static
   "win-x64": {
     version: "9.0.2",

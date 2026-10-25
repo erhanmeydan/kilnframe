@@ -37,7 +37,11 @@ GPU. The free version of DaVinci Resolve does not load plugins: Resolve needs St
 | macOS, Apple silicon (M1 or later) | [Kilnframe-mac.pkg](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg)         |
 | Windows 10 or 11, 64-bit           | [Kilnframe-Windows.exe](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe) |
 
-Intel Macs are not supported yet.
+Intel Macs: build the installer yourself on an Intel Mac with
+`node packages/app/scripts/stage.mjs --pkg --unsigned --update-repo <owner>/<repo>`, which writes
+`out/app-build/Kilnframe-mac-intel.pkg`. It is not signed: open it with right click > **Open**. Speech
+recognition there runs on onnxruntime 1.23.2, the last release with an Intel Mac library, and rendering is
+slower than on Apple silicon.
 
 1. Open the installer. It installs the Kilnframe app (a small icon in the menu bar or the system tray), the
    Premiere plugin and, when Resolve Studio is installed, the Resolve panel in one go.
@@ -209,7 +213,11 @@ bir bilgisayar gerekir. DaVinci Resolve'un ücretsiz sürümü eklenti yüklemez
 - macOS, Apple silicon (M1 ve sonrası): [Kilnframe-mac.pkg](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg)
 - Windows 10 ya da 11, 64 bit: [Kilnframe-Windows.exe](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe)
 
-Intel işlemcili Mac'ler henüz desteklenmiyor.
+Intel işlemcili Mac'ler: kurulum dosyasını bir Intel Mac'te kendiniz derleyin:
+`node packages/app/scripts/stage.mjs --pkg --unsigned --update-repo <sahip>/<depo>`. Sonuç
+`out/app-build/Kilnframe-mac-intel.pkg` olur. İmzalı değildir: sağ tık > **Aç** ile açın. Konuşma tanıma
+orada Intel Mac kütüphanesi olan son sürüm onnxruntime 1.23.2 ile çalışır; render Apple silicon'a göre
+yavaştır.
 
 1. Kurulum dosyasını açın. Kilnframe uygulamasını (menü çubuğunda ya da sistem tepsisinde küçük bir
    simge), Premiere eklentisini ve Resolve Studio kuruluysa Resolve panelini birlikte kurar.
