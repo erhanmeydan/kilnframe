@@ -31,6 +31,7 @@ import {
   systemReport,
   speechModelCached,
   vendorDir,
+  exitProcess,
 } from "@kilnframe/core";
 import { type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
@@ -250,7 +251,7 @@ async function main() {
     killAllJobs();
     rmSync(file, { force: true });
     await companion.close();
-    process.exit(0);
+    exitProcess(0);
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
