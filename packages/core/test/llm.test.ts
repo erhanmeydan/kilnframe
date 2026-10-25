@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  COMPACT_REPAIRS_BELOW,
   composeRequest,
   composeScene,
   draftToPlan,
@@ -248,6 +249,53 @@ describe("compose", () => {
     const result = await composeScene({ provider, plan, transcript, style }, plan.scenes[1]!);
     expect(result.html).toContain('data-composition-id="s2"');
     expect(provider.requests).toHaveLength(2);
+  });
+
+  const broken = (n: number) =>
+    "```html\n" +
+    golden.replaceAll("s1", "s2").replace("mulberry(7)", `Math.random() /* v${n} */`) +
+    "\n```";
+  const texts = (req: TextRequest) =>
+    req.messages.map((m) =>
+      m.content.map((p) => (p.type === "text" ? p.text : "[image]")).join(""),
+    );
+
+  it("keeps the whole conversation in repairs for a large or unknown context", async () => {
+    const good = "```html\n" + golden.replaceAll("s1", "s2") + "\n```";
+    const provider = fakeProvider([broken(1), broken(2), good]);
+    await composeScene({ provider, plan, transcript, style }, plan.scenes[1]!);
+    const last = provider.requests[2]!;
+    expect(last.messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(texts(last).some((t) => t.includes("v1"))).toBe(true);
+  });
+
+  it("sends only the request, the latest HTML and its problems when the loaded context is small", async () => {
+    const good = "```html\n" + golden.replaceAll("s1", "s2") + "\n```";
+    const provider = Object.assign(fakeProvider([broken(1), broken(2), good]), {
+      loadedContext: async () => COMPACT_REPAIRS_BELOW - 1,
+    });
+    const result = await composeScene({ provider, plan, transcript, style }, plan.scenes[1]!);
+    const last = provider.requests[2]!;
+    expect(last.messages.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
+    expect(last.messages[0]).toEqual(provider.requests[0]!.messages[0]);
+    expect(texts(last)[1]).toContain("v2");
+    expect(texts(last).some((t) => t.includes("v1"))).toBe(false);
+    expect(result.messages).toHaveLength(4);
+  });
+
+  it("keeps the whole conversation when the loaded context is large", async () => {
+    const good = "```html\n" + golden.replaceAll("s1", "s2") + "\n```";
+    const provider = Object.assign(fakeProvider([broken(1), broken(2), good]), {
+      loadedContext: async () => COMPACT_REPAIRS_BELOW,
+    });
+    await composeScene({ provider, plan, transcript, style }, plan.scenes[1]!);
+    expect(provider.requests[2]!.messages).toHaveLength(5);
   });
 });
 

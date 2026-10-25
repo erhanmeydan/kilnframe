@@ -16,14 +16,18 @@ const PROVIDER_NAMES: Record<string, string> = {
 
 export type ReadableError =
   | { key: "job.checksFailed"; vars: { n: number }; reasons: CheckKey[] }
-  | { key: "job.keyExpired" | "job.keyRejected"; vars: { provider: string }; reasons: [] };
+  | { key: "job.keyExpired" | "job.keyRejected"; vars: { provider: string }; reasons: [] }
+  | { key: "job.contextTooSmall"; vars: Record<string, never>; reasons: [] };
 
 /**
  * A job error the panel can say in its own language instead of the core's English: the composition that
- * failed its checks after the repair rounds, and an API key the provider turned down (an expired one said
- * as such). The English original goes to the log.
+ * failed its checks after the repair rounds, an API key the provider turned down (an expired one said
+ * as such), and a request too large for the context a local model is loaded with. The English original goes
+ * to the log.
  */
 export function readableJobError(message: string): ReadableError | null {
+  if (message.includes("The model's context in LM Studio is too small"))
+    return { key: "job.contextTooSmall", vars: {}, reasons: [] };
   const key = /^(\S+) rejected the API key\. Check it in the settings: ([\s\S]*)$/.exec(message);
   if (key) {
     const provider = PROVIDER_NAMES[key[1]!] ?? key[1]!;

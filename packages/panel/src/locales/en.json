@@ -281,6 +281,7 @@
   "job.checksFailed": "The AI could not get the animation past its checks in {n} repair rounds.",
   "job.keyExpired": "Your {provider} API key has expired. Create a new key on the {provider} site and paste it in Settings.",
   "job.keyRejected": "{provider} did not accept the API key. Check it in Settings, or create a new one on the {provider} site.",
+  "job.contextTooSmall": "The model's context was not enough for this range. Load the model in LM Studio with a longer context (at least 64K recommended), or choose a shorter range.",
   "check.overlay_faint_layer": "An overlay scene left an almost invisible layer over the footage, which would show as a haze on the speaker.",
   "check.scene_shows_nothing": "A scene came out empty.",
   "review.cancelParts": "Cancel drops all the parts; the parts already placed stay on the timeline. Continue Later keeps the stills; go on from the home screen.",

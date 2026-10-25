@@ -338,7 +338,17 @@ export async function composeScene(
   }
 }
 
-/** Sends validation problems back into the scene's conversation and returns the new reply. */
+/**
+ * Below this loaded context (tokens) a repair carries only the scene's request, the latest HTML and its
+ * problems: every earlier version kept in the conversation would soon fill a local model's context.
+ */
+export const COMPACT_REPAIRS_BELOW = 100_000;
+
+/**
+ * Sends validation problems back into the scene's conversation and returns the new reply. A provider with a
+ * small loaded context (a local model) gets the conversation cut down to the request and the latest reply
+ * first; the others keep the whole of it.
+ */
 export async function repairScene(
   ctx: ComposeContext,
   scene: Scene,
@@ -346,6 +356,11 @@ export async function repairScene(
   problems: string[],
   purpose: string,
 ): Promise<string> {
+  const context = await ctx.provider.loadedContext?.();
+  if (context !== undefined && context < COMPACT_REPAIRS_BELOW) {
+    const latest = messages.findLast((m) => m.role === "assistant");
+    messages.splice(1, messages.length - 1, ...(latest ? [latest] : []));
+  }
   messages.push({
     role: "user",
     content: [{ type: "text", text: `${loadPrompt("repair")}- ${problems.join("\n- ")}` }],

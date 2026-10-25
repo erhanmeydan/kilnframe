@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readableJobError } from "../src/job-errors";
+import en from "../src/locales/en.json";
+import tr from "../src/locales/tr.json";
 
 const failed = `The composition still fails validation after 3 repair rounds:
 - overlay_faint_layer: Overlay scene s2: 83% of the frame is covered by an almost invisible layer (alpha 8% or less) at 14.60 s.
@@ -32,6 +34,23 @@ describe("job errors in the panel's language", () => {
       vars: { provider: "acme" },
       reasons: [],
     });
+  });
+
+  it("says a local model's context was too small, also inside a scene's failure", () => {
+    const message =
+      "The model's context in LM Studio is too small for compose s1 (38000 tokens loaded, about 36000 needed for the request alone). Load the model in LM Studio with a longer context (at least 64K) or choose a shorter range.";
+    expect(readableJobError(message)).toEqual({
+      key: "job.contextTooSmall",
+      vars: {},
+      reasons: [],
+    });
+    expect(readableJobError(`Scene s1 failed: ${message}`)?.key).toBe("job.contextTooSmall");
+  });
+
+  it("has the context sentence in both languages, without dashes in Turkish", () => {
+    expect(en["job.contextTooSmall"]).toContain("64K");
+    expect(tr["job.contextTooSmall"]).toContain("64K");
+    expect(tr["job.contextTooSmall"]).not.toMatch(/[\u2013\u2014]/);
   });
 
   it("leaves any other message as it is", () => {

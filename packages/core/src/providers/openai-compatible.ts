@@ -26,6 +26,42 @@ export interface OpenAICompatibleOptions {
   reasoningField?: "reasoning" | "reasoning_effort" | undefined;
   /** Pause before a retry, times the attempt number (tests set it to 0). */
   retryDelayMs?: number;
+  /** Where LM Studio's per-request token line goes (the companion's log through stderr by default). */
+  log?: (line: string) => void;
+}
+
+/** Characters per token in the prompt estimate: a rough average over English, Turkish, HTML and JSON. */
+export const CHARS_PER_TOKEN = 3.5;
+/** What one image counts for in the estimate: a style still or a footage frame at the sizes sent. */
+export const TOKENS_PER_IMAGE = 1_500;
+/** Room kept free between the estimated prompt plus the reply and the context: the estimate is rough. */
+export const CONTEXT_SAFETY_TOKENS = 2_000;
+/** A local request that leaves less than this for the reply is not sent: no scene fits in it. */
+export const MIN_REPLY_TOKENS = 6_000;
+
+/** The request's size in tokens, roughly: its characters over CHARS_PER_TOKEN plus TOKENS_PER_IMAGE each. */
+export function estimatePromptTokens(req: TextRequest): number {
+  let chars = req.system.length;
+  let images = 0;
+  for (const m of req.messages)
+    for (const p of m.content) {
+      if (p.type === "text") chars += p.text.length;
+      else images++;
+    }
+  return Math.ceil(chars / CHARS_PER_TOKEN) + images * TOKENS_PER_IMAGE;
+}
+
+/** LM Studio's own words when a request does not fit the loaded context. */
+const CONTEXT_EXCEEDED =
+  /context (size|length|window)\b[^.]{0,80}?(exceed|not enough|too small)|exceeds? the (available )?context|greater than the context length/i;
+
+/** The readable failure for a request that does not fit the context LM Studio loaded the model with. */
+function contextTooSmall(detail: string): ProviderError {
+  return new ProviderError(
+    `The model's context in LM Studio is too small for ${detail}. Load the model in LM Studio with a longer context (at least 64K) or choose a shorter range.`,
+    false,
+    "context-exceeded",
+  );
 }
 
 interface ChatCompletion {
@@ -128,6 +164,71 @@ export class OpenAICompatibleProvider implements TextProvider {
       }));
   }
 
+  private contextLookup: Promise<number | undefined> | undefined;
+
+  /**
+   * The context LM Studio loaded the model with (loaded_instances[].config.context_length), else the model's
+   * max_context_length when it is not loaded yet, from GET /api/v1/models as documented on
+   * https://lmstudio.ai/docs/developer/rest/list. Read once; undefined for other providers or when LM Studio
+   * cannot be asked.
+   */
+  loadedContext(): Promise<number | undefined> {
+    if (this.name !== "lmstudio") return Promise.resolve(undefined);
+    this.contextLookup ??= this.readLmStudioContext().catch(() => undefined);
+    return this.contextLookup;
+  }
+
+  private async readLmStudioContext(): Promise<number | undefined> {
+    const res = await fetch(`${new URL(this.o.baseURL).origin}/api/v1/models`);
+    if (!res.ok) return undefined;
+    const body = (await res.json()) as {
+      models?: {
+        key: string;
+        max_context_length?: number | null;
+        loaded_instances?: { id?: string; config?: { context_length?: number } }[];
+      }[];
+    };
+    const model = (body.models ?? []).find(
+      (m) => m.key === this.model || m.loaded_instances?.some((i) => i.id === this.model),
+    );
+    if (!model) return undefined;
+    const loaded = (model.loaded_instances ?? [])
+      .filter((i) => i.id === this.model || model.key === this.model)
+      .map((i) => i.config?.context_length)
+      .filter((n): n is number => typeof n === "number" && n > 0);
+    // loaded more than once: the smallest, so the request fits whichever instance answers
+    if (loaded.length) return Math.min(...loaded);
+    return model.max_context_length ?? undefined;
+  }
+
+  /**
+   * The reply limit to send. Cloud providers get the stage's own. LM Studio gets no more than its loaded
+   * context leaves after the prompt, and a request that would leave less than MIN_REPLY_TOKENS fails here
+   * instead of being cut short by LM Studio; one line per request goes to the log.
+   */
+  private async replyLimit(req: TextRequest): Promise<number> {
+    if (this.name !== "lmstudio") return req.maxTokens;
+    const log = this.o.log ?? ((line: string) => void process.stderr.write(`${line}\n`));
+    const context = await this.loadedContext();
+    const prompt = estimatePromptTokens(req);
+    if (context === undefined) {
+      log(
+        `LM Studio ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${req.maxTokens}, context unknown`,
+      );
+      return req.maxTokens;
+    }
+    const room = context - prompt - CONTEXT_SAFETY_TOKENS;
+    if (room < Math.min(MIN_REPLY_TOKENS, req.maxTokens))
+      throw contextTooSmall(
+        `${req.purpose} (${context} tokens loaded, about ${prompt} needed for the request alone)`,
+      );
+    const limit = Math.min(req.maxTokens, room);
+    log(
+      `LM Studio ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${limit}, context ${context}`,
+    );
+    return limit;
+  }
+
   /**
    * OpenRouter's public model list says what each model takes (architecture.input_modalities); only chat
    * models are kept, and batch variants left out (checked 8 Oct 2026: 467 models, 297 take images).
@@ -210,6 +311,7 @@ export class OpenAICompatibleProvider implements TextProvider {
   }
 
   private async once(req: TextRequest, effort?: string): Promise<TextResponse> {
+    const maxTokens = await this.replyLimit(req);
     const messages = [
       { role: "system", content: req.system },
       ...req.messages.map((m) => ({
@@ -234,7 +336,7 @@ export class OpenAICompatibleProvider implements TextProvider {
         body: JSON.stringify({
           model: this.model,
           messages,
-          max_tokens: req.maxTokens,
+          max_tokens: maxTokens,
           stream: true,
           stream_options: { include_usage: true },
           ...(effort
@@ -256,13 +358,15 @@ export class OpenAICompatibleProvider implements TextProvider {
       } catch (err) {
         throw new ProviderError(unreachable(this.name, this.o.baseURL, err), true);
       }
-      return this.answer(streamed, req);
+      return this.answer(streamed, req, maxTokens);
     }
     const raw = (await res.json().catch(() => ({}))) as ChatCompletion | ChatCompletion[];
     // Gemini's OpenAI endpoint sends its error inside an array
     const body = Array.isArray(raw) ? (raw[0] ?? {}) : raw;
     if (!res.ok) {
       const detail = body.error?.message ?? res.statusText;
+      if (this.name === "lmstudio" && CONTEXT_EXCEEDED.test(detail))
+        throw contextTooSmall(`${req.purpose}: ${detail.replace(/[.\s]+$/, "")}`);
       // the key is fine but the account must accept something first (OpenRouter's age confirmation, a
       // model's terms): saying the key was rejected sent editors to check a key that worked
       const page = res.status === 401 || res.status === 403 ? needsAcceptance(detail) : null;
@@ -287,16 +391,19 @@ export class OpenAICompatibleProvider implements TextProvider {
         unavailable ? "model-unavailable" : undefined,
       );
     }
-    return this.answer(body, req);
+    return this.answer(body, req, maxTokens);
   }
 
-  private answer(body: ChatCompletion, req: TextRequest): TextResponse {
-    if (body.error?.message)
+  private answer(body: ChatCompletion, req: TextRequest, maxTokens: number): TextResponse {
+    if (body.error?.message) {
+      if (this.name === "lmstudio" && CONTEXT_EXCEEDED.test(body.error.message))
+        throw contextTooSmall(`${req.purpose}: ${body.error.message.replace(/[.\s]+$/, "")}`);
       throw new ProviderError(`${this.name} error: ${body.error.message}`, true);
+    }
     const choice = body.choices?.[0];
     if (choice?.finish_reason === "length") {
       throw new ProviderError(
-        `The reply for ${req.purpose} was cut off at ${req.maxTokens} tokens.`,
+        `The reply for ${req.purpose} was cut off at ${maxTokens} tokens.`,
         true,
         "cut-off",
       );
