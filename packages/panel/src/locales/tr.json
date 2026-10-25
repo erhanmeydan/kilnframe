@@ -424,6 +424,8 @@
   "prov.installThen": "Sonra yeni bir pencerede {command} yazın, tarayıcıda giriş yapın ve Yeniden Bak'a basın.",
   "prov.howInstall": "Nasıl Kurulur",
   "prov.recheck": "Yeniden Bak",
+  "prov.copy": "Kopyala",
+  "prov.copied": "Kopyalandı",
   "prov.agentSignedOut": "Giriş yapılmamış. Giriş Yap, programın kendi girişini bir Terminal penceresinde açar; tarayıcıda hesabınızla onaylayın.",
   "prov.signIn": "Giriş Yap",
   "prov.signOut": "Çıkış Yap",

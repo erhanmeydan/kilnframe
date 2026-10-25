@@ -1493,6 +1493,8 @@ const setup = {
   >,
   /** An agent being updated in a terminal; the panel looks until its version changes. */
   updating: null as string | null,
+  /** The agent whose install command was just copied, so its button says so. */
+  copied: null as string | null,
   /** An agent whose sign-in is open in a terminal; the panel looks until it is signed in. */
   signingIn: null as string | null,
   /** An agent whose sign-out the editor is asked to confirm, or that is signing out now. */
@@ -3793,6 +3795,7 @@ function runAction(el: HTMLElement) {
   else if (act === "agent-logout-yes") return void signOutAgent(val);
   else if (act === "agent-update") return void updateAgent(val);
   else if (act === "agent-recheck") return void refreshProviders();
+  else if (act === "copy-install") return void copyInstall(val as AgentId);
   else if (act === "or-all") onboard.allModels = !onboard.allModels;
   else if (act === "open-url") {
     host()
@@ -3942,9 +3945,22 @@ connectCompanion().catch((e: unknown) => trace(`connectCompanion threw: ${String
 
 /**
  * How to install a missing agent: the terminal program, not the desktop app, with the vendor's own install
- * command for this computer (checked on their pages, 11 Oct 2026) in a field the editor can copy from.
+ * command for this computer (checked on their pages, 11 Oct 2026), with a Copy button: a text field alone
+ * cannot be selected in Premiere's panels.
  */
-function agentInstallHelp(id: "claude-code" | "codex" | "grok"): string {
+function agentInstallHelp(id: AgentId): string {
+  const win = isWindows();
+  const signIn = { "claude-code": "claude", codex: "codex", grok: "grok" };
+  const copy = setup.copied === id ? t("prov.copied") : t("prov.copy");
+  return `<div class="note">${t(`prov.cliOnly.${id}`)}</div>
+  <div class="note muted">${t("prov.installPaste", { terminal: win ? "PowerShell" : "Terminal" })}</div>
+  <div class="cmd-row"><input class="img-note cmd" type="text" value="${esc(installCommand(id))}"><div class="pbtn" data-act="copy-install" data-val="${id}">${copy}</div></div>
+  <div class="note muted">${t("prov.installThen", { command: signIn[id] })}</div>`;
+}
+
+type AgentId = "claude-code" | "codex" | "grok";
+
+function installCommand(id: AgentId): string {
   const win = isWindows();
   const commands = {
     "claude-code": win
@@ -3957,9 +3973,25 @@ function agentInstallHelp(id: "claude-code" | "codex" | "grok"): string {
       ? "irm https://x.ai/cli/install.ps1 | iex"
       : "curl -fsSL https://x.ai/cli/install.sh | bash",
   };
-  const signIn = { "claude-code": "claude", codex: "codex", grok: "grok" };
-  return `<div class="note">${t(`prov.cliOnly.${id}`)}</div>
-  <div class="note muted">${t("prov.installPaste", { terminal: win ? "PowerShell" : "Terminal" })}</div>
-  <input class="img-note cmd" type="text" readonly value="${esc(commands[id])}">
-  <div class="note muted">${t("prov.installThen", { command: signIn[id] })}</div>`;
+  return commands[id];
+}
+
+/** Puts text on the clipboard: UXP's setContent in Premiere, the web's writeText in Resolve and the demo. */
+async function copyText(text: string): Promise<void> {
+  const clip = navigator.clipboard as Clipboard & {
+    setContent?: (data: Record<string, string>) => Promise<void>;
+  };
+  if (clip.setContent) await clip.setContent({ "text/plain": text });
+  else await clip.writeText(text);
+}
+
+async function copyInstall(id: AgentId) {
+  try {
+    await copyText(installCommand(id));
+    setup.copied = id;
+  } catch (err) {
+    trace(`copy failed: ${String(err)}`);
+    setup.copied = null;
+  }
+  render();
 }
