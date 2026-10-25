@@ -47,7 +47,12 @@ export interface CompanionOptions {
   /** Opens an agent CLI's own update (claude update, codex update, grok update) in a terminal window. */
   updateAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
   /** One short request with a picture through a provider (the settings' connection test). */
-  testProvider?: (provider: string, model?: string, baseURL?: string) => Promise<unknown>;
+  testProvider?: (
+    provider: string,
+    model?: string,
+    baseURL?: string,
+    thinking?: "off" | "on",
+  ) => Promise<unknown>;
   /** Style cards (name, display name, summary, thumbnail) for the panel's style picker. */
   listStyles?: () => Promise<unknown[]>;
   /** The speech provider's voices and whether its key is set, for story mode. */
@@ -386,7 +391,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               type: "providers.tested",
               provider: msg.provider,
               result: o.testProvider
-                ? await o.testProvider(msg.provider, msg.model, msg.baseURL)
+                ? await o.testProvider(msg.provider, msg.model, msg.baseURL, msg.thinking)
                 : null,
             });
             break;

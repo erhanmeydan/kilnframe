@@ -6,6 +6,8 @@ import {
   ProviderError,
   TOKENS_PER_IMAGE,
   UsageMeter,
+  createTextProvider,
+  loadDefaults,
   estimatePromptTokens,
   type TextRequest,
 } from "../src/index.js";
@@ -256,5 +258,98 @@ describe("cloud providers are left as they were", () => {
       .catch((e: unknown) => e);
     expect((err as Error).message).toBe("gemini error 400: Context size has been exceeded.");
     expect((err as ProviderError).kind).toBeUndefined();
+  });
+});
+
+/** LM Studio's list with the model loaded at 262K and, when `reasons`, its thinking options. */
+function thinkingList(reasons: boolean) {
+  const list = modelList(262_144);
+  const model = list.models[1] as Record<string, unknown>;
+  model.capabilities = {
+    vision: true,
+    ...(reasons
+      ? {
+          reasoning: { allowed_options: ["off", "low", "medium", "xhigh", "on"], default: "xhigh" },
+        }
+      : {}),
+  };
+  return list;
+}
+
+function lmstudioThinking(thinking?: "off" | "on") {
+  return new OpenAICompatibleProvider({
+    name: "lmstudio",
+    baseURL: "http://localhost:1234/v1",
+    model: MODEL,
+    capabilities: caps,
+    retryDelayMs: 0,
+    log: () => {},
+    ...(thinking ? { thinking } : {}),
+  });
+}
+
+describe("LM Studio's model list", () => {
+  it("says which models are loaded, with the loaded context, and which think", async () => {
+    fakeLmStudio(thinkingList(true));
+    const models = await lmstudio().listModels();
+    expect(models).toEqual([
+      {
+        id: MODEL,
+        displayName: MODEL,
+        contextWindow: 262_144,
+        vision: true,
+        loaded: true,
+        loadedContext: 262_144,
+        reasons: true,
+      },
+    ]);
+  });
+});
+
+describe("LM Studio's thinking", () => {
+  it("is turned off with reasoning_effort none for a model that thinks", async () => {
+    const { bodies } = fakeLmStudio(thinkingList(true));
+    await lmstudioThinking("off").complete(request(100));
+    expect(bodies[0]!.reasoning_effort).toBe("none");
+  });
+
+  it("is off when nothing is set", async () => {
+    const { bodies } = fakeLmStudio(thinkingList(true));
+    await lmstudioThinking().complete(request(100));
+    expect(bodies[0]!.reasoning_effort).toBe("none");
+  });
+
+  it("is left to the model when on", async () => {
+    const { bodies } = fakeLmStudio(thinkingList(true));
+    await lmstudioThinking("on").complete(request(100));
+    expect(bodies[0]).not.toHaveProperty("reasoning_effort");
+  });
+
+  it("is never sent to a model without thinking", async () => {
+    const { bodies } = fakeLmStudio(thinkingList(false));
+    await lmstudioThinking("off").complete(request(100));
+    expect(bodies[0]).not.toHaveProperty("reasoning_effort");
+  });
+
+  it("reaches LM Studio from the provider choice, and no cloud provider", async () => {
+    const { bodies } = fakeLmStudio(thinkingList(true));
+    const defaults = loadDefaults();
+    await createTextProvider(defaults, {
+      provider: "lmstudio",
+      model: MODEL,
+      thinking: "on",
+    }).complete(request(100));
+    expect(bodies[0]).not.toHaveProperty("reasoning_effort");
+    for (const provider of ["gemini", "xai", "openrouter"]) {
+      bodies.length = 0;
+      await createTextProvider(defaults, {
+        provider,
+        model: "m",
+        apiKey: "k",
+        thinking: "off",
+      }).complete(request(100));
+      expect(bodies[0]).not.toHaveProperty("reasoning_effort");
+      expect(bodies[0]).not.toHaveProperty("reasoning");
+    }
   });
 });

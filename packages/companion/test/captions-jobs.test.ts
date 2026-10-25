@@ -14,7 +14,13 @@ import {
 } from "@kilnframe/core";
 import type * as Core from "@kilnframe/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CAPTION_LOOK_IDS, MemoryKeyStore, type JobParams } from "../src/index.js";
+import {
+  CAPTION_LOOK_IDS,
+  ClientMessageSchema,
+  JobParamsSchema,
+  MemoryKeyStore,
+  type JobParams,
+} from "../src/index.js";
 import {
   captionPreviewFrames,
   captionPreviewRoot,
@@ -215,6 +221,59 @@ describe("caption jobs", () => {
       original: heard,
       correctionError: "1 of 3 parts kept the original text: 429",
     });
+  });
+
+  it("passes LM Studio's thinking choice to the text provider", async () => {
+    vi.mocked(transcribe).mockResolvedValue({
+      language: "tr",
+      duration_s: 1,
+      words: [{ text: "merhaba", start: 0, end: 0.4 }],
+    } as never);
+    vi.mocked(createTextProvider).mockReturnValue({} as never);
+    vi.mocked(correctCaptionWords).mockResolvedValue({ corrected: false, words: [] } as never);
+    const params = JobParamsSchema.parse({
+      kind: "captions-text",
+      audioPath: "/a.wav",
+      outDir: mkdtempSync(join(tmpdir(), "kf-text-")),
+      glossary: [],
+      mode: "written",
+      provider: "lmstudio",
+      model: "qwen/qwen3.8-27b",
+      thinking: "on",
+    });
+    await run(params);
+    expect(vi.mocked(createTextProvider).mock.calls[0]![1]).toMatchObject({
+      provider: "lmstudio",
+      thinking: "on",
+    });
+  });
+
+  it("keeps the thinking choice in every job that names a provider, and in the connection test", () => {
+    for (const job of [
+      {
+        kind: "render",
+        audioPath: "/a.wav",
+        outDir: "/o",
+        style: "kil-lacivert",
+        mode: "auto",
+        fps: "25",
+        sequenceSize: "1920x1080",
+      },
+      { kind: "style", description: "d" },
+      { kind: "music-plan", audioPath: "/a.wav", outDir: "/o", language: "tr" },
+    ]) {
+      const parsed = JobParamsSchema.parse({ ...job, provider: "lmstudio", thinking: "off" });
+      expect(parsed).toMatchObject({ thinking: "off" });
+    }
+    const test = ClientMessageSchema.parse({
+      type: "providers.test",
+      provider: "lmstudio",
+      thinking: "off",
+    });
+    expect(test).toMatchObject({ thinking: "off" });
+    expect(
+      JobParamsSchema.safeParse({ kind: "style", description: "d", thinking: "maybe" }).success,
+    ).toBe(false);
   });
 
   it("writes the SRT in the sequence's time for an In/Out range", async () => {

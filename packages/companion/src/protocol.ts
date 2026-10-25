@@ -61,6 +61,8 @@ export const RenderJobParamsSchema = z.object({
   provider: z.string().min(1).optional(),
   model: z.string().optional(),
   baseURL: z.string().url().optional(),
+  /** LM Studio's thinking for a model that thinks (default off); other providers ignore it. */
+  thinking: z.enum(["off", "on"]).optional(),
 });
 export type RenderJobParams = z.infer<typeof RenderJobParamsSchema>;
 
@@ -82,6 +84,8 @@ export const StyleJobParamsSchema = z.object({
   provider: z.string().min(1).optional(),
   model: z.string().optional(),
   baseURL: z.string().url().optional(),
+  /** LM Studio's thinking for a model that thinks (default off); other providers ignore it. */
+  thinking: z.enum(["off", "on"]).optional(),
 });
 export type StyleJobParams = z.infer<typeof StyleJobParamsSchema>;
 
@@ -90,6 +94,8 @@ const ProviderChoice = {
   provider: z.string().min(1).optional(),
   model: z.string().optional(),
   baseURL: z.string().url().optional(),
+  /** LM Studio's thinking for a model that thinks (default off); other providers ignore it. */
+  thinking: z.enum(["off", "on"]).optional(),
 };
 
 /** Story mode, step one: write the narration from a brief, or revise it with a note. */
@@ -362,6 +368,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     provider: z.string().min(1),
     model: z.string().optional(),
     baseURL: z.string().url().optional(),
+    thinking: z.enum(["off", "on"]).optional(),
   }),
   /** Downloads and installs the app update the companion announced (refused while a job runs). */
   z.object({ type: z.literal("app.update.install") }),

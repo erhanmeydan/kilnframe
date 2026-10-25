@@ -70,8 +70,24 @@ describe("provider presets", () => {
     const p = createTextProvider(defaults, { provider: "lmstudio", model: "qwen/qwen3.8-27b" });
     const models = await p.listModels!();
     expect(models).toEqual([
-      { id: "qwen/qwen3.8-27b", displayName: "Qwen3.8 27B", contextWindow: 262144, vision: true },
-      { id: "text-only", displayName: "text-only", contextWindow: null, vision: false },
+      {
+        id: "qwen/qwen3.8-27b",
+        displayName: "Qwen3.8 27B",
+        contextWindow: 262144,
+        vision: true,
+        loaded: false,
+        loadedContext: null,
+        reasons: false,
+      },
+      {
+        id: "text-only",
+        displayName: "text-only",
+        contextWindow: null,
+        vision: false,
+        loaded: false,
+        loadedContext: null,
+        reasons: false,
+      },
     ]);
   });
 });

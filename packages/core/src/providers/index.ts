@@ -23,6 +23,8 @@ export interface ProviderOverrides {
   apiKey?: string | undefined;
   /** "suggest" may use a lighter model than the main work (defaults.text.suggestModel). */
   purpose?: "main" | "suggest" | undefined;
+  /** LM Studio's thinking for a model that thinks: "off" (default) or "on"; ignored by every other provider. */
+  thinking?: "off" | "on" | undefined;
   /** Told when a side task falls back to the main model. */
   onFallback?: ((message: string) => void) | undefined;
 }
@@ -234,6 +236,7 @@ function buildProvider(
       },
       reasoningEffort: preset?.reasoningEffort?.[model],
       reasoningField: preset?.reasoningField,
+      ...(kind === "lmstudio" ? { thinking: o.thinking } : {}),
     });
   }
   if (kind === "openai-compatible") {

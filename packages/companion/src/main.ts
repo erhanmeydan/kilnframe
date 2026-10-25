@@ -197,13 +197,14 @@ async function main() {
       updateCache = null;
       openInTerminal(updateCommand(agent));
     },
-    testProvider: async (provider, model, baseURL) => {
+    testProvider: async (provider, model, baseURL, thinking) => {
       try {
         return await testProvider(
           createTextProvider(loadDefaults(), {
             provider,
             model,
             baseURL,
+            thinking,
             apiKey: await keys.get(provider === "auto" ? "anthropic" : provider),
           }),
         );

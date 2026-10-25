@@ -101,6 +101,7 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       provider: providerName,
       model: params.model,
       baseURL: params.baseURL,
+      thinking: params.thinking,
       apiKey,
     });
     if (params.kind === "style") return styleJob(params, provider, events.progress);
@@ -372,6 +373,7 @@ async function musicMakeJob(
       provider: name,
       model: params.model,
       baseURL: params.baseURL,
+      thinking: params.thinking,
       apiKey: await keys.get(name === "auto" ? "anthropic" : name),
     });
     billing = text.billing ?? "api";
@@ -431,6 +433,7 @@ async function captionsTextJob(
       provider: name,
       model: params.model,
       baseURL: params.baseURL,
+      thinking: params.thinking,
       apiKey: await keys.get(name === "auto" ? "anthropic" : name),
     });
     provider.preflight?.();

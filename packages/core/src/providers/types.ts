@@ -50,6 +50,11 @@ export interface ModelInfo {
   vision: boolean | null;
   /** USD per million tokens, when the provider's own list says (OpenRouter). */
   price?: Price;
+  /** A local server (LM Studio): the model is loaded now, with this context. */
+  loaded?: boolean;
+  loadedContext?: number | null;
+  /** A local server (LM Studio): the model's thinking can be turned off. */
+  reasons?: boolean;
 }
 
 export interface TextProvider {

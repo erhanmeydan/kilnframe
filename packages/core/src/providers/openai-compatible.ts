@@ -26,6 +26,11 @@ export interface OpenAICompatibleOptions {
   reasoningField?: "reasoning" | "reasoning_effort" | undefined;
   /** Pause before a retry, times the attempt number (tests set it to 0). */
   retryDelayMs?: number;
+  /**
+   * LM Studio only: "off" (the default) sends reasoning_effort "none" to a model that thinks, "on" leaves the
+   * model's own default. Other providers never get it.
+   */
+  thinking?: "off" | "on" | undefined;
   /** Where LM Studio's per-request token line goes (the companion's log through stderr by default). */
   log?: (line: string) => void;
 }
@@ -62,6 +67,17 @@ function contextTooSmall(detail: string): ProviderError {
     false,
     "context-exceeded",
   );
+}
+
+/** A model in LM Studio's GET /api/v1/models (https://lmstudio.ai/docs/developer/rest/list). */
+interface LmStudioModel {
+  type?: string;
+  key: string;
+  display_name?: string;
+  max_context_length?: number | null;
+  loaded_instances?: { id?: string; config?: { context_length?: number } }[];
+  /** reasoning is there only for a model whose thinking can be set */
+  capabilities?: { vision?: boolean; reasoning?: { allowed_options?: string[]; default?: string } };
 }
 
 interface ChatCompletion {
@@ -145,15 +161,7 @@ export class OpenAICompatibleProvider implements TextProvider {
         `LM Studio could not list models (${res.status}).`,
         res.status >= 500,
       );
-    const body = (await res.json()) as {
-      models?: {
-        type?: string;
-        key: string;
-        display_name?: string;
-        max_context_length?: number;
-        capabilities?: { vision?: boolean };
-      }[];
-    };
+    const body = (await res.json()) as { models?: LmStudioModel[] };
     return (body.models ?? [])
       .filter((m) => m.type === "llm")
       .map((m) => ({
@@ -161,10 +169,28 @@ export class OpenAICompatibleProvider implements TextProvider {
         displayName: m.display_name ?? m.key,
         contextWindow: m.max_context_length ?? null,
         vision: m.capabilities?.vision ?? false,
+        loaded: (m.loaded_instances ?? []).length > 0,
+        loadedContext: m.loaded_instances?.[0]?.config?.context_length ?? null,
+        reasons: Boolean(m.capabilities?.reasoning),
       }));
   }
 
-  private contextLookup: Promise<number | undefined> | undefined;
+  private modelLookup: Promise<LmStudioModel | undefined> | undefined;
+
+  /** This model's entry in LM Studio's list, read once; undefined when it cannot be read. */
+  private lmStudioModel(): Promise<LmStudioModel | undefined> {
+    this.modelLookup ??= this.readLmStudioModel().catch(() => undefined);
+    return this.modelLookup;
+  }
+
+  private async readLmStudioModel(): Promise<LmStudioModel | undefined> {
+    const res = await fetch(`${new URL(this.o.baseURL).origin}/api/v1/models`);
+    if (!res.ok) return undefined;
+    const body = (await res.json()) as { models?: LmStudioModel[] };
+    return (body.models ?? []).find(
+      (m) => m.key === this.model || m.loaded_instances?.some((i) => i.id === this.model),
+    );
+  }
 
   /**
    * The context LM Studio loaded the model with (loaded_instances[].config.context_length), else the model's
@@ -172,25 +198,9 @@ export class OpenAICompatibleProvider implements TextProvider {
    * https://lmstudio.ai/docs/developer/rest/list. Read once; undefined for other providers or when LM Studio
    * cannot be asked.
    */
-  loadedContext(): Promise<number | undefined> {
-    if (this.name !== "lmstudio") return Promise.resolve(undefined);
-    this.contextLookup ??= this.readLmStudioContext().catch(() => undefined);
-    return this.contextLookup;
-  }
-
-  private async readLmStudioContext(): Promise<number | undefined> {
-    const res = await fetch(`${new URL(this.o.baseURL).origin}/api/v1/models`);
-    if (!res.ok) return undefined;
-    const body = (await res.json()) as {
-      models?: {
-        key: string;
-        max_context_length?: number | null;
-        loaded_instances?: { id?: string; config?: { context_length?: number } }[];
-      }[];
-    };
-    const model = (body.models ?? []).find(
-      (m) => m.key === this.model || m.loaded_instances?.some((i) => i.id === this.model),
-    );
+  async loadedContext(): Promise<number | undefined> {
+    if (this.name !== "lmstudio") return undefined;
+    const model = await this.lmStudioModel();
     if (!model) return undefined;
     const loaded = (model.loaded_instances ?? [])
       .filter((i) => i.id === this.model || model.key === this.model)
@@ -310,8 +320,20 @@ export class OpenAICompatibleProvider implements TextProvider {
     }
   }
 
+  /**
+   * LM Studio's switch for a model that thinks: reasoning_effort "none" turns the thinking off on
+   * /v1/chat/completions (LM Studio 0.4.8 added reasoning_effort, https://lmstudio.ai/changelog/lmstudio/lmstudio-v0.4.8;
+   * it accepts none, minimal, low, medium, high and xhigh, and refuses "off"). Sent only when the model lists
+   * reasoning options (capabilities.reasoning) and thinking is not on; nothing for other providers.
+   */
+  private async thinkingOff(): Promise<boolean> {
+    if (this.name !== "lmstudio" || this.o.thinking === "on") return false;
+    return Boolean((await this.lmStudioModel())?.capabilities?.reasoning);
+  }
+
   private async once(req: TextRequest, effort?: string): Promise<TextResponse> {
     const maxTokens = await this.replyLimit(req);
+    const noThinking = await this.thinkingOff();
     const messages = [
       { role: "system", content: req.system },
       ...req.messages.map((m) => ({
@@ -344,6 +366,7 @@ export class OpenAICompatibleProvider implements TextProvider {
               ? { reasoning_effort: effort }
               : { reasoning: { effort } }
             : {}),
+          ...(noThinking ? { reasoning_effort: "none" } : {}),
           ...this.o.extraBody,
         }),
       });

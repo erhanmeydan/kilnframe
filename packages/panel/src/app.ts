@@ -6,7 +6,7 @@ import { homeDirNow, isWindows } from "./home";
 import { audioRangeParams } from "./audio-range";
 import { host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
-import { prettyModel } from "./models";
+import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
 import {
   musicAct,
   musicBox,
@@ -216,6 +216,8 @@ interface Settings {
   models: Record<string, string>;
   /** Addresses the editor typed: the custom endpoint, and presets that need their own. */
   baseURLs: Record<string, string>;
+  /** LM Studio's thinking for a model that thinks; off when not set. */
+  thinking?: Record<string, "off" | "on">;
   /** Show the stills before the full render (default on). */
   review: "on" | "off";
   /** Panel language; "auto" follows Premiere. */
@@ -1336,16 +1338,33 @@ function modelFor(id: string): string {
   if (id === "codex") return state.settings.models.codex ?? "";
   const chosen = state.settings.models[id];
   if (chosen) return chosen;
-  if (id === "lmstudio") return setup.served.lmstudio?.find((m) => m.vision)?.id ?? "";
+  if (id === "lmstudio") return lmStudioDefault(setup.served.lmstudio ?? []);
   return setup.list.find((p) => p.id === id)?.models[0] ?? "";
 }
 
-/** What a job sends: the provider, its model and, when the editor typed one, its address. */
-function providerParams(): { provider: string; model?: string; baseURL?: string } {
+/**
+ * What a job sends: the provider, its model and, when the editor typed one, its address; for LM Studio also
+ * whether a model that thinks may think.
+ */
+function providerParams(): {
+  provider: string;
+  model?: string;
+  baseURL?: string;
+  thinking?: "off" | "on";
+} {
   const id = state.settings.provider;
   const model = modelFor(id);
   const baseURL = state.settings.baseURLs[id]?.trim();
-  return { provider: id, ...(model ? { model } : {}), ...(baseURL ? { baseURL } : {}) };
+  return {
+    provider: id,
+    ...(model ? { model } : {}),
+    ...(baseURL ? { baseURL } : {}),
+    ...(id === "lmstudio" ? { thinking: lmThinking() } : {}),
+  };
+}
+
+function lmThinking(): "off" | "on" {
+  return state.settings.thinking?.lmstudio ?? "off";
 }
 
 const CLAUDE_MODEL_NAMES: Record<string, string> = {
@@ -1501,10 +1520,7 @@ const setup = {
   confirmLogout: null as string | null,
   signingOut: null as string | null,
   /** Models a local server reported (LM Studio), with whether they read images. */
-  served: {} as Record<
-    string,
-    { id: string; displayName: string; contextWindow: number | null; vision: boolean | null }[]
-  >,
+  served: {} as Record<string, ServedModel[]>,
   servedError: {} as Record<string, string>,
   editingKey: null as string | null,
   keyDraft: "",
@@ -1777,12 +1793,9 @@ function modelList(): string {
       : `<div class="link more" data-act="or-all">${onboard.allModels ? t("prov.fewerModels") : t("prov.allModels", { n: seeing.length })}</div><div class="note muted">${t("prov.openrouterNote")}</div>`;
   } else if (id === "lmstudio") {
     const served = setup.served.lmstudio ?? [];
-    const seeing = served.filter((m) => m.vision);
-    options = seeing.map((m) => [
-      m.id,
-      `${t("prov.reads")}${m.contextWindow ? ` · ${Math.round(m.contextWindow / 1000)}K` : ""}`,
-    ]);
-    const hidden = served.length - seeing.length;
+    const rows = lmStudioRows(served, t("prov.lmLoaded"));
+    options = rows.map((r) => [r.id, r.info]);
+    const hidden = served.length - rows.length;
     note = setup.servedError.lmstudio
       ? `<div class="note warn-text">${esc(setup.servedError.lmstudio)}</div>`
       : !served.length
@@ -1790,7 +1803,15 @@ function modelList(): string {
         : hidden
           ? `<div class="note muted">${t("prov.lmHidden", { n: hidden })}</div>`
           : "";
+    if (rows.some((r) => !r.loaded))
+      note += `<div class="note muted">${t("prov.lmLoadsOnChoice")}</div>`;
     note += `<div class="note muted">${t("prov.localLimits")}</div>`;
+    // only a model whose thinking LM Studio can turn off
+    if (served.find((m) => m.id === modelFor(id))?.reasons)
+      note += `<div class="lbl">${t("prov.thinking")}</div>${seg("lm-thinking", lmThinking(), [
+        ["off", t("prov.thinkingOff")],
+        ["on", t("prov.thinkingOn")],
+      ])}<div class="note muted">${t("prov.thinkingNote")}</div>`;
   } else options = (entry?.models ?? []).map((m) => [m, ""]);
   const current = modelFor(id);
   const rows = options
@@ -3775,6 +3796,12 @@ function runAction(el: HTMLElement) {
     setup.editingKey = null;
     setup.confirmDelete = null;
     if (val === "lmstudio" || val === "openrouter") void loadServed(val);
+  } else if (act === "lm-thinking") {
+    state.settings = {
+      ...state.settings,
+      thinking: { ...state.settings.thinking, lmstudio: val === "on" ? "on" : "off" },
+    };
+    store("settings", JSON.stringify(state.settings));
   } else if (act === "pmodel") {
     const id = state.settings.provider;
     state.settings = CLAUDE_KINDS.has(id)

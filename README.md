@@ -65,7 +65,8 @@ check the stills, match your style and find where you are in the frame.
 | Local        | a vision model in [LM Studio](https://lmstudio.ai)        | free, slower, simpler results |
 
 For LM Studio, load the model with a context of at least 64K tokens: a shorter one can run out while a
-scene is written.
+scene is written. For a model that thinks, the settings have a Thinking option, Off by default: faster, and
+it uses less of the context.
 
 The plans work through the terminal programs, not the desktop apps: the Claude, ChatGPT or Grok app alone is
 not enough. Claude Code needs a paid Claude plan. Install one with its vendor's command, then type `claude`,
@@ -232,6 +233,8 @@ Panelin ayarlarından (⚙) seçersiniz: Claude Code, Codex ya da Grok ile kendi
 Google Gemini, xAI, MiniMax ya da OpenRouter anahtarı; ya da LM Studio ile bilgisayarınızdaki bir model.
 Sadece görsel okuyabilen modeller sunulur. Anahtarlar işletim sisteminin anahtar zincirinde saklanır.
 LM Studio'da modeli en az 64K bağlamla yükleyin, daha kısa bir bağlam sahne yazılırken yetmeyebilir.
+Düşünen bir model için ayarlarda Düşünme seçeneği vardır ve varsayılan olarak Kapalı'dır: daha hızlıdır ve
+bağlamı daha az kullanır.
 
 Planla çalışmak için masaüstü uygulaması yetmez, terminaldeki program gerekir: Claude Code, Codex ya da Grok
 Build. Claude Code için ücretli bir Claude planı gerekir. Kurulum komutları yukarıdaki tabloda ve
