@@ -171,9 +171,12 @@ export class OpenAICompatibleProvider implements TextProvider {
         vision: m.capabilities?.vision ?? false,
         loaded: (m.loaded_instances ?? []).length > 0,
         loadedContext: m.loaded_instances?.[0]?.config?.context_length ?? null,
-        reasons: Boolean(m.capabilities?.reasoning),
+        reasons: canTurnThinkingOff(m),
       }));
   }
+
+  /** Set once LM Studio has refused reasoning_effort, so later requests leave it out. */
+  private reasoningRefused = false;
 
   private modelLookup: Promise<LmStudioModel | undefined> | undefined;
 
@@ -323,12 +326,14 @@ export class OpenAICompatibleProvider implements TextProvider {
   /**
    * LM Studio's switch for a model that thinks: reasoning_effort "none" turns the thinking off on
    * /v1/chat/completions (LM Studio 0.4.8 added reasoning_effort, https://lmstudio.ai/changelog/lmstudio/lmstudio-v0.4.8;
-   * it accepts none, minimal, low, medium, high and xhigh, and refuses "off"). Sent only when the model lists
-   * reasoning options (capabilities.reasoning) and thinking is not on; nothing for other providers.
+   * it accepts none, minimal, low, medium, high and xhigh, and refuses "off"). Sent only when the model's
+   * reasoning options include "off", thinking is not on and LM Studio has not refused the field before;
+   * nothing for other providers.
    */
   private async thinkingOff(): Promise<boolean> {
-    if (this.name !== "lmstudio" || this.o.thinking === "on") return false;
-    return Boolean((await this.lmStudioModel())?.capabilities?.reasoning);
+    if (this.name !== "lmstudio" || this.o.thinking === "on" || this.reasoningRefused) return false;
+    const model = await this.lmStudioModel();
+    return model !== undefined && canTurnThinkingOff(model);
   }
 
   private async once(req: TextRequest, effort?: string): Promise<TextResponse> {
@@ -347,9 +352,8 @@ export class OpenAICompatibleProvider implements TextProvider {
     ];
     // Streamed: the headers come back at once, so a model that thinks for minutes before it writes does not
     // run into fetch's five-minute wait for them (an xAI scene failed that way on 8 Oct 2026).
-    let res: Response;
-    try {
-      res = await fetch(`${this.o.baseURL.replace(/\/$/, "")}/chat/completions`, {
+    const send = (withNoThinking: boolean) =>
+      fetch(`${this.o.baseURL.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -366,10 +370,27 @@ export class OpenAICompatibleProvider implements TextProvider {
               ? { reasoning_effort: effort }
               : { reasoning: { effort } }
             : {}),
-          ...(noThinking ? { reasoning_effort: "none" } : {}),
+          ...(withNoThinking ? { reasoning_effort: "none" } : {}),
           ...this.o.extraBody,
         }),
       });
+    let res: Response;
+    try {
+      res = await send(noThinking);
+      // a version of LM Studio that refuses reasoning_effort: ask again without it, and not again later
+      if (noThinking && res.status === 400) {
+        const refusal = await res
+          .clone()
+          .text()
+          .catch(() => "");
+        if (/reasoning/i.test(refusal)) {
+          this.reasoningRefused = true;
+          (this.o.log ?? ((line: string) => void process.stderr.write(`${line}\n`)))(
+            `LM Studio ${req.purpose}: reasoning_effort refused, asking again without it`,
+          );
+          res = await send(false);
+        }
+      }
     } catch (err) {
       throw new ProviderError(unreachable(this.name, this.o.baseURL, err), true);
     }
@@ -441,6 +462,11 @@ export class OpenAICompatibleProvider implements TextProvider {
       },
     };
   }
+}
+
+/** Whether LM Studio lists "off" among the model's thinking options, the only models reasoning_effort none suits. */
+function canTurnThinkingOff(m: LmStudioModel): boolean {
+  return Boolean(m.capabilities?.reasoning?.allowed_options?.includes("off"));
 }
 
 /**

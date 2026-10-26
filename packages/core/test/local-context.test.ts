@@ -38,7 +38,7 @@ const ok = () =>
   });
 
 /** A fake LM Studio: the model list, then chat replies; records each chat body. */
-function fakeLmStudio(list: unknown, chat: () => Response = ok) {
+function fakeLmStudio(list: unknown, chat: (body: Record<string, unknown>) => Response = ok) {
   const bodies: Record<string, unknown>[] = [];
   const urls: string[] = [];
   vi.stubGlobal(
@@ -46,8 +46,9 @@ function fakeLmStudio(list: unknown, chat: () => Response = ok) {
     vi.fn(async (url: string, init?: { body?: string }) => {
       urls.push(url);
       if (url.endsWith("/api/v1/models")) return new Response(JSON.stringify(list));
-      bodies.push(JSON.parse(init?.body ?? "{}") as Record<string, unknown>);
-      return chat();
+      const body = JSON.parse(init?.body ?? "{}") as Record<string, unknown>;
+      bodies.push(body);
+      return chat(body);
     }),
   );
   return { bodies, urls };
@@ -329,6 +330,55 @@ describe("LM Studio's thinking", () => {
     const { bodies } = fakeLmStudio(thinkingList(false));
     await lmstudioThinking("off").complete(request(100));
     expect(bodies[0]).not.toHaveProperty("reasoning_effort");
+  });
+
+  it("is not sent when the model's options lack off or are not listed", async () => {
+    for (const reasoning of [{ allowed_options: ["low", "high"] }, {}]) {
+      const list = thinkingList(true);
+      (list.models[1] as { capabilities: Record<string, unknown> }).capabilities.reasoning =
+        reasoning;
+      const { bodies } = fakeLmStudio(list);
+      await lmstudioThinking("off").complete(request(100));
+      expect(bodies[0]).not.toHaveProperty("reasoning_effort");
+      expect((await lmstudio().listModels())[0]!.reasons).toBe(false);
+    }
+  });
+
+  it("is asked again without reasoning_effort when LM Studio refuses it, and not sent again", async () => {
+    const { bodies } = fakeLmStudio(thinkingList(true), (body) =>
+      "reasoning_effort" in body
+        ? new Response(
+            JSON.stringify({
+              error: {
+                message: "Invalid 'reasoning_effort' value: 'none'. Supported values: low.",
+              },
+            }),
+            { status: 400 },
+          )
+        : ok(),
+    );
+    const log: string[] = [];
+    const provider = new OpenAICompatibleProvider({
+      name: "lmstudio",
+      baseURL: "http://localhost:1234/v1",
+      model: MODEL,
+      capabilities: caps,
+      retryDelayMs: 0,
+      log: (line) => log.push(line),
+    });
+    await provider.complete(request(100));
+    expect(bodies.map((b) => "reasoning_effort" in b)).toEqual([true, false]);
+    await provider.complete(request(100));
+    expect(bodies.map((b) => "reasoning_effort" in b)).toEqual([true, false, false]);
+    expect(log.filter((l) => /refused/.test(l))).toHaveLength(1);
+  });
+
+  it("keeps any other 400 as an error", async () => {
+    fakeLmStudio(
+      thinkingList(true),
+      () => new Response(JSON.stringify({ error: { message: "bad" } }), { status: 400 }),
+    );
+    await expect(lmstudioThinking("off").complete(request(100))).rejects.toThrow(/error 400: bad/);
   });
 
   it("reaches LM Studio from the provider choice, and no cloud provider", async () => {
