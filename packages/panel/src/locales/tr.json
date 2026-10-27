@@ -339,7 +339,7 @@
   "prov.planMissing": "Claude Code bu bilgisayarda kurulu değil. claude.com/code adresinden kurun ya da bir API anahtarı kullanın.",
   "prov.planSignedOut": "Claude Code'da giriş yapılmamış. Terminalde claude auth login çalıştırın.",
   "prov.planOk": "Giriş yapılmış · {plan} · Claude Code {version}",
-  "prov.localNote": "Anahtar gerekmez. LM Studio açık ve sunucusu çalışıyor olmalı (Developer sekmesi).",
+  "prov.localNote": "Anahtar gerekmez. Sadece görsel okuyabilen modeller listelenir. LM Studio açık ve sunucusu çalışıyor olmalı (Developer sekmesi).",
   "prov.address": "Adres (Base URL)",
   "prov.modelName": "Model Adı",
   "prov.modelPlaceholder": "Örneğin qwen/qwen3.8-27b",

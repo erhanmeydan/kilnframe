@@ -339,7 +339,7 @@
   "prov.planMissing": "Claude Code is not installed on this computer. Install it from claude.com/code, or use an API key.",
   "prov.planSignedOut": "Claude Code is not signed in. Run claude auth login in a terminal.",
   "prov.planOk": "Signed in · {plan} · Claude Code {version}",
-  "prov.localNote": "No key needed. LM Studio must be open with its server running (Developer tab).",
+  "prov.localNote": "No key needed. Only models that can read images are listed. LM Studio must be open with its server running (Developer tab).",
   "prov.address": "Address (Base URL)",
   "prov.modelName": "Model Name",
   "prov.modelPlaceholder": "For example qwen/qwen3.8-27b",
