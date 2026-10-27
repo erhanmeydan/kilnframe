@@ -278,7 +278,7 @@
   "parts.tag": "Part {i} of {n}",
   "home.placedParts": "{n} parts are on the timeline: V{v} and A{a}.",
   "job.partFailed": "Part {i} of {n}: {message} Press Continue to go on from where it stopped.",
-  "job.checksFailed": "The AI could not get the animation past its checks in {n} repair rounds.",
+  "job.checksFailed": "The AI could not get the animation past its checks in {n} repair rounds. Try again, or pick a stronger model in Settings.",
   "job.keyExpired": "Your {provider} API key has expired. Create a new key on the {provider} site and paste it in Settings.",
   "job.keyRejected": "{provider} did not accept the API key. Check it in Settings, or create a new one on the {provider} site.",
   "job.contextTooSmall": "The model's context was not enough for this range. Load the model in LM Studio with a longer context (at least 64K recommended), or choose a shorter range.",

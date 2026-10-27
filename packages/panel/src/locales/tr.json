@@ -278,7 +278,7 @@
   "parts.tag": "Parça {i}/{n}",
   "home.placedParts": "{n} parça timeline'a yerleştirildi: V{v} ve A{a}.",
   "job.partFailed": "Parça {i}/{n}: {message} Devam Et ile kaldığı yerden sürdürebilirsiniz.",
-  "job.checksFailed": "Yapay zeka animasyonu {n} onarım denemesinde de kontrollerden geçiremedi.",
+  "job.checksFailed": "Yapay zeka animasyonu {n} onarım denemesinde de kontrollerden geçiremedi. Yeniden deneyin ya da Ayarlar'dan daha güçlü bir model seçin.",
   "job.keyExpired": "{provider} API anahtarınızın süresi dolmuş. {provider} sitesinden yeni bir anahtar oluşturup Ayarlar'a yapıştırın.",
   "job.keyRejected": "{provider} API anahtarını kabul etmedi. Ayarlar'dan kontrol edin ya da {provider} sitesinden yeni bir anahtar oluşturun.",
   "job.contextTooSmall": "Modelin bağlamı bu aralık için yetmedi. LM Studio'da modeli daha uzun bir bağlamla yükleyin (en az 64K önerilir) ya da daha kısa bir aralık seçin.",
