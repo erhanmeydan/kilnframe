@@ -1762,6 +1762,7 @@ function modelList(): string {
   if (CLAUDE_KINDS.has(id))
     options = [
       ["claude-opus-5-5", t("settings.opusNote")],
+      ["claude-fable-5-1", t("settings.fableNote")],
       ["claude-sonnet-5-5", t("settings.sonnetNote")],
     ];
   else if (id === "codex")
