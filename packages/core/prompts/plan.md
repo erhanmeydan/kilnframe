@@ -90,11 +90,19 @@ in that scene so the viewer's eye goes there at the moment it is said.
 
 # Recipes
 
-When the request lists recipes, some scenes can be filled from a tested recipe instead of being written
-from scratch: faster, and they do not break. Give a scene `recipe` only when its content fits the recipe as
-described (its technique and mode must match the scene's). Leave `recipe` null for the insert's key scene
-(the idea the whole range is about), for scenes that use the editor's images, and whenever nothing fits.
-Never bend a scene's content to fit a recipe.
+When the request lists recipes, use them: a recipe scene is tested, renders in seconds and never breaks,
+while a scene written from scratch takes minutes and can fail. For every scene, check the list first. If what
+the scene says has the shape of a recipe (a key sentence to show big, 2 to 5 spoken values to compare, 3 to 5
+steps in order, a heading with 2 to 4 points), give it that `recipe`, use the recipe's technique, and write
+`visual` as what that recipe will show with this content.
+
+Write a scene from scratch (`recipe` null) only for:
+
+- the insert's one key scene, when its idea needs its own visual metaphor;
+- scenes that use the editor's images;
+- content none of the recipes fits (code on screen, a product screen, a picture of a thing).
+
+Most inserts have more recipe scenes than free ones.
 
 # Output
 

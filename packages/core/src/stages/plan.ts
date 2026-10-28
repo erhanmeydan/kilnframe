@@ -344,7 +344,7 @@ export function planRecipes(
 function recipeLines(recipes: RecipeInfo[]): string[] {
   if (!recipes.length) return [];
   return [
-    "Recipes for this style and format (name (technique; modes): what it shows):",
+    "Recipes for this style and format (name (technique; modes): what it shows); prefer them:",
     ...recipes.map((r) => `- ${r.name} (${r.technique}; ${r.modes.join(", ")}): ${r.description}`),
   ];
 }
