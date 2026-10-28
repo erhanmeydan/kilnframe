@@ -98,6 +98,7 @@ export function buildRecipeScene(
   const json = JSON.stringify({ ...data, ...context }).replace(/</g, "\\u003c");
   return recipe.skeleton
     .replace("/*DRESS*/", () => `${fontFaces}\n${dress}`)
+    .replace("/*KIT*/", () => recipe.kit)
     .replace(/SCENE_ID/g, sceneId)
     .replace(/\bWIDTH\b/g, String(width))
     .replace(/\bHEIGHT\b/g, String(height))

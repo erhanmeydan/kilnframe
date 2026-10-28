@@ -64,6 +64,10 @@ describe("buildRecipeScene", () => {
     expect(html).toContain('data-width="1920"');
     expect(html).toContain("#s3-bg");
   });
+  it("inlines the shared kit with the scene id filled in", () => {
+    expect(html).toContain('const KIT_OK = "s3";');
+    expect(html).not.toContain("/*KIT*/");
+  });
   it("passes the static scene checks", () => {
     expect(staticSceneProblems(html, "s3", [], false)).toEqual([]);
   });

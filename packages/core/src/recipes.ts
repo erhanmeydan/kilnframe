@@ -58,6 +58,8 @@ export interface RecipeInfo {
   modes: OutputMode[];
   fields: Record<string, RecipeField>;
   skeleton: string;
+  /** recipes/kit.js, shared helpers every skeleton inlines at its KIT placeholder. */
+  kit: string;
   /** Style name -> dress CSS. A style without a dress is not offered the recipe. */
   dresses: Record<string, string>;
 }
@@ -70,6 +72,8 @@ export function recipesDir(): string {
 
 export function loadRecipes(dir = recipesDir()): RecipeInfo[] {
   if (!existsSync(dir)) return [];
+  const kitPath = join(dir, "kit.js");
+  const kit = existsSync(kitPath) ? readFileSync(kitPath, "utf8") : "";
   return readdirSync(dir, { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(join(dir, d.name, "recipe.json")))
     .map((d) => d.name)
@@ -94,6 +98,7 @@ export function loadRecipes(dir = recipesDir()): RecipeInfo[] {
         name,
         ...parsed.data,
         skeleton: readFileSync(join(root, "skeleton.html"), "utf8"),
+        kit,
         dresses,
       };
     });
