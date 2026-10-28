@@ -1,3 +1,4 @@
+import { loadRecipes } from "../recipes.js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { assetPreview } from "../assets.js";
@@ -102,6 +103,7 @@ export async function recomposeScene(
       }),
     ),
     frames: readFrames(job.outDir),
+    recipes: loadRecipes(),
   };
   // the other scenes join with a short conversation (request, their code) so repairs keep their context
   const composed = new Map<string, ComposedScene>();
@@ -115,6 +117,7 @@ export async function recomposeScene(
         { role: "user", content: composeRequest(ctx, s) },
         { role: "assistant", content: [{ type: "text", text: "```html\n" + html + "\n```" }] },
       ],
+      ...(s.recipe ? { recipe: s.recipe } : {}),
     });
   }
   log(`Composing ${o.sceneId} again`);
