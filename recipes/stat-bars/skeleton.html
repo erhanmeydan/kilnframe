@@ -1,0 +1,295 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>stat-bars</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #SCENE_ID-stage,
+        #SCENE_ID-bg,
+        #SCENE_ID-texture {
+          position: absolute;
+          inset: 0;
+        }
+        #SCENE_ID-bg {
+          background: var(--bg);
+        }
+        #SCENE_ID-plate,
+        #SCENE_ID-title,
+        #SCENE_ID-number,
+        #SCENE_ID-bars,
+        .SCENE_ID-bar,
+        .SCENE_ID-label,
+        .SCENE_ID-value,
+        #SCENE_ID-baseline {
+          position: absolute;
+        }
+        #SCENE_ID-plate {
+          background: var(--plate);
+          border-radius: var(--plate-radius, 0);
+          transform-origin: 0 50%;
+        }
+        #SCENE_ID-title {
+          margin: 0;
+          overflow: hidden;
+          font-family: var(--font-head);
+          font-weight: var(--weight-head);
+          line-height: 1.08;
+          color: var(--ink);
+        }
+        #SCENE_ID-title-inner {
+          display: block;
+        }
+        #SCENE_ID-number {
+          margin: 0;
+          white-space: nowrap;
+          font-family: var(--font-num);
+          font-weight: var(--weight-num);
+          line-height: 0.9;
+          letter-spacing: -0.03em;
+          font-variant-numeric: tabular-nums;
+          color: var(--ink);
+          transform-origin: 0% 100%;
+        }
+        .SCENE_ID-bar {
+          background: var(--main);
+          transform-origin: 50% 100%;
+        }
+        .SCENE_ID-bar.SCENE_ID-key {
+          background: var(--accent);
+        }
+        .SCENE_ID-label,
+        .SCENE_ID-value {
+          margin: 0;
+          white-space: nowrap;
+          text-align: center;
+          font-family: var(--font-body);
+          font-weight: var(--weight-body);
+          color: var(--ink);
+        }
+        .SCENE_ID-value {
+          font-variant-numeric: tabular-nums;
+        }
+        #SCENE_ID-baseline {
+          background: var(--ink);
+          transform-origin: 0 50%;
+        }
+        /*DRESS*/
+      </style>
+      <div id="root" data-composition-id="SCENE_ID" data-width="WIDTH" data-height="HEIGHT">
+        <div id="SCENE_ID-stage">
+          <div id="SCENE_ID-bg"></div>
+          <div id="SCENE_ID-texture"></div>
+          <div id="SCENE_ID-plate"></div>
+          <h2 id="SCENE_ID-title"><span id="SCENE_ID-title-inner"></span></h2>
+          <p id="SCENE_ID-number"></p>
+          <div id="SCENE_ID-bars"><div id="SCENE_ID-baseline"></div></div>
+        </div>
+      </div>
+      <script type="application/json" id="SCENE_ID-data">
+        "__DATA__"
+      </script>
+      <script type="module">
+        /*KIT*/
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["SCENE_ID"] = (async () => {
+          await KF.fonts();
+          const { data, W, H, u, overlay } = KF;
+          const s = data.safeArea;
+          const plate = document.getElementById("SCENE_ID-plate");
+          const title = document.getElementById("SCENE_ID-title");
+          const titleInner = document.getElementById("SCENE_ID-title-inner");
+          const number = document.getElementById("SCENE_ID-number");
+          const barsBox = document.getElementById("SCENE_ID-bars");
+          const baseline = document.getElementById("SCENE_ID-baseline");
+
+          const bars = data.bars;
+          const n = bars.length;
+          const hi =
+            Number.isInteger(data.highlight) && data.highlight >= 0 && data.highlight < n
+              ? data.highlight
+              : bars.reduce((best, b, i) => (b.value > bars[best].value ? i : best), 0);
+          const unit = data.unit ?? "";
+          const max = Math.max(...bars.map((b) => Math.abs(b.value)), 1e-9);
+          const decimals = Math.min(
+            2,
+            Math.max(0, ...bars.map((b) => (String(b.value).split(".")[1] ?? "").length)),
+          );
+          const fmt = (v) => `${v.toFixed(decimals)}${unit}`;
+
+          // boxes for the title, the giant number and the bars
+          let T;
+          let N;
+          let B;
+          if (overlay) {
+            document.getElementById("SCENE_ID-bg").style.display = "none";
+            const r = KF.region("column");
+            const pad = 36 * u;
+            const wide = r.w / r.h > 1.6;
+            const w = wide ? Math.min(r.w, r.h * 3.2) : r.w;
+            KF.place(plate, { x: r.x, y: r.y, w, h: r.h });
+            const x = r.x + pad;
+            const y = r.y + pad;
+            const iw = w - pad * 2;
+            const ih = r.h - pad * 2;
+            if (wide) {
+              T = { x, y, w: iw, h: ih * 0.2 };
+              N = { x, y: y + ih * 0.26, w: iw * 0.3, h: ih * 0.74 };
+              B = { x: x + iw * 0.36, y: y + ih * 0.26, w: iw * 0.64, h: ih * 0.74 };
+            } else {
+              T = { x, y, w: iw, h: ih * 0.16 };
+              N = { x, y: y + ih * 0.18, w: iw, h: ih * 0.26 };
+              B = { x, y: y + ih * 0.48, w: iw, h: ih * 0.52 };
+            }
+          } else {
+            plate.style.display = "none";
+            KF.speckle(document.getElementById("SCENE_ID-texture"));
+            const fw = W - s.left - s.right;
+            if (data.format === "portrait") {
+              T = { x: s.left, y: s.top + 80 * u, w: fw, h: 300 * u };
+              N = { x: s.left, y: T.y + T.h + 40 * u, w: fw, h: H * 0.22 };
+              B = {
+                x: s.left,
+                y: N.y + N.h + 90 * u,
+                w: fw,
+                h: H - s.bottom - 60 * u - (N.y + N.h + 90 * u),
+              };
+            } else if (data.format === "square") {
+              T = { x: s.left, y: s.top, w: W * 0.52 - s.left, h: 200 * u };
+              N = { x: W * 0.56, y: s.top, w: W - s.right - W * 0.56, h: H * 0.3 };
+              B = { x: s.left, y: s.top + H * 0.36, w: fw, h: H - s.bottom - (s.top + H * 0.36) };
+            } else {
+              const x = s.left + 40 * u;
+              T = { x, y: s.top + 20 * u, w: W * 0.5, h: 200 * u };
+              B = { x, y: T.y + T.h + 60 * u, w: W * 0.5, h: H - s.bottom - (T.y + T.h + 60 * u) };
+              N = { x: W * 0.6, y: s.top, w: W - s.right - W * 0.6, h: H - s.top - s.bottom };
+            }
+          }
+
+          titleInner.textContent = data.title;
+          KF.place(title, { ...T, h: T.h });
+          title.style.height = "auto";
+          KF.fit(title, T.w, T.h, (overlay ? 44 : 76) * u, 18 * u);
+
+          number.textContent = fmt(bars[hi].value);
+          number.style.left = `${N.x}px`;
+          const numberSize = KF.fit(number, N.w, N.h, (overlay ? 180 : 440) * u, 40 * u);
+          number.style.width = `${N.w}px`;
+          // the number stands on the bottom of its box in a row, mid-height when it has a box of its own
+          const nh = number.offsetHeight;
+          number.style.top = `${overlay || data.format !== "landscape" ? N.y + (N.h - nh) / 2 : N.y + (N.h - nh) * 0.55}px`;
+
+          KF.place(barsBox, B);
+          const body = (overlay ? 22 : 30) * u;
+          const labelH = body * 1.5;
+          const valueH = body * 1.5;
+          const area = B.h - labelH - valueH - 12 * u;
+          const slot = B.w / n;
+          const barW = Math.min(slot * 0.62, 180 * u);
+          const radius = barW * KF.num("bar-radius", 0.12);
+          const baseY = B.h - labelH;
+          KF.place(baseline, { x: -8 * u, y: baseY, w: B.w + 16 * u, h: Math.max(4, 8 * u) });
+          baseline.style.borderRadius = `${Math.max(2, 4 * u)}px`;
+          const items = bars.map((b, i) => {
+            const cx = slot * i + slot / 2;
+            const h = Math.max(4 * u, (Math.abs(b.value) / max) * area);
+            const bar = KF.el("div", `SCENE_ID-bar${i === hi ? " SCENE_ID-key" : ""}`, barsBox);
+            KF.place(bar, { x: cx - barW / 2, y: baseY - h, w: barW, h });
+            bar.style.borderRadius = `${radius}px ${radius}px 0 0`;
+            const label = KF.el("p", "SCENE_ID-label", barsBox);
+            label.textContent = b.label;
+            KF.place(label, { x: cx - slot * 0.48, y: baseY + 14 * u, w: slot * 0.96, h: labelH });
+            label.style.height = "auto";
+            KF.fit(label, slot * 0.96, labelH, body, body * 0.55);
+            const value = KF.el("p", "SCENE_ID-value", barsBox);
+            KF.place(value, {
+              x: cx - slot * 0.48,
+              y: baseY - h - valueH,
+              w: slot * 0.96,
+              h: valueH,
+            });
+            value.style.fontSize = `${body}px`;
+            value.style.lineHeight = `${valueH}px`;
+            const count = {
+              _n: 0,
+              _t: null,
+              // GSAP reads the number back; the text only changes when its digits do
+              get v() {
+                return this._n;
+              },
+              set v(x) {
+                this._n = x;
+                const t = fmt(x);
+                if (t === this._t) return;
+                this._t = t;
+                value.textContent = t;
+              },
+            };
+            return { b, bar, label, value, count, t: KF.at(b.at) };
+          });
+          const big = {
+            _n: 0,
+            _t: null,
+            get v() {
+              return this._n;
+            },
+            set v(x) {
+              this._n = x;
+              const t = fmt(x);
+              if (t === this._t) return;
+              this._t = t;
+              number.textContent = t;
+            },
+          };
+
+          const enter = KF.ease("enter", "back.out(1.6)");
+          const grow = KF.ease("grow", "power3.out");
+          const countEase = KF.ease("count", "power2.out");
+          const tl = gsap.timeline({ paused: true });
+          if (overlay)
+            tl.fromTo(plate, { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: grow }, 0.05);
+          const tt = Math.max(KF.at(data.title_at), overlay ? 0.25 : 0.1);
+          tl.fromTo(titleInner, { opacity: 0 }, { opacity: 1, duration: 0.01 }, tt);
+          tl.fromTo(
+            titleInner,
+            { yPercent: 105 },
+            { yPercent: 0, duration: 0.55, ease: enter },
+            tt,
+          );
+          const first = Math.max(tt + 0.2, Math.min(...items.map((it) => it.t)) - 0.35);
+          tl.fromTo(baseline, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: grow }, first);
+          let prev = first;
+          items.forEach((it) => {
+            const t = Math.max(it.t, prev + 0.15, first + 0.2);
+            prev = t;
+            tl.fromTo(it.bar, { scaleY: 0 }, { scaleY: 1, duration: 0.7, ease: grow }, t);
+            tl.fromTo([it.label, it.value], { opacity: 0 }, { opacity: 1, duration: 0.01 }, t);
+            tl.fromTo(it.label, { y: 16 * u }, { y: 0, duration: 0.45, ease: enter }, t);
+            tl.fromTo(it.count, { v: 0 }, { v: it.b.value, duration: 0.7, ease: countEase }, t);
+            it.at = t;
+          });
+          const nt = items[hi].at + 0.15;
+          tl.fromTo(number, { opacity: 0 }, { opacity: 1, duration: 0.01 }, nt);
+          tl.fromTo(
+            number,
+            { scale: 0.86, y: 30 * u },
+            { scale: 1, y: 0, duration: 0.6, ease: enter },
+            nt,
+          );
+          tl.fromTo(big, { v: 0 }, { v: bars[hi].value, duration: 0.9, ease: countEase }, nt);
+          tl.set({}, {}, data.durationS);
+          window.__timelines["SCENE_ID"] = tl;
+          return true;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

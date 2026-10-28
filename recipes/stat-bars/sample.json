@@ -1,0 +1,29 @@
+{
+  "topic": "where viewers watch",
+  "durationS": 6,
+  "words": [
+    ["Videoların", 0.2],
+    ["yüzde", 0.8],
+    ["altmış", 1.1],
+    ["ikisi", 1.5],
+    ["telefondan,", 1.9],
+    ["yüzde", 2.6],
+    ["yirmi", 2.9],
+    ["sekizi", 3.2],
+    ["bilgisayardan,", 3.6],
+    ["kalanı", 4.3],
+    ["televizyondan", 4.7],
+    ["izlendi", 5.2]
+  ],
+  "data": {
+    "title": "Videolar nereden izlendi",
+    "title_at": 0,
+    "unit": "%",
+    "bars": [
+      { "label": "Telefon", "value": 62, "at": 4 },
+      { "label": "Bilgisayar", "value": 28, "at": 8 },
+      { "label": "Televizyon", "value": 10, "at": 10 }
+    ],
+    "highlight": 0
+  }
+}

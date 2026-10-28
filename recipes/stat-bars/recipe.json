@@ -1,0 +1,22 @@
+{
+  "technique": "data-viz",
+  "description": "2 to 5 spoken values as bars on a baseline, each growing on its word, the key value counted up as a giant number",
+  "formats": ["landscape", "portrait", "square"],
+  "modes": ["fullscreen", "overlay"],
+  "fields": {
+    "title": { "type": "text", "max": 34 },
+    "title_at": { "type": "word" },
+    "unit": { "type": "text", "max": 6, "optional": true },
+    "bars": {
+      "type": "list",
+      "min": 2,
+      "max": 5,
+      "of": {
+        "label": { "type": "text", "max": 14 },
+        "value": { "type": "number" },
+        "at": { "type": "word" }
+      }
+    },
+    "highlight": { "type": "number", "optional": true }
+  }
+}
