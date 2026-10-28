@@ -24,7 +24,8 @@ export function withoutUserName(text: string): string {
 
 /** Whether an error is worth a report: not the editor's own stop, not a field they left empty. */
 export function shouldReport(error: string, own: string[]): boolean {
-  return !own.includes(error.trim());
+  // a tab may wrap the message in its own sentence ("The story could not be made: …")
+  return !own.some((o) => error.includes(o));
 }
 
 export function feedbackPage(

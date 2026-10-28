@@ -144,6 +144,7 @@
   "settings.unknown": "Unknown",
   "settings.panel": "Panel",
   "settings.releaseNotes": "Release Notes",
+  "export.cancelled": "The export was cancelled in Premiere. You can try again.",
   "feedback.send": "Send Feedback",
   "feedback.report": "Report This Error",
   "settings.versionsDiffer": "The panel and the app are different versions. Choose Install the Plugin in Premiere from the Kilnframe icon (menu bar or system tray), then restart Premiere.",

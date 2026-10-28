@@ -63,6 +63,16 @@ describe("feedback page link", () => {
     expect(shouldReport("Write a topic first.", own)).toBe(false);
     expect(shouldReport("Lyria failed", own)).toBe(true);
   });
+
+  it("does not offer a report when a tab wraps the editor's own stop in its own sentence", () => {
+    const own = ["The export was cancelled in Premiere. You can try again."];
+    expect(
+      shouldReport(
+        "The story could not be made: The export was cancelled in Premiere. You can try again.",
+        own,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("withoutUserName", () => {

@@ -144,6 +144,7 @@
   "settings.unknown": "Bilinmiyor",
   "settings.panel": "Panel",
   "settings.releaseNotes": "Sürüm Notları",
+  "export.cancelled": "Dışa aktarma Premiere'de iptal edildi. Yeniden deneyebilirsiniz.",
   "feedback.send": "Geri Bildirim Gönder",
   "feedback.report": "Bu Hatayı Bildir",
   "settings.versionsDiffer": "Panel ile uygulama farklı sürümde. Kilnframe simgesinden (menü çubuğunda ya da sistem tepsisinde) Eklentiyi Premiere'e Kur'u seçin, sonra Premiere'i yeniden başlatın.",

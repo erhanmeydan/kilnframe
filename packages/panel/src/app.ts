@@ -2109,7 +2109,14 @@ function mailAbout() {
 
 /** "Report This Error ↗": the site's feedback page opens with the error and the versions filled in. */
 function reportLink(error: string): string {
-  if (!shouldReport(error, [t("job.stopped"), t("story.needBrief"), t("story.badLength")]))
+  if (
+    !shouldReport(error, [
+      t("job.stopped"),
+      t("story.needBrief"),
+      t("story.badLength"),
+      t("export.cancelled"),
+    ])
+  )
     return "";
   const url = feedbackPage({ kind: "error", error, ...mailAbout() });
   return `<div class="link mt" data-act="open-url" data-val="${esc(url)}">${t("feedback.report")} ↗</div>`;

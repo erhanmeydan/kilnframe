@@ -12,6 +12,7 @@ import { frameFor } from "./frame";
 import { formatRational, rationalFps } from "./fps";
 import { withoutLongPathPrefix } from "./home";
 import type { Host, HostSequence, PlaceResult } from "./host";
+import { exportError } from "./export-cancel";
 import { t } from "./i18n";
 import { isOurAnimation, isOurInsert } from "./our-files";
 
@@ -260,13 +261,17 @@ export function createPremiereHost(
         ppro.TickTime.createWithSeconds(startS),
         ppro.TickTime.createWithSeconds(endS),
       );
-      return await ppro.EncoderManager.getManager().exportSequence(
-        sequence,
-        ppro.Constants.ExportType.IMMEDIATELY,
-        native(outputPath),
-        native(presetPath),
-        false,
-      );
+      return await ppro.EncoderManager.getManager()
+        .exportSequence(
+          sequence,
+          ppro.Constants.ExportType.IMMEDIATELY,
+          native(outputPath),
+          native(presetPath),
+          false,
+        )
+        .catch((err: unknown) => {
+          throw exportError(err);
+        });
     } finally {
       area.setWorkAreaInOutPoints(sequence, before.in, before.out);
     }
@@ -492,13 +497,17 @@ export function createPremiereHost(
     async exportRangeAudio(seq, _startS, _endS, file, { wavPreset }) {
       // the whole sequence: the companion cuts the range with FFmpeg (the docs do not say whether in/out is used)
       const { sequence } = await sequenceOf(seq);
-      const ok = await ppro.EncoderManager.getManager().exportSequence(
-        sequence,
-        ppro.Constants.ExportType.IMMEDIATELY,
-        native(file),
-        native(wavPreset),
-        true,
-      );
+      const ok = await ppro.EncoderManager.getManager()
+        .exportSequence(
+          sequence,
+          ppro.Constants.ExportType.IMMEDIATELY,
+          native(file),
+          native(wavPreset),
+          true,
+        )
+        .catch((err: unknown) => {
+          throw exportError(err);
+        });
       return { ok, offsetSeconds: 0 };
     },
     async exportRangePicture(seq, startS, endS, file, { previewPreset }) {
