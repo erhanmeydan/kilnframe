@@ -1,0 +1,31 @@
+{
+  "topic": "a good intro",
+  "durationS": 6,
+  "words": [
+    ["İyi", 0.2],
+    ["bir", 0.45],
+    ["giriş", 0.7],
+    ["için", 1.1],
+    ["üç", 1.4],
+    ["şey", 1.7],
+    ["lazım:", 2.0],
+    ["net", 2.5],
+    ["bir", 2.8],
+    ["soru,", 3.0],
+    ["hızlı", 3.6],
+    ["tempo", 3.9],
+    ["ve", 4.4],
+    ["bir", 4.6],
+    ["söz", 4.9]
+  ],
+  "data": {
+    "heading": "İyi bir giriş",
+    "heading_at": 0,
+    "points": [
+      { "text": "Net bir soru sor", "at": 7 },
+      { "text": "Tempoyu hızlı tut", "at": 10 },
+      { "text": "İzleyiciye bir söz ver", "at": 14 }
+    ],
+    "highlight": 2
+  }
+}
