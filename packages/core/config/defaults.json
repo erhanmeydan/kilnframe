@@ -25,6 +25,7 @@
   "music": {
     "provider": "gemini",
     "model": "lyria-3.5",
-    "lufs": -24
+    "lufs": -24,
+    "planner": { "provider": "gemini", "model": "gemini-3.8-flash" }
   }
 }

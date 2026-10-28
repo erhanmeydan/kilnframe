@@ -194,7 +194,6 @@ describe("music panel", () => {
       exportAudio: async () => ({ ok: true, offsetSeconds: 0 }),
       frames: async () => [],
       renderSettingsLost: async () => true,
-      providerParams: () => ({}),
       on: () => () => undefined,
       render: () => undefined,
       trace: () => undefined,
@@ -219,7 +218,6 @@ describe("music panel", () => {
         lost = false;
         return was;
       },
-      providerParams: () => ({}),
       on: () => () => undefined,
       render: () => undefined,
       trace: () => undefined,
@@ -231,6 +229,31 @@ describe("music panel", () => {
     musicAct(st, ctx, "music-plan", "");
     await new Promise((r) => setTimeout(r, 0));
     expect(st.settingsNote).toBeNull();
+  });
+
+  it("asks for a music plan without the animation text model: the companion plans music with Gemini", async () => {
+    const sent: { type: string; params?: Record<string, unknown> }[] = [];
+    const ctx = {
+      readSequence: async () => ({ name: "Talk", projectPath: "/p/a.prproj", endSeconds: 60 }),
+      inOut: () => null,
+      request: async (m: { type: string; params?: Record<string, unknown> }) => {
+        sent.push(m);
+        return m.type === "job.prepare" ? { jobDir: "/j" } : { jobId: "j1" };
+      },
+      withoutOurInserts: async (_t: unknown, _r: unknown, fn: () => Promise<unknown>) => fn(),
+      exportAudio: async () => ({ ok: true, offsetSeconds: 0 }),
+      frames: async () => [],
+      renderSettingsLost: async () => false,
+      on: () => () => undefined,
+      render: () => undefined,
+      trace: () => undefined,
+    } as never;
+    musicAct(newMusic(), ctx, "music-plan", "");
+    await new Promise((r) => setTimeout(r, 0));
+    const job = sent.find((m) => m.params?.kind === "music-plan");
+    expect(job).toBeDefined();
+    expect(job?.params).not.toHaveProperty("provider");
+    expect(job?.params).not.toHaveProperty("model");
   });
 
   it("offers to report a music error", () => {
@@ -253,7 +276,6 @@ describe("music panel", () => {
       on: (fn: typeof listener) => ((listener = fn), () => undefined),
       request: async () => ({ jobId: "j1" }),
       slider: () => -21,
-      providerParams: () => ({}),
       render: () => undefined,
       trace: () => undefined,
     } as never;

@@ -129,7 +129,7 @@ export function levelText(lv: { speech: string | null; gap: string | null }): st
   return "";
 }
 
-/** What the text model (the plan, a rewritten note) cost: nothing when it ran on the editor's plan. */
+/** What the music planner (the plan, a rewritten note) cost: nothing when it ran on the editor's plan. */
 export function textSpend(r: { listPriceUsd?: unknown; billing?: unknown }): number {
   return r.billing === "plan" ? 0 : Number(r.listPriceUsd ?? 0);
 }
@@ -196,7 +196,6 @@ export interface MusicCtx {
   request(message: unknown, reply: string, timeoutMs?: number): Promise<ServerMessage>;
   send(message: unknown): void;
   on(listener: (m: ServerMessage) => void): () => void;
-  providerParams(): Record<string, string>;
   wavPreset(): string;
   frames(
     target: HostSequence,
@@ -469,7 +468,6 @@ async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
         language: lang(),
         ...(st.note.trim() ? { note: st.note.trim() } : {}),
         ...(frames.length ? { frames: frames.slice(0, 3) } : {}),
-        ...ctx.providerParams(),
       },
       "idle",
       (result) => {
@@ -507,7 +505,7 @@ async function makeMusic(st: MusicState, ctx: MusicCtx, only?: string[]): Promis
       durationS: st.durationS,
       slider: ctx.slider(),
       ...(only ? { only } : {}),
-      ...(Object.keys(notes).length ? { notes, ...ctx.providerParams() } : {}),
+      ...(Object.keys(notes).length ? { notes } : {}),
       ...(st.speechFile ? { speechFile: st.speechFile } : {}),
     },
     back,

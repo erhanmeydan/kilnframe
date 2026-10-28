@@ -2428,7 +2428,6 @@ const musicCtx: MusicCtx = {
     session.request<ServerMessage>(message as never, reply as never, timeoutMs),
   send: (message) => session.send(message),
   on: (listener) => session.on(listener),
-  providerParams: () => providerParams(),
   wavPreset: () => state.system?.wavPreset ?? "",
   frames: async (target, range, jobDir) =>
     (await exportFootageFrames(target, range, jobDir)).map((f) => ({

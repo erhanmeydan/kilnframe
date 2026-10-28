@@ -41,6 +41,8 @@ import {
   runPipeline,
   type Plan,
   type RenderPlanResult,
+  type Defaults,
+  type TextProvider,
 } from "@kilnframe/core";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -62,6 +64,21 @@ import type { JobRunner } from "./queue.js";
 function readScript(path: string | undefined): string | undefined {
   if (!path || !existsSync(path)) return undefined;
   return readFileSync(path, "utf8");
+}
+
+/**
+ * The text model of the Music tab: it plans the music and rewrites a section for a note. It runs on the music
+ * provider's own key (the Google key Lyria uses), never on the text model the editor chose for animations.
+ */
+export async function musicTextProvider(defaults: Defaults, keys: KeyStore): Promise<TextProvider> {
+  const music = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
+  const apiKey = music ? await keys.get(music.keyName) : undefined;
+  if (!apiKey) throw new Error("Music needs a Google Gemini key. Add it in Settings.");
+  return createTextProvider(defaults, {
+    provider: defaults.music.planner.provider,
+    model: defaults.music.planner.model,
+    apiKey,
+  });
 }
 
 /** Runs the core pipeline for a panel job, with the API key read from the keychain. */
@@ -94,18 +111,8 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       });
       return { kind: "parts", ...r };
     }
-    const providerName = params.provider ?? defaults.text.provider;
-    // "auto" falls back to the Anthropic API, so its key is the Anthropic one
-    const apiKey = await keys.get(providerName === "auto" ? "anthropic" : providerName);
-    const provider = createTextProvider(defaults, {
-      provider: providerName,
-      model: params.model,
-      baseURL: params.baseURL,
-      thinking: params.thinking,
-      apiKey,
-    });
-    if (params.kind === "style") return styleJob(params, provider, events.progress);
     if (params.kind === "music-plan") {
+      const planner = await musicTextProvider(defaults, keys);
       mkdirSync(params.outDir, { recursive: true });
       const ranged = params.rangeStartS !== undefined && params.rangeEndS !== undefined;
       const speech = ranged ? join(params.outDir, "range.wav") : params.audioPath;
@@ -123,7 +130,7 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
         : (transcript?.duration_s ?? (await decodeAudio(speech)).length / 16_000);
       const usage = new UsageMeter();
       const plan = await writeMusicPlan({
-        provider: usage.wrap(provider),
+        provider: usage.wrap(planner),
         transcript,
         durationS,
         note: params.note,
@@ -138,9 +145,20 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
         speechFile: speech,
         durationS,
         listPriceUsd: usage.total().listPriceUsd || 0,
-        billing: provider.billing ?? "api",
+        billing: planner.billing ?? "api",
       };
     }
+    const providerName = params.provider ?? defaults.text.provider;
+    // "auto" falls back to the Anthropic API, so its key is the Anthropic one
+    const apiKey = await keys.get(providerName === "auto" ? "anthropic" : providerName);
+    const provider = createTextProvider(defaults, {
+      provider: providerName,
+      model: params.model,
+      baseURL: params.baseURL,
+      thinking: params.thinking,
+      apiKey,
+    });
+    if (params.kind === "style") return styleJob(params, provider, events.progress);
     if (params.kind === "story-write") {
       const usage = new UsageMeter();
       const story = await writeStory({
@@ -363,19 +381,12 @@ async function musicMakeJob(
   // a section joined in the panel may be longer than one Lyria piece: split again here
   let plan = splitLong(params.plan);
   const notes = Object.entries(params.notes ?? {}).filter(([, note]) => note.trim());
-  // the notes are rewritten by the text model: its price goes into the music spend too
+  // the notes are rewritten by the music planner (Gemini): its price goes into the music spend too
   const usage = new UsageMeter();
   let billing: string = "api";
   if (notes.length) {
     progress("Rewriting the music for your notes");
-    const name = params.provider ?? defaults.text.provider;
-    const text = createTextProvider(defaults, {
-      provider: name,
-      model: params.model,
-      baseURL: params.baseURL,
-      thinking: params.thinking,
-      apiKey: await keys.get(name === "auto" ? "anthropic" : name),
-    });
+    const text = await musicTextProvider(defaults, keys);
     billing = text.billing ?? "api";
     const metered = usage.wrap(text);
     for (const [id, note] of notes) {

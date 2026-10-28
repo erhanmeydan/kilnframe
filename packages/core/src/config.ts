@@ -33,8 +33,17 @@ export const DefaultsSchema = z.object({
       provider: z.string().min(1),
       model: z.string().min(1),
       lufs: z.number().max(-10).default(-24),
+      /** The text model that plans the music and rewrites a section for a note, on the music provider's key. */
+      planner: z
+        .object({ provider: z.string().min(1), model: z.string().min(1) })
+        .default({ provider: "gemini", model: "gemini-3.8-flash" }),
     })
-    .default({ provider: "gemini", model: "lyria-3.5", lufs: -24 }),
+    .default({
+      provider: "gemini",
+      model: "lyria-3.5",
+      lufs: -24,
+      planner: { provider: "gemini", model: "gemini-3.8-flash" },
+    }),
   /** Reading text in the editor's screenshots. */
   ocr: z
     .object({
