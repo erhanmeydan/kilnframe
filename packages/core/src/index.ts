@@ -10,6 +10,7 @@ export * from "./media/audio.js";
 export * from "./stages/transcribe.js";
 export * from "./styles.js";
 export * from "./recipes.js";
+export * from "./recipe-fill.js";
 export * from "./hyperframes.js";
 export * from "./project/assemble.js";
 export * from "./stages/deliver.js";
