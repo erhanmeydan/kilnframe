@@ -8,7 +8,7 @@ import { sceneMode, type Plan } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
 import { prepareAssets, readAssetText, type AssetInput } from "../assets.js";
 import { prepareFrames, type FrameInput } from "../frames.js";
-import { loadRecipes } from "../recipes.js";
+import { loadRecipes, type RecipeInfo } from "../recipes.js";
 import { loadStyle } from "../styles.js";
 import {
   composeScene,
@@ -48,7 +48,7 @@ export interface PipelineOptions {
   assets?: AssetInput[];
   /** Frames of the footage under the range, for choosing overlays and placing them beside the speaker. */
   frames?: FrameInput[];
-  /** Fill scenes from scene recipes where the plan picks one (default true); off for comparisons. */
+  /** Fill scenes from scene recipes where the plan picks one; left out, the settings decide (off for now). */
   recipes?: boolean;
   onProgress?: (message: string) => void;
 }
@@ -256,6 +256,11 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
   return round;
 }
 
+/** The recipes a job may use: the caller's choice, else the settings' switch. */
+export function pipelineRecipes(enabled: boolean | undefined, defaults: Defaults): RecipeInfo[] {
+  return (enabled ?? defaults.recipes.enabled) ? loadRecipes() : [];
+}
+
 /** transcribe → plan → compose → validate (with repair) → stills → render → deliver → sfx. */
 export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
   const log = o.onProgress ?? (() => {});
@@ -319,7 +324,7 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
   }
   const frames = prepareFrames(o.frames ?? [], outDir);
   if (frames.length) log(`Frames of the footage: ${frames.length}`);
-  const recipes = o.recipes === false ? [] : loadRecipes();
+  const recipes = pipelineRecipes(o.recipes, o.defaults);
   const plan = await planInsert({
     provider,
     transcript,

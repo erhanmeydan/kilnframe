@@ -44,6 +44,8 @@ export const DefaultsSchema = z.object({
       lufs: -24,
       planner: { provider: "gemini", model: "gemini-3.8-flash" },
     }),
+  /** Scene recipes: scenes filled from tested skeletons instead of written (recipes/). Off until measured. */
+  recipes: z.object({ enabled: z.boolean() }).default({ enabled: false }),
   /** Reading text in the editor's screenshots. */
   ocr: z
     .object({

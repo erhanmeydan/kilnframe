@@ -113,3 +113,17 @@ describe("recipes in the plan", () => {
     expect(p.join(" ")).toContain("images");
   });
 });
+
+describe("recipes switch", () => {
+  it("leaves recipes off unless the settings or the caller turn them on", async () => {
+    const { loadDefaults, pipelineRecipes } = await import("../src/index.js");
+    const defaults = loadDefaults();
+    expect(defaults.recipes.enabled).toBe(false);
+    expect(pipelineRecipes(undefined, defaults)).toEqual([]);
+    expect(pipelineRecipes(true, defaults).length).toBeGreaterThan(0);
+    expect(pipelineRecipes(false, { ...defaults, recipes: { enabled: true } })).toEqual([]);
+    expect(
+      pipelineRecipes(undefined, { ...defaults, recipes: { enabled: true } }).length,
+    ).toBeGreaterThan(0);
+  });
+});

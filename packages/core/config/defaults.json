@@ -13,6 +13,7 @@
     "effort": "high",
     "suggestModel": "claude-sonnet-5-5"
   },
+  "recipes": { "enabled": false },
   "ocr": {
     "languages": ["tur", "eng"],
     "dataUrl": "https://github.com/tesseract-ocr/tessdata_fast/raw/main"
