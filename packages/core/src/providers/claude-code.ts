@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,10 +27,6 @@ export interface ClaudeCodeStatus {
   authMethod: string | null;
   /** "pro", "max", ... when signed in with a plan. */
   subscription: string | null;
-}
-
-export function claudeBinary(): string {
-  return process.env.KILNFRAME_CLAUDE ?? "claude";
 }
 
 /**
@@ -75,7 +71,7 @@ function cliEnv(usePlan: boolean): NodeJS.ProcessEnv {
 
 /** Version and sign-in state. Only the fields the settings screen needs are kept (no e-mail or org). */
 export function claudeCodeStatus(): ClaudeCodeStatus {
-  const version = spawnSync(claudeBinary(), ["--version"], { encoding: "utf8", timeout: 20_000 });
+  const version = spawnAgentSync("claude", ["--version"], { encoding: "utf8", timeout: 20_000 });
   if (version.error || version.status !== 0) {
     return {
       installed: false,
@@ -85,7 +81,7 @@ export function claudeCodeStatus(): ClaudeCodeStatus {
       subscription: null,
     };
   }
-  const status = spawnSync(claudeBinary(), ["auth", "status"], {
+  const status = spawnAgentSync("claude", ["auth", "status"], {
     encoding: "utf8",
     timeout: 20_000,
     env: cliEnv(true),
@@ -186,12 +182,14 @@ export class ClaudeCodeProvider implements TextProvider {
 
   async listModels(): Promise<ModelInfo[]> {
     // The CLI has no model list; it accepts the current model IDs and the aliases opus, sonnet, haiku.
-    return ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5", "claude-haiku-4-5"].map((id) => ({
-      id,
-      displayName: id,
-      contextWindow: null,
-      vision: true,
-    }));
+    return ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5", "claude-haiku-4-5"].map(
+      (id) => ({
+        id,
+        displayName: id,
+        contextWindow: null,
+        vision: true,
+      }),
+    );
   }
 
   async complete(req: TextRequest): Promise<TextResponse> {
@@ -225,13 +223,7 @@ export class ClaudeCodeProvider implements TextProvider {
       ];
       if (hasImages) args.push("--allowedTools", "Read", "--add-dir", imageDir);
       const prompt = conversationPrompt(req.messages, imagePaths);
-      const { stdout, stderr, code } = await run(
-        claudeBinary(),
-        args,
-        prompt,
-        work,
-        cliEnv(this.usePlan),
-      );
+      const { stdout, stderr, code } = await run(args, prompt, work, cliEnv(this.usePlan));
       let parsed: CliResult;
       try {
         parsed = JSON.parse(stdout) as CliResult;
@@ -283,20 +275,19 @@ export class ClaudeCodeProvider implements TextProvider {
 }
 
 function run(
-  bin: string,
   args: string[],
   input: string,
   cwd: string,
   env: NodeJS.ProcessEnv,
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+    const proc = spawnAgent("claude", args, { cwd, env });
     let stdout = "";
     let stderr = "";
     proc.stdout.on("data", (c: Buffer) => (stdout += c.toString()));
     proc.stderr.on("data", (c: Buffer) => (stderr += c.toString()));
     proc.on("error", (err) =>
-      reject(new ProviderError(`Could not start Claude Code (${bin}): ${err.message}`, false)),
+      reject(new ProviderError(`Could not start Claude Code: ${err.message}`, false)),
     );
     proc.on("close", (code) => resolve({ stdout, stderr, code: code ?? 1 }));
     proc.stdin.end(input);

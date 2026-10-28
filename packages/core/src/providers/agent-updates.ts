@@ -1,8 +1,5 @@
-import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { claudeBinary } from "./claude-code.js";
-import { codexBinary } from "./codex.js";
-import { grokBinary } from "./grok.js";
+import { spawnAgentSync } from "./agent-binary.js";
 
 /**
  * Whether a newer agent CLI is out, for the settings' Update (like HyperFrames Studio). An outdated CLI can
@@ -37,9 +34,8 @@ export function olderVersion(a: string, b: string): boolean {
 }
 
 function installedVersion(agent: AgentId): string | null {
-  const bin =
-    agent === "claude-code" ? claudeBinary() : agent === "codex" ? codexBinary() : grokBinary();
-  const r = spawnSync(bin, ["--version"], { encoding: "utf8", timeout: 20_000 });
+  const name = agent === "claude-code" ? "claude" : agent;
+  const r = spawnAgentSync(name, ["--version"], { encoding: "utf8", timeout: 20_000 });
   if (r.error || r.status !== 0) return null;
   return r.stdout.match(/\d+\.\d+\.\d+(?:-[\w.]+)?/)?.[0] ?? null;
 }
@@ -51,7 +47,7 @@ export async function agentUpdate(
   const current = installedVersion(agent);
   if (!current) return { current: null, latest: null, available: false };
   if (agent === "grok") {
-    const r = spawnSync(grokBinary(), ["update", "--check", "--json"], {
+    const r = spawnAgentSync("grok", ["update", "--check", "--json"], {
       encoding: "utf8",
       timeout: 30_000,
       cwd: tmpdir(),

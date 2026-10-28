@@ -7,9 +7,8 @@ import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  claudeBinary,
-  codexBinary,
-  grokBinary,
+  spawnAgentSync,
+  withFreshPath,
   withoutHostSession,
   claudeCodeStatus,
   codexStatus,
@@ -278,9 +277,7 @@ main().catch((err: unknown) => {
  * touches a credential. It signs that CLI out on this computer, not just in Kilnframe.
  */
 function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
-  const bin =
-    agent === "claude-code" ? claudeBinary() : agent === "codex" ? codexBinary() : grokBinary();
-  const r = spawnSync(bin, logoutArgs(agent), {
+  const r = spawnAgentSync(agent === "claude-code" ? "claude" : agent, logoutArgs(agent), {
     encoding: "utf8",
     timeout: 30_000,
     env: withoutHostSession(process.env),
@@ -306,7 +303,8 @@ function openInTerminal(command: string, env: Record<string, string> = {}): void
     ]);
   } else if (process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", command], {
-      env: { ...process.env, ...env },
+      // the companion's own PATH is the one of sign-in time: an agent installed since would not be found
+      env: { ...withFreshPath(process.env), ...env },
       detached: true,
       stdio: "ignore",
     }).unref();

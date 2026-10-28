@@ -18,6 +18,7 @@ export * from "./stages/render.js";
 export * from "./stages/sfx.js";
 export * from "./prompts.js";
 export * from "./providers/index.js";
+export * from "./providers/agent-binary.js";
 export * from "./safe-area.js";
 export * from "./stages/compose.js";
 export * from "./stages/plan.js";
