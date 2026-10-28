@@ -51,7 +51,9 @@ const runDir = join(
 mkdirSync(runDir, { recursive: true });
 
 const picked = cases.filter((c) => (only.length ? only.includes(c.id) : true));
-const rows = [];
+// a run that stopped half way goes on: the jobs already in its summary are kept and not run again
+const summaryPath = join(runDir, "summary.json");
+const rows = existsSync(summaryPath) ? JSON.parse(readFileSync(summaryPath, "utf8")) : [];
 let n = 0;
 for (const c of picked) {
   const style = fixedStyle ?? STYLES[n++ % STYLES.length];
@@ -66,6 +68,7 @@ for (const c of picked) {
     : await transcribe({ audioPath: audio, defaults, language: c.language });
   writeFileSync(trPath, JSON.stringify(transcript, null, 2));
   for (let k = 1; k <= repeat; k++) {
+    if (rows.some((r) => r.id === c.id && r.style === style && r.run === k)) continue;
     const outDir = join(runDir, `${c.id}-${style}-${k}`);
     rmSync(outDir, { recursive: true, force: true });
     mkdirSync(outDir, { recursive: true });
