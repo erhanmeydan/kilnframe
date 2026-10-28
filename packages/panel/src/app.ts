@@ -58,6 +58,7 @@ import { formatMismatch } from "./format-check";
 import { readableJobError } from "./job-errors";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
+import { storyMusicNote } from "./story-music";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -131,7 +132,7 @@ interface StoryState {
   jobId: string | null;
   last: string;
   error: string | null;
-  done: { name: string; durationS: number } | null;
+  done: { name: string; durationS: number; musicNote?: string } | null;
 }
 
 function newStory(): StoryState {
@@ -1076,6 +1077,7 @@ function storyBox(): string {
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
     return `<div class="box ok mt">${t("story.done", { name: st.done.name, duration: formatDuration(st.done.durationS) })}</div>
+  ${st.done.musicNote ? `<div class="box mt">${esc(st.done.musicNote)}</div>` : ""}
   <div class="btn2 mt" data-act="story-new">${t("story.restart")}</div>`;
   if (st.stage === "script") {
     // the narration voices first and the chosen one always; the rest behind All Voices
@@ -1292,7 +1294,11 @@ async function makeStorySequence() {
             st.format === "orijinal" ? undefined : st.format,
           )
           .then(() => {
-            st.done = { name, durationS: Number(result.durationS) };
+            st.done = {
+              name,
+              durationS: Number(result.durationS),
+              musicNote: storyMusicNote(result.musicError ? String(result.musicError) : null),
+            };
             st.stage = "done";
             trace(`story: sequence ${name}`);
             return readSequence();

@@ -244,6 +244,8 @@
   "story.make": "Read It Aloud and Add a New Sequence",
   "story.voicing": "Reading the story aloud",
   "story.placing": "Adding the new sequence",
+  "story.musicFailed": "The music could not be made, so the story goes on without music. You can add music later in the Music tab.",
+  "story.musicFreeTier": "The music could not be made, so the story goes on without music: your Gemini key is on the free tier, which allows no music (Lyria). Turn on billing in Google AI Studio to get music.",
   "story.done": "The narration is in a new sequence, {name} ({duration}). Pick a style and press Create Animation.",
   "story.failed": "Story mode stopped: {message}",
   "story.restart": "New Story",

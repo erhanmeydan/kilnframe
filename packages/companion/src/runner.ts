@@ -308,6 +308,23 @@ async function styleJob(
 }
 
 /** Reads the approved narration aloud into the job folder (story.txt and narration.wav). */
+/**
+ * Story music is extra: when it fails (a free tier Gemini key gets no Lyria requests at all), the narration is
+ * still delivered and the reason travels with it.
+ */
+export async function musicOrNote<T>(
+  make: () => Promise<T>,
+): Promise<{ music: T | null; musicError: string | null }> {
+  try {
+    return { music: await make(), musicError: null };
+  } catch (err) {
+    return {
+      music: null,
+      musicError: String(err instanceof Error ? err.message : err).split("\n")[0] ?? "",
+    };
+  }
+}
+
 async function storyVoiceJob(
   params: StoryVoiceJobParams,
   keys: KeyStore,
@@ -336,25 +353,31 @@ async function storyVoiceJob(
     .find((p) => p.id === speech.id)
     ?.models.find((m) => m.id === speech.model)?.price;
   let music: { file: string; priceUsd: number } | null = null;
+  let musicError: string | null = null;
   if (params.music) {
     const mood =
       (params.music.style ? loadPalette(params.music.style).music : undefined) ??
       `A calm, warm documentary score that fits a narration read in this manner: ${params.style ?? "clear and warm"}.`;
-    music = await makeMusic({
-      defaults,
-      apiKey: (await keys.get(defaults.music.provider)) ?? "",
-      brief: mood,
-      subject: params.music.subject ?? params.title,
-      narration: result.file,
-      durationS: result.durationS,
-      outFile: join(params.outDir, "music.wav"),
-      onProgress: progress,
-    });
+    const brief = params.music;
+    ({ music, musicError } = await musicOrNote(async () =>
+      makeMusic({
+        defaults,
+        apiKey: (await keys.get(defaults.music.provider)) ?? "",
+        brief: mood,
+        subject: brief.subject ?? params.title,
+        narration: result.file,
+        durationS: result.durationS,
+        outFile: join(params.outDir, "music.wav"),
+        onProgress: progress,
+      }),
+    ));
+    if (musicError) progress(`Music failed, the story goes on without it: ${musicError}`);
   }
   return {
     kind: "story-voice",
     music: music?.file ?? null,
     musicPriceUsd: music?.priceUsd ?? 0,
+    musicError,
     file: result.file,
     durationS: result.durationS,
     chunks: result.chunks,

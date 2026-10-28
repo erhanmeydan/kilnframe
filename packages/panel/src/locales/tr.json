@@ -244,6 +244,8 @@
   "story.make": "Seslendir ve Yeni Sekansa Ekle",
   "story.voicing": "Hikaye seslendiriliyor",
   "story.placing": "Yeni sekans ekleniyor",
+  "story.musicFailed": "Müzik yapılamadı, hikaye müziksiz devam ediyor. Müziği sonra Müzik sekmesinden ekleyebilirsiniz.",
+  "story.musicFreeTier": "Müzik yapılamadı, hikaye müziksiz devam ediyor: Gemini anahtarınız ücretsiz katmanda ve bu katman müzik (Lyria) üretmeye izin vermiyor. Müzik için Google AI Studio'da faturalandırmayı açın.",
   "story.done": "Seslendirme yeni bir sekansa yerleşti: {name} ({duration}). Bir stil seçip Animasyon Oluştur'a basın.",
   "story.failed": "Hikaye modu durdu: {message}",
   "story.restart": "Yeni Hikaye",
