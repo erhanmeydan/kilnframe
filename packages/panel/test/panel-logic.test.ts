@@ -27,6 +27,23 @@ describe("range", () => {
     expect(r).toMatchObject({ startS: 0, endS: 40.09, source: "sequence", warning: null });
   });
 
+  it("takes the start for a missing In and the end for a missing Out", () => {
+    expect(pickRange(-400000, 12.5, 40.09)).toMatchObject({
+      startS: 0,
+      endS: 12.5,
+      source: "inout",
+    });
+    expect(pickRange(30, -400000, 40.09)).toMatchObject({
+      startS: 30,
+      endS: 40.09,
+      source: "inout",
+    });
+  });
+
+  it("falls back to the whole sequence when In is after Out", () => {
+    expect(pickRange(20, 10, 40.09)).toMatchObject({ startS: 0, endS: 40.09, source: "sequence" });
+  });
+
   it("says a range over 45 s is made in parts", () => {
     const r = pickRange(-400000, -400000, 75.4);
     expect(r.warning).toBe(

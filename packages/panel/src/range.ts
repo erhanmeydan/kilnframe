@@ -1,5 +1,5 @@
 // Which part of the sequence an insert covers: the in/out
-// range when it is set, otherwise the whole sequence; ranges over 45 s are made in parts (core parts.ts).
+// range when either point is set, otherwise the whole sequence; ranges over 45 s are made in parts (core parts.ts).
 import { t } from "./i18n";
 
 /** Premiere returns this (in seconds) for an unset in or out point (checked in 26.5.2). */
@@ -31,9 +31,14 @@ export interface Range {
 }
 
 export function pickRange(inS: number, outS: number, sequenceEndS: number): Range {
-  const hasInOut = inS > UNSET && outS > UNSET && outS > inS;
-  const startS = hasInOut ? Math.max(0, inS) : 0;
-  const endS = hasInOut ? Math.min(outS, sequenceEndS || outS) : sequenceEndS;
+  // an Out alone runs from the start, an In alone to the end, as Premiere's own export does
+  const inSet = inS > UNSET;
+  const outSet = outS > UNSET;
+  const markedStart = inSet ? Math.max(0, inS) : 0;
+  const markedEnd = outSet ? Math.min(outS, sequenceEndS || outS) : sequenceEndS;
+  const hasInOut = (inSet || outSet) && markedEnd > markedStart;
+  const startS = hasInOut ? markedStart : 0;
+  const endS = hasInOut ? markedEnd : sequenceEndS;
   const durationS = Math.max(0, endS - startS);
   const warning =
     durationS > LONG_RANGE_SECONDS
