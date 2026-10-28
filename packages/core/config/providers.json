@@ -8,14 +8,14 @@
       "displayName": "Claude (Anthropic)",
       "adapter": "anthropic",
       "baseURL": null,
-      "models": ["claude-opus-5-5", "claude-sonnet-5-5"],
+      "models": ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5"],
       "capabilities": {
         "vision": true,
         "structuredOutput": true,
         "contextWindow": 1000000
       },
       "tier": "recommended",
-      "verified": "SDK and model IDs from the claude-api reference bundled with Claude Code, 2026-09-25",
+      "verified": "SDK and model IDs from the claude-api reference bundled with Claude Code, 2026-09-25; claude-fable-5-1 (10/50 USD per MTok, adaptive thinking only, refusal fallbacks) added from the same reference, 2026-10-28",
       "keyUrl": "https://console.anthropic.com/settings/keys"
     },
     {

@@ -2,6 +2,16 @@
   "$comment": "Prices in USD per million tokens, from the Claude API reference cached 2026-09-25. Cache writes are estimated at 1.25x input (5 minute cache). Used to show cost before and after a job; update when prices change.",
   "version": 1,
   "models": {
+    "claude-fable-5-1": {
+      "label": "Claude Fable 5.1",
+      "quality": "best",
+      "price": {
+        "input": 10,
+        "output": 50,
+        "cacheWrite": 12.5,
+        "cacheRead": 0.25
+      }
+    },
     "claude-opus-5-5": {
       "label": "Claude Opus 5.5",
       "quality": "best",
