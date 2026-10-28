@@ -189,18 +189,37 @@
             return { st, node, label, R, cx, cy, t: KF.at(st.at) };
           });
 
-          // connectors from edge to edge, drawn on as the next step arrives
+          // connectors from edge to edge, drawn on as the next step arrives; a drawn style makes them
+          // curvy red arrows, as a teacher would
           const stroke = Math.max(3, KF.num("line-width", 0.55) * 14 * u);
           const lines = nodes.slice(1).map((b, i) => {
             const a = nodes[i];
             const dx = b.cx - a.cx;
             const dy = b.cy - a.cy;
             const d = Math.hypot(dx, dy);
-            const gap = 14 * u;
+            const gap = (KF.drawn ? 26 : 14) * u;
             const x1 = a.cx + (dx / d) * (a.R + gap);
             const y1 = a.cy + (dy / d) * (a.R + gap);
             const x2 = b.cx - (dx / d) * (b.R + gap);
             const y2 = b.cy - (dy / d) * (b.R + gap);
+            if (KF.drawn) {
+              const nx = -dy / d;
+              const ny = dx / d;
+              const bend = Math.min(40 * u, d * 0.12);
+              const pts = [0, 0.25, 0.5, 0.75, 1].map((f) => {
+                const k = Math.sin(f * Math.PI) * bend;
+                return [x1 + (x2 - x1) * f - nx * k, y1 + (y2 - y1) * f - ny * k];
+              });
+              const head = Math.min(22 * u, Math.hypot(x2 - x1, y2 - y1) * 0.3);
+              const ang = Math.atan2(y2 - pts[3][1], x2 - pts[3][0]);
+              const tip = (s) => [
+                x2 - head * Math.cos(ang + s * 0.55),
+                y2 - head * Math.sin(ang + s * 0.55),
+              ];
+              const shaft = KF.line(pts, { key: true });
+              const barbs = KF.line([tip(1), [x2, y2], tip(-1)], { key: true });
+              return { part: { paths: [...shaft.paths, ...barbs.paths] } };
+            }
             const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             path.setAttribute("class", "SCENE_ID-line");
             path.setAttribute("d", `M${x1} ${y1} L${x2} ${y2}`);
@@ -214,18 +233,30 @@
           const enter = KF.ease("enter", "back.out(1.6)");
           const grow = KF.ease("grow", "power3.out");
           const tl = gsap.timeline({ paused: true });
-          if (overlay)
-            tl.fromTo(plate, { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: grow }, 0.05);
+          if (overlay) {
+            if (KF.drawn) {
+              tl.fromTo(plate, { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0.05);
+              KF.enter(tl, KF.shape("rect", KF.boxOf(plate)), 0.05, "draw");
+            } else tl.fromTo(plate, { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: grow }, 0.05);
+          }
           const tt = Math.max(KF.at(data.title_at), overlay ? 0.25 : 0.1);
-          tl.fromTo(titleInner, { opacity: 0 }, { opacity: 1, duration: 0.01 }, tt);
-          tl.fromTo(
-            titleInner,
-            { yPercent: 105 },
-            { yPercent: 0, duration: 0.55, ease: enter },
-            tt,
-          );
-          let prev = tt + 0.15;
+          let prev = KF.drawn
+            ? KF.enter(tl, titleInner, tt, "rise")
+            : (KF.enter(tl, titleInner, tt, "rise"), tt + 0.15);
           nodes.forEach((nd, i) => {
+            if (KF.drawn) {
+              // a marker loop for the node, its number and label written after it, the arrow in between
+              const t = Math.max(nd.t, prev + 0.05);
+              let at = t;
+              if (i > 0) at = KF.enter(tl, lines[i - 1].part, t, "draw");
+              const r = { x: nd.cx - nd.R, y: nd.cy - nd.R, w: nd.R * 2, h: nd.R * 2 };
+              at = KF.enter(tl, KF.shape("circle", r, { key: i === key }), at, "draw");
+              // the writing goes on while the next step is drawn
+              KF.enter(tl, nd.node, at, "text");
+              KF.enter(tl, nd.label, at, "text");
+              prev = at;
+              return;
+            }
             const t = Math.max(nd.t, prev + (i ? 0.35 : 0.1));
             prev = t;
             if (i > 0) {

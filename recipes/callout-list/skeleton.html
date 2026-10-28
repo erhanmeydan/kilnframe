@@ -155,6 +155,18 @@
               };
             }
           }
+          if (KF.drawn) {
+            // no filled block on a board: the heading is written at the top and underlined in red
+            block.style.display = "none";
+            // a written heading keeps its descenders: no rise mask to clip them
+            heading.style.overflow = "visible";
+            if (!overlay) {
+              const fw = W - s.left - s.right;
+              headBox = { x: s.left + 40 * u, y: s.top + 30 * u, w: fw * 0.8, h: 180 * u };
+              const top = headBox.y + headBox.h + 70 * u;
+              list = { x: s.left + 70 * u, y: top, w: fw * 0.8, h: H - s.bottom - 40 * u - top };
+            }
+          }
           KF.place(block, blockBox);
           block.style.transformOrigin = side === "top" ? "50% 0" : "0 50%";
 
@@ -208,38 +220,47 @@
           const enter = KF.ease("enter", "back.out(1.6)");
           const grow = KF.ease("grow", "power3.out");
           const tl = gsap.timeline({ paused: true });
-          if (overlay)
-            tl.fromTo(plate, { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: grow }, 0.05);
-          const scale = side === "top" ? "scaleY" : "scaleX";
-          tl.fromTo(
-            block,
-            { [scale]: 0 },
-            { [scale]: 1, duration: 0.6, ease: grow },
-            overlay ? 0.15 : 0.05,
-          );
-          const ht = Math.max(KF.at(data.heading_at), overlay ? 0.35 : 0.3);
-          tl.fromTo(headingInner, { opacity: 0 }, { opacity: 1, duration: 0.01 }, ht);
-          tl.fromTo(
-            headingInner,
-            { yPercent: 105 },
-            { yPercent: 0, duration: 0.55, ease: enter },
-            ht,
-          );
-          let prev = ht + 0.2;
-          items.forEach((it, i) => {
-            const t = Math.max(it.t, prev + 0.2);
-            prev = t;
-            tl.fromTo(it.marker, { scale: 0 }, { scale: 1, duration: 0.45, ease: enter }, t);
-            tl.fromTo(it.el, { opacity: 0 }, { opacity: 1, duration: 0.01 }, t + 0.06);
-            tl.fromTo(it.el, { x: -24 * u }, { x: 0, duration: 0.5, ease: enter }, t + 0.06);
-            if (i === key)
-              tl.fromTo(
-                it.marker,
-                { rotation: -90 },
-                { rotation: 0, duration: 0.6, ease: "back.out(2)", immediateRender: false },
-                t + 0.1,
-              );
-          });
+          if (KF.drawn) {
+            if (overlay) {
+              tl.fromTo(plate, { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0.05);
+              KF.enter(tl, KF.shape("rect", KF.boxOf(plate)), 0.05, "draw");
+            }
+            const ht = Math.max(KF.at(data.heading_at), overlay ? 0.35 : 0.2);
+            let prev = KF.mark(tl, [headingInner], KF.enter(tl, headingInner, ht, "text"));
+            items.forEach((it, i) => {
+              const box = KF.boxOf(it.marker);
+              it.marker.style.display = "none";
+              const t = Math.max(it.t, prev + 0.05);
+              const end = KF.enter(tl, KF.shape("rect", box, { key: i === key }), t, "draw");
+              prev = KF.enter(tl, it.el, end, "text");
+            });
+          } else {
+            if (overlay)
+              tl.fromTo(plate, { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: grow }, 0.05);
+            const scale = side === "top" ? "scaleY" : "scaleX";
+            tl.fromTo(
+              block,
+              { [scale]: 0 },
+              { [scale]: 1, duration: 0.6, ease: grow },
+              overlay ? 0.15 : 0.05,
+            );
+            const ht = Math.max(KF.at(data.heading_at), overlay ? 0.35 : 0.3);
+            KF.enter(tl, headingInner, ht, "rise");
+            let prev = ht + 0.2;
+            items.forEach((it, i) => {
+              const t = Math.max(it.t, prev + 0.2);
+              prev = t;
+              tl.fromTo(it.marker, { scale: 0 }, { scale: 1, duration: 0.45, ease: enter }, t);
+              KF.enter(tl, it.el, t + 0.06, "slide");
+              if (i === key)
+                tl.fromTo(
+                  it.marker,
+                  { rotation: -90 },
+                  { rotation: 0, duration: 0.6, ease: "back.out(2)", immediateRender: false },
+                  t + 0.1,
+                );
+            });
+          }
           tl.set({}, {}, data.durationS);
           window.__timelines["SCENE_ID"] = tl;
           return true;

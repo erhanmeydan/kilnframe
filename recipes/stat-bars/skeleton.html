@@ -254,37 +254,72 @@
           const grow = KF.ease("grow", "power3.out");
           const countEase = KF.ease("count", "power2.out");
           const tl = gsap.timeline({ paused: true });
-          if (overlay)
-            tl.fromTo(plate, { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: grow }, 0.05);
+          if (overlay) {
+            if (KF.drawn) {
+              tl.fromTo(plate, { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0.05);
+              KF.enter(tl, KF.shape("rect", KF.boxOf(plate)), 0.05, "draw");
+            } else tl.fromTo(plate, { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: grow }, 0.05);
+          }
           const tt = Math.max(KF.at(data.title_at), overlay ? 0.25 : 0.1);
-          tl.fromTo(titleInner, { opacity: 0 }, { opacity: 1, duration: 0.01 }, tt);
-          tl.fromTo(
-            titleInner,
-            { yPercent: 105 },
-            { yPercent: 0, duration: 0.55, ease: enter },
-            tt,
-          );
+          KF.enter(tl, titleInner, tt, "rise");
           const first = Math.max(tt + 0.2, Math.min(...items.map((it) => it.t)) - 0.35);
-          tl.fromTo(baseline, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: grow }, first);
           let prev = first;
-          items.forEach((it) => {
+          if (KF.drawn) {
+            // marker outlines and hatching instead of filled bars; drawn lines never move
+            baseline.style.display = "none";
+            const y = B.y + baseY;
+            prev = KF.enter(
+              tl,
+              KF.line([
+                [B.x - 8 * u, y + 2 * u],
+                [B.x + B.w + 8 * u, y - u],
+              ]),
+              first,
+              "draw",
+            );
+          } else
+            tl.fromTo(baseline, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: grow }, first);
+          items.forEach((it, i) => {
             const t = Math.max(it.t, prev + 0.15, first + 0.2);
-            prev = t;
-            tl.fromTo(it.bar, { scaleY: 0 }, { scaleY: 1, duration: 0.7, ease: grow }, t);
-            tl.fromTo([it.label, it.value], { opacity: 0 }, { opacity: 1, duration: 0.01 }, t);
-            tl.fromTo(it.label, { y: 16 * u }, { y: 0, duration: 0.45, ease: enter }, t);
-            tl.fromTo(it.count, { v: 0 }, { v: it.b.value, duration: 0.7, ease: countEase }, t);
-            it.at = t;
+            if (KF.drawn) {
+              it.bar.style.display = "none";
+              const r = {
+                x: B.x + parseFloat(it.bar.style.left),
+                y: B.y + parseFloat(it.bar.style.top),
+                w: parseFloat(it.bar.style.width),
+                h: parseFloat(it.bar.style.height),
+              };
+              const end = KF.enter(tl, KF.shape("bar", r, { key: i === hi }), t, "draw");
+              it.count.v = it.b.value;
+              KF.enter(tl, it.value, end, "text");
+              KF.enter(tl, it.label, t, "text");
+              it.at = end;
+              prev = end;
+            } else {
+              tl.fromTo(it.bar, { scaleY: 0 }, { scaleY: 1, duration: 0.7, ease: grow }, t);
+              tl.fromTo([it.label, it.value], { opacity: 0 }, { opacity: 1, duration: 0.01 }, t);
+              tl.fromTo(it.label, { y: 16 * u }, { y: 0, duration: 0.45, ease: enter }, t);
+              tl.fromTo(it.count, { v: 0 }, { v: it.b.value, duration: 0.7, ease: countEase }, t);
+              it.at = t;
+              prev = t;
+            }
           });
           const nt = items[hi].at + 0.15;
-          tl.fromTo(number, { opacity: 0 }, { opacity: 1, duration: 0.01 }, nt);
-          tl.fromTo(
-            number,
-            { scale: 0.86, y: 30 * u },
-            { scale: 1, y: 0, duration: 0.6, ease: enter },
-            nt,
-          );
-          tl.fromTo(big, { v: 0 }, { v: bars[hi].value, duration: 0.9, ease: countEase }, nt);
+          if (KF.drawn) {
+            // the key number is written, then circled in red
+            big.v = bars[hi].value;
+            const end = KF.enter(tl, number, nt, "text");
+            KF.mark(tl, [number], end + 0.1, "circle");
+          } else {
+            tl.fromTo(number, { opacity: 0 }, { opacity: 1, duration: 0.01 }, nt);
+            tl.fromTo(
+              number,
+              { scale: 0.86, y: 30 * u },
+              { scale: 1, y: 0, duration: 0.6, ease: enter },
+              nt,
+            );
+            tl.fromTo(big, { v: 0 }, { v: bars[hi].value, duration: 0.9, ease: countEase }, nt);
+          }
           tl.set({}, {}, data.durationS);
           window.__timelines["SCENE_ID"] = tl;
           return true;

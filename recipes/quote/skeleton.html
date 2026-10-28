@@ -169,34 +169,37 @@
             h: Math.max(6, 12 * u),
           });
 
-          const enter = KF.ease("enter", "back.out(1.6)");
           const grow = KF.ease("grow", "power3.out");
           const tl = gsap.timeline({ paused: true });
-          if (!overlay)
-            tl.fromTo(hero, { scale: 0 }, { scale: 1, duration: 0.8, ease: enter }, 0.05);
-          else tl.fromTo(plate, { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: grow }, 0.05);
+          if (KF.drawn) {
+            // a drawn style has no big filled shape and no rule: the marker underlines do that work
+            hero.style.display = "none";
+            rule.style.display = "none";
+          } else if (!overlay) KF.enter(tl, hero, 0.05, "pop");
+          if (overlay) {
+            if (KF.drawn) {
+              tl.fromTo(plate, { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0.05);
+              const b = KF.boxOf(plate);
+              KF.enter(tl, KF.shape("rect", b), 0.05, "draw");
+            } else tl.fromTo(plate, { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: grow }, 0.05);
+          }
           const first = Math.min(...lines.map((l) => l.at));
+          let written = 0;
           lines.forEach((l, i) => {
-            const t = Math.max(l.at, first + i * 0.12, overlay ? 0.3 : 0.2);
-            // hidden until its moment (a switch, not a fade), then it slides up out of its mask
-            tl.fromTo(l.inner, { opacity: 0 }, { opacity: 1, duration: 0.01 }, t);
-            tl.fromTo(l.inner, { yPercent: 110 }, { yPercent: 0, duration: 0.55, ease: enter }, t);
+            const t = Math.max(l.at, first + i * 0.12, overlay ? 0.3 : 0.2, KF.drawn ? written : 0);
+            const end = KF.enter(tl, l.inner, t, "rise");
+            written = end;
             const ems = l.words.filter((w) => w.classList.contains("SCENE_ID-em"));
-            if (ems.length)
-              tl.fromTo(
-                ems,
-                { scale: 0.7 },
-                { scale: 1, duration: 0.5, ease: "back.out(2.4)", transformOrigin: "0% 80%" },
-                t + 0.25,
-              );
+            KF.mark(tl, ems, KF.drawn ? end + 0.1 : t + 0.25);
           });
           const last = Math.max(...lines.map((l) => l.at));
-          tl.fromTo(
-            rule,
-            { scaleX: 0 },
-            { scaleX: 1, duration: 0.6, ease: grow },
-            Math.max(last + 0.4, 0.8),
-          );
+          if (!KF.drawn)
+            tl.fromTo(
+              rule,
+              { scaleX: 0 },
+              { scaleX: 1, duration: 0.6, ease: grow },
+              Math.max(last + 0.4, 0.8),
+            );
           tl.set({}, {}, data.durationS);
           window.__timelines["SCENE_ID"] = tl;
           return true;

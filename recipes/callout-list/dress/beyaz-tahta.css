@@ -1,0 +1,31 @@
+/* Whiteboard: black marker on warm paper, one muted red for marks, everything drawn or written on. */
+#SCENE_ID-stage {
+  --render: drawn;
+  --bg: #f4f1ea;
+  --main: #1f1f1f;
+  --accent: #c2493d;
+  --ink: #1f1f1f;
+  --line: #1f1f1f;
+  --node-ink: #1f1f1f;
+  --key-ink: #1f1f1f;
+  --plate: #f4f1ea;
+  --plate-radius: 6px;
+  --font-head: "Patrick Hand";
+  --weight-head: 400;
+  --font-num: "Patrick Hand";
+  --weight-num: 400;
+  --font-body: "Patrick Hand";
+  --weight-body: 400;
+  --stroke: 7;
+  --wobble: 1.5;
+  --wobble-seed: 21;
+  --hatch-spacing: 14;
+  --hatch-width: 4;
+  --draw-speed: 2400;
+  --hatch-speed: 12000;
+  --letters-per-second: 14;
+  --speckle: 0.03;
+  --speckle-seed: 2;
+  --quote-leading: 1.08;
+  --quote-tracking: 0;
+}

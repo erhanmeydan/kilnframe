@@ -10,9 +10,15 @@ On an Apple silicon Mac with GPU. "Passes" means hyperframes check, the overlay 
 
 | Style           | Format    | Mode       | Checks | Render |
 | --------------- | --------- | ---------- | ------ | ------ |
-| flat-infografik | landscape | fullscreen | passes | 10.4 s |
-| flat-infografik | landscape | overlay    | passes | 11.7 s |
-| flat-infografik | portrait  | fullscreen | passes | 13 s   |
-| flat-infografik | portrait  | overlay    | passes | 12 s   |
-| flat-infografik | square    | fullscreen | passes | 9.2 s  |
-| flat-infografik | square    | overlay    | passes | 10.7 s |
+| flat-infografik | landscape | fullscreen | passes | 10.1 s |
+| flat-infografik | landscape | overlay    | passes | 12 s   |
+| flat-infografik | portrait  | fullscreen | passes | 10.4 s |
+| flat-infografik | portrait  | overlay    | passes | 11.9 s |
+| flat-infografik | square    | fullscreen | passes | 8.6 s  |
+| flat-infografik | square    | overlay    | passes | 10.3 s |
+| beyaz-tahta     | landscape | fullscreen | passes | 10.7 s |
+| beyaz-tahta     | landscape | overlay    | passes | 12.3 s |
+| beyaz-tahta     | portrait  | fullscreen | passes | 10.6 s |
+| beyaz-tahta     | portrait  | overlay    | passes | 12.6 s |
+| beyaz-tahta     | square    | fullscreen | passes | 9 s    |
+| beyaz-tahta     | square    | overlay    | passes | 10.4 s |
