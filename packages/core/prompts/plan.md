@@ -88,6 +88,14 @@ in that scene so the viewer's eye goes there at the moment it is said.
   `strike` for something wrong or removed.
 - `at_s` is the moment the speaker says it. One to three marks per scene; never mark everything.
 
+# Recipes
+
+When the request lists recipes, some scenes can be filled from a tested recipe instead of being written
+from scratch: faster, and they do not break. Give a scene `recipe` only when its content fits the recipe as
+described (its technique and mode must match the scene's). Leave `recipe` null for the insert's key scene
+(the idea the whole range is about), for scenes that use the editor's images, and whenever nothing fits.
+Never bend a scene's content to fit a recipe.
+
 # Output
 
 Reply with one JSON object and nothing else (no prose, no code fence):
@@ -107,6 +115,7 @@ Reply with one JSON object and nothing else (no prose, no code fence):
 "camera": "slow push in",
 "technique": "three-3d",
 "mode": "fullscreen",
+"recipe": null,
 "transition_out": "cut",
 "assets": [{ "id": "a1", "role": "screenshot", "marks": [{ "kind": "underline", "line": "l4", "text": "Kare hızı", "at_s": 11.4 }] }],
 "sfx": [{ "at_s": 0.8, "sound": "thock", "gain_db": -12 }]
@@ -122,6 +131,7 @@ Rules for the JSON:
 - `transition_out` is "cut" or the style's own transition; the last scene uses "cut".
 - `mode` only when the output is automatic; `speaker_side` whenever frames of the footage are attached.
   Otherwise leave them out.
+- `recipe` is a name from the request's recipe list or null; leave it out when no recipes are listed.
 - `sfx.at_s` is inside its scene.
 - `assets` lists the editor's images the scene uses, by id; leave it empty (`[]`) when it uses none or when
   the request lists no images. `marks` is optional and only for images with read text or a clear target;

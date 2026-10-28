@@ -18,6 +18,7 @@ import {
 } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
 import type { StyleInfo } from "../styles.js";
+import type { RecipeInfo } from "../recipes.js";
 
 /** What the model returns: seconds, not frames. The code turns it into a frame-exact plan. */
 export const PlanDraftSchema = z.object({
@@ -39,6 +40,8 @@ export const PlanDraftSchema = z.object({
         transition_out: z.string().min(1),
         /** Automatic mode: fullscreen or overlay, chosen per scene. */
         mode: z.enum(OUTPUT_MODES).optional(),
+        /** A recipe from the request's list, when the scene's content fits it. */
+        recipe: z.string().min(1).nullable().optional(),
         assets: z
           .array(
             z.object({
@@ -176,6 +179,7 @@ export function draftToPlan(draft: PlanDraft, job: PlanJob, durationS: number): 
         }),
         transition_out: i === scenes.length - 1 ? "cut" : s.transition_out,
         mode: modes[i],
+        ...(s.recipe ? { recipe: s.recipe } : {}),
         image_requests: [],
         sfx: s.sfx.map((c) => ({
           frame: Math.min(end - 1, Math.max(start, secondsToFrame(c.at_s, job.fps))),
@@ -217,9 +221,11 @@ export function planProblems(
   draft: PlanDraft,
   style: StyleInfo,
   assets: MarkableAsset[] = [],
-  job: Pick<PlanJob, "mode" | "frames"> = { mode: "fullscreen" },
+  job: Pick<PlanJob, "mode" | "frames"> & Partial<Pick<PlanJob, "format">> = { mode: "fullscreen" },
+  recipes: RecipeInfo[] = [],
 ): string[] {
   const problems: string[] = [];
+  const offered = planRecipes(recipes, style.name, job.format ?? "landscape");
   const ids = assets.map((a) => a.id);
   if (job.mode === "auto" && job.frames?.length && !draft.speaker_side)
     problems.push(
@@ -243,6 +249,26 @@ export function planProblems(
         if (mark.at_s < s.start_s || mark.at_s >= s.end_s)
           problems.push(`scenes[${i}].assets ${use.id} marks[${j}].at_s is outside its scene.`);
       }
+    }
+    if (s.recipe) {
+      const r = offered.find((x) => x.name === s.recipe);
+      const mode = job.mode === "auto" ? (s.mode ?? "fullscreen") : job.mode;
+      if (!r)
+        problems.push(
+          `scenes[${i}].recipe "${s.recipe}" is not one of the listed recipes (${offered.map((x) => x.name).join(", ") || "none"}); use null.`,
+        );
+      else if (r.technique !== s.technique)
+        problems.push(
+          `scenes[${i}].recipe "${r.name}" is a ${r.technique} recipe, but the scene's technique is ${s.technique}.`,
+        );
+      else if (!r.modes.includes(mode))
+        problems.push(
+          `scenes[${i}].recipe "${r.name}" does not work in ${mode} mode (only ${r.modes.join(", ")}); use null.`,
+        );
+      if ((s.assets ?? []).length)
+        problems.push(
+          `scenes[${i}] uses the editor's images, so it cannot use a recipe; set recipe to null.`,
+        );
     }
     if (style.unsupported.includes(s.technique)) {
       problems.push(
@@ -306,7 +332,29 @@ function assetLines(assets: PreparedAsset[], afterFrames: boolean): string[] {
   ];
 }
 
-export function planRequestText(transcript: Transcript, style: StyleInfo, job: PlanJob): string {
+/** The recipes the plan step may pick from: dressed for the style and made for the format. */
+export function planRecipes(
+  recipes: RecipeInfo[],
+  style: string,
+  format: OutputFormat,
+): RecipeInfo[] {
+  return recipes.filter((r) => r.dresses[style] !== undefined && r.formats.includes(format));
+}
+
+function recipeLines(recipes: RecipeInfo[]): string[] {
+  if (!recipes.length) return [];
+  return [
+    "Recipes for this style and format (name (technique; modes): what it shows):",
+    ...recipes.map((r) => `- ${r.name} (${r.technique}; ${r.modes.join(", ")}): ${r.description}`),
+  ];
+}
+
+export function planRequestText(
+  transcript: Transcript,
+  style: StyleInfo,
+  job: PlanJob,
+  recipes: RecipeInfo[] = [],
+): string {
   const words = transcript.words
     .map((w) => `${w.start.toFixed(2)}-${w.end.toFixed(2)} ${w.text}`)
     .join("\n");
@@ -321,6 +369,7 @@ export function planRequestText(transcript: Transcript, style: StyleInfo, job: P
     `Style: ${style.name}`,
     `Techniques this style supports: ${supported.join(", ")}`,
     `Sound palette (use only these names): ${style.sounds.join(", ")}`,
+    ...recipeLines(planRecipes(recipes, style.name, job.format)),
     "",
     "Style description:",
     style.styleMd,
@@ -341,6 +390,8 @@ export interface PlanOptions {
   job: PlanJob;
   maxAttempts?: number;
   onProgress?: (message: string) => void;
+  /** Scene recipes the plan may pick; none when left out. */
+  recipes?: RecipeInfo[];
 }
 
 /** Asks the model for a plan, validates it, and feeds problems back until it passes (at most 3 tries). */
@@ -360,7 +411,7 @@ export async function planInsert(o: PlanOptions): Promise<Plan> {
           mediaType: a.preview.mediaType,
           base64: a.preview.base64,
         })),
-        { type: "text", text: planRequestText(o.transcript, o.style, o.job) },
+        { type: "text", text: planRequestText(o.transcript, o.style, o.job, o.recipes) },
       ],
     },
   ];
@@ -377,7 +428,7 @@ export async function planInsert(o: PlanOptions): Promise<Plan> {
     let problems: string[];
     try {
       const draft = PlanDraftSchema.parse(extractJson(reply.text));
-      problems = planProblems(draft, o.style, o.job.assets ?? [], o.job);
+      problems = planProblems(draft, o.style, o.job.assets ?? [], o.job, o.recipes);
       if (problems.length === 0) return draftToPlan(draft, o.job, o.transcript.duration_s);
     } catch (err) {
       problems =

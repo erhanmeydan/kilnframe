@@ -116,6 +116,8 @@ export const SceneSchema = z
      * automatic mode; older plans leave it out and every scene follows the plan's mode (sceneMode()).
      */
     mode: OutputModeSchema.optional(),
+    /** A scene recipe (recipes/<name>/) the scene is filled from instead of being written; free when absent. */
+    recipe: z.string().min(1).nullable().optional(),
   })
   .refine((s) => s.end_frame > s.start_frame, {
     message: "end_frame must be after start_frame",
