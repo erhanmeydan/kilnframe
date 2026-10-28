@@ -16,8 +16,10 @@ export function bundledTools(resources = process.resourcesPath ?? ""): Record<st
     env.HYPERFRAMES_FFMPEG_PATH = exe("ffmpeg");
   }
   if (existsSync(exe("ffprobe"))) env.HYPERFRAMES_FFPROBE_PATH = exe("ffprobe");
-  // styles and vendor libraries live next to the app, not in a repository
+  // styles, recipes and vendor libraries live next to the app, not in a repository
   if (existsSync(join(resources, "styles"))) env.KILNFRAME_STYLES_DIR = join(resources, "styles");
+  if (existsSync(join(resources, "recipes")))
+    env.KILNFRAME_RECIPES_DIR = join(resources, "recipes");
   if (existsSync(join(resources, "vendor"))) env.KILNFRAME_VENDOR_DIR = join(resources, "vendor");
   const shell = join(
     bin,

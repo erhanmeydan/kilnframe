@@ -3,7 +3,8 @@ Copyright 2026 Erhan Meydan
 
 Kilnframe is licensed under the Apache License 2.0 (LICENSE). It includes software developed as part of
 HyperFrames (https://github.com/heygen-com/hyperframes), licensed under the Apache License 2.0; the
-composition rules in packages/core/prompts/ are adapted from HyperFrames' skills.
+composition rules in packages/core/prompts/ are adapted from HyperFrames' skills, and the scene recipes
+in recipes/ adapt layouts and motion from blocks in the HyperFrames catalog.
 
 The installers (Kilnframe-mac.pkg, Kilnframe-Windows.exe) also contain the third-party components below.
 Each keeps its own license; the license texts ship inside the app (Resources/licenses/ and each package's

@@ -77,6 +77,7 @@ const shellDir = readdirSync(join(shells, build)).find((d) =>
 cpSync(join(shells, build, shellDir), join(bin, "headless-shell"), { recursive: true });
 console.log(`Chrome ${chrome} (HyperFrames)`);
 cpSync(join(root, "styles"), join(extra, "styles"), { recursive: true });
+cpSync(join(root, "recipes"), join(extra, "recipes"), { recursive: true });
 cpSync(join(root, "vendor"), join(extra, "vendor"), { recursive: true });
 // the licenses NOTICE points to; FFmpeg's GPL text has to travel with the program
 const licenses = join(extra, "licenses");
@@ -209,6 +210,7 @@ writeFileSync(
       extraResources: [
         { from: "extra/bin", to: "bin" },
         { from: "extra/styles", to: "styles" },
+        { from: "extra/recipes", to: "recipes" },
         { from: "extra/vendor", to: "vendor" },
         { from: "extra/plugin", to: "plugin" },
         { from: "extra/resolve-panel", to: "resolve-panel" },
