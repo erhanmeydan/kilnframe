@@ -29,7 +29,7 @@ the range.
 
 ## Install
 
-You need Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later, and a computer with a
+You need Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later, and a computer with a
 GPU. The free version of DaVinci Resolve does not load plugins: Resolve needs Studio.
 
 |                                    | Download                                                                                                         |
@@ -207,7 +207,7 @@ birlikte aralığın üstüne yerleştirir.
 
 ### Kurulum
 
-Premiere Pro 2026 (25.6 ya da sonrası) ya da DaVinci Resolve Studio 21.1 ya da sonrası, ve ekran kartı olan
+Premiere Pro 2026 (26.2 ya da sonrası) ya da DaVinci Resolve Studio 21.1 ya da sonrası, ve ekran kartı olan
 bir bilgisayar gerekir. DaVinci Resolve'un ücretsiz sürümü eklenti yüklemez, Resolve için Studio gerekir.
 
 - macOS, Apple silicon (M1 ve sonrası): [Kilnframe-mac.pkg](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg)

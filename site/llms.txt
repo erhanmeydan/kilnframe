@@ -26,7 +26,7 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 
 ## Requirements
 
-- Adobe Premiere Pro 2026 (25.6 or later), or DaVinci Resolve Studio 21.1 or later. The free version of DaVinci Resolve does not load workflow integration plugins.
+- Adobe Premiere Pro 2026 (26.2 or later), or DaVinci Resolve Studio 21.1 or later. The free version of DaVinci Resolve does not load workflow integration plugins.
 - macOS on Apple silicon (M1 or later), or Windows 10 or 11.
 - A graphics card (GPU); about 2 GB of disk.
 

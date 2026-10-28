@@ -174,6 +174,7 @@
   "lightbox.close": "Close",
   "job.exportFailed": "The sequence audio could not be exported.",
   "job.lost": "The companion app restarted and no longer knows this job. Please create it again.",
+  "premiere.tooOld": "Kilnframe needs Premiere {version} or newer. Update Premiere in the Creative Cloud app, then open the panel again.",
   "premiere.binFailed": "The \"{name}\" bin could not be created.",
   "premiere.importFailed": "Import failed: {path}",
   "premiere.importMissing": "The imported file was not found in the bin: {path}",

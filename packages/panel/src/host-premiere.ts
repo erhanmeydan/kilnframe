@@ -13,6 +13,7 @@ import { formatRational, rationalFps } from "./fps";
 import { withoutLongPathPrefix } from "./home";
 import type { Host, HostSequence, PlaceResult } from "./host";
 import { exportError } from "./export-cancel";
+import { premiereCall } from "./premiere-version";
 import { t } from "./i18n";
 import { isOurAnimation, isOurInsert } from "./our-files";
 
@@ -128,8 +129,15 @@ export function createPremiereHost(
 
   async function sequenceInfo(sequence: Sequence): Promise<SequenceInfo> {
     const settings = await sequence.getSettings();
-    const rate = await settings.getVideoFrameRate();
-    const rect = await settings.getVideoFrameRect();
+    // an older Premiere lacks these: the panel says to update instead of "is not a function"
+    const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
+      settings,
+      "getVideoFrameRate",
+    );
+    const rect = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRect>>>(
+      settings,
+      "getVideoFrameRect",
+    );
     const inPoint = await sequence.getInPoint();
     const outPoint = await sequence.getOutPoint();
     return {
@@ -177,7 +185,12 @@ export function createPremiereHost(
     atS: number,
     durationS: number,
   ): Promise<Clip[]> {
-    const frame = 1 / (await (await sequence.getSettings()).getVideoFrameRate()).value;
+    const settings = await sequence.getSettings();
+    const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
+      settings,
+      "getVideoFrameRate",
+    );
+    const frame = 1 / rate.value;
     const found: Clip[] = [];
     for (const item of clips) {
       const path = await pathOf(item);

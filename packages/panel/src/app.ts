@@ -59,6 +59,7 @@ import { readableJobError } from "./job-errors";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
+import { MIN_PREMIERE } from "./premiere-version";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -2115,6 +2116,7 @@ function reportLink(error: string): string {
       t("story.needBrief"),
       t("story.badLength"),
       t("export.cancelled"),
+      t("premiere.tooOld", { version: MIN_PREMIERE }),
     ])
   )
     return "";
