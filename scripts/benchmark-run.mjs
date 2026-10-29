@@ -4,7 +4,7 @@
 // out/benchmark/run-<provider>-<model>-<recipes>/summary.json and summary.md. Needs a build (pnpm build).
 // The API key is read from the OS keychain the way the app reads it; KILNFRAME_API_KEY overrides it.
 // Usage: node scripts/benchmark-run.mjs --provider openrouter --model deepseek/deepseek-v4.1-flash
-//          [--recipes on|off] [--repeat 2] [--style flat-infografik] [case-id ...]
+//          [--recipes on|off] [--repeat 2] [--style flat-infografik] [--label name] [case-id ...]
 // Without --style, cases alternate between the styles that have recipe dresses.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,6 +33,8 @@ const model = opt("model", undefined);
 const recipes = opt("recipes", "on") !== "off";
 const repeat = Number(opt("repeat", "2"));
 const fixedStyle = opt("style", undefined);
+// a name for this run's folder, so a run after a prompt change does not land on the one before it
+const label = opt("label", undefined);
 const only = args;
 const STYLES = ["flat-infografik", "beyaz-tahta"];
 
@@ -46,7 +48,7 @@ const runDir = join(
   root,
   "out",
   "benchmark",
-  `run-${providerName}-${(model ?? defaults.text.model).replace(/\//g, "_")}-${recipes ? "recipes" : "free"}`,
+  `run-${providerName}-${(model ?? defaults.text.model).replace(/\//g, "_")}-${recipes ? "recipes" : "free"}${label ? `-${label}` : ""}`,
 );
 mkdirSync(runDir, { recursive: true });
 
