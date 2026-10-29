@@ -23,7 +23,7 @@
       "displayName": "OpenAI",
       "adapter": "openai-compatible",
       "baseURL": "https://api.openai.com/v1",
-      "models": ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"],
+      "models": ["gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"],
       "capabilities": {
         "vision": true,
         "structuredOutput": true,
@@ -138,6 +138,7 @@
         "anthropic/claude-sonnet-5.5",
         "google/gemini-3.8-flash",
         "openai/gpt-6.1-sol",
+        "openai/gpt-6.1-terra",
         "x-ai/grok-4.7",
         "qwen/qwen3.8-max-prime",
         "z-ai/glm-5.3-flash"
