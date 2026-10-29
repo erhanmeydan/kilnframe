@@ -1030,6 +1030,31 @@ describe("captions tab", () => {
       expect(other.lines).toEqual([]);
     });
 
+    it("deletes the text after a question, and does not bring it back when the panel reloads", async () => {
+      setLang("tr");
+      const f = fakeCtx();
+      const st = await toReview(f);
+      await flush();
+      expect(captionsBox(st, f.ctx)).toContain("Metni Sil");
+      captionsAct(st, f.ctx, "captions-clear", "");
+      expect(captionsBox(st, f.ctx)).toContain(t("captions.clearAsk"));
+      captionsAct(st, f.ctx, "captions-clear-no", "");
+      expect(st.confirmClear).toBe(false);
+      expect(st.lines).toHaveLength(2);
+      captionsAct(st, f.ctx, "captions-clear", "");
+      captionsAct(st, f.ctx, "captions-clear-yes", "");
+      expect(st.lines).toEqual([]);
+      expect(st.stage).toBe("idle");
+      expect(st.seqId).toBe("seq-1");
+      expect(captionsBox(st, f.ctx)).toContain(t("captions.make"));
+      // the panel reloaded: nothing comes back
+      const again = newCaptions();
+      captionsSwitch(again, undefined, "seq-1", f.ctx.stored);
+      captionsBox(again, f.ctx);
+      await flush();
+      expect(again.lines).toEqual([]);
+    });
+
     it("keeps the text when another sequence opens while the style is being changed", async () => {
       const f = fakeCtx();
       const st = await toReview(f);

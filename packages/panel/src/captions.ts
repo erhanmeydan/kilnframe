@@ -100,6 +100,8 @@ export interface CaptionsState {
   previewDir: string | null;
   /** The sequence whose job folder was last looked into for text to come back to. */
   restoredFor: string | null;
+  /** The editor pressed Delete Text and is asked to confirm. */
+  confirmClear: boolean;
   /** The line being prepared for "Play". */
   playing: number | null;
   /** The last "Play": its frames (and a small clip where the panel plays video). */
@@ -152,6 +154,7 @@ export function newCaptions(): CaptionsState {
     tintFailed: null,
     previewDir: null,
     restoredFor: null,
+    confirmClear: false,
     playing: null,
     play: null,
   };
@@ -506,7 +509,8 @@ function stepOne(st: CaptionsState, ctx: CaptionsCtx): string {
   ${
     hasText
       ? `<div class="btn mt" data-act="captions-back">${t("captions.backToText")}</div>
-  <div class="link mt" data-act="captions-make">${t("captions.newTranscript")}</div>`
+  <div class="link mt" data-act="captions-make">${t("captions.newTranscript")}</div>
+  ${clearText(st)}`
       : `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="captions-make"${ctx.connected() ? "" : " disabled"}>${t("captions.make")}</div>`
   }`;
 }
@@ -548,6 +552,14 @@ function lineRows(st: CaptionsState, ctx: CaptionsCtx): string {
     .join("");
 }
 
+/** Delete Text, or its question once pressed. */
+function clearText(st: CaptionsState): string {
+  return st.confirmClear
+    ? `<div class="box warn small mt">${t("captions.clearAsk")}</div>
+  <div class="row2 mt"><div class="btn2 stop" data-act="captions-clear-yes">${t("captions.clearYes")}</div><div class="btn2" data-act="captions-clear-no">${t("captions.clearNo")}</div></div>`
+    : `<div class="link mt" data-act="captions-clear">${t("captions.clear")}</div>`;
+}
+
 function reviewScreen(st: CaptionsState, ctx: CaptionsCtx): string {
   const placed = st.stage === "placed" && st.placed;
   const fixed = st.correctionError
@@ -557,7 +569,8 @@ function reviewScreen(st: CaptionsState, ctx: CaptionsCtx): string {
   <div class="clines">${lineRows(st, ctx)}</div>
   <div class="btn mt" data-act="captions-render">${t(placed ? "captions.rerender" : "captions.render")}</div>
   ${placed ? `<div class="btn2 mt" data-act="captions-srt">${t("captions.saveSrt")}</div>` : ""}
-  <div class="row2 mt"><div class="link" data-act="captions-style">${t("captions.changeStyle")}</div></div>`;
+  <div class="row2 mt"><div class="link" data-act="captions-style">${t("captions.changeStyle")}</div></div>
+  ${clearText(st)}`;
 }
 
 function busyBox(st: CaptionsState, ctx: CaptionsCtx): string {
@@ -1051,6 +1064,25 @@ function persist(st: CaptionsState, ctx: CaptionsCtx): void {
 const ms = (s: number) => Math.round(s * 1000) / 1000;
 
 /** Step 1 shows for a sequence with no text: its last job folder is read once, and its text comes back. */
+/**
+ * Forgets this sequence's text: the tab starts again and the job folder is no longer restored. The folder and a
+ * placed clip stay where they are.
+ */
+function clearCaptions(st: CaptionsState, ctx: CaptionsCtx): void {
+  if (st.stage === "texting" || st.stage === "rendering" || st.stage === "placing") return;
+  const seqId = st.seqId;
+  if (seqId) ctx.store(jobKey(seqId), "");
+  Object.assign(st, newCaptions(), {
+    scope: st.scope,
+    previewDir: st.previewDir,
+    seqId,
+    settings: st.settings,
+    glossaryText: st.glossaryText,
+    language: st.language,
+    restoredFor: seqId,
+  });
+}
+
 function wantRestore(st: CaptionsState, ctx: CaptionsCtx): void {
   const seqId = st.seqId;
   if (!seqId || st.restoredFor === seqId || st.stage !== "idle" || st.lines.length) return;
@@ -1679,6 +1711,9 @@ const CAPTIONS_ACTS = new Set([
   "captions-make",
   "captions-back",
   "captions-style",
+  "captions-clear",
+  "captions-clear-yes",
+  "captions-clear-no",
   "captions-cancel",
   "captions-split",
   "captions-merge",
@@ -1708,6 +1743,7 @@ export function captionsAct(
   val: string,
 ): boolean {
   if (!CAPTIONS_ACTS.has(act)) return false;
+  if (act !== "captions-clear") st.confirmClear = false;
   if (act === "captions-scope") st.scope = val === "range" ? "range" : "all";
   else if (act === "captions-look" && val in CAPTION_LOOKS) {
     settleColorFields();
@@ -1730,6 +1766,8 @@ export function captionsAct(
       Object.assign(st, { lines: [], drafts: [], words: [] });
     void makeText(st, ctx);
   } else if (act === "captions-style") st.stage = "idle";
+  else if (act === "captions-clear") st.confirmClear = st.lines.length > 0;
+  else if (act === "captions-clear-yes") clearCaptions(st, ctx);
   else if (act === "captions-back" && st.lines.length) {
     saveSettings(st, ctx);
     // another look wraps at its own width; lines the editor worked on stay as they are
