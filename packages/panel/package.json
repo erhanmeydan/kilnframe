@@ -8,7 +8,8 @@
   "scripts": {
     "build": "vite build && vite build -c vite.resolve.config.mjs && vite build -c vite.resolve-main.config.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build:probe": "vite build -c vite.probe.config.mjs"
+    "build:probe": "vite build -c vite.probe.config.mjs",
+    "build:filmcraft": "vite build -c vite.resolve.config.mjs && vite build -c vite.filmcraft-main.config.mjs"
   },
   "devDependencies": {
     "@adobe/cc-ext-uxp-types": "7.3.1",
