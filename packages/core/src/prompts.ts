@@ -4,14 +4,19 @@ import { fileURLToPath } from "node:url";
 
 const promptsDir = fileURLToPath(new URL("../prompts", import.meta.url));
 
+/** A text file with Windows line ends (a checkout there, an editor) read as one with \n only. */
+function readText(path: string): string {
+  return readFileSync(path, "utf8").replace(/\r\n/g, "\n");
+}
+
 export function loadPrompt(name: string): string {
-  return readFileSync(join(promptsDir, `${name}.md`), "utf8");
+  return readText(join(promptsDir, `${name}.md`));
 }
 
 /** Technique modules exist only for proven techniques; others fall back to the base prompt. */
 export function techniqueModule(technique: string): string | null {
   const path = join(promptsDir, "techniques", `${technique}.md`);
-  return existsSync(path) ? readFileSync(path, "utf8") : null;
+  return existsSync(path) ? readText(path) : null;
 }
 
 /** Pulls the first JSON object out of a model reply (tolerates code fences and stray prose). */

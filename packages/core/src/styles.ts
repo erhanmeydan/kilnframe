@@ -108,7 +108,8 @@ export function loadStyle(name: string, dirIn?: string): StyleInfo {
   const dir = dirIn ?? styleHome(name) ?? stylesDir();
   const root = join(dir, name);
   if (!existsSync(join(root, "style.md"))) throw new Error(`Style "${name}" not found in ${dir}.`);
-  const styleMd = readFileSync(join(root, "style.md"), "utf8");
+  // a style written on Windows has \r\n line ends; the tables are read line by line
+  const styleMd = readFileSync(join(root, "style.md"), "utf8").replace(/\r\n/g, "\n");
   const tokensJson = readFileSync(join(root, "tokens.json"), "utf8");
   const fonts: StyleFont[] = [];
   collectFonts((JSON.parse(tokensJson) as { fonts?: unknown }).fonts, "", fonts);

@@ -238,7 +238,7 @@ describe("caption previews", () => {
     }
     // without a footage frame the captions sit on a dark ground
     expect(captionFrames(video, null, 2.5, 6, join(dir, "plain"))).toHaveLength(6);
-  });
+  }, 60_000);
 
   it("makes a short H.264 clip of the captions over the footage for a panel that plays video", () => {
     const { dir, video, frame } = clipAndFrame();

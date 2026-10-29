@@ -1,0 +1,3 @@
+# Text files keep \n line ends in every checkout: the prompts and style files are read line by line,
+# and the Windows build ships what its checkout holds.
+* text=auto eol=lf
