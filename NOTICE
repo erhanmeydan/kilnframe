@@ -52,9 +52,9 @@ Files loaded by the animations (vendor/)
 
 three.js 0.186.1                   MIT License (vendor/three/LICENSE)
 GSAP 3.15.0 and plugins            GreenSock "Standard No Charge" license, not open source
-D3 7.9.0                           ISC License
-Lucide 1.63.0 (icons)              ISC License
                                    (vendor/gsap/LICENSE.md, https://gsap.com/standard-license)
+D3 7.9.0                           ISC License (vendor/d3/LICENSE)
+Lucide 1.63.0 (icons)              ISC License (vendor/icons/LICENSE)
 Fonts (17 families)                SIL Open Font License 1.1 (vendor/fonts/<family>/OFL.txt):
                                    Alfa Slab One, Anton, Archivo, Baloo 2, Barlow Condensed,
                                    Bricolage Grotesque, IBM Plex Mono, Inter, Montserrat, Nunito,
