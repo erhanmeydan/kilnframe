@@ -15,6 +15,8 @@ export interface FeedbackInfo {
   os: "mac" | "win";
   /** The panel's language: the page speaks it too. */
   lang: "en" | "tr";
+  /** Who does the animation work ("Google Gemini · gemini-3.8-flash"); never a key or an address. */
+  ai?: string;
 }
 
 /** A path's home folder as "~": "/Users/ayse/x" -> "~/x", "C:\Users\Ayse Y\x" -> "~\x". */
@@ -31,7 +33,7 @@ export function shouldReport(error: string, own: string[]): boolean {
 export function feedbackPage(
   o: (FeedbackInfo & { kind: "feedback" }) | (FeedbackInfo & { kind: "error"; error: string }),
 ): string {
-  const about = `Kilnframe ${o.app} · Panel ${o.panel} · ${o.editor} · ${o.os === "mac" ? "macOS" : "Windows"}`;
+  const about = `Kilnframe ${o.app} · Panel ${o.panel} · ${o.editor} · ${o.os === "mac" ? "macOS" : "Windows"}${o.ai ? ` · ${o.ai}` : ""}`;
   const link = (error?: string) => {
     const p = new URLSearchParams({ l: o.lang, k: o.kind, v: about });
     if (error !== undefined) p.set("e", error);

@@ -2105,7 +2105,18 @@ function mailAbout() {
     editor: host().kind === "resolve" ? ("DaVinci Resolve" as const) : ("Premiere" as const),
     os: host().platform(),
     lang: lang(),
+    ai: reportProvider(),
   };
+}
+
+/**
+ * The provider and the model's own id for a report, so a failure can be read ("the scene came out empty" on
+ * a small local model is a different case than on Opus). A custom endpoint is named as such, never its address.
+ */
+function reportProvider(): string {
+  const id = state.settings.provider;
+  const model = modelFor(id);
+  return model ? `${providerName(id)} · ${model}` : providerName(id);
 }
 
 /** "Report This Error ↗": the site's feedback page opens with the error and the versions filled in. */

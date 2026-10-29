@@ -37,6 +37,21 @@ describe("feedback page link", () => {
     expect(f.v).toContain("DaVinci Resolve · Windows");
   });
 
+  it("names the provider and model that did the work, when given", () => {
+    const f = fields(
+      feedbackPage({
+        kind: "error",
+        error: "Bir sahne boş çıktı.",
+        lang: "tr",
+        ai: "Google Gemini · gemini-3.8-flash",
+        ...info,
+      }),
+    );
+    expect(f.v).toBe(
+      "Kilnframe 0.2.3 · Panel 0.2.3 · Premiere · macOS · Google Gemini · gemini-3.8-flash",
+    );
+  });
+
   it("keeps spaces, line breaks and Turkish letters intact", () => {
     const f = fields(
       feedbackPage({
