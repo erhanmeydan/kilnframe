@@ -311,7 +311,7 @@ async function main(argv: string[]): Promise<number> {
   });
   const provider = createTextProvider(defaults, args);
   log(
-    `Model: ${provider.name} ${provider.model}${provider.billing === "plan" ? " (your Claude plan)" : ""}`,
+    `Model: ${provider.name} ${provider.model}${provider.billing === "plan" ? " (your subscription)" : ""}`,
   );
   provider.preflight?.();
   const transcript = args.transcript
@@ -347,7 +347,7 @@ async function main(argv: string[]): Promise<number> {
       total.listPriceUsd || usageCost(total, loadModelCatalog().models[provider.model]?.price);
     const costText =
       provider.billing === "plan"
-        ? `, billed to your Claude plan${listCost ? ` (about $${listCost.toFixed(2)} at API prices)` : ""}`
+        ? `, billed to your subscription${listCost ? ` (about $${listCost.toFixed(2)} at API prices)` : ""}`
         : listCost
           ? `, about $${listCost.toFixed(2)}`
           : "";
