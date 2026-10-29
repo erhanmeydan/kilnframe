@@ -7,6 +7,9 @@ never like a template.
 
 # The scene file contract
 
+You have no tools: no shell, no files to open, no browser. Everything you need is in this message, so never
+call a tool or ask to look something up; answer at once.
+
 Return exactly one HTML document in a ```html code fence, shaped like this:
 
 ```html

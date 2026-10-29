@@ -166,6 +166,16 @@ describe("recipe scenes in compose", () => {
     expect(r.recipe).toBeUndefined();
   });
 
+  it("tells a model that tries to run a command that it has no tools", async () => {
+    const call =
+      "Let me check the fonts first.\n<tool_call>\n<function=exec>\n<parameter=command>\nls vendor/fonts\n</parameter>\n</function>\n</tool_call>";
+    const { ctx, provider, scene } = ctxFor([call, freeHtml]);
+    await composeScene(ctx, scene, 3, { free: true });
+    expect(provider.requests.map((q) => q.purpose)).toEqual(["compose s1", "repair s1"]);
+    expect(JSON.stringify(provider.requests[1]?.messages)).toContain("You have no tools");
+    expect(composeSystem).toContain("You have no tools");
+  });
+
   it("skips the fill when asked for a free scene", async () => {
     const { ctx, provider, scene } = ctxFor([freeHtml]);
     await composeScene(ctx, scene, 3, { free: true });

@@ -442,6 +442,15 @@ async function fillScene(
   return null;
 }
 
+/** What a model that tried to run a command instead of writing the scene is told. */
+export const NO_TOOLS =
+  "You have no tools and cannot run commands or open files. Everything you need is in the request: reply with the complete scene HTML in one ```html fence now.";
+
+/** A reply that calls a tool (some local models are tuned as agents and reach for a shell first). */
+export function toolCall(reply: string): boolean {
+  return /<tool_call>|<function=|"tool_calls"\s*:/i.test(reply);
+}
+
 /**
  * Writes one scene, then fixes static problems (at most `maxAttempts` replies in total). A scene with a
  * recipe dressed for the style is filled from it first, unless `free` is set.
@@ -474,7 +483,7 @@ export async function composeScene(
         sceneMode(ctx.plan, scene) === "overlay",
       );
     } catch (err) {
-      problems = [err instanceof Error ? err.message : String(err)];
+      problems = [toolCall(reply) ? NO_TOOLS : err instanceof Error ? err.message : String(err)];
     }
     if (problems.length === 0) return { id: scene.id, html, messages };
     keepRejected(ctx.rejectedDir, `${scene.id}-attempt-${attempt}`, reply, problems);

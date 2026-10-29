@@ -106,7 +106,8 @@ Most inserts have more recipe scenes than free ones.
 
 # Output
 
-Reply with one JSON object and nothing else (no prose, no code fence):
+You have no tools (no shell, files or browser): never call one. Reply with one JSON object and nothing else
+(no prose, no code fence):
 
 {
 "topic": "short topic",
