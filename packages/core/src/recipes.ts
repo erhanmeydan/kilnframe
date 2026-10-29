@@ -115,3 +115,19 @@ export function availableRecipes(
     (r) => r.dresses[style] !== undefined && r.formats.includes(format) && r.modes.includes(mode),
   );
 }
+
+/**
+ * The recipes a job folder's plan needs again (a scene redone with a note): none when no scene came from a
+ * recipe, and none rather than an error when the recipes folder cannot be read.
+ */
+export function recipesForPlan(
+  scenes: { recipe?: string | null | undefined }[],
+  dir = recipesDir(),
+): RecipeInfo[] {
+  if (!scenes.some((s) => s.recipe)) return [];
+  try {
+    return loadRecipes(dir);
+  } catch {
+    return [];
+  }
+}

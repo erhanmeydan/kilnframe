@@ -307,7 +307,6 @@ async function styleJob(
   };
 }
 
-/** Reads the approved narration aloud into the job folder (story.txt and narration.wav). */
 /**
  * Story music is extra: when it fails (a free tier Gemini key gets no Lyria requests at all), the narration is
  * still delivered and the reason travels with it.
@@ -325,6 +324,7 @@ export async function musicOrNote<T>(
   }
 }
 
+/** Reads the approved narration aloud into the job folder (story.txt and narration.wav). */
 async function storyVoiceJob(
   params: StoryVoiceJobParams,
   keys: KeyStore,

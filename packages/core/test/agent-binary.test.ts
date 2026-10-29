@@ -147,3 +147,27 @@ describe("withFreshPath", () => {
     expect(out.Path).toContain("C:\\Users\\mete\\.local\\bin");
   });
 });
+
+describe("remembered for a moment", () => {
+  it("reads the registry once for calls close together, and again after a while", async () => {
+    const { remembered } = await import("../src/providers/agent-binary.js");
+    let reads = 0;
+    let now = 0;
+    const read = remembered(
+      () => {
+        reads += 1;
+        return ["x"];
+      },
+      5_000,
+      () => now,
+    );
+    read();
+    read();
+    now = 4_000;
+    read();
+    expect(reads).toBe(1);
+    now = 6_000;
+    read();
+    expect(reads).toBe(2);
+  });
+});

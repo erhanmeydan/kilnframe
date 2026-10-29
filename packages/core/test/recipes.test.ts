@@ -38,3 +38,15 @@ describe("availableRecipes", () => {
     expect(availableRecipes(all, "flat-infografik", "landscape", "overlay")).toEqual([]);
   });
 });
+
+describe("recipesForPlan", () => {
+  it("loads nothing for a plan without recipe scenes, and never throws for a broken folder", async () => {
+    const { recipesForPlan } = await import("../src/recipes.js");
+    const broken = mkdtempSync(join(tmpdir(), "recipes-"));
+    cpSync(join(fixtureDir, "demo"), join(broken, "bad"), { recursive: true });
+    writeFileSync(join(broken, "bad", "recipe.json"), "{ not json");
+    expect(recipesForPlan([{ recipe: null }, {}], broken)).toEqual([]);
+    expect(recipesForPlan([{ recipe: "bad" }], broken)).toEqual([]);
+    expect(recipesForPlan([{ recipe: "demo" }], fixtureDir)).toHaveLength(1);
+  });
+});

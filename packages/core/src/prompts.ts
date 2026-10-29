@@ -18,10 +18,20 @@ export function techniqueModule(technique: string): string | null {
 export function extractJson(text: string): unknown {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
   const body = fenced ? (fenced[1] as string) : text;
-  const start = body.indexOf("{");
   const end = body.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("The reply contains no JSON object.");
-  return JSON.parse(body.slice(start, end + 1));
+  // prose before the object may have braces of its own ("for {scene s1}: {...}"): try each opening brace
+  for (
+    let start = body.indexOf("{");
+    start >= 0 && start < end;
+    start = body.indexOf("{", start + 1)
+  ) {
+    try {
+      return JSON.parse(body.slice(start, end + 1));
+    } catch {
+      // not the object's own brace; try the next one
+    }
+  }
+  throw new Error("The reply contains no JSON object.");
 }
 
 /** Pulls the HTML document out of a ```html fence (or the whole reply if it is bare HTML). */

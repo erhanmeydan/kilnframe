@@ -1,4 +1,4 @@
-import { loadRecipes } from "../recipes.js";
+import { recipesForPlan } from "../recipes.js";
 import { isRecipeScene } from "../recipe-fill.js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -104,7 +104,7 @@ export async function recomposeScene(
       }),
     ),
     frames: readFrames(job.outDir),
-    recipes: loadRecipes(),
+    recipes: recipesForPlan(job.plan.scenes),
   };
   // the other scenes join with a short conversation (request, their code) so repairs keep their context
   const composed = new Map<string, ComposedScene>();

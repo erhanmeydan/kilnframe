@@ -17,7 +17,6 @@ export function seconds(frames: number, fps: string): string {
     .replace(/\.?0+$/, "");
 }
 
-/** The root composition: one host per scene, played back to back, plus shared runtime scripts. */
 /** GSAP plugins shipped in vendor/gsap, loaded and registered for every scene (same licence as GSAP). */
 export const GSAP_PLUGINS = [
   "SplitText",
@@ -27,6 +26,7 @@ export const GSAP_PLUGINS = [
   "CustomEase",
 ] as const;
 
+/** The root composition: one host per scene, played back to back, plus shared runtime scripts. */
 export function rootHtml(plan: Plan): string {
   const { width, height, fps } = plan;
   const hosts = plan.scenes

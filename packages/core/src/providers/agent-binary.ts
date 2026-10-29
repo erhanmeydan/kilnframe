@@ -144,11 +144,27 @@ export function agentCommand(
   return { file: lookup.execPath, prefix: [script], env: { ELECTRON_RUN_AS_NODE: "1" } };
 }
 
+/** fn's result, kept for `ms`: one status refresh asks for several agents in a row. */
+export function remembered<T>(fn: () => T, ms: number, now: () => number = Date.now): () => T {
+  let at = -Infinity;
+  let value: T;
+  return () => {
+    if (now() - at >= ms) {
+      value = fn();
+      at = now();
+    }
+    return value;
+  };
+}
+
+// each lookup spawns `reg query` twice; a settings refresh looks up three agents several times
+const registryPathsNow = remembered(readRegistryPaths, 5_000);
+
 function defaultLookup(): AgentLookup {
   return {
     platform: process.platform,
     env: process.env,
-    registryPaths: readRegistryPaths,
+    registryPaths: registryPathsNow,
     exists: (p) => existsSync(p),
     read: (p) => readFileSync(p, "utf8"),
     execPath: process.execPath,
