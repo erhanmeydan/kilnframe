@@ -236,7 +236,7 @@ function buildProvider(
       },
       reasoningEffort: preset?.reasoningEffort?.[model],
       reasoningField: preset?.reasoningField,
-      ...(kind === "lmstudio" ? { thinking: o.thinking } : {}),
+      ...(kind === "lmstudio" || kind === "ollama" ? { thinking: o.thinking } : {}),
     });
   }
   if (kind === "openai-compatible") {

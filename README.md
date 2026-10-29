@@ -56,16 +56,17 @@ downloaded once, with the first animation.
 Kilnframe writes the animations with a model you choose. Only models that can see images are offered: they
 check the stills, match your style and find where you are in the frame.
 
-| Way          | What you need                                             | Who pays                      |
-| ------------ | --------------------------------------------------------- | ----------------------------- |
-| Claude plan  | [Claude Code](https://claude.com/claude-code), signed in  | your Claude subscription      |
-| ChatGPT plan | [Codex](https://github.com/openai/codex), signed in       | your ChatGPT subscription     |
-| Grok plan    | [Grok Build](https://x.ai/build), signed in               | your Grok subscription        |
-| API key      | Claude, OpenAI, Google Gemini, xAI, MiniMax or OpenRouter | per use, on that account      |
-| Local        | a vision model in [LM Studio](https://lmstudio.ai)        | free, slower, simpler results |
+| Way          | What you need                                                                      | Who pays                      |
+| ------------ | ---------------------------------------------------------------------------------- | ----------------------------- |
+| Claude plan  | [Claude Code](https://claude.com/claude-code), signed in                           | your Claude subscription      |
+| ChatGPT plan | [Codex](https://github.com/openai/codex), signed in                                | your ChatGPT subscription     |
+| Grok plan    | [Grok Build](https://x.ai/build), signed in                                        | your Grok subscription        |
+| API key      | Claude, OpenAI, Google Gemini, xAI, MiniMax or OpenRouter                          | per use, on that account      |
+| Local        | a vision model in [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) | free, slower, simpler results |
 
 For LM Studio, load the model with a context of at least 64K tokens: a shorter one can run out while a
-scene is written. For a model that thinks, the settings have a Thinking option, Off by default: faster, and
+scene is written. For Ollama, set its context length to at least 64K in Ollama's settings: Ollama cuts a
+longer prompt without saying so, so Kilnframe checks the context before it starts. For a model that thinks, the settings have a Thinking option, Off by default: faster, and
 it uses less of the context.
 
 The plans work through the terminal programs, not the desktop apps: the Claude, ChatGPT or Grok app alone is
@@ -230,9 +231,11 @@ animasyonda bir kez iner.
 ### Yapay zeka bağlantısı
 
 Panelin ayarlarından (⚙) seçersiniz: Claude Code, Codex ya da Grok ile kendi aboneliğiniz; Claude, OpenAI,
-Google Gemini, xAI, MiniMax ya da OpenRouter anahtarı; ya da LM Studio ile bilgisayarınızdaki bir model.
+Google Gemini, xAI, MiniMax ya da OpenRouter anahtarı; ya da LM Studio veya Ollama ile bilgisayarınızdaki bir model.
 Sadece görsel okuyabilen modeller sunulur. Anahtarlar işletim sisteminin anahtar zincirinde saklanır.
 LM Studio'da modeli en az 64K bağlamla yükleyin, daha kısa bir bağlam sahne yazılırken yetmeyebilir.
+Ollama'da ayarlardan bağlam uzunluğunu en az 64K yapın: Ollama daha uzun bir istemi haber vermeden kırpar,
+Kilnframe bu yüzden işe başlamadan bağlamı kontrol eder.
 Düşünen bir model için ayarlarda Düşünme seçeneği vardır ve varsayılan olarak Kapalı'dır: daha hızlıdır ve
 bağlamı daha az kullanır.
 

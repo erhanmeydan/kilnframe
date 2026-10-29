@@ -60,13 +60,35 @@ export function estimatePromptTokens(req: TextRequest): number {
 const CONTEXT_EXCEEDED =
   /context (size|length|window)\b[^.]{0,80}?(exceed|not enough|too small)|exceeds? the (available )?context|greater than the context length/i;
 
-/** The readable failure for a request that does not fit the context LM Studio loaded the model with. */
-function contextTooSmall(detail: string): ProviderError {
+/** The local servers: no key, the model runs on this computer with a context it was loaded with. */
+const LOCAL = new Set(["lmstudio", "ollama"]);
+const LOCAL_NAMES: Record<string, string> = { lmstudio: "LM Studio", ollama: "Ollama" };
+
+/** The readable failure for a request that does not fit the context the local server loaded the model with. */
+function contextTooSmall(detail: string, server: string): ProviderError {
   return new ProviderError(
-    `The model's context in LM Studio is too small for ${detail}. Load the model in LM Studio with a longer context (at least 64K) or choose a shorter range.`,
+    server === "ollama"
+      ? `The model's context in Ollama is too small for ${detail}. Set Ollama's context length to at least 64K (the Ollama app's settings, or OLLAMA_CONTEXT_LENGTH) or choose a shorter range.`
+      : `The model's context in LM Studio is too small for ${detail}. Load the model in LM Studio with a longer context (at least 64K) or choose a shorter range.`,
     false,
     "context-exceeded",
   );
+}
+
+/** A model as Ollama's POST /api/show describes it (github.com/ollama/ollama/blob/main/docs/api.md). */
+interface OllamaShow {
+  capabilities?: string[];
+  model_info?: Record<string, unknown>;
+}
+
+/** The model's own context length: model_info "<general.architecture>.context_length". */
+function ollamaMaxContext(show: OllamaShow): number | null {
+  const info = show.model_info ?? {};
+  const arch = info["general.architecture"];
+  const v =
+    (typeof arch === "string" ? info[`${arch}.context_length`] : undefined) ??
+    Object.entries(info).find(([k]) => k.endsWith(".context_length"))?.[1];
+  return typeof v === "number" ? v : null;
 }
 
 /** A model in LM Studio's GET /api/v1/models (https://lmstudio.ai/docs/developer/rest/list). */
@@ -117,6 +139,7 @@ export class OpenAICompatibleProvider implements TextProvider {
 
   async listModels(): Promise<ModelInfo[]> {
     if (this.name === "lmstudio") return this.listLmStudioModels();
+    if (this.name === "ollama") return this.listOllamaModels();
     if (this.name === "openrouter") return this.listOpenRouterModels();
     let res: Response;
     try {
@@ -175,6 +198,97 @@ export class OpenAICompatibleProvider implements TextProvider {
       }));
   }
 
+  private get origin(): string {
+    return new URL(this.o.baseURL).origin;
+  }
+
+  private async ollamaJson<T>(path: string, body?: unknown): Promise<T> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.origin}${path}`, {
+        method: body === undefined ? "GET" : "POST",
+        ...(body === undefined
+          ? {}
+          : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+      });
+    } catch {
+      throw new ProviderError("Ollama is not running. Open Ollama and try again.", true);
+    }
+    if (!res.ok)
+      throw new ProviderError(
+        `Ollama could not answer ${path} (${res.status}).`,
+        res.status >= 500,
+      );
+    return (await res.json()) as T;
+  }
+
+  /** Running models and the context each was loaded with (GET /api/ps, docs.ollama.com/api/ps). */
+  private async ollamaRunning(): Promise<Map<string, number | null>> {
+    const ps = await this.ollamaJson<{
+      models?: { name?: string; model?: string; context_length?: number }[];
+    }>("/api/ps");
+    return new Map(
+      (ps.models ?? []).map((m) => [m.name ?? m.model ?? "", m.context_length ?? null]),
+    );
+  }
+
+  /**
+   * Ollama's installed models (GET /api/tags) with what each can do (POST /api/show: capabilities "vision" and
+   * "thinking", model_info context length) and whether it is running (GET /api/ps), as documented on
+   * docs.ollama.com/api and github.com/ollama/ollama/blob/main/docs/api.md (checked 29 Oct 2026).
+   */
+  private async listOllamaModels(): Promise<ModelInfo[]> {
+    const tags = await this.ollamaJson<{ models?: { name: string; model?: string }[] }>(
+      "/api/tags",
+    );
+    const running = await this.ollamaRunning().catch(() => new Map<string, number | null>());
+    return Promise.all(
+      (tags.models ?? []).map(async (m) => {
+        const show = await this.ollamaJson<OllamaShow>("/api/show", { model: m.name }).catch(
+          () => ({}) as OllamaShow,
+        );
+        const caps = show.capabilities ?? [];
+        return {
+          id: m.name,
+          displayName: m.name,
+          contextWindow: ollamaMaxContext(show),
+          vision: caps.includes("vision"),
+          loaded: running.has(m.name),
+          loadedContext: running.get(m.name) ?? null,
+          reasons: caps.includes("thinking"),
+        };
+      }),
+    );
+  }
+
+  private ollamaShowLookup: Promise<OllamaShow | undefined> | undefined;
+
+  private ollamaShow(): Promise<OllamaShow | undefined> {
+    this.ollamaShowLookup ??= this.ollamaJson<OllamaShow>("/api/show", { model: this.model }).catch(
+      () => undefined,
+    );
+    return this.ollamaShowLookup;
+  }
+
+  private ollamaContextLookup: Promise<number | undefined> | undefined;
+
+  /**
+   * The context Ollama really runs the model with. Ollama cuts a prompt that does not fit without saying so,
+   * and loads a model with its own default context (often 4K), not the model's maximum: a model that is not
+   * running is loaded first (POST /api/generate with no prompt loads it), then GET /api/ps says its context.
+   */
+  private ollamaContext(): Promise<number | undefined> {
+    this.ollamaContextLookup ??= (async () => {
+      let running = await this.ollamaRunning();
+      if (!running.has(this.model)) {
+        await this.ollamaJson("/api/generate", { model: this.model, keep_alive: "30m" });
+        running = await this.ollamaRunning();
+      }
+      return running.get(this.model) ?? undefined;
+    })().catch(() => undefined);
+    return this.ollamaContextLookup;
+  }
+
   /** Set once LM Studio has refused reasoning_effort, so later requests leave it out. */
   private reasoningRefused = false;
 
@@ -202,6 +316,7 @@ export class OpenAICompatibleProvider implements TextProvider {
    * cannot be asked.
    */
   async loadedContext(): Promise<number | undefined> {
+    if (this.name === "ollama") return this.ollamaContext();
     if (this.name !== "lmstudio") return undefined;
     const model = await this.lmStudioModel();
     if (!model) return undefined;
@@ -220,13 +335,13 @@ export class OpenAICompatibleProvider implements TextProvider {
    * instead of being cut short by LM Studio; one line per request goes to the log.
    */
   private async replyLimit(req: TextRequest): Promise<number> {
-    if (this.name !== "lmstudio") return req.maxTokens;
+    if (!LOCAL.has(this.name)) return req.maxTokens;
     const log = this.o.log ?? ((line: string) => void process.stderr.write(`${line}\n`));
     const context = await this.loadedContext();
     const prompt = estimatePromptTokens(req);
     if (context === undefined) {
       log(
-        `LM Studio ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${req.maxTokens}, context unknown`,
+        `${LOCAL_NAMES[this.name]} ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${req.maxTokens}, context unknown`,
       );
       return req.maxTokens;
     }
@@ -234,10 +349,11 @@ export class OpenAICompatibleProvider implements TextProvider {
     if (room < Math.min(MIN_REPLY_TOKENS, req.maxTokens))
       throw contextTooSmall(
         `${req.purpose} (${context} tokens loaded, about ${prompt} needed for the request alone)`,
+        this.name,
       );
     const limit = Math.min(req.maxTokens, room);
     log(
-      `LM Studio ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${limit}, context ${context}`,
+      `${LOCAL_NAMES[this.name]} ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${limit}, context ${context}`,
     );
     return limit;
   }
@@ -331,7 +447,12 @@ export class OpenAICompatibleProvider implements TextProvider {
    * nothing for other providers.
    */
   private async thinkingOff(): Promise<boolean> {
-    if (this.name !== "lmstudio" || this.o.thinking === "on" || this.reasoningRefused) return false;
+    if (this.o.thinking === "on" || this.reasoningRefused) return false;
+    // Ollama: reasoning_effort "none" asks a model that thinks for no thinking
+    // (docs.ollama.com/api/openai-compatibility, checked 29 Oct 2026)
+    if (this.name === "ollama")
+      return Boolean((await this.ollamaShow())?.capabilities?.includes("thinking"));
+    if (this.name !== "lmstudio") return false;
     const model = await this.lmStudioModel();
     return model !== undefined && canTurnThinkingOff(model);
   }
@@ -409,8 +530,8 @@ export class OpenAICompatibleProvider implements TextProvider {
     const body = Array.isArray(raw) ? (raw[0] ?? {}) : raw;
     if (!res.ok) {
       const detail = body.error?.message ?? res.statusText;
-      if (this.name === "lmstudio" && CONTEXT_EXCEEDED.test(detail))
-        throw contextTooSmall(`${req.purpose}: ${detail.replace(/[.\s]+$/, "")}`);
+      if (LOCAL.has(this.name) && CONTEXT_EXCEEDED.test(detail))
+        throw contextTooSmall(`${req.purpose}: ${detail.replace(/[.\s]+$/, "")}`, this.name);
       // the key is fine but the account must accept something first (OpenRouter's age confirmation, a
       // model's terms): saying the key was rejected sent editors to check a key that worked
       const page = res.status === 401 || res.status === 403 ? needsAcceptance(detail) : null;
@@ -440,8 +561,11 @@ export class OpenAICompatibleProvider implements TextProvider {
 
   private answer(body: ChatCompletion, req: TextRequest, maxTokens: number): TextResponse {
     if (body.error?.message) {
-      if (this.name === "lmstudio" && CONTEXT_EXCEEDED.test(body.error.message))
-        throw contextTooSmall(`${req.purpose}: ${body.error.message.replace(/[.\s]+$/, "")}`);
+      if (LOCAL.has(this.name) && CONTEXT_EXCEEDED.test(body.error.message))
+        throw contextTooSmall(
+          `${req.purpose}: ${body.error.message.replace(/[.\s]+$/, "")}`,
+          this.name,
+        );
       throw new ProviderError(`${this.name} error: ${body.error.message}`, true);
     }
     const choice = body.choices?.[0];

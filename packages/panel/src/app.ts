@@ -1326,6 +1326,8 @@ async function makeStorySequence() {
 
 /** The Claude providers share the Claude model setting. */
 const CLAUDE_KINDS = new Set(["auto", "claude-code", "anthropic"]);
+/** Servers on this computer: no key, their own model list, a model that may think. */
+const LOCAL_PROVIDERS = new Set(["lmstudio", "ollama"]);
 
 function providerName(id: string): string {
   if (id === "auto") return t("prov.auto");
@@ -1335,6 +1337,7 @@ function providerName(id: string): string {
   if (id === "anthropic") return t("prov.claudeApi");
   if (id === "custom") return t("prov.custom");
   if (id === "lmstudio") return t("prov.lmstudio");
+  if (id === "ollama") return t("prov.ollama");
   const entry = setup.list.find((p) => p.id === id);
   return entry ? entry.displayName.replace(/\s*\(.*\)$/, "") : id;
 }
@@ -1345,7 +1348,7 @@ function modelFor(id: string): string {
   if (id === "codex") return state.settings.models.codex ?? "";
   const chosen = state.settings.models[id];
   if (chosen) return chosen;
-  if (id === "lmstudio") return lmStudioDefault(setup.served.lmstudio ?? []);
+  if (LOCAL_PROVIDERS.has(id)) return lmStudioDefault(setup.served[id] ?? []);
   return setup.list.find((p) => p.id === id)?.models[0] ?? "";
 }
 
@@ -1366,12 +1369,12 @@ function providerParams(): {
     provider: id,
     ...(model ? { model } : {}),
     ...(baseURL ? { baseURL } : {}),
-    ...(id === "lmstudio" ? { thinking: lmThinking() } : {}),
+    ...(LOCAL_PROVIDERS.has(id) ? { thinking: localThinking(id) } : {}),
   };
 }
 
-function lmThinking(): "off" | "on" {
-  return state.settings.thinking?.lmstudio ?? "off";
+function localThinking(id: string): "off" | "on" {
+  return state.settings.thinking?.[id] ?? "off";
 }
 
 const CLAUDE_MODEL_NAMES: Record<string, string> = {
@@ -1718,9 +1721,9 @@ function providerDetail(id: string): string {
             `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="pbtns">${signOut}</div>`
           : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
     }
-  } else if (id === "lmstudio") {
-    body = `<div class="small">${t("prov.localNote")}</div>
-    <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="lmstudio">${t("prov.test")}</div></div>`;
+  } else if (LOCAL_PROVIDERS.has(id)) {
+    body = `<div class="small">${t(id === "ollama" ? "prov.ollamaNote" : "prov.localNote")}</div>
+    <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
@@ -1799,24 +1802,24 @@ function modelList(): string {
     note = setup.servedError.openrouter
       ? `<div class="note warn-text">${esc(setup.servedError.openrouter)}</div>`
       : `<div class="link more" data-act="or-all">${onboard.allModels ? t("prov.fewerModels") : t("prov.allModels", { n: seeing.length })}</div><div class="note muted">${t("prov.openrouterNote")}</div>`;
-  } else if (id === "lmstudio") {
-    const served = setup.served.lmstudio ?? [];
+  } else if (LOCAL_PROVIDERS.has(id)) {
+    const served = setup.served[id] ?? [];
     const rows = lmStudioRows(served, t("prov.lmLoaded"));
     options = rows.map((r) => [r.id, r.info]);
     const hidden = served.length - rows.length;
-    note = setup.servedError.lmstudio
-      ? `<div class="note warn-text">${esc(setup.servedError.lmstudio)}</div>`
+    note = setup.servedError[id]
+      ? `<div class="note warn-text">${esc(setup.servedError[id])}</div>`
       : !served.length
-        ? `<div class="note muted">${t("prov.lmNone")}</div>`
+        ? `<div class="note muted">${t(id === "ollama" ? "prov.ollamaNone" : "prov.lmNone")}</div>`
         : hidden
           ? `<div class="note muted">${t("prov.lmHidden", { n: hidden })}</div>`
           : "";
     if (rows.some((r) => !r.loaded))
-      note += `<div class="note muted">${t("prov.lmLoadsOnChoice")}</div>`;
+      note += `<div class="note muted">${t(id === "ollama" ? "prov.ollamaLoadsOnChoice" : "prov.lmLoadsOnChoice")}</div>`;
     note += `<div class="note muted">${t("prov.localLimits")}</div>`;
     // only a model whose thinking LM Studio can turn off
     if (served.find((m) => m.id === modelFor(id))?.reasons)
-      note += `<div class="lbl">${t("prov.thinking")}</div>${seg("lm-thinking", lmThinking(), [
+      note += `<div class="lbl">${t("prov.thinking")}</div>${seg("lm-thinking", localThinking(id), [
         ["off", t("prov.thinkingOff")],
         ["on", t("prov.thinkingOn")],
       ])}<div class="note muted">${t("prov.thinkingNote")}</div>`;
@@ -3565,7 +3568,7 @@ async function runProviderTest(id: string) {
       },
     };
   }
-  if (id === "lmstudio") void loadServed("lmstudio");
+  if (LOCAL_PROVIDERS.has(id)) void loadServed(id);
   render();
 }
 
@@ -3819,11 +3822,14 @@ function runAction(el: HTMLElement) {
     store("settings", JSON.stringify(state.settings));
     setup.editingKey = null;
     setup.confirmDelete = null;
-    if (val === "lmstudio" || val === "openrouter") void loadServed(val);
+    if (LOCAL_PROVIDERS.has(val) || val === "openrouter") void loadServed(val);
   } else if (act === "lm-thinking") {
     state.settings = {
       ...state.settings,
-      thinking: { ...state.settings.thinking, lmstudio: val === "on" ? "on" : "off" },
+      thinking: {
+        ...state.settings.thinking,
+        [state.settings.provider]: val === "on" ? "on" : "off",
+      },
     };
     store("settings", JSON.stringify(state.settings));
   } else if (act === "pmodel") {
@@ -3870,7 +3876,7 @@ function runAction(el: HTMLElement) {
   } else if (act === "settings") {
     state.screen = "settings";
     void refreshProviders();
-    if (state.settings.provider === "lmstudio" || state.settings.provider === "openrouter")
+    if (LOCAL_PROVIDERS.has(state.settings.provider) || state.settings.provider === "openrouter")
       void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
   else if (act === "stop" && state.job) state.job.confirmStop = true;

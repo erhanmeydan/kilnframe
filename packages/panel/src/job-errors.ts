@@ -14,12 +14,17 @@ const PROVIDER_NAMES: Record<string, string> = {
   zai: "Z.ai",
   openrouter: "OpenRouter",
   lmstudio: "LM Studio",
+  ollama: "Ollama",
 };
 
 export type ReadableError =
   | { key: "job.checksFailed"; vars: { n: number }; reasons: CheckKey[] }
   | { key: "job.keyExpired" | "job.keyRejected"; vars: { provider: string }; reasons: [] }
-  | { key: "job.contextTooSmall"; vars: Record<string, never>; reasons: [] }
+  | {
+      key: "job.contextTooSmall" | "job.contextTooSmallOllama";
+      vars: Record<string, never>;
+      reasons: [];
+    }
   | { key: "job.geminiFreeTier"; vars: { limit: number; hours: number }; reasons: [] }
   | { key: "job.geminiFreeTierNoWait"; vars: { limit: number }; reasons: [] }
   | { key: "job.lyriaFreeTier"; vars: Record<string, never>; reasons: [] };
@@ -49,6 +54,8 @@ export function readableJobError(message: string): ReadableError | null {
     }
     return { key: "job.geminiFreeTierNoWait", vars: { limit }, reasons: [] };
   }
+  if (message.includes("The model's context in Ollama is too small"))
+    return { key: "job.contextTooSmallOllama", vars: {}, reasons: [] };
   if (message.includes("The model's context in LM Studio is too small"))
     return { key: "job.contextTooSmall", vars: {}, reasons: [] };
   const key = /^(\S+) rejected the API key\. Check it in the settings: ([\s\S]*)$/.exec(message);

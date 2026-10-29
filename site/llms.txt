@@ -20,7 +20,7 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 
 - The plan the editor already pays for: Claude (through Claude Code), ChatGPT (through Codex), Grok (through Grok CLI).
 - API keys: Anthropic Claude, OpenAI, Google Gemini, xAI, MiniMax, Z.ai (GLM), OpenRouter, a custom endpoint.
-- Local models through LM Studio.
+- Local models through LM Studio or Ollama.
 - Only models that can see images are offered.
 - Benchmark of 16 models on the same clip: https://kilnframe.com/#benchmark
 

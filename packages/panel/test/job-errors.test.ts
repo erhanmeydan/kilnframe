@@ -87,4 +87,14 @@ describe("job errors in the panel's language", () => {
       expect(tr).toHaveProperty(k);
     }
   });
+
+  it("says Ollama's context was too small, with Ollama's own fix", () => {
+    expect(
+      readableJobError(
+        "The model's context in Ollama is too small for compose s1 (4096 tokens loaded, about 9000 needed for the request alone). Set Ollama's context length to at least 64K",
+      ),
+    ).toEqual({ key: "job.contextTooSmallOllama", vars: {}, reasons: [] });
+    expect(en).toHaveProperty("job.contextTooSmallOllama");
+    expect(tr).toHaveProperty("job.contextTooSmallOllama");
+  });
 });
