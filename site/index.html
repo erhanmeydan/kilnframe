@@ -48,7 +48,7 @@
             "applicationCategory": "MultimediaApplication",
             "applicationSubCategory": "Video editing plugin",
             "operatingSystem": "macOS (Apple silicon), Windows 10, Windows 11",
-            "softwareRequirements": "Adobe Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later",
+            "softwareRequirements": "Adobe Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later",
             "downloadUrl": [
               "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg",
               "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
@@ -68,6 +68,7 @@
               "Sound effects on a separate track",
               "Story mode: a narrated video from a topic",
               "Music tab: music for every topic, under the voice",
+              "Captions tab: nine designed looks, spelling checked by your AI, and an SRT file",
               "Local transcription and local rendering"
             ],
             "image": "https://kilnframe.com/assets/share.jpg",
@@ -127,7 +128,7 @@
                 "name": "Which AI models does it work with?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; API keys for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in LM Studio. Only models that can see images are offered. The benchmark above compares sixteen of them on the same clip."
+                  "text": "Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; API keys for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in LM Studio or Ollama. Only models that can see images are offered. The benchmark above compares sixteen of them on the same clip."
                 }
               },
               {
@@ -143,7 +144,7 @@
                 "name": "What do I need to run it?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later, a Mac with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk."
+                  "text": "Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later, a Mac with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk."
                 }
               },
               {
@@ -648,7 +649,8 @@
             <ol>
               <li>
                 <span
-                  ><b>Write the topic,</b> the length, the language and a tone if you like.</span
+                  ><b>Write the topic,</b> the length, the language and a tone, or paste a text of
+                  your own.</span
                 >
               </li>
               <li>
@@ -744,10 +746,60 @@
         </div>
       </section>
 
+      <section id="captions">
+        <div class="wrap story">
+          <div>
+            <span class="tc">07 · CAPTIONS</span>
+            <h2 style="margin-top: 12px">Captions in your own words.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              The Captions tab writes down the whole sequence or a range on your computer, has your
+              AI fix the spelling without touching the timing, and places designed captions on a
+              track.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Pick a look</b> and its colours, and list the names it must spell right.</span
+                >
+              </li>
+              <li>
+                <span><b>Check the text:</b> fix a word, split or join lines, play a preview.</span>
+              </li>
+              <li>
+                <span><b>Render and place:</b> one clip with transparency above your footage.</span>
+              </li>
+              <li>
+                <span><b>Save an SRT</b> with the same lines for the platforms.</span>
+              </li>
+            </ol>
+          </div>
+          <div>
+            <div class="spec">
+              <dl>
+                <dt>Nine looks</dt>
+                <dd>
+                  <div class="tags">
+                    <span>Kil Navy</span>
+                    <span>Loud</span>
+                    <span>Dynamic</span>
+                    <span>Pill</span>
+                    <span>Karaoke</span>
+                    <span>Typewriter</span>
+                    <span>Calm</span>
+                    <span>Band</span>
+                    <span>Editorial</span>
+                  </div>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="spec">
         <div class="wrap">
           <div class="head">
-            <span class="tc">07 · SPEC SHEET</span>
+            <span class="tc">08 · SPEC SHEET</span>
             <div>
               <h2>Everything it does.</h2>
               <p>What it makes, how it hands it to you, and what it runs on.</p>
@@ -809,12 +861,12 @@
               <dd>
                 Claude plan <span class="rec">recommended</span> · ChatGPT plan
                 <span class="rec">recommended</span> · Grok plan · API keys for Claude, OpenAI,
-                Gemini, xAI, MiniMax, OpenRouter · LM Studio on your computer. Only models that can
-                see images.
+                Gemini, xAI, MiniMax, OpenRouter · LM Studio or Ollama on your computer. Only models
+                that can see images.
               </dd>
               <dt>Runs on</dt>
               <dd>
-                Premiere Pro 2026 (25.6+) or DaVinci Resolve Studio 21.1+ (the free Resolve loads no
+                Premiere Pro 2026 (26.2+) or DaVinci Resolve Studio 21.1+ (the free Resolve loads no
                 plugins). Mac with Apple silicon, Windows 10 and 11, a graphics card. About 2 GB of
                 disk.
               </dd>
@@ -831,7 +883,7 @@
       <section id="benchmark">
         <div class="wrap">
           <div class="head">
-            <span class="tc">08 · BENCHMARK</span>
+            <span class="tc">09 · BENCHMARK</span>
             <div>
               <h2>Sixteen models, one clip.</h2>
               <p>
@@ -1167,7 +1219,7 @@
       <section class="band">
         <div class="wrap">
           <div class="head">
-            <span class="tc">09 · YOUR FOOTAGE</span>
+            <span class="tc">10 · YOUR FOOTAGE</span>
             <div>
               <h2>It stays on your computer.</h2>
               <p>
@@ -1201,7 +1253,7 @@
       <section id="faq">
         <div class="wrap">
           <div class="head">
-            <span class="tc">10 · QUESTIONS</span>
+            <span class="tc">11 · QUESTIONS</span>
             <div><h2>Before you install.</h2></div>
           </div>
           <div class="faq">
@@ -1220,8 +1272,8 @@
               <p>
                 Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; API keys
                 for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in
-                LM Studio. Only models that can see images are offered. The benchmark above compares
-                sixteen of them on the same clip.
+                LM Studio or Ollama. Only models that can see images are offered. The benchmark
+                above compares sixteen of them on the same clip.
               </p>
             </details>
             <details>
@@ -1235,7 +1287,7 @@
             <details>
               <summary>What do I need to run it?</summary>
               <p>
-                Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later, a Mac
+                Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later, a Mac
                 with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk.
               </p>
             </details>

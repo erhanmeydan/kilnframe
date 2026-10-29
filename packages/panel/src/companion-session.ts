@@ -40,27 +40,34 @@ export class CompanionSession {
     this.client.send(message);
   }
 
-  /** Sends a message and resolves with the first reply of the given type (or rejects on "error"). */
+  /**
+   * Sends a message and resolves with its reply of the given type (or rejects on "error"). Every request
+   * carries its own `ref`; a reply that echoes another request's ref is not this one's, so two job.start or
+   * job.prepare requests in flight never swap their job ids or folders. A reply without a ref (messages the
+   * companion does not echo it for) is taken as before.
+   */
   request<T extends ServerMessage>(
     message: unknown,
     replyType: string,
     timeoutMs = 60_000,
   ): Promise<T> {
+    const ref = `r${++requests}-${Date.now()}`;
+    const sent = message && typeof message === "object" ? { ...(message as object), ref } : message;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         off();
         reject(new Error(t("conn.noReply")));
       }, timeoutMs);
       const off = this.on((m) => {
-        if (m.type === replyType || m.type === "error") {
-          clearTimeout(timer);
-          off();
-          if (m.type === "error") reject(new Error(String(m.message)));
-          else resolve(m as T);
-        }
+        if (m.type !== replyType && m.type !== "error") return;
+        if (m.ref !== undefined && m.ref !== ref) return;
+        clearTimeout(timer);
+        off();
+        if (m.type === "error") reject(new Error(String(m.message)));
+        else resolve(m as T);
       });
       try {
-        this.send(message);
+        this.send(sent);
       } catch (err) {
         clearTimeout(timer);
         off();
@@ -69,3 +76,5 @@ export class CompanionSession {
     });
   }
 }
+
+let requests = 0;

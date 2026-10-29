@@ -6,7 +6,7 @@ Bu rehber Kilnframe'i ilk kez kullanan editörler için. Premiere'de bir aralık
 
 ## 1. Kurulum
 
-Gerekenler: Premiere Pro 2026 (25.6 ya da sonrası), ekran kartı olan bir bilgisayar ve yaklaşık 2 GB boş yer (uygulama ve konuşma modeli).
+Gerekenler: Premiere Pro 2026 (26.2 ya da sonrası), ekran kartı olan bir bilgisayar ve yaklaşık 2 GB boş yer (uygulama ve konuşma modeli).
 
 Tek bir kurulum dosyası indirirsiniz. İçinden hem Kilnframe uygulaması hem Premiere eklentisi kurulur.
 

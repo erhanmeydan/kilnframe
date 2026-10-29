@@ -1,0 +1,271 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>callout-list</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #SCENE_ID-stage,
+        #SCENE_ID-bg,
+        #SCENE_ID-texture {
+          position: absolute;
+          inset: 0;
+        }
+        #SCENE_ID-bg {
+          background: var(--bg);
+        }
+        #SCENE_ID-plate,
+        #SCENE_ID-block,
+        #SCENE_ID-heading,
+        .SCENE_ID-point,
+        .SCENE_ID-marker {
+          position: absolute;
+        }
+        #SCENE_ID-plate {
+          background: var(--plate);
+          border-radius: var(--plate-radius, 0);
+          transform-origin: 0 0;
+        }
+        #SCENE_ID-block {
+          background: var(--main);
+          border-radius: var(--block-radius, 0);
+        }
+        #SCENE_ID-heading {
+          margin: 0;
+          overflow: hidden;
+          font-family: var(--font-head);
+          font-weight: var(--weight-head);
+          line-height: 1.04;
+          letter-spacing: -0.02em;
+          color: var(--node-ink);
+        }
+        #SCENE_ID-heading-inner {
+          display: block;
+        }
+        .SCENE_ID-marker {
+          background: var(--main);
+          border-radius: var(--marker-radius, 22%);
+        }
+        .SCENE_ID-marker.SCENE_ID-key {
+          background: var(--accent);
+        }
+        .SCENE_ID-point {
+          margin: 0;
+          display: flex;
+          align-items: center;
+          font-family: var(--font-body);
+          font-weight: var(--weight-body);
+          line-height: 1.12;
+          color: var(--ink);
+        }
+        /*DRESS*/
+      </style>
+      <div id="root" data-composition-id="SCENE_ID" data-width="WIDTH" data-height="HEIGHT">
+        <div id="SCENE_ID-stage">
+          <div id="SCENE_ID-bg"></div>
+          <div id="SCENE_ID-texture"></div>
+          <div id="SCENE_ID-plate"></div>
+          <div id="SCENE_ID-block"></div>
+          <h2 id="SCENE_ID-heading"><span id="SCENE_ID-heading-inner"></span></h2>
+        </div>
+      </div>
+      <script type="application/json" id="SCENE_ID-data">
+        "__DATA__"
+      </script>
+      <script type="module">
+        /*KIT*/
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["SCENE_ID"] = (async () => {
+          await KF.fonts();
+          const { data, W, H, u, overlay, stage } = KF;
+          const s = data.safeArea;
+          const plate = document.getElementById("SCENE_ID-plate");
+          const block = document.getElementById("SCENE_ID-block");
+          const heading = document.getElementById("SCENE_ID-heading");
+          const headingInner = document.getElementById("SCENE_ID-heading-inner");
+          const points = data.points;
+          const n = points.length;
+          const key =
+            Number.isInteger(data.highlight) && data.highlight >= 0 && data.highlight < n
+              ? data.highlight
+              : n - 1;
+
+          // the block holding the heading, and the box the points stack in
+          let blockBox;
+          let headBox;
+          let list;
+          let side = "left";
+          if (overlay) {
+            document.getElementById("SCENE_ID-bg").style.display = "none";
+            const r = KF.region("column");
+            const pad = 32 * u;
+            const wide = r.w / r.h > 1.6;
+            const w = wide ? Math.min(r.w, r.h * 3) : r.w;
+            KF.place(plate, { x: r.x, y: r.y, w, h: r.h });
+            const hh = Math.min(r.h * (wide ? 0.32 : 0.2), 150 * u);
+            blockBox = { x: r.x, y: r.y, w, h: hh };
+            headBox = { x: r.x + pad, y: r.y + pad * 0.6, w: w - pad * 2, h: hh - pad * 1.2 };
+            list = {
+              x: r.x + pad,
+              y: r.y + hh + pad * 0.6,
+              w: w - pad * 2,
+              h: r.h - hh - pad * 1.2,
+            };
+            block.style.borderRadius = `var(--plate-radius, 0) var(--plate-radius, 0) 0 0`;
+          } else {
+            plate.style.display = "none";
+            KF.speckle(document.getElementById("SCENE_ID-texture"));
+            if (data.format === "landscape") {
+              blockBox = { x: 0, y: 0, w: W * 0.4, h: H };
+              headBox = {
+                x: s.left + 30 * u,
+                y: s.top,
+                w: W * 0.4 - s.left - 90 * u,
+                h: H - s.top - s.bottom,
+              };
+              list = {
+                x: W * 0.47,
+                y: s.top + 40 * u,
+                w: W - s.right - W * 0.47,
+                h: H - s.top - s.bottom - 80 * u,
+              };
+            } else {
+              side = "top";
+              const bh = H * (data.format === "portrait" ? 0.34 : 0.36);
+              blockBox = { x: 0, y: 0, w: W, h: bh };
+              headBox = {
+                x: s.left + 20 * u,
+                y: s.top + 20 * u,
+                w: W - s.left - s.right - 40 * u,
+                h: bh - s.top - 70 * u,
+              };
+              list = {
+                x: s.left + 20 * u,
+                y: bh + 70 * u,
+                w: W - s.left - s.right - 40 * u,
+                h: H - s.bottom - 60 * u - (bh + 70 * u),
+              };
+            }
+          }
+          if (KF.drawn) {
+            // no filled block on a board: the heading is written at the top and underlined in red
+            block.style.display = "none";
+            // a written heading keeps its descenders: no rise mask to clip them
+            heading.style.overflow = "visible";
+            if (!overlay) {
+              const fw = W - s.left - s.right;
+              headBox = { x: s.left + 40 * u, y: s.top + 30 * u, w: fw * 0.8, h: 180 * u };
+              const top = headBox.y + headBox.h + 70 * u;
+              list = { x: s.left + 70 * u, y: top, w: fw * 0.8, h: H - s.bottom - 40 * u - top };
+            }
+          }
+          KF.place(block, blockBox);
+          block.style.transformOrigin = side === "top" ? "50% 0" : "0 50%";
+
+          headingInner.textContent = data.heading;
+          KF.place(heading, headBox);
+          heading.style.height = "auto";
+          KF.fit(heading, headBox.w, headBox.h, (overlay ? 54 : 150) * u, 20 * u);
+          // the heading stands at the bottom of its block, where the block meets the points
+          if (!overlay) heading.style.top = `${headBox.y + headBox.h - heading.offsetHeight}px`;
+          else heading.style.top = `${headBox.y + (headBox.h - heading.offsetHeight) / 2}px`;
+
+          // the points share one size: the largest at which every one fits its share of the list
+          const gap = (overlay ? 14 : 34) * u;
+          const share = (list.h - gap * (n - 1)) / n;
+          const mk = Math.min(share * 0.42, (overlay ? 26 : 46) * u);
+          const textX = list.x + mk + (overlay ? 20 : 34) * u;
+          const textW = list.x + list.w - textX;
+          const els = points.map((p, i) => {
+            const el = KF.el("p", "SCENE_ID-point", stage);
+            el.textContent = p.text;
+            return el;
+          });
+          let size = (overlay ? 48 : 68) * u;
+          for (const el of els) {
+            KF.place(el, { x: textX, y: 0, w: textW, h: share });
+            el.style.height = "auto";
+            size = Math.min(size, KF.fit(el, textW, share, size, 16 * u));
+          }
+          const heights = els.map((el) => {
+            el.style.fontSize = `${size}px`;
+            return Math.max(el.offsetHeight, mk);
+          });
+          const total = heights.reduce((a, b) => a + b, 0) + gap * (n - 1);
+          // an overlay plate is only as tall as what it holds
+          if (overlay) plate.style.height = `${list.y - blockBox.y + total + 32 * u}px`;
+          let y = overlay ? list.y + 8 * u : list.y + Math.max(0, (list.h - total) / 2.4);
+          const items = els.map((el, i) => {
+            const h = heights[i];
+            el.style.top = `${y}px`;
+            el.style.height = `${h}px`;
+            const marker = KF.el(
+              "div",
+              `SCENE_ID-marker${i === key ? " SCENE_ID-key" : ""}`,
+              stage,
+            );
+            KF.place(marker, { x: list.x, y: y + h / 2 - mk / 2, w: mk, h: mk });
+            y += h + gap;
+            return { el, marker, t: KF.at(points[i].at) };
+          });
+
+          const enter = KF.ease("enter", "back.out(1.6)");
+          const grow = KF.ease("grow", "power3.out");
+          const tl = gsap.timeline({ paused: true });
+          if (KF.drawn) {
+            if (overlay) {
+              tl.fromTo(plate, { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0.05);
+              KF.enter(tl, KF.shape("rect", KF.boxOf(plate)), 0.05, "draw");
+            }
+            const ht = Math.max(KF.at(data.heading_at), overlay ? 0.35 : 0.2);
+            let prev = KF.mark(tl, [headingInner], KF.enter(tl, headingInner, ht, "text"));
+            items.forEach((it, i) => {
+              const box = KF.boxOf(it.marker);
+              it.marker.style.display = "none";
+              const t = Math.max(it.t, prev + 0.05);
+              const end = KF.enter(tl, KF.shape("rect", box, { key: i === key }), t, "draw");
+              prev = KF.enter(tl, it.el, end, "text");
+            });
+          } else {
+            if (overlay)
+              tl.fromTo(plate, { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: grow }, 0.05);
+            const scale = side === "top" ? "scaleY" : "scaleX";
+            tl.fromTo(
+              block,
+              { [scale]: 0 },
+              { [scale]: 1, duration: 0.6, ease: grow },
+              overlay ? 0.15 : 0.05,
+            );
+            const ht = Math.max(KF.at(data.heading_at), overlay ? 0.35 : 0.3);
+            KF.enter(tl, headingInner, ht, "rise");
+            let prev = ht + 0.2;
+            items.forEach((it, i) => {
+              const t = Math.max(it.t, prev + 0.2);
+              prev = t;
+              tl.fromTo(it.marker, { scale: 0 }, { scale: 1, duration: 0.45, ease: enter }, t);
+              KF.enter(tl, it.el, t + 0.06, "slide");
+              if (i === key)
+                tl.fromTo(
+                  it.marker,
+                  { rotation: -90 },
+                  { rotation: 0, duration: 0.6, ease: "back.out(2)", immediateRender: false },
+                  t + 0.1,
+                );
+            });
+          }
+          tl.set({}, {}, data.durationS);
+          window.__timelines["SCENE_ID"] = tl;
+          return true;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

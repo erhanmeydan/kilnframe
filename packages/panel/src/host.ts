@@ -85,6 +85,31 @@ export interface Host {
     seq: HostSequence,
     clips: { file: string; atS: number; durationS: number }[],
   ): Promise<{ audioTrack: number }>;
+  /** Where the animation inserts (insert.mov, insert.mp4) lie, in sequence seconds; music, effects and captions not. */
+  ourInsertSpans(seq: HostSequence): Promise<{ startS: number; endS: number }[]>;
+  /**
+   * The video track (0-based) of a clip of `mediaPath` that starts at `atS` and lasts `durationS`, each within a
+   * frame: an earlier caption clip the editor left untouched. Null when there is none.
+   */
+  findCaptionClip(
+    seq: HostSequence,
+    mediaPath: string,
+    atS: number,
+    durationS: number,
+  ): Promise<{ videoTrack: number } | null>;
+  /**
+   * Takes the earlier caption clip off the 0-based video track, looked up where it lay (`old`: its file, start
+   * and length), and places `file` on that track at `atS` for `durationS`. False, with nothing changed, when the
+   * earlier clip is no longer there as it was; the caller then places the new clip on a new track.
+   */
+  replaceCaptionClip(
+    seq: HostSequence,
+    old: { path: string; atS: number; durationS: number },
+    file: string,
+    atS: number,
+    durationS: number,
+    videoTrack: number,
+  ): Promise<boolean>;
   /** A new sequence holding the narration (and music); it becomes the active sequence. */
   createStorySequence(
     template: HostSequence,
@@ -94,6 +119,11 @@ export interface Host {
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
   pickImages(types: string[]): Promise<string[]>;
+  /**
+   * A copy of the text file `source` (one the companion wrote, a caption job's SRT) where the editor picks in
+   * the host's save dialog: the path it was saved to, or null when the editor cancelled.
+   */
+  saveFileCopy(source: string, suggestedName: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
   /** The editor's interface language ("tr_TR"), or null when it does not say. */
   uiLocale(): string | null;

@@ -26,6 +26,80 @@ export interface OpenAICompatibleOptions {
   reasoningField?: "reasoning" | "reasoning_effort" | undefined;
   /** Pause before a retry, times the attempt number (tests set it to 0). */
   retryDelayMs?: number;
+  /**
+   * LM Studio only: "off" (the default) sends reasoning_effort "none" to a model that thinks, "on" leaves the
+   * model's own default. Other providers never get it.
+   */
+  thinking?: "off" | "on" | undefined;
+  /** Where LM Studio's per-request token line goes (the companion's log through stderr by default). */
+  log?: (line: string) => void;
+}
+
+/** Characters per token in the prompt estimate: a rough average over English, Turkish, HTML and JSON. */
+export const CHARS_PER_TOKEN = 3.5;
+/** What one image counts for in the estimate: a style still or a footage frame at the sizes sent. */
+export const TOKENS_PER_IMAGE = 1_500;
+/** Room kept free between the estimated prompt plus the reply and the context: the estimate is rough. */
+export const CONTEXT_SAFETY_TOKENS = 2_000;
+/** A local request that leaves less than this for the reply is not sent: no scene fits in it. */
+export const MIN_REPLY_TOKENS = 6_000;
+
+/** The request's size in tokens, roughly: its characters over CHARS_PER_TOKEN plus TOKENS_PER_IMAGE each. */
+export function estimatePromptTokens(req: TextRequest): number {
+  let chars = req.system.length;
+  let images = 0;
+  for (const m of req.messages)
+    for (const p of m.content) {
+      if (p.type === "text") chars += p.text.length;
+      else images++;
+    }
+  return Math.ceil(chars / CHARS_PER_TOKEN) + images * TOKENS_PER_IMAGE;
+}
+
+/** LM Studio's own words when a request does not fit the loaded context. */
+const CONTEXT_EXCEEDED =
+  /context (size|length|window)\b[^.]{0,80}?(exceed|not enough|too small)|exceeds? the (available )?context|greater than the context length/i;
+
+/** The local servers: no key, the model runs on this computer with a context it was loaded with. */
+const LOCAL = new Set(["lmstudio", "ollama"]);
+const LOCAL_NAMES: Record<string, string> = { lmstudio: "LM Studio", ollama: "Ollama" };
+
+/** The readable failure for a request that does not fit the context the local server loaded the model with. */
+function contextTooSmall(detail: string, server: string): ProviderError {
+  return new ProviderError(
+    server === "ollama"
+      ? `The model's context in Ollama is too small for ${detail}. Set Ollama's context length to at least 64K (the Ollama app's settings, or OLLAMA_CONTEXT_LENGTH) or choose a shorter range.`
+      : `The model's context in LM Studio is too small for ${detail}. Load the model in LM Studio with a longer context (at least 64K) or choose a shorter range.`,
+    false,
+    "context-exceeded",
+  );
+}
+
+/** A model as Ollama's POST /api/show describes it (github.com/ollama/ollama/blob/main/docs/api.md). */
+interface OllamaShow {
+  capabilities?: string[];
+  model_info?: Record<string, unknown>;
+}
+
+/** The model's own context length: model_info "<general.architecture>.context_length". */
+function ollamaMaxContext(show: OllamaShow): number | null {
+  const info = show.model_info ?? {};
+  const arch = info["general.architecture"];
+  const v =
+    (typeof arch === "string" ? info[`${arch}.context_length`] : undefined) ??
+    Object.entries(info).find(([k]) => k.endsWith(".context_length"))?.[1];
+  return typeof v === "number" ? v : null;
+}
+
+/** A model in LM Studio's GET /api/v1/models (https://lmstudio.ai/docs/developer/rest/list). */
+interface LmStudioModel {
+  type?: string;
+  key: string;
+  display_name?: string;
+  max_context_length?: number | null;
+  loaded_instances?: { id?: string; config?: { context_length?: number } }[];
+  /** reasoning is there only for a model whose thinking can be set */
+  capabilities?: { vision?: boolean; reasoning?: { allowed_options?: string[]; default?: string } };
 }
 
 interface ChatCompletion {
@@ -65,6 +139,7 @@ export class OpenAICompatibleProvider implements TextProvider {
 
   async listModels(): Promise<ModelInfo[]> {
     if (this.name === "lmstudio") return this.listLmStudioModels();
+    if (this.name === "ollama") return this.listOllamaModels();
     if (this.name === "openrouter") return this.listOpenRouterModels();
     let res: Response;
     try {
@@ -109,15 +184,7 @@ export class OpenAICompatibleProvider implements TextProvider {
         `LM Studio could not list models (${res.status}).`,
         res.status >= 500,
       );
-    const body = (await res.json()) as {
-      models?: {
-        type?: string;
-        key: string;
-        display_name?: string;
-        max_context_length?: number;
-        capabilities?: { vision?: boolean };
-      }[];
-    };
+    const body = (await res.json()) as { models?: LmStudioModel[] };
     return (body.models ?? [])
       .filter((m) => m.type === "llm")
       .map((m) => ({
@@ -125,7 +192,184 @@ export class OpenAICompatibleProvider implements TextProvider {
         displayName: m.display_name ?? m.key,
         contextWindow: m.max_context_length ?? null,
         vision: m.capabilities?.vision ?? false,
+        loaded: (m.loaded_instances ?? []).length > 0,
+        loadedContext: m.loaded_instances?.[0]?.config?.context_length ?? null,
+        reasons: canTurnThinkingOff(m),
       }));
+  }
+
+  private get origin(): string {
+    return new URL(this.o.baseURL).origin;
+  }
+
+  private async ollamaJson<T>(path: string, body?: unknown): Promise<T> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.origin}${path}`, {
+        method: body === undefined ? "GET" : "POST",
+        ...(body === undefined
+          ? {}
+          : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+      });
+    } catch {
+      throw new ProviderError("Ollama is not running. Open Ollama and try again.", true);
+    }
+    if (!res.ok)
+      throw new ProviderError(
+        `Ollama could not answer ${path} (${res.status}).`,
+        res.status >= 500,
+      );
+    return (await res.json()) as T;
+  }
+
+  /** Running models and the context each was loaded with (GET /api/ps, docs.ollama.com/api/ps). */
+  private async ollamaRunning(): Promise<Map<string, number | null>> {
+    const ps = await this.ollamaJson<{
+      models?: { name?: string; model?: string; context_length?: number }[];
+    }>("/api/ps");
+    return new Map(
+      (ps.models ?? []).map((m) => [m.name ?? m.model ?? "", m.context_length ?? null]),
+    );
+  }
+
+  /**
+   * Ollama's installed models (GET /api/tags) with what each can do (POST /api/show: capabilities "vision" and
+   * "thinking", model_info context length) and whether it is running (GET /api/ps), as documented on
+   * docs.ollama.com/api and github.com/ollama/ollama/blob/main/docs/api.md (checked 29 Oct 2026).
+   */
+  private async listOllamaModels(): Promise<ModelInfo[]> {
+    const tags = await this.ollamaJson<{ models?: { name: string; model?: string }[] }>(
+      "/api/tags",
+    );
+    const running = await this.ollamaRunning().catch(() => new Map<string, number | null>());
+    return Promise.all(
+      (tags.models ?? []).map(async (m) => {
+        const show = await this.ollamaJson<OllamaShow>("/api/show", { model: m.name }).catch(
+          () => ({}) as OllamaShow,
+        );
+        const caps = show.capabilities ?? [];
+        return {
+          id: m.name,
+          displayName: m.name,
+          contextWindow: ollamaMaxContext(show),
+          vision: caps.includes("vision"),
+          loaded: running.has(m.name),
+          loadedContext: running.get(m.name) ?? null,
+          reasons: caps.includes("thinking"),
+        };
+      }),
+    );
+  }
+
+  private ollamaShowLookup: Promise<OllamaShow | undefined> | undefined;
+
+  private ollamaShow(): Promise<OllamaShow | undefined> {
+    this.ollamaShowLookup ??= this.ollamaJson<OllamaShow>("/api/show", { model: this.model }).catch(
+      () => undefined,
+    );
+    return this.ollamaShowLookup;
+  }
+
+  /** The context once read; a failed read is not kept, so the next request asks Ollama again. */
+  private ollamaContextKnown: number | undefined;
+
+  /**
+   * The context Ollama really runs the model with. Ollama cuts a prompt that does not fit without saying so,
+   * and loads a model with its own default context (often 4K), not the model's maximum: a model that is not
+   * running is loaded first (POST /api/generate with no prompt loads it), then GET /api/ps says its context.
+   * When it cannot be read (an older Ollama without context_length), the job stops with a readable message
+   * rather than send a prompt that may be cut.
+   */
+  private async ollamaContext(): Promise<number> {
+    if (this.ollamaContextKnown !== undefined) return this.ollamaContextKnown;
+    let context: number | null | undefined;
+    try {
+      let running = await this.ollamaRunning();
+      if (!running.has(this.model)) {
+        await this.ollamaJson("/api/generate", { model: this.model, keep_alive: "30m" });
+        running = await this.ollamaRunning();
+      }
+      context = running.get(this.model);
+    } catch (err) {
+      if (err instanceof ProviderError && /not running/.test(err.message)) throw err;
+    }
+    if (typeof context !== "number" || context <= 0)
+      throw new ProviderError(
+        "Kilnframe could not read the context Ollama runs the model with, so Ollama might cut the prompt without saying so. Update Ollama, set its context length to at least 64K and try again.",
+        false,
+        "context-exceeded",
+      );
+    this.ollamaContextKnown = context;
+    return context;
+  }
+
+  /** Set once LM Studio has refused reasoning_effort, so later requests leave it out. */
+  private reasoningRefused = false;
+
+  private modelLookup: Promise<LmStudioModel | undefined> | undefined;
+
+  /** This model's entry in LM Studio's list, read once; undefined when it cannot be read. */
+  private lmStudioModel(): Promise<LmStudioModel | undefined> {
+    this.modelLookup ??= this.readLmStudioModel().catch(() => undefined);
+    return this.modelLookup;
+  }
+
+  private async readLmStudioModel(): Promise<LmStudioModel | undefined> {
+    const res = await fetch(`${new URL(this.o.baseURL).origin}/api/v1/models`);
+    if (!res.ok) return undefined;
+    const body = (await res.json()) as { models?: LmStudioModel[] };
+    return (body.models ?? []).find(
+      (m) => m.key === this.model || m.loaded_instances?.some((i) => i.id === this.model),
+    );
+  }
+
+  /**
+   * The context LM Studio loaded the model with (loaded_instances[].config.context_length), else the model's
+   * max_context_length when it is not loaded yet, from GET /api/v1/models as documented on
+   * https://lmstudio.ai/docs/developer/rest/list. Read once; undefined for other providers or when LM Studio
+   * cannot be asked.
+   */
+  async loadedContext(): Promise<number | undefined> {
+    if (this.name === "ollama") return this.ollamaContext();
+    if (this.name !== "lmstudio") return undefined;
+    const model = await this.lmStudioModel();
+    if (!model) return undefined;
+    const loaded = (model.loaded_instances ?? [])
+      .filter((i) => i.id === this.model || model.key === this.model)
+      .map((i) => i.config?.context_length)
+      .filter((n): n is number => typeof n === "number" && n > 0);
+    // loaded more than once: the smallest, so the request fits whichever instance answers
+    if (loaded.length) return Math.min(...loaded);
+    return model.max_context_length ?? undefined;
+  }
+
+  /**
+   * The reply limit to send. Cloud providers get the stage's own. LM Studio gets no more than its loaded
+   * context leaves after the prompt, and a request that would leave less than MIN_REPLY_TOKENS fails here
+   * instead of being cut short by LM Studio; one line per request goes to the log.
+   */
+  private async replyLimit(req: TextRequest): Promise<number> {
+    if (!LOCAL.has(this.name)) return req.maxTokens;
+    const log = this.o.log ?? ((line: string) => void process.stderr.write(`${line}\n`));
+    const context = await this.loadedContext();
+    const prompt = estimatePromptTokens(req);
+    if (context === undefined) {
+      log(
+        `${LOCAL_NAMES[this.name]} ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${req.maxTokens}, context unknown`,
+      );
+      return req.maxTokens;
+    }
+    const room = context - prompt - CONTEXT_SAFETY_TOKENS;
+    if (room < Math.min(MIN_REPLY_TOKENS, req.maxTokens))
+      throw contextTooSmall(
+        `${req.purpose} (${context} tokens loaded, about ${prompt} needed for the request alone)`,
+        this.name,
+      );
+    const limit = Math.min(req.maxTokens, room);
+    log(
+      `${LOCAL_NAMES[this.name]} ${req.purpose}: prompt about ${prompt} tokens, max_tokens ${limit}, context ${context}`,
+    );
+    return limit;
   }
 
   /**
@@ -209,7 +453,27 @@ export class OpenAICompatibleProvider implements TextProvider {
     }
   }
 
+  /**
+   * LM Studio's switch for a model that thinks: reasoning_effort "none" turns the thinking off on
+   * /v1/chat/completions (LM Studio 0.4.8 added reasoning_effort, https://lmstudio.ai/changelog/lmstudio/lmstudio-v0.4.8;
+   * it accepts none, minimal, low, medium, high and xhigh, and refuses "off"). Sent only when the model's
+   * reasoning options include "off", thinking is not on and LM Studio has not refused the field before;
+   * nothing for other providers.
+   */
+  private async thinkingOff(): Promise<boolean> {
+    if (this.o.thinking === "on" || this.reasoningRefused) return false;
+    // Ollama: reasoning_effort "none" asks a model that thinks for no thinking
+    // (docs.ollama.com/api/openai-compatibility, checked 29 Oct 2026)
+    if (this.name === "ollama")
+      return Boolean((await this.ollamaShow())?.capabilities?.includes("thinking"));
+    if (this.name !== "lmstudio") return false;
+    const model = await this.lmStudioModel();
+    return model !== undefined && canTurnThinkingOff(model);
+  }
+
   private async once(req: TextRequest, effort?: string): Promise<TextResponse> {
+    const maxTokens = await this.replyLimit(req);
+    const noThinking = await this.thinkingOff();
     const messages = [
       { role: "system", content: req.system },
       ...req.messages.map((m) => ({
@@ -223,9 +487,8 @@ export class OpenAICompatibleProvider implements TextProvider {
     ];
     // Streamed: the headers come back at once, so a model that thinks for minutes before it writes does not
     // run into fetch's five-minute wait for them (an xAI scene failed that way on 8 Oct 2026).
-    let res: Response;
-    try {
-      res = await fetch(`${this.o.baseURL.replace(/\/$/, "")}/chat/completions`, {
+    const send = (withNoThinking: boolean) =>
+      fetch(`${this.o.baseURL.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -234,7 +497,7 @@ export class OpenAICompatibleProvider implements TextProvider {
         body: JSON.stringify({
           model: this.model,
           messages,
-          max_tokens: req.maxTokens,
+          max_tokens: maxTokens,
           stream: true,
           stream_options: { include_usage: true },
           ...(effort
@@ -242,9 +505,27 @@ export class OpenAICompatibleProvider implements TextProvider {
               ? { reasoning_effort: effort }
               : { reasoning: { effort } }
             : {}),
+          ...(withNoThinking ? { reasoning_effort: "none" } : {}),
           ...this.o.extraBody,
         }),
       });
+    let res: Response;
+    try {
+      res = await send(noThinking);
+      // a version of LM Studio that refuses reasoning_effort: ask again without it, and not again later
+      if (noThinking && res.status === 400) {
+        const refusal = await res
+          .clone()
+          .text()
+          .catch(() => "");
+        if (/reasoning/i.test(refusal)) {
+          this.reasoningRefused = true;
+          (this.o.log ?? ((line: string) => void process.stderr.write(`${line}\n`)))(
+            `LM Studio ${req.purpose}: reasoning_effort refused, asking again without it`,
+          );
+          res = await send(false);
+        }
+      }
     } catch (err) {
       throw new ProviderError(unreachable(this.name, this.o.baseURL, err), true);
     }
@@ -256,13 +537,15 @@ export class OpenAICompatibleProvider implements TextProvider {
       } catch (err) {
         throw new ProviderError(unreachable(this.name, this.o.baseURL, err), true);
       }
-      return this.answer(streamed, req);
+      return this.answer(streamed, req, maxTokens);
     }
     const raw = (await res.json().catch(() => ({}))) as ChatCompletion | ChatCompletion[];
     // Gemini's OpenAI endpoint sends its error inside an array
     const body = Array.isArray(raw) ? (raw[0] ?? {}) : raw;
     if (!res.ok) {
       const detail = body.error?.message ?? res.statusText;
+      if (LOCAL.has(this.name) && CONTEXT_EXCEEDED.test(detail))
+        throw contextTooSmall(`${req.purpose}: ${detail.replace(/[.\s]+$/, "")}`, this.name);
       // the key is fine but the account must accept something first (OpenRouter's age confirmation, a
       // model's terms): saying the key was rejected sent editors to check a key that worked
       const page = res.status === 401 || res.status === 403 ? needsAcceptance(detail) : null;
@@ -287,16 +570,22 @@ export class OpenAICompatibleProvider implements TextProvider {
         unavailable ? "model-unavailable" : undefined,
       );
     }
-    return this.answer(body, req);
+    return this.answer(body, req, maxTokens);
   }
 
-  private answer(body: ChatCompletion, req: TextRequest): TextResponse {
-    if (body.error?.message)
+  private answer(body: ChatCompletion, req: TextRequest, maxTokens: number): TextResponse {
+    if (body.error?.message) {
+      if (LOCAL.has(this.name) && CONTEXT_EXCEEDED.test(body.error.message))
+        throw contextTooSmall(
+          `${req.purpose}: ${body.error.message.replace(/[.\s]+$/, "")}`,
+          this.name,
+        );
       throw new ProviderError(`${this.name} error: ${body.error.message}`, true);
+    }
     const choice = body.choices?.[0];
     if (choice?.finish_reason === "length") {
       throw new ProviderError(
-        `The reply for ${req.purpose} was cut off at ${req.maxTokens} tokens.`,
+        `The reply for ${req.purpose} was cut off at ${maxTokens} tokens.`,
         true,
         "cut-off",
       );
@@ -311,6 +600,11 @@ export class OpenAICompatibleProvider implements TextProvider {
       },
     };
   }
+}
+
+/** Whether LM Studio lists "off" among the model's thinking options, the only models reasoning_effort none suits. */
+function canTurnThinkingOff(m: LmStudioModel): boolean {
+  return Boolean(m.capabilities?.reasoning?.allowed_options?.includes("off"));
 }
 
 /**

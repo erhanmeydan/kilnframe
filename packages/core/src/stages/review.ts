@@ -1,3 +1,5 @@
+import { recipesForPlan } from "../recipes.js";
+import { isRecipeScene } from "../recipe-fill.js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { assetPreview } from "../assets.js";
@@ -102,6 +104,7 @@ export async function recomposeScene(
       }),
     ),
     frames: readFrames(job.outDir),
+    recipes: recipesForPlan(job.plan.scenes),
   };
   // the other scenes join with a short conversation (request, their code) so repairs keep their context
   const composed = new Map<string, ComposedScene>();
@@ -115,6 +118,8 @@ export async function recomposeScene(
         { role: "user", content: composeRequest(ctx, s) },
         { role: "assistant", content: [{ type: "text", text: "```html\n" + html + "\n```" }] },
       ],
+      // only a scene really built from its recipe: one that fell back was written, and is repaired as such
+      ...(s.recipe && isRecipeScene(html, s.id) ? { recipe: s.recipe } : {}),
     });
   }
   log(`Composing ${o.sceneId} again`);

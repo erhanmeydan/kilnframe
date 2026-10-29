@@ -88,6 +88,22 @@ in that scene so the viewer's eye goes there at the moment it is said.
   `strike` for something wrong or removed.
 - `at_s` is the moment the speaker says it. One to three marks per scene; never mark everything.
 
+# Recipes
+
+When the request lists recipes, use them: a recipe scene is tested, renders in seconds and never breaks,
+while a scene written from scratch takes minutes and can fail. For every scene, check the list first. If what
+the scene says has the shape of a recipe (a key sentence to show big, 2 to 5 spoken values to compare, 3 to 5
+steps in order, a heading with 2 to 4 points), give it that `recipe`, use the recipe's technique, and write
+`visual` as what that recipe will show with this content.
+
+Write a scene from scratch (`recipe` null) only for:
+
+- the insert's one key scene, when its idea needs its own visual metaphor;
+- scenes that use the editor's images;
+- content none of the recipes fits (code on screen, a product screen, a picture of a thing).
+
+Most inserts have more recipe scenes than free ones.
+
 # Output
 
 Reply with one JSON object and nothing else (no prose, no code fence):
@@ -107,6 +123,7 @@ Reply with one JSON object and nothing else (no prose, no code fence):
 "camera": "slow push in",
 "technique": "three-3d",
 "mode": "fullscreen",
+"recipe": null,
 "transition_out": "cut",
 "assets": [{ "id": "a1", "role": "screenshot", "marks": [{ "kind": "underline", "line": "l4", "text": "Kare hızı", "at_s": 11.4 }] }],
 "sfx": [{ "at_s": 0.8, "sound": "thock", "gain_db": -12 }]
@@ -122,6 +139,7 @@ Rules for the JSON:
 - `transition_out` is "cut" or the style's own transition; the last scene uses "cut".
 - `mode` only when the output is automatic; `speaker_side` whenever frames of the footage are attached.
   Otherwise leave them out.
+- `recipe` is a name from the request's recipe list or null; leave it out when no recipes are listed.
 - `sfx.at_s` is inside its scene.
 - `assets` lists the editor's images the scene uses, by id; leave it empty (`[]`) when it uses none or when
   the request lists no images. `marks` is optional and only for images with read text or a clear target;

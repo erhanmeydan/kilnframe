@@ -1,0 +1,20 @@
+{
+  "technique": "motion-2d",
+  "description": "a short heading and 2 to 4 short points stacking in on their words, each with a marker, one point in the accent",
+  "formats": ["landscape", "portrait", "square"],
+  "modes": ["fullscreen", "overlay"],
+  "fields": {
+    "heading": { "type": "text", "max": 30 },
+    "heading_at": { "type": "word" },
+    "points": {
+      "type": "list",
+      "min": 2,
+      "max": 4,
+      "of": {
+        "text": { "type": "text", "max": 38 },
+        "at": { "type": "word" }
+      }
+    },
+    "highlight": { "type": "number", "optional": true }
+  }
+}

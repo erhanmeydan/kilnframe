@@ -46,6 +46,7 @@ export interface StyleFont {
   family: string;
   file: string;
   role: string;
+  weight?: number;
 }
 
 /** Text per panel language. A plain string in an older or community style counts for every language. */
@@ -84,7 +85,12 @@ function collectFonts(node: unknown, role: string, out: StyleFont[]): void {
   if (node && typeof node === "object") {
     const o = node as Record<string, unknown>;
     if (typeof o.family === "string" && typeof o.file === "string") {
-      out.push({ family: o.family, file: o.file, role });
+      out.push({
+        family: o.family,
+        file: o.file,
+        role,
+        ...(typeof o.weight === "number" ? { weight: o.weight } : {}),
+      });
       return;
     }
     for (const [k, v] of Object.entries(o)) collectFonts(v, role ? `${role}.${k}` : k, out);
@@ -102,7 +108,8 @@ export function loadStyle(name: string, dirIn?: string): StyleInfo {
   const dir = dirIn ?? styleHome(name) ?? stylesDir();
   const root = join(dir, name);
   if (!existsSync(join(root, "style.md"))) throw new Error(`Style "${name}" not found in ${dir}.`);
-  const styleMd = readFileSync(join(root, "style.md"), "utf8");
+  // a style written on Windows has \r\n line ends; the tables are read line by line
+  const styleMd = readFileSync(join(root, "style.md"), "utf8").replace(/\r\n/g, "\n");
   const tokensJson = readFileSync(join(root, "tokens.json"), "utf8");
   const fonts: StyleFont[] = [];
   collectFonts((JSON.parse(tokensJson) as { fonts?: unknown }).fonts, "", fonts);

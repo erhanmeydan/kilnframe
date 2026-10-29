@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { FEEDBACK_PAGE, feedbackPage, shouldReport, withoutUserName } from "../src/feedback";
+import {
+  FEEDBACK_PAGE,
+  NOT_REPORTED,
+  feedbackPage,
+  shouldReport,
+  withoutUserName,
+} from "../src/feedback";
 
 /** The fields a feedback link carries after the "#", as the page reads them. */
 const fields = (url: string) => {
@@ -37,6 +43,21 @@ describe("feedback page link", () => {
     expect(f.v).toContain("DaVinci Resolve · Windows");
   });
 
+  it("names the provider and model that did the work, when given", () => {
+    const f = fields(
+      feedbackPage({
+        kind: "error",
+        error: "Bir sahne boş çıktı.",
+        lang: "tr",
+        ai: "Google Gemini · gemini-3.8-flash",
+        ...info,
+      }),
+    );
+    expect(f.v).toBe(
+      "Kilnframe 0.2.3 · Panel 0.2.3 · Premiere · macOS · Google Gemini · gemini-3.8-flash",
+    );
+  });
+
   it("keeps spaces, line breaks and Turkish letters intact", () => {
     const f = fields(
       feedbackPage({
@@ -63,6 +84,16 @@ describe("feedback page link", () => {
     expect(shouldReport("Write a topic first.", own)).toBe(false);
     expect(shouldReport("Lyria failed", own)).toBe(true);
   });
+
+  it("does not offer a report when a tab wraps the editor's own stop in its own sentence", () => {
+    const own = ["The export was cancelled in Premiere. You can try again."];
+    expect(
+      shouldReport(
+        "The story could not be made: The export was cancelled in Premiere. You can try again.",
+        own,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("withoutUserName", () => {
@@ -71,5 +102,13 @@ describe("withoutUserName", () => {
     expect(withoutUserName("C:\\Users\\Erhan Meydan\\Videos\\a.wav")).toBe("~\\Videos\\a.wav");
     expect(withoutUserName("/home/ali/x")).toBe("~/x");
     expect(withoutUserName("no path here")).toBe("no path here");
+  });
+
+  describe("errors that are the editor's own", () => {
+    it("include the own text's empty and too long notes", () => {
+      expect(NOT_REPORTED).toContain("story.ownEmpty");
+      expect(NOT_REPORTED).toContain("story.ownTooLong");
+      expect(NOT_REPORTED).toContain("export.cancelled");
+    });
   });
 });

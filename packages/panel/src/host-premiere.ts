@@ -1,12 +1,21 @@
 // The Premiere Pro host: the UXP API (@adobe/premierepro 26.5) behind the panel's Host interface. Every call
 // here is written from the official type definitions; the probe panel confirms the behaviour inside Premiere.
-import type { FolderItem, Project, ProjectItem, Sequence, premierepro } from "@adobe/premierepro";
+import type {
+  FolderItem,
+  Project,
+  ProjectItem,
+  Sequence,
+  TrackItemSelection,
+  premierepro,
+} from "@adobe/premierepro";
 import { frameFor } from "./frame";
 import { formatRational, rationalFps } from "./fps";
 import { withoutLongPathPrefix } from "./home";
 import type { Host, HostSequence, PlaceResult } from "./host";
+import { exportError } from "./export-cancel";
+import { premiereCall } from "./premiere-version";
 import { t } from "./i18n";
-import { isOurInsert } from "./our-files";
+import { isOurAnimation, isOurInsert } from "./our-files";
 
 export interface UxpModule {
   host?: { uiLocale?: string };
@@ -18,6 +27,10 @@ export interface UxpModule {
         allowMultiple: boolean;
         types: string[];
       }): Promise<{ nativePath: string }[] | { nativePath: string } | null>;
+      getFileForSaving(
+        suggestedName: string,
+        o: { types: string[] },
+      ): Promise<{ nativePath: string; write(data: string): Promise<unknown> } | null>;
     };
   };
 }
@@ -43,18 +56,18 @@ interface SequenceInfo {
   audioTracks: number;
 }
 
+/** A clip on a track, as far as the panel reads it. */
+interface Clip {
+  getStartTime(): Promise<{ seconds: number }>;
+  getEndTime(): Promise<{ seconds: number }>;
+  getProjectItem(): Promise<ProjectItem>;
+}
+
 /** A track that can be switched off for an export (video and audio tracks both can). */
 interface Mutable {
   isMuted(): Promise<boolean>;
   setMute(mute: boolean): Promise<boolean>;
-  getTrackItems(
-    type: number,
-    includeEmpty: boolean,
-  ): {
-    getStartTime(): Promise<{ seconds: number }>;
-    getEndTime(): Promise<{ seconds: number }>;
-    getProjectItem(): Promise<ProjectItem>;
-  }[];
+  getTrackItems(type: number, includeEmpty: boolean): Clip[];
 }
 
 const isWin = (os: OsModule) =>
@@ -116,8 +129,15 @@ export function createPremiereHost(
 
   async function sequenceInfo(sequence: Sequence): Promise<SequenceInfo> {
     const settings = await sequence.getSettings();
-    const rate = await settings.getVideoFrameRate();
-    const rect = await settings.getVideoFrameRect();
+    // an older Premiere lacks these: the panel says to update instead of "is not a function"
+    const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
+      settings,
+      "getVideoFrameRate",
+    );
+    const rect = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRect>>>(
+      settings,
+      "getVideoFrameRect",
+    );
     const inPoint = await sequence.getInPoint();
     const outPoint = await sequence.getOutPoint();
     return {
@@ -133,6 +153,54 @@ export function createPremiereHost(
       videoTracks: await sequence.getVideoTrackCount(),
       audioTracks: await sequence.getAudioTrackCount(),
     };
+  }
+
+  /** The media file behind a clip, or null for a clip without one (title, adjustment layer). */
+  async function pathOf(item: Clip): Promise<string | null> {
+    try {
+      return await ppro.ClipProjectItem.cast(await item.getProjectItem()).getMediaFilePath();
+    } catch {
+      return null;
+    }
+  }
+
+  /** The clips on each video track, by 0-based track index. */
+  async function videoClips(sequence: Sequence): Promise<Clip[][]> {
+    const tracks: Clip[][] = [];
+    for (let i = 0; i < (await sequence.getVideoTrackCount()); i++)
+      tracks.push(
+        (await sequence.getVideoTrack(i)).getTrackItems(
+          ppro.Constants.TrackItemType.CLIP,
+          false,
+        ) as unknown as Clip[],
+      );
+    return tracks;
+  }
+
+  /** The clips of `mediaPath` among `clips` that start at `atS` and last `durationS`, each within a frame. */
+  async function captionClips(
+    sequence: Sequence,
+    clips: Clip[],
+    mediaPath: string,
+    atS: number,
+    durationS: number,
+  ): Promise<Clip[]> {
+    const settings = await sequence.getSettings();
+    const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
+      settings,
+      "getVideoFrameRate",
+    );
+    const frame = 1 / rate.value;
+    const found: Clip[] = [];
+    for (const item of clips) {
+      const path = await pathOf(item);
+      if (!path || !same(path, mediaPath)) continue;
+      const start = (await item.getStartTime()).seconds;
+      const end = (await item.getEndTime()).seconds;
+      if (Math.abs(start - atS) < frame && Math.abs(end - start - durationS) < frame)
+        found.push(item);
+    }
+    return found;
   }
 
   /** True when the track holds one of our inserts (or its effects) that overlaps [startS, endS]. */
@@ -206,13 +274,17 @@ export function createPremiereHost(
         ppro.TickTime.createWithSeconds(startS),
         ppro.TickTime.createWithSeconds(endS),
       );
-      return await ppro.EncoderManager.getManager().exportSequence(
-        sequence,
-        ppro.Constants.ExportType.IMMEDIATELY,
-        native(outputPath),
-        native(presetPath),
-        false,
-      );
+      return await ppro.EncoderManager.getManager()
+        .exportSequence(
+          sequence,
+          ppro.Constants.ExportType.IMMEDIATELY,
+          native(outputPath),
+          native(presetPath),
+          false,
+        )
+        .catch((err: unknown) => {
+          throw exportError(err);
+        });
     } finally {
       area.setWorkAreaInOutPoints(sequence, before.in, before.out);
     }
@@ -438,13 +510,17 @@ export function createPremiereHost(
     async exportRangeAudio(seq, _startS, _endS, file, { wavPreset }) {
       // the whole sequence: the companion cuts the range with FFmpeg (the docs do not say whether in/out is used)
       const { sequence } = await sequenceOf(seq);
-      const ok = await ppro.EncoderManager.getManager().exportSequence(
-        sequence,
-        ppro.Constants.ExportType.IMMEDIATELY,
-        native(file),
-        native(wavPreset),
-        true,
-      );
+      const ok = await ppro.EncoderManager.getManager()
+        .exportSequence(
+          sequence,
+          ppro.Constants.ExportType.IMMEDIATELY,
+          native(file),
+          native(wavPreset),
+          true,
+        )
+        .catch((err: unknown) => {
+          throw exportError(err);
+        });
       return { ok, offsetSeconds: 0 };
     },
     async exportRangePicture(seq, startS, endS, file, { previewPreset }) {
@@ -470,6 +546,68 @@ export function createPremiereHost(
       }
       return { audioTrack };
     },
+    async ourInsertSpans(seq) {
+      const { sequence } = await sequenceOf(seq);
+      const spans: { startS: number; endS: number }[] = [];
+      for (const clips of await videoClips(sequence))
+        for (const item of clips) {
+          const path = await pathOf(item);
+          if (path && isOurAnimation(path))
+            spans.push({
+              startS: (await item.getStartTime()).seconds,
+              endS: (await item.getEndTime()).seconds,
+            });
+        }
+      return spans.sort((a, b) => a.startS - b.startS);
+    },
+    async findCaptionClip(seq, mediaPath, atS, durationS) {
+      const { sequence } = await sequenceOf(seq);
+      const tracks = await videoClips(sequence);
+      for (const [i, clips] of tracks.entries())
+        if ((await captionClips(sequence, clips, mediaPath, atS, durationS)).length)
+          return { videoTrack: i };
+      return null;
+    },
+    // SequenceEditor.createRemoveItemsAction(selection, ripple, mediaType, shiftOverlapping) takes the clips of a
+    // TrackItemSelection off; createOverwriteItemAction(item, time, videoTrack, audioTrack) places the new clip.
+    // The selection comes from TrackItemSelection.createEmptySelection(callback) and addItem(), and is valid only
+    // inside that callback, with nothing asynchronous in it: so the whole transaction runs there, one undo step.
+    // developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/sequenceeditor/ and
+    // developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/trackitemselection/
+    async replaceCaptionClip(seq, before, file, atS, durationS, videoTrack) {
+      const { project, sequence } = await sequenceOf(seq);
+      const clips = (await videoClips(sequence))[videoTrack] ?? [];
+      const old = await captionClips(sequence, clips, before.path, before.atS, before.durationS);
+      // moved, trimmed or gone since it was found: never overwrite whatever lies there now
+      if (!old.length) return false;
+      const item = await importToBin(project, file);
+      // a caption clip has no sound; an empty audio track all the same, so nothing lands on the editor's own
+      const { audioTrack } = await freeTracks(sequence);
+      const editor = ppro.SequenceEditor.getEditor(sequence);
+      let ok = false;
+      const replace = (selection: TrackItemSelection) =>
+        project.lockedAccess(() => {
+          ok = project.executeTransaction((compound) => {
+            compound.addAction(
+              editor.createRemoveItemsAction(selection, false, ppro.Constants.MediaType.ANY, false),
+            );
+            compound.addAction(
+              editor.createOverwriteItemAction(
+                item,
+                ppro.TickTime.createWithSeconds(atS),
+                videoTrack,
+                audioTrack,
+              ),
+            );
+          }, t("premiere.undoPlace"));
+        });
+      ppro.TrackItemSelection.createEmptySelection((selection) => {
+        for (const clip of old) selection.addItem(clip as never, true);
+        replace(selection);
+      });
+      if (!ok) throw new Error(t("premiere.placeFailed"));
+      return true;
+    },
     async createStorySequence(template, name, narration, music, format) {
       const { project, sequence } = await sequenceOf(template);
       await createStorySequence(project, sequence, name, narration, music, format);
@@ -481,6 +619,16 @@ export function createPremiereHost(
       });
       const files = !picked ? [] : Array.isArray(picked) ? picked : [picked];
       return files.map((f) => f.nativePath).filter(Boolean);
+    },
+    async saveFileCopy(source, suggestedName) {
+      // UXP's own save dialog; the file it returns may be written to without a further permission
+      const ext = suggestedName.split(".").pop() ?? "txt";
+      const file = await uxp.storage.localFileSystem.getFileForSaving(suggestedName, {
+        types: [ext],
+      });
+      if (!file) return null;
+      await file.write(await fs.readFile(native(source), { encoding: "utf-8" }));
+      return file.nativePath;
     },
     async openUrl(url) {
       await uxp.shell.openExternal(url);

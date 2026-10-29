@@ -1,12 +1,12 @@
 {
   "id": "kilnframe",
   "name": "Kilnframe",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "main": "index.html",
   "manifestVersion": 5,
   "host": {
     "app": "premierepro",
-    "minVersion": "25.6.0"
+    "minVersion": "26.2.0"
   },
   "requiredPermissions": {
     "localFileSystem": "fullAccess",

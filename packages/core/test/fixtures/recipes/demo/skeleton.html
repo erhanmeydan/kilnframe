@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #SCENE_ID-bg {
+          position: absolute;
+          inset: 0;
+        }
+        /*DRESS*/
+      </style>
+      <div id="root" data-composition-id="SCENE_ID" data-width="WIDTH" data-height="HEIGHT">
+        <div id="SCENE_ID-bg"></div>
+        <div id="SCENE_ID-title" class="SCENE_ID-title"></div>
+      </div>
+      <script type="application/json" id="SCENE_ID-data">
+        "__DATA__"
+      </script>
+      <script type="module">
+        /*KIT*/
+        const data = JSON.parse(document.getElementById("SCENE_ID-data").textContent);
+        const title = document.getElementById("SCENE_ID-title");
+        title.textContent = data.title;
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo(title, { opacity: 0 }, { opacity: 1, duration: 0.3 }, data.title_at.at);
+        window.__timelines["SCENE_ID"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

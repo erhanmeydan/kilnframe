@@ -1,0 +1,23 @@
+/* Flat infographic: a teal block behind the heading, teal markers, one coral point. */
+#SCENE_ID-stage {
+  --bg: #e8dcc8;
+  --main: #3e6e73;
+  --accent: #d9826b;
+  --ink: #2b2f33;
+  --node-ink: #f7f2e8;
+  --key-ink: #2b2f33;
+  --line: #2b2f33;
+  --line-width: 0.55;
+  --plate: #e8dcc8;
+  --plate-radius: 14px;
+  --font-head: "Sora";
+  --weight-head: 700;
+  --font-num: "Sora";
+  --weight-num: 800;
+  --font-body: "Sora";
+  --weight-body: 600;
+  --ease-enter: back.out(1.6);
+  --ease-grow: power3.out;
+  --speckle: 0.035;
+  --speckle-seed: 3;
+}

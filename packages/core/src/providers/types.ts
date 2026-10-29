@@ -50,6 +50,11 @@ export interface ModelInfo {
   vision: boolean | null;
   /** USD per million tokens, when the provider's own list says (OpenRouter). */
   price?: Price;
+  /** A local server (LM Studio): the model is loaded now, with this context. */
+  loaded?: boolean;
+  loadedContext?: number | null;
+  /** A local server (LM Studio): the model's thinking can be turned off. */
+  reasons?: boolean;
 }
 
 export interface TextProvider {
@@ -65,10 +70,15 @@ export interface TextProvider {
   listModels?(): Promise<ModelInfo[]>;
   /** The model's price when the provider lists it (OpenRouter), for models models.json does not know. */
   modelPrice?(): Promise<Price | undefined>;
+  /**
+   * The context the model is loaded with, when a local server says (LM Studio); undefined elsewhere. Read once
+   * per provider. Below COMPACT_REPAIRS_BELOW a scene's repairs carry only the latest version.
+   */
+  loadedContext?(): Promise<number | undefined>;
 }
 
 /** A provider failure with a message a user can act on. Never contains the API key. */
-export type ProviderErrorKind = "model-unavailable" | "cut-off";
+export type ProviderErrorKind = "model-unavailable" | "cut-off" | "context-exceeded";
 
 export class ProviderError extends Error {
   constructor(
@@ -77,6 +87,7 @@ export class ProviderError extends Error {
     /**
      * "model-unavailable": the provider does not offer the requested model; another model may work.
      * "cut-off": the reply hit the output limit before it ended, often a model that thinks at great length.
+     * "context-exceeded": the request does not fit in the context a local model is loaded with.
      */
     readonly kind?: ProviderErrorKind,
   ) {
@@ -104,6 +115,7 @@ export class UsageMeter {
       ...(provider.preflight ? { preflight: () => provider.preflight?.() } : {}),
       ...(provider.listModels ? { listModels: () => provider.listModels!() } : {}),
       ...(provider.modelPrice ? { modelPrice: () => provider.modelPrice!() } : {}),
+      ...(provider.loadedContext ? { loadedContext: () => provider.loadedContext!() } : {}),
       complete: async (req) => {
         const res = await provider.complete(req);
         this.calls.push({ purpose: req.purpose, model: res.model, usage: res.usage });

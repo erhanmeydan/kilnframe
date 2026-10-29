@@ -13,6 +13,7 @@
     "effort": "high",
     "suggestModel": "claude-sonnet-5-5"
   },
+  "recipes": { "enabled": false },
   "ocr": {
     "languages": ["tur", "eng"],
     "dataUrl": "https://github.com/tesseract-ocr/tessdata_fast/raw/main"
@@ -25,6 +26,7 @@
   "music": {
     "provider": "gemini",
     "model": "lyria-3.5",
-    "lufs": -24
+    "lufs": -24,
+    "planner": { "provider": "gemini", "model": "gemini-3.8-flash" }
   }
 }

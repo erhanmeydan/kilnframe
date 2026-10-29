@@ -1,7 +1,13 @@
 import { MusicPlanSchema } from "@kilnframe/core";
 import { z } from "zod";
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
+
+/**
+ * The largest message the companion takes. The socket is loopback only and token authenticated; a long
+ * sequence's caption state is well under this (packed lines), the margin keeps a slip from closing the socket.
+ */
+export const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
 
 /** Parameters of one insert job, as the panel sends them. */
 export const RenderJobParamsSchema = z.object({
@@ -55,6 +61,8 @@ export const RenderJobParamsSchema = z.object({
   provider: z.string().min(1).optional(),
   model: z.string().optional(),
   baseURL: z.string().url().optional(),
+  /** LM Studio's thinking for a model that thinks (default off); other providers ignore it. */
+  thinking: z.enum(["off", "on"]).optional(),
 });
 export type RenderJobParams = z.infer<typeof RenderJobParamsSchema>;
 
@@ -76,6 +84,8 @@ export const StyleJobParamsSchema = z.object({
   provider: z.string().min(1).optional(),
   model: z.string().optional(),
   baseURL: z.string().url().optional(),
+  /** LM Studio's thinking for a model that thinks (default off); other providers ignore it. */
+  thinking: z.enum(["off", "on"]).optional(),
 });
 export type StyleJobParams = z.infer<typeof StyleJobParamsSchema>;
 
@@ -84,6 +94,8 @@ const ProviderChoice = {
   provider: z.string().min(1).optional(),
   model: z.string().optional(),
   baseURL: z.string().url().optional(),
+  /** LM Studio's thinking for a model that thinks (default off); other providers ignore it. */
+  thinking: z.enum(["off", "on"]).optional(),
 };
 
 /** Story mode, step one: write the narration from a brief, or revise it with a note. */
@@ -171,7 +183,102 @@ export const MusicMakeJobParamsSchema = z.object({
   ...ProviderChoice,
 });
 
+export const CAPTION_LOOK_IDS = [
+  "kil-lacivert",
+  "loud",
+  "dinamik",
+  "hap",
+  "karaoke",
+  "daktilo",
+  "sakin",
+  "bant",
+  "editoryal",
+] as const;
+const CaptionLookSchema = z.enum(CAPTION_LOOK_IDS);
+
+/** A caption line packed for the socket (core captions/pack.ts): words' texts and times in flat arrays. */
+const PackedLineSchema = z
+  .object({
+    s: z.number().min(0),
+    e: z.number().min(0),
+    w: z.array(z.string()),
+    d: z.array(z.number().int()).optional(),
+    m: z.array(z.number().min(0)).optional(),
+    t: z.string().optional(),
+    c: z.literal(true).optional(),
+  })
+  .refine((l) => (l.d ?? l.m)?.length === 2 * l.w.length, "two times for every word");
+/**
+ * The caption lines with what the looks need to lay them out (core captions/compose.ts CaptionDoc), the lines
+ * packed: a long sequence's doc stays small on the socket.
+ */
+export const CaptionDocSchema = z.object({
+  lines: z.array(PackedLineSchema),
+  language: z.string(),
+  glossary: z.array(z.string().max(100)).max(200),
+  durationS: z.number().positive(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  fps: z.string().min(1),
+  hideSpans: z.array(z.object({ startS: z.number().min(0), endS: z.number().min(0) })),
+});
+const CaptionColorsSchema = z.object({
+  text: z.string().min(1),
+  accent: z.string().min(1),
+  box: z.string().min(1).optional(),
+});
+
+/** The Captions tab, step 1: the range's words from Whisper, corrected by the user's text model. */
+export const CaptionsTextJobParamsSchema = z.object({
+  kind: z.literal("captions-text"),
+  audioPath: z.string().min(1),
+  rangeStartS: z.number().min(0).optional(),
+  rangeEndS: z.number().positive().optional(),
+  outDir: z.string().min(1),
+  glossary: z.array(z.string().max(100)).max(200),
+  mode: z.enum(["written", "spoken"]),
+  ...ProviderChoice,
+});
+
+/** The Captions tab, step 3: the approved lines rendered as one transparent clip and an SRT. */
+export const CaptionsRenderJobParamsSchema = z.object({
+  kind: z.literal("captions-render"),
+  doc: CaptionDocSchema,
+  look: CaptionLookSchema,
+  colors: CaptionColorsSchema,
+  /** The job folder; a preview renders under the app's own preview folder instead. */
+  outDir: z.string().min(1),
+  /** Where the doc starts in the sequence (an In/Out range): the SRT's times count from the sequence start. */
+  srtOffsetS: z.number().min(0).optional(),
+  /**
+   * The panel's "Play": the clip comes back only as `stills` frames over the footage frame (a panel that
+   * cannot play video) and, with `video`, as a small H.264 clip; no file of it stays on disk.
+   */
+  preview: z
+    .object({
+      frame: z.string().min(1).optional(),
+      stills: z.number().int().min(1).max(12),
+      video: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+/** The Captions tab, step 2: one still per look at a moment of the doc (no model call). */
+export const CaptionsPreviewJobParamsSchema = z.object({
+  kind: z.literal("captions-preview"),
+  doc: CaptionDocSchema,
+  looks: z.array(CaptionLookSchema).min(1),
+  /** Omitted: each look's own default colours. */
+  colors: CaptionColorsSchema.optional(),
+  atS: z.number().min(0),
+  /** A frame of the footage to lay the captions over; transparent when omitted. */
+  frame: z.string().min(1).optional(),
+});
+
 export const JobParamsSchema = z.union([
+  CaptionsTextJobParamsSchema,
+  CaptionsRenderJobParamsSchema,
+  CaptionsPreviewJobParamsSchema,
   PartsJobParamsSchema,
   StyleJobParamsSchema,
   StoryWriteJobParamsSchema,
@@ -180,6 +287,9 @@ export const JobParamsSchema = z.union([
   MusicMakeJobParamsSchema,
   RenderJobParamsSchema,
 ]);
+export type CaptionsTextJobParams = z.infer<typeof CaptionsTextJobParamsSchema>;
+export type CaptionsRenderJobParams = z.infer<typeof CaptionsRenderJobParamsSchema>;
+export type CaptionsPreviewJobParams = z.infer<typeof CaptionsPreviewJobParamsSchema>;
 export type MusicPlanJobParams = z.infer<typeof MusicPlanJobParamsSchema>;
 export type MusicMakeJobParams = z.infer<typeof MusicMakeJobParamsSchema>;
 export type StoryWriteJobParams = z.infer<typeof StoryWriteJobParamsSchema>;
@@ -211,6 +321,23 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     sequenceName: z.string().min(1),
     /** A folder for the job folders when there is no project file (Resolve); inside the home folder. */
     jobRoot: z.string().min(1).optional(),
+    /** Echoed in job.prepared, as job.start's is in job.accepted. */
+    ref: z.string().optional(),
+  }),
+  /** The folder the Captions tab exports its previews' footage frames into (the app's own, not the project's). */
+  z.object({ type: z.literal("captions.previews"), ref: z.string().optional() }),
+  /** Keeps the Captions tab's lines and choices in its job folder's captions.json. */
+  z.object({
+    type: z.literal("captions.save"),
+    jobDir: z.string().min(1),
+    state: z.record(z.string(), z.unknown()),
+    ref: z.string().optional(),
+  }),
+  /** What a caption job folder keeps, for the tab to come back to its text. */
+  z.object({
+    type: z.literal("captions.load"),
+    jobDir: z.string().min(1),
+    ref: z.string().optional(),
   }),
   z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
   z.object({ type: z.literal("job.get"), jobId: z.string() }),
@@ -241,6 +368,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     provider: z.string().min(1),
     model: z.string().optional(),
     baseURL: z.string().url().optional(),
+    thinking: z.enum(["off", "on"]).optional(),
   }),
   /** Downloads and installs the app update the companion announced (refused while a job runs). */
   z.object({ type: z.literal("app.update.install") }),
@@ -289,7 +417,10 @@ export type ServerMessage =
   | { type: "job.queued"; jobId: string; position: number }
   | { type: "job.accepted"; jobId: string; ref?: string }
   | { type: "styles"; styles: unknown[] }
-  | { type: "job.prepared"; jobDir: string }
+  | { type: "job.prepared"; jobDir: string; ref?: string }
+  | { type: "captions.previews"; dir: string; ref?: string }
+  | { type: "captions.saved"; jobDir: string; ref?: string }
+  | { type: "captions.loaded"; jobDir: string; state: unknown; ref?: string }
   | { type: "job.progress"; jobId: string; message: string }
   | { type: "job.done"; jobId: string; result: unknown }
   | { type: "job.error"; jobId: string; message: string; kind?: string | undefined }

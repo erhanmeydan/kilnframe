@@ -27,6 +27,23 @@ describe("range", () => {
     expect(r).toMatchObject({ startS: 0, endS: 40.09, source: "sequence", warning: null });
   });
 
+  it("takes the start for a missing In and the end for a missing Out", () => {
+    expect(pickRange(-400000, 12.5, 40.09)).toMatchObject({
+      startS: 0,
+      endS: 12.5,
+      source: "inout",
+    });
+    expect(pickRange(30, -400000, 40.09)).toMatchObject({
+      startS: 30,
+      endS: 40.09,
+      source: "inout",
+    });
+  });
+
+  it("falls back to the whole sequence when In is after Out", () => {
+    expect(pickRange(20, 10, 40.09)).toMatchObject({ startS: 0, endS: 40.09, source: "sequence" });
+  });
+
   it("says a range over 45 s is made in parts", () => {
     const r = pickRange(-400000, -400000, 75.4);
     expect(r.warning).toBe(
@@ -256,6 +273,22 @@ describe("earlier inserts on the timeline", () => {
     expect(isOurInsert("/Projects/Film/Kilnframe/Seq/sfx_stems/01-whoosh.wav")).toBe(true);
     expect(isOurInsert("/Users/e/Movies/Kilnframe/Belgesel/Timeline-1-20261012/insert.mov")).toBe(
       true,
+    );
+  });
+});
+
+describe("our caption clips", () => {
+  it("knows a caption clip by its job folder and file name, and never counts it as an insert", async () => {
+    const { isOurCaption, isOurInsert } = await import("../src/our-files");
+    expect(isOurCaption("/Projects/Film/Kilnframe/Seq-Captions-20261024/captions-1.mov")).toBe(
+      true,
+    );
+    expect(isOurCaption("C:\\Users\\e\\.kilnframe\\jobs\\Seq\\captions-12.mov")).toBe(true);
+    expect(isOurCaption("/Projects/Film/Kilnframe/Seq/captions-1.srt")).toBe(false);
+    expect(isOurCaption("/Footage/captions-1.mov")).toBe(false);
+    expect(isOurCaption("/Projects/Film/Kilnframe/Seq/insert.mov")).toBe(false);
+    expect(isOurInsert("/Projects/Film/Kilnframe/Seq-Captions-20261024/captions-1.mov")).toBe(
+      false,
     );
   });
 });

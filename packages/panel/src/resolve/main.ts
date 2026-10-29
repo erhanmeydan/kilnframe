@@ -9,7 +9,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath, sep } from "node:path";
 import { createResolveBridge } from "./bridge";
 import { untilItWorks } from "./once";
-import { kilnframeFile } from "./paths";
+import { kilnframeFile, saveCopy } from "./paths";
 import type { ResolveBridge } from "./api";
 
 const PLUGIN_ID = "com.kilnframe.resolve";
@@ -61,6 +61,9 @@ const BRIDGE_CALLS = [
   "placeInsert",
   "placeAudioClips",
   "createStorySequence",
+  "ourInsertSpans",
+  "findCaptionClip",
+  "replaceCaptionClip",
   "isRendering",
   "cancelExports",
 ] as const;
@@ -114,6 +117,16 @@ function register() {
     });
     return r.canceled ? [] : r.filePaths;
   });
+  // the caption SRT the companion wrote, copied to where the editor picks (the job folder is outside ~/.kilnframe)
+  ipcMain.handle("kilnframe:saveFileCopy", (_e, source: string, suggestedName: string) =>
+    saveCopy(source, suggestedName, home, async (name) => {
+      const r = await dialog.showSaveDialog(win!, {
+        defaultPath: join(app.getPath("documents"), name),
+        filters: [{ name: "SubRip", extensions: ["srt"] }],
+      });
+      return r.canceled || !r.filePath ? null : r.filePath;
+    }),
+  );
   ipcMain.handle("kilnframe:openUrl", async (_e, url: string) => {
     if (!/^(https|kilnframe):/i.test(url)) throw new Error(`Not opened: ${url}`);
     await shell.openExternal(url);
@@ -145,6 +158,8 @@ function createWindow() {
     minWidth: 320,
     minHeight: 480,
     title: "Kilnframe",
+    // Windows shows it on the taskbar
+    icon: join(__dirname, "icons", "app.png"),
     backgroundColor: "#1e1f22",
     alwaysOnTop: s.onTop,
     webPreferences: {
@@ -171,6 +186,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Resolve runs its panels in its own Electron, which the Dock shows with Electron's icon; the name there
+  // comes from that app's bundle and cannot be changed from here
+  app.dock?.setIcon(join(__dirname, "icons", "app.png"));
   register();
   createWindow();
 });

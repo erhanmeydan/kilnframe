@@ -13,6 +13,7 @@ export default tseslint.config(
       "out/**",
       "examples/**",
       "styles/**",
+      ".superpowers/**",
     ],
   },
   js.configs.recommended,
@@ -34,6 +35,12 @@ export default tseslint.config(
     // kilnframe.com and the panel demo's stand-ins run in a browser
     files: ["site/**/*.js", "packages/panel/demo/**/*.js"],
     languageOptions: { globals: globals.browser },
+  },
+  {
+    // scene recipe kits: pasted into a scene page, which fills WIDTH and HEIGHT and calls what they define
+    files: ["recipes/**/*.js", "packages/core/test/fixtures/recipes/**/*.js"],
+    languageOptions: { globals: { ...globals.browser, WIDTH: "readonly", HEIGHT: "readonly" } },
+    rules: { "@typescript-eslint/no-unused-vars": "off" },
   },
   {
     // CommonJS scripts that drive a browser (puppeteer evaluates some of their code in the page)

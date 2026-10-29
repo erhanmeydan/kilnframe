@@ -1,0 +1,30 @@
+/* Flat infographic: sand ground, teal shapes, charcoal type, one coral accent; no shadows, no outlines. */
+#SCENE_ID-stage {
+  --bg: #e8dcc8;
+  --main: #3e6e73;
+  --accent: #d9826b;
+  --ink: #2b2f33;
+  --plate: #e8dcc8;
+  --plate-radius: 14px;
+  --rule-radius: 6px;
+  --font-head: "Sora";
+  --weight-head: 700;
+  --font-num: "Sora";
+  --weight-num: 800;
+  --font-body: "Sora";
+  --weight-body: 500;
+  --ease-enter: back.out(1.6);
+  --ease-grow: power3.out;
+  --speckle: 0.035;
+  --speckle-seed: 3;
+  --quote-leading: 1.02;
+  --quote-tracking: -0.025em;
+}
+/* the accent words sit on a flat coral block: coral type on sand is too faint to read */
+#SCENE_ID-stage .SCENE_ID-em {
+  color: var(--ink);
+  background: var(--accent);
+  border-radius: 0.08em;
+  padding: 0 0.1em;
+  margin: 0 -0.04em;
+}

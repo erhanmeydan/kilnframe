@@ -1,12 +1,12 @@
 // The Kilnframe panel: home, progress and settings screens. Plain DOM, no framework: UXP supports a subset of
 // the web platform.
-import { PROTOCOL_VERSION } from "./companion";
+import { PROTOCOL_VERSION, protocolMismatch } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
 import { audioRangeParams } from "./audio-range";
 import { host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
-import { prettyModel } from "./models";
+import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
 import {
   musicAct,
   musicBox,
@@ -16,7 +16,20 @@ import {
   watchesSequence,
   type MusicCtx,
 } from "./music";
-import { feedbackPage, shouldReport } from "./feedback";
+import {
+  captionsAct,
+  captionsBox,
+  captionsColorInput,
+  captionsLineInput,
+  captionsReconnected,
+  captionsReadFields,
+  captionsSwitch,
+  captionsWriteFields,
+  readColorFields,
+  newCaptions,
+  type CaptionsCtx,
+} from "./captions";
+import { NOT_REPORTED, feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
   STORY_LENGTH,
@@ -42,9 +55,12 @@ import {
   type PlannedScene,
 } from "./steps";
 import { formatMismatch } from "./format-check";
-import { readableJobError } from "./job-errors";
+import { readableJobText } from "./job-errors";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
+import { storyMusicNote } from "./story-music";
+import { OWN_MAX_S, ownParagraphs, ownSummary, ownTitle, storySeconds } from "./story-own";
+import { MIN_PREMIERE } from "./premiere-version";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -118,7 +134,10 @@ interface StoryState {
   jobId: string | null;
   last: string;
   error: string | null;
-  done: { name: string; durationS: number } | null;
+  done: { name: string; durationS: number; musicNote?: string } | null;
+  /** "own": the editor pastes a text written elsewhere, no model writes it. */
+  source: "write" | "own";
+  own: string;
 }
 
 function newStory(): StoryState {
@@ -146,6 +165,8 @@ function newStory(): StoryState {
     last: "",
     error: null,
     done: null,
+    source: stored("story-source") === "own" ? "own" : "write",
+    own: "",
   };
 }
 
@@ -157,12 +178,6 @@ function voiceCharacter(character: string): string {
   const key = `voice.${character}` as MessageKey;
   const text = t(key);
   return text === key ? character : text;
-}
-
-/** Narration pace measured on Gemini TTS (packages/core/src/stages/story.ts). */
-function storySeconds(text: string, language: string): number {
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return words / (language === "tr" ? 1.5 : 2.2);
 }
 
 interface OwnStyle {
@@ -190,6 +205,7 @@ interface Lightbox {
   index: number;
 }
 
+type Tab = "range" | "story" | "music" | "captions";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
@@ -202,6 +218,8 @@ interface Settings {
   models: Record<string, string>;
   /** Addresses the editor typed: the custom endpoint, and presets that need their own. */
   baseURLs: Record<string, string>;
+  /** LM Studio's thinking for a model that thinks; off when not set. */
+  thinking?: Record<string, "off" | "on">;
   /** Show the stills before the full render (default on). */
   review: "on" | "off";
   /** Panel language; "auto" follows Premiere. */
@@ -345,10 +363,11 @@ const state = {
   /** A long range made part by part, also when it was started before a reload. */
   series: loadSeries(),
   lightbox: null as Lightbox | null,
-  /** The home screen's ways to make something: an animation for a range, a story, music. */
-  tab: "range" as "range" | "story" | "music",
+  /** The home screen's ways to make something: an animation for a range, a story, music, captions. */
+  tab: "range" as Tab,
   story: newStory(),
   music: newMusic(),
+  captions: newCaptions(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -598,6 +617,15 @@ function contentWidth(): number {
   return Math.max(240, (root.clientWidth || 320) - 24 - SCROLLBAR);
 }
 
+/**
+ * The scroll area's inner width as laid out, for grids that fill the row exactly; the scrollbar is measured
+ * rather than assumed (UXP always draws it, a browser may overlay it).
+ */
+function scrollInnerWidth(): number {
+  const scroller = document.getElementById("scroll");
+  return scroller && scroller.clientWidth > 0 ? scroller.clientWidth - 24 : contentWidth();
+}
+
 /** 16:9 height for a width, like the video. */
 function h169(width: number): number {
   return Math.round((width * 9) / 16);
@@ -760,8 +788,17 @@ function home(): string {
     ["range", t("tab.range")],
     ["story", t("tab.story")],
     ["music", t("tab.music")],
+    ["captions", t("tab.captions")],
   ])}
-  ${state.tab === "story" ? storyBox() : state.tab === "music" ? musicBox(state.music, musicCtx) : rangeHome(done)}`;
+  ${
+    state.tab === "story"
+      ? storyBox()
+      : state.tab === "music"
+        ? musicBox(state.music, musicCtx)
+        : state.tab === "captions"
+          ? captionsBox(state.captions, captionsCtx)
+          : rangeHome(done)
+  }`;
 }
 
 /** A long range left unfinished (reload, restart, an error, or Continue Later): where it stands. */
@@ -1041,6 +1078,7 @@ function storyBox(): string {
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
     return `<div class="box ok mt">${t("story.done", { name: st.done.name, duration: formatDuration(st.done.durationS) })}</div>
+  ${st.done.musicNote ? `<div class="box mt">${esc(st.done.musicNote)}</div>` : ""}
   <div class="btn2 mt" data-act="story-new">${t("story.restart")}</div>`;
   if (st.stage === "script") {
     // the narration voices first and the chosen one always; the rest behind All Voices
@@ -1062,9 +1100,13 @@ function storyBox(): string {
   <div class="note muted">${t("story.scriptHint")}</div>
   <textarea id="story-script" rows="12">${esc(st.script)}</textarea>
   <div class="note muted">${t("story.estimate", { duration: formatDuration(storySeconds(st.script, st.language)) })}</div>
-  <div class="lbl">${t("story.note")}</div>
+  ${
+    st.source === "own"
+      ? ""
+      : `<div class="lbl">${t("story.note")}</div>
   <textarea id="story-note" rows="2" placeholder="${t("story.notePlaceholder")}">${esc(st.note)}</textarea>
-  <div class="btn2 mt" data-act="story-rewrite">${t("story.rewrite")}</div>
+  <div class="btn2 mt" data-act="story-rewrite">${t("story.rewrite")}</div>`
+  }
   <div class="lbl">${t("story.voice")}</div>
   ${st.keySet ? "" : `<div class="box warn">${t("story.noKey")}</div>`}
   <div class="vlist">${voices}</div>
@@ -1095,7 +1137,22 @@ function storyBox(): string {
   }
   <div class="btn mt" data-act="story-make">${t("story.make")}</div>`;
   }
-  return `${err}
+  const source = seg("story-source", st.source, [
+    ["write", t("story.sourceWrite")],
+    ["own", t("story.sourceOwn")],
+  ]);
+  if (st.source === "own")
+    return `${err}${source}
+  <div class="lbl">${t("story.ownLabel")}</div>
+  <textarea id="story-own" rows="12" placeholder="${t("story.ownPlaceholder")}">${esc(st.own)}</textarea>
+  <div class="note muted" id="story-own-count">${ownCountLine(st.own, st.language)}</div>
+  <div class="lbl">${t("story.language")}</div>
+  ${seg("story-lang", st.language, [
+    ["tr", t("story.lang.tr")],
+    ["en", t("story.lang.en")],
+  ])}
+  <div class="btn mt" data-act="story-own-go">${t("story.ownGo")}</div>`;
+  return `${err}${source}
   <div class="lbl">${t("story.brief")}</div>
   <textarea id="story-brief" rows="4" placeholder="${t("story.briefPlaceholder")}">${esc(st.brief)}</textarea>
   <div class="lbl">${t("story.length")}</div>
@@ -1119,6 +1176,16 @@ function storyBox(): string {
   <input class="img-note" id="story-tone" type="text" placeholder="${t("story.tonePlaceholder")}" value="${esc(st.tone)}">
   <div class="row small muted mt"><span>${providerLabel()}</span></div>
   <div class="btn" data-act="story-write">${t("story.write")}</div>`;
+}
+
+/** "412 words · about 2:45 when read aloud", and a warning past the story limit. */
+function ownCountLine(text: string, language: string): string {
+  const sum = ownSummary(text, language);
+  if (!sum.words) return "";
+  const line = t("story.ownCount", { n: sum.words, duration: formatDuration(sum.seconds) });
+  return sum.tooLong
+    ? `${line}<div class="warn-text">${t("story.ownTooLong", { max: formatDuration(OWN_MAX_S) })}</div>`
+    : line;
 }
 
 /** Runs a story job and calls back with its result; progress goes to the story's status line. */
@@ -1257,7 +1324,11 @@ async function makeStorySequence() {
             st.format === "orijinal" ? undefined : st.format,
           )
           .then(() => {
-            st.done = { name, durationS: Number(result.durationS) };
+            st.done = {
+              name,
+              durationS: Number(result.durationS),
+              musicNote: storyMusicNote(result.musicError ? String(result.musicError) : null),
+            };
             st.stage = "done";
             trace(`story: sequence ${name}`);
             return readSequence();
@@ -1284,6 +1355,8 @@ async function makeStorySequence() {
 
 /** The Claude providers share the Claude model setting. */
 const CLAUDE_KINDS = new Set(["auto", "claude-code", "anthropic"]);
+/** Servers on this computer: no key, their own model list, a model that may think. */
+const LOCAL_PROVIDERS = new Set(["lmstudio", "ollama"]);
 
 function providerName(id: string): string {
   if (id === "auto") return t("prov.auto");
@@ -1293,6 +1366,7 @@ function providerName(id: string): string {
   if (id === "anthropic") return t("prov.claudeApi");
   if (id === "custom") return t("prov.custom");
   if (id === "lmstudio") return t("prov.lmstudio");
+  if (id === "ollama") return t("prov.ollama");
   const entry = setup.list.find((p) => p.id === id);
   return entry ? entry.displayName.replace(/\s*\(.*\)$/, "") : id;
 }
@@ -1303,16 +1377,33 @@ function modelFor(id: string): string {
   if (id === "codex") return state.settings.models.codex ?? "";
   const chosen = state.settings.models[id];
   if (chosen) return chosen;
-  if (id === "lmstudio") return setup.served.lmstudio?.find((m) => m.vision)?.id ?? "";
+  if (LOCAL_PROVIDERS.has(id)) return lmStudioDefault(setup.served[id] ?? []);
   return setup.list.find((p) => p.id === id)?.models[0] ?? "";
 }
 
-/** What a job sends: the provider, its model and, when the editor typed one, its address. */
-function providerParams(): { provider: string; model?: string; baseURL?: string } {
+/**
+ * What a job sends: the provider, its model and, when the editor typed one, its address; for LM Studio also
+ * whether a model that thinks may think.
+ */
+function providerParams(): {
+  provider: string;
+  model?: string;
+  baseURL?: string;
+  thinking?: "off" | "on";
+} {
   const id = state.settings.provider;
   const model = modelFor(id);
   const baseURL = state.settings.baseURLs[id]?.trim();
-  return { provider: id, ...(model ? { model } : {}), ...(baseURL ? { baseURL } : {}) };
+  return {
+    provider: id,
+    ...(model ? { model } : {}),
+    ...(baseURL ? { baseURL } : {}),
+    ...(LOCAL_PROVIDERS.has(id) ? { thinking: localThinking(id) } : {}),
+  };
+}
+
+function localThinking(id: string): "off" | "on" {
+  return state.settings.thinking?.[id] ?? "off";
 }
 
 const CLAUDE_MODEL_NAMES: Record<string, string> = {
@@ -1468,10 +1559,7 @@ const setup = {
   confirmLogout: null as string | null,
   signingOut: null as string | null,
   /** Models a local server reported (LM Studio), with whether they read images. */
-  served: {} as Record<
-    string,
-    { id: string; displayName: string; contextWindow: number | null; vision: boolean | null }[]
-  >,
+  served: {} as Record<string, ServedModel[]>,
   servedError: {} as Record<string, string>,
   editingKey: null as string | null,
   keyDraft: "",
@@ -1662,9 +1750,9 @@ function providerDetail(id: string): string {
             `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="pbtns">${signOut}</div>`
           : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
     }
-  } else if (id === "lmstudio") {
-    body = `<div class="small">${t("prov.localNote")}</div>
-    <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="lmstudio">${t("prov.test")}</div></div>`;
+  } else if (LOCAL_PROVIDERS.has(id)) {
+    body = `<div class="small">${t(id === "ollama" ? "prov.ollamaNote" : "prov.localNote")}</div>
+    <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
@@ -1713,6 +1801,7 @@ function modelList(): string {
   if (CLAUDE_KINDS.has(id))
     options = [
       ["claude-opus-5-5", t("settings.opusNote")],
+      ["claude-fable-5-1", t("settings.fableNote")],
       ["claude-sonnet-5-5", t("settings.sonnetNote")],
     ];
   else if (id === "codex")
@@ -1742,22 +1831,27 @@ function modelList(): string {
     note = setup.servedError.openrouter
       ? `<div class="note warn-text">${esc(setup.servedError.openrouter)}</div>`
       : `<div class="link more" data-act="or-all">${onboard.allModels ? t("prov.fewerModels") : t("prov.allModels", { n: seeing.length })}</div><div class="note muted">${t("prov.openrouterNote")}</div>`;
-  } else if (id === "lmstudio") {
-    const served = setup.served.lmstudio ?? [];
-    const seeing = served.filter((m) => m.vision);
-    options = seeing.map((m) => [
-      m.id,
-      `${t("prov.reads")}${m.contextWindow ? ` · ${Math.round(m.contextWindow / 1000)}K` : ""}`,
-    ]);
-    const hidden = served.length - seeing.length;
-    note = setup.servedError.lmstudio
-      ? `<div class="note warn-text">${esc(setup.servedError.lmstudio)}</div>`
+  } else if (LOCAL_PROVIDERS.has(id)) {
+    const served = setup.served[id] ?? [];
+    const rows = lmStudioRows(served, t("prov.lmLoaded"));
+    options = rows.map((r) => [r.id, r.info]);
+    const hidden = served.length - rows.length;
+    note = setup.servedError[id]
+      ? `<div class="note warn-text">${esc(setup.servedError[id])}</div>`
       : !served.length
-        ? `<div class="note muted">${t("prov.lmNone")}</div>`
+        ? `<div class="note muted">${t(id === "ollama" ? "prov.ollamaNone" : "prov.lmNone")}</div>`
         : hidden
           ? `<div class="note muted">${t("prov.lmHidden", { n: hidden })}</div>`
           : "";
+    if (rows.some((r) => !r.loaded))
+      note += `<div class="note muted">${t(id === "ollama" ? "prov.ollamaLoadsOnChoice" : "prov.lmLoadsOnChoice")}</div>`;
     note += `<div class="note muted">${t("prov.localLimits")}</div>`;
+    // only a model whose thinking LM Studio can turn off
+    if (served.find((m) => m.id === modelFor(id))?.reasons)
+      note += `<div class="lbl">${t("prov.thinking")}</div>${seg("lm-thinking", localThinking(id), [
+        ["off", t("prov.thinkingOff")],
+        ["on", t("prov.thinkingOn")],
+      ])}<div class="note muted">${t("prov.thinkingNote")}</div>`;
   } else options = (entry?.models ?? []).map((m) => [m, ""]);
   const current = modelFor(id);
   const rows = options
@@ -2043,13 +2137,27 @@ function mailAbout() {
     editor: host().kind === "resolve" ? ("DaVinci Resolve" as const) : ("Premiere" as const),
     os: host().platform(),
     lang: lang(),
+    ai: reportProvider(),
   };
+}
+
+/**
+ * The provider and the model's own id for a report, so a failure can be read ("the scene came out empty" on
+ * a small local model is a different case than on Opus). A custom endpoint is named as such, never its address.
+ */
+function reportProvider(): string {
+  const id = state.settings.provider;
+  const model = modelFor(id);
+  return model ? `${providerName(id)} · ${model}` : providerName(id);
 }
 
 /** "Report This Error ↗": the site's feedback page opens with the error and the versions filled in. */
 function reportLink(error: string): string {
-  if (!shouldReport(error, [t("job.stopped"), t("story.needBrief"), t("story.badLength")]))
-    return "";
+  // the messages with a number in them are written out with it, as the panel shows them
+  const own = NOT_REPORTED.map((k) =>
+    t(k, { version: MIN_PREMIERE, max: formatDuration(OWN_MAX_S) }),
+  );
+  if (!shouldReport(error, own)) return "";
   const url = feedbackPage({ kind: "error", error, ...mailAbout() });
   return `<div class="link mt" data-act="open-url" data-val="${esc(url)}">${t("feedback.report")} ↗</div>`;
 }
@@ -2173,7 +2281,8 @@ function render() {
       const input = document.getElementById(`${kind}-note-${i}`) as HTMLInputElement | null;
       if (input) img.note = input.value ?? "";
     });
-  const storyFields: [string, "brief" | "script" | "note" | "tone" | "customLength"][] = [
+  const storyFields: [string, "brief" | "script" | "note" | "tone" | "customLength" | "own"][] = [
+    ["story-own", "own"],
     ["story-length-input", "customLength"],
     ["story-brief", "brief"],
     ["story-script", "script"],
@@ -2185,6 +2294,7 @@ function render() {
     if (el) state.story[key] = el.value ?? "";
   }
   musicReadFields(state.music);
+  captionsReadFields(state.captions);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
   const baseField = document.getElementById("base-input") as HTMLInputElement | null;
@@ -2239,6 +2349,7 @@ function render() {
       if (input) input.value = img.note;
     });
   for (const [id, key] of [
+    ["story-own", "own"],
     ["story-length-input", "customLength"],
     ["story-brief", "brief"],
     ["story-script", "script"],
@@ -2249,6 +2360,7 @@ function render() {
     if (el) el.value = state.story[key];
   }
   musicWriteFields(state.music);
+  captionsWriteFields(state.captions);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
   if (state.own) {
@@ -2292,8 +2404,9 @@ async function connectOnce() {
     );
     trace("connect: ready");
     state.conn = "ok";
+    captionsReconnected(state.captions);
     const theirs = session.ready?.protocol ?? PROTOCOL_VERSION;
-    state.mismatch = theirs < PROTOCOL_VERSION ? "app" : theirs > PROTOCOL_VERSION ? "panel" : null;
+    state.mismatch = protocolMismatch(theirs);
     state.appVersion = session.ready?.version || null;
     render();
     // the styles show as soon as they come; the computer check (a GPU probe, seconds) arrives after
@@ -2370,7 +2483,6 @@ const musicCtx: MusicCtx = {
     session.request<ServerMessage>(message as never, reply as never, timeoutMs),
   send: (message) => session.send(message),
   on: (listener) => session.on(listener),
-  providerParams: () => providerParams(),
   wavPreset: () => state.system?.wavPreset ?? "",
   frames: async (target, range, jobDir) =>
     (await exportFootageFrames(target, range, jobDir)).map((f) => ({
@@ -2390,6 +2502,64 @@ const musicCtx: MusicCtx = {
   openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
 };
 
+/** What the Captions tab (captions.ts) uses from the rest of the panel. */
+const captionsCtx: CaptionsCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  seg: (name, value, options) => seg(name, value, options),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: (scope) => musicRangeLine(scope),
+  videoStyle: () => state.style || null,
+  // three tiles and two gaps of 8 fill the row: the third tile has no right margin
+  tileWidth: () => Math.floor((scrollInnerWidth() - 2 * 8) / 3),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  providerParams: () => providerParams(),
+  withoutOurInserts: (target, range, fn) =>
+    host().withoutOurInserts(target, range.startS, range.endS, fn),
+  exportAudio: (target, range, file) =>
+    host().exportRangeAudio(target, range.startS, range.endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  ourInsertSpans: (target) => host().ourInsertSpans(target),
+  placeInsert: (target, files, atS, handlesS, durationS) =>
+    host().placeInsert(target, files, atS, handlesS, durationS),
+  findCaptionClip: (target, mediaPath, atS, durationS) =>
+    host().findCaptionClip(target, mediaPath, atS, durationS),
+  replaceCaptionClip: (target, old, file, atS, durationS, videoTrack) =>
+    host().replaceCaptionClip(target, old, file, atS, durationS, videoTrack),
+  caret: (id) => {
+    const el = document.getElementById(id) as HTMLTextAreaElement | null;
+    return typeof el?.selectionStart === "number" ? el.selectionStart : null;
+  },
+  exportFrame: async (target, seconds, dir, name, width, height) =>
+    (await host().exportFrame(target, seconds, `${dir}/`, name, width, height))
+      ? `${dir}/${name}`
+      : null,
+  // UXP has a <video> element (its changelog adds timeUpdate in UXP 9.1 and the poster attribute, macOS only,
+  // in 9.3: https://blog.developer.adobe.com/en/publish/2026/07/uxp-changelog-and-support-matrix), but neither
+  // the HTML element list (https://developer.adobe.com/premiere-pro/uxp/) nor the Premiere samples say which
+  // codecs or sources (a data: URL of an H.264 clip) it plays inside Premiere. Until that is tried there,
+  // Premiere steps through stills; Resolve's panel is Chromium (Electron) and plays the clip.
+  playsVideo: () => host().kind === "resolve",
+  img: (key, src, width, height) => imgSlot(key, src, width, height),
+  refresh: (pictures) => {
+    for (const [key, src] of Object.entries(pictures)) images.get(key)?.setAttribute("src", src);
+    // a render now would take the focus from the colour field the editor is typing in
+    if (!focusedField) render();
+  },
+  swapImage: (key, src) => images.get(key)?.setAttribute("src", src),
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  saveFileCopy: (source, suggestedName) => host().saveFileCopy(source, suggestedName),
+};
+
 async function readSequence(): Promise<HostSequence | null> {
   try {
     const seq = await host().currentSequence();
@@ -2405,6 +2575,8 @@ async function readSequence(): Promise<HostSequence | null> {
       state.note = "";
       state.images = [];
     }
+    // the captions follow the open sequence, unless a caption job is running for the last one
+    captionsSwitch(state.captions, state.seq?.guid, seq.id, stored);
     // the field stays "guid": unfinished series and pending jobs saved before the host interface use it
     state.seq = {
       name: seq.name,
@@ -3149,11 +3321,9 @@ function jobErrorText(msg: unknown): string {
   const m = msg as { message?: unknown; kind?: unknown };
   if (m.kind === "cut-off") return t("err.cutOff");
   // the core speaks English; what the panel can say in its own language it says (the original is in the log)
-  const readable = readableJobError(String(m.message));
+  const readable = readableJobText(String(m.message));
   if (readable) trace(`job: ${String(m.message)}`);
-  if (readable)
-    return [t(readable.key, readable.vars), ...readable.reasons.map((r) => t(r))].join(" ");
-  return String(m.message);
+  return readable ?? String(m.message);
 }
 
 function failJob(err: unknown) {
@@ -3257,6 +3427,21 @@ root.addEventListener("focusout", (event) => {
 });
 root.addEventListener("keydown", () => {
   lastTyped = Date.now();
+});
+// the Captions tab previews the selected look in the colours being typed, once the typing pauses
+root.addEventListener("input", (event) => {
+  const id = (event.target as HTMLElement | null)?.id ?? "";
+  if (id.startsWith("cap-color-"))
+    captionsColorInput(state.captions, captionsCtx, () => readColorFields());
+  // a typed line is kept in the job folder once the typing pauses
+  else if (id.startsWith("cap-line-"))
+    captionsLineInput(state.captions, captionsCtx, () => captionsReadFields(state.captions));
+  // the word count under a pasted story follows the typing, without a render that would move the cursor
+  else if (id === "story-own") {
+    const text = (event.target as HTMLTextAreaElement).value ?? "";
+    const line = document.getElementById("story-own-count");
+    if (line) line.innerHTML = ownCountLine(text, state.story.language);
+  }
 });
 root.addEventListener("pointermove", (event) => {
   if (!focusedField || Date.now() - lastTyped < 500) return;
@@ -3415,7 +3600,7 @@ async function runProviderTest(id: string) {
       },
     };
   }
-  if (id === "lmstudio") void loadServed("lmstudio");
+  if (LOCAL_PROVIDERS.has(id)) void loadServed(id);
   render();
 }
 
@@ -3464,7 +3649,7 @@ function runAction(el: HTMLElement) {
     state.lightbox = null;
   } else if (act === "lb-close") state.lightbox = null;
   else if (act === "tab") {
-    state.tab = val as "range" | "story" | "music";
+    state.tab = val as Tab;
     // the music needs the Gemini key: its state comes with the voices
     if (state.tab === "music" && state.conn === "ok")
       void loadVoices()
@@ -3472,6 +3657,8 @@ function runAction(el: HTMLElement) {
         .catch(() => undefined);
   } else if (act && musicAct(state.music, musicCtx, act, val)) {
     /* handled by the Music tab */
+  } else if (act && captionsAct(state.captions, captionsCtx, act, val)) {
+    /* handled by the Captions tab */
   } else if (act === "music-level") {
     state.settings = { ...state.settings, musicLevel: Number(val) };
     store("settings", JSON.stringify(state.settings));
@@ -3483,7 +3670,33 @@ function runAction(el: HTMLElement) {
       if (choice !== "custom") state.story.durationS = Number(choice);
     }
   } else if (act === "story-lang") state.story.language = val as "tr" | "en";
-  else if (act === "story-write") {
+  else if (act === "story-source") {
+    state.story.source = val === "own" ? "own" : "write";
+    state.story.error = null;
+    store("story-source", state.story.source);
+  } else if (act === "story-own-go") {
+    render();
+    const st = state.story;
+    const sum = ownSummary(st.own, st.language);
+    if (!sum.words) {
+      st.error = t("story.ownEmpty");
+      return render();
+    }
+    if (sum.tooLong) {
+      st.error = t("story.ownTooLong", { max: formatDuration(OWN_MAX_S) });
+      return render();
+    }
+    // the editor's own words go to the narration screen as they are: no model writes or changes them
+    st.error = null;
+    st.script = ownParagraphs(st.own);
+    st.title = ownTitle(st.own);
+    st.voiceStyle = "";
+    st.stage = "script";
+    render();
+    return void loadVoices()
+      .then(render)
+      .catch((e: unknown) => trace(`voices threw: ${String(e)}`));
+  } else if (act === "story-write") {
     render();
     if (!state.story.brief.trim()) {
       state.story.error = t("story.needBrief");
@@ -3667,7 +3880,16 @@ function runAction(el: HTMLElement) {
     store("settings", JSON.stringify(state.settings));
     setup.editingKey = null;
     setup.confirmDelete = null;
-    if (val === "lmstudio" || val === "openrouter") void loadServed(val);
+    if (LOCAL_PROVIDERS.has(val) || val === "openrouter") void loadServed(val);
+  } else if (act === "lm-thinking") {
+    state.settings = {
+      ...state.settings,
+      thinking: {
+        ...state.settings.thinking,
+        [state.settings.provider]: val === "on" ? "on" : "off",
+      },
+    };
+    store("settings", JSON.stringify(state.settings));
   } else if (act === "pmodel") {
     const id = state.settings.provider;
     state.settings = CLAUDE_KINDS.has(id)
@@ -3712,7 +3934,7 @@ function runAction(el: HTMLElement) {
   } else if (act === "settings") {
     state.screen = "settings";
     void refreshProviders();
-    if (state.settings.provider === "lmstudio" || state.settings.provider === "openrouter")
+    if (LOCAL_PROVIDERS.has(state.settings.provider) || state.settings.provider === "openrouter")
       void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
   else if (act === "stop" && state.job) state.job.confirmStop = true;
@@ -3803,7 +4025,7 @@ setInterval(() => {
   watchTick++;
   if (
     state.screen !== "home" ||
-    !watchesSequence(state.tab, state.music.stage) ||
+    !watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
     state.lightbox ||
     pressed
   )
@@ -3833,6 +4055,7 @@ connectCompanion().catch((e: unknown) => trace(`connectCompanion threw: ${String
   connectCompanion,
   session,
   render,
+  captionsCtx,
 };
 
 /**

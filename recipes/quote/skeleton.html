@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>quote</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #SCENE_ID-stage {
+          position: absolute;
+          inset: 0;
+        }
+        #SCENE_ID-bg,
+        #SCENE_ID-texture {
+          position: absolute;
+          inset: 0;
+        }
+        #SCENE_ID-bg {
+          background: var(--bg);
+        }
+        .SCENE_ID-hero,
+        #SCENE_ID-plate,
+        #SCENE_ID-quote,
+        #SCENE_ID-rule {
+          position: absolute;
+        }
+        .SCENE_ID-hero {
+          background: var(--main);
+          border-radius: 50%;
+        }
+        #SCENE_ID-plate {
+          background: var(--plate);
+          border-radius: var(--plate-radius, 0);
+          transform-origin: 0 50%;
+        }
+        #SCENE_ID-quote {
+          margin: 0;
+          font-family: var(--font-head);
+          font-weight: var(--weight-head);
+          line-height: var(--quote-leading, 1.04);
+          letter-spacing: var(--quote-tracking, -0.02em);
+          color: var(--ink);
+        }
+        .SCENE_ID-line {
+          display: block;
+          overflow: hidden;
+          padding-bottom: 0.08em;
+        }
+        .SCENE_ID-line-inner {
+          display: inline-block;
+          white-space: nowrap;
+        }
+        .SCENE_ID-word {
+          display: inline-block;
+        }
+        .SCENE_ID-em {
+          color: var(--accent);
+        }
+        #SCENE_ID-rule {
+          background: var(--accent);
+          border-radius: var(--rule-radius, 0);
+          transform-origin: 0 50%;
+        }
+        /*DRESS*/
+      </style>
+      <div id="root" data-composition-id="SCENE_ID" data-width="WIDTH" data-height="HEIGHT">
+        <div id="SCENE_ID-stage">
+          <div id="SCENE_ID-bg"></div>
+          <div id="SCENE_ID-texture"></div>
+          <div id="SCENE_ID-hero" class="SCENE_ID-hero"></div>
+          <div id="SCENE_ID-plate"></div>
+          <h2 id="SCENE_ID-quote"></h2>
+          <div id="SCENE_ID-rule"></div>
+        </div>
+      </div>
+      <script type="application/json" id="SCENE_ID-data">
+        "__DATA__"
+      </script>
+      <script type="module">
+        /*KIT*/
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["SCENE_ID"] = (async () => {
+          await KF.fonts();
+          const { data, W, H, u, overlay } = KF;
+          const bg = document.getElementById("SCENE_ID-bg");
+          const hero = document.getElementById("SCENE_ID-hero");
+          const plate = document.getElementById("SCENE_ID-plate");
+          const quote = document.getElementById("SCENE_ID-quote");
+          const rule = document.getElementById("SCENE_ID-rule");
+          const em = (data.emphasis ?? "").toLocaleLowerCase();
+          const clean = (w) => w.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+          const emWords = new Set(em.split(/\s+/).map(clean).filter(Boolean));
+
+          const lines = data.lines.map((line) => {
+            const outer = KF.el("span", "SCENE_ID-line", quote);
+            const inner = KF.el("span", "SCENE_ID-line-inner", outer);
+            const words = KF.words(inner, line.text, "SCENE_ID-word");
+            words.forEach((w) => {
+              if (emWords.has(clean(w.textContent))) w.classList.add("SCENE_ID-em");
+            });
+            return { inner, words, at: KF.at(line.at) };
+          });
+
+          // where the quote sits, and the big shape it plays against
+          let box;
+          let size;
+          if (overlay) {
+            bg.style.display = "none";
+            hero.style.display = "none";
+            const r = KF.region();
+            const pad = 44 * u;
+            box = { x: r.x + pad, y: r.y + pad, w: r.w - pad * 2, h: r.h - pad * 2 - 28 * u };
+            size = KF.fit(quote, box.w, box.h, 110 * u, 34 * u);
+            const textH = quote.scrollHeight;
+            const textW = Math.max(...lines.map((l) => l.inner.offsetWidth));
+            KF.place(plate, {
+              x: r.x,
+              y: r.y + r.h - (textH + pad * 2 + 28 * u),
+              w: Math.min(r.w, textW + pad * 2),
+              h: textH + pad * 2 + 28 * u,
+            });
+            box.y = r.y + r.h - (textH + pad + 28 * u);
+          } else {
+            plate.style.display = "none";
+            KF.speckle(document.getElementById("SCENE_ID-texture"));
+            const s = data.safeArea;
+            const shape =
+              data.format === "portrait"
+                ? { cx: W * 0.92, cy: H * 0.2, r: W * 0.62 }
+                : data.format === "square"
+                  ? { cx: W * 0.96, cy: H * 0.1, r: W * 0.36 }
+                  : { cx: W * 0.99, cy: H * 0.56, r: H * 0.56 };
+            KF.place(hero, {
+              x: shape.cx - shape.r,
+              y: shape.cy - shape.r,
+              w: shape.r * 2,
+              h: shape.r * 2,
+            });
+            box =
+              data.format === "portrait"
+                ? { x: s.left, y: H * 0.42, w: W - s.left - s.right, h: H * 0.42 }
+                : data.format === "square"
+                  ? { x: s.left, y: H * 0.46, w: W - s.left - s.right, h: H * 0.4 }
+                  : {
+                      x: s.left + 40 * u,
+                      y: s.top,
+                      w: shape.cx - shape.r - s.left - 120 * u,
+                      h: H - s.top - s.bottom - 60 * u,
+                    };
+            size = KF.fit(quote, box.w, box.h, 168 * u, 56 * u);
+            // centre the block in its box's height, left aligned
+            box.y += Math.max(0, (box.h - quote.scrollHeight) / 2);
+          }
+          quote.style.left = `${box.x}px`;
+          quote.style.top = `${box.y}px`;
+          quote.style.width = `${box.w}px`;
+          const ruleY = box.y + quote.scrollHeight + 18 * u;
+          KF.place(rule, {
+            x: box.x,
+            y: ruleY,
+            w: Math.min(box.w, size * 2.2),
+            h: Math.max(6, 12 * u),
+          });
+
+          const grow = KF.ease("grow", "power3.out");
+          const tl = gsap.timeline({ paused: true });
+          if (KF.drawn) {
+            // a drawn style has no big filled shape and no rule: the marker underlines do that work
+            hero.style.display = "none";
+            rule.style.display = "none";
+          } else if (!overlay) KF.enter(tl, hero, 0.05, "pop");
+          if (overlay) {
+            if (KF.drawn) {
+              tl.fromTo(plate, { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0.05);
+              const b = KF.boxOf(plate);
+              KF.enter(tl, KF.shape("rect", b), 0.05, "draw");
+            } else tl.fromTo(plate, { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: grow }, 0.05);
+          }
+          const first = Math.min(...lines.map((l) => l.at));
+          let written = 0;
+          lines.forEach((l, i) => {
+            const t = Math.max(l.at, first + i * 0.12, overlay ? 0.3 : 0.2, KF.drawn ? written : 0);
+            const end = KF.enter(tl, l.inner, t, "rise");
+            written = end;
+            const ems = l.words.filter((w) => w.classList.contains("SCENE_ID-em"));
+            KF.mark(tl, ems, KF.drawn ? end + 0.1 : t + 0.25);
+          });
+          const last = Math.max(...lines.map((l) => l.at));
+          if (!KF.drawn)
+            tl.fromTo(
+              rule,
+              { scaleX: 0 },
+              { scaleX: 1, duration: 0.6, ease: grow },
+              Math.max(last + 0.4, 0.8),
+            );
+          tl.set({}, {}, data.durationS);
+          window.__timelines["SCENE_ID"] = tl;
+          return true;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

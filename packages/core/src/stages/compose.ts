@@ -1,13 +1,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { framesToSeconds, parseFps } from "../fps.js";
-import { extractHtml, loadPrompt, techniqueModule } from "../prompts.js";
+import { extractHtml, extractJson, loadPrompt, techniqueModule } from "../prompts.js";
+import { buildRecipeScene, fillProblems, resolveWords } from "../recipe-fill.js";
+import type { RecipeField, RecipeInfo } from "../recipes.js";
 import type { ChatMessage, ContentPart, TextProvider } from "../providers/types.js";
 import { safeArea } from "../safe-area.js";
 import { nearestFrame, type RangeFrame } from "../frames.js";
 import { sceneMode, type Plan, type Scene } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
-import type { StyleInfo } from "../styles.js";
+import type { StyleFont, StyleInfo } from "../styles.js";
 import { sceneWords } from "./plan.js";
 
 /** Cheap checks before HyperFrames: things that would break determinism or the scene contract. */
@@ -125,6 +127,8 @@ export interface ComposeContext {
   frames?: RangeFrame[];
   /** Where a reply the checks turned down is kept with its problems, so a failure can be read later. */
   rejectedDir?: string;
+  /** Scene recipes; a scene the plan gave a recipe is filled from it instead of being written. */
+  recipes?: RecipeInfo[];
 }
 
 /** Keeps a turned-down reply next to the job (<job>/rejected/<scene>-<n>.txt). */
@@ -288,6 +292,8 @@ export interface ComposedScene {
   html: string;
   /** The conversation so far, so repairs keep the model's own context. */
   messages: ChatMessage[];
+  /** The recipe the scene was filled from; a recipe scene is written again freely instead of repaired. */
+  recipe?: string;
 }
 
 async function ask(
@@ -306,12 +312,154 @@ async function ask(
   return reply.text;
 }
 
-/** Writes one scene, then fixes static problems (at most `maxAttempts` replies in total). */
+/** @font-face rules for a style's font files, one per file and weight. */
+export function fontFaces(fonts: StyleFont[]): string {
+  const seen = new Set<string>();
+  return fonts
+    .filter((f) => {
+      const key = `${f.family}|${f.file}|${f.weight ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((f) => {
+      const weight = /variable/i.test(f.file) ? "100 900" : f.weight;
+      return `@font-face { font-family: "${f.family}"; src: url("${f.file}") format("truetype");${weight ? ` font-weight: ${weight};` : ""} }`;
+    })
+    .join("\n");
+}
+
+function fieldLines(fields: Record<string, RecipeField>, indent = ""): string[] {
+  return Object.entries(fields).flatMap(([k, f]) => {
+    const opt = "optional" in f && f.optional ? ", optional (null to leave out)" : "";
+    if (f.type === "text") return [`${indent}- ${k}: text, at most ${f.max} characters${opt}`];
+    if (f.type === "number") return [`${indent}- ${k}: number${opt}`];
+    if (f.type === "word")
+      return [`${indent}- ${k}: index of a word in the list above, the moment it appears${opt}`];
+    return [
+      `${indent}- ${k}: list of ${f.min} to ${f.max} objects, each with:`,
+      ...fieldLines(f.of, `${indent}  `),
+    ];
+  });
+}
+
+/** The request for filling a recipe scene: the scene plan, its numbered words and the recipe's fields. */
+export function fillRequest(ctx: ComposeContext, scene: Scene, recipe: RecipeInfo): string {
+  const { plan, transcript } = ctx;
+  const fps = parseFps(plan.fps);
+  const words = sceneWords(transcript, plan, scene.id);
+  return [
+    `SCENE_ID: ${scene.id}`,
+    `Duration: ${framesToSeconds(scene.end_frame - scene.start_frame, fps).toFixed(3)} s`,
+    `Recipe: ${recipe.name} (${recipe.technique}): ${recipe.description}`,
+    "",
+    "Scene plan:",
+    JSON.stringify(
+      {
+        visual: scene.visual,
+        on_screen_text: scene.on_screen_text,
+        anchor_words: scene.anchor_words,
+      },
+      null,
+      2,
+    ),
+    "",
+    "Words spoken in this scene (index, seconds from the scene start, word):",
+    words.length
+      ? words.map((w, i) => `${i} ${w.at.toFixed(2)} ${w.text}`).join("\n")
+      : "(no words; music or silence)",
+    "",
+    `Language of the speech: ${transcript.language ?? "the language of the words above"}`,
+    `Insert topic: ${plan.topic}. ${plan.summary}`,
+    "",
+    "Fields:",
+    ...fieldLines(recipe.fields),
+  ].join("\n");
+}
+
+/**
+ * Fills a recipe scene: one short JSON reply, its problems sent back once. Returns null when the scene should
+ * be written freely instead (the model asked for it, or the data is still wrong).
+ */
+async function fillScene(
+  ctx: ComposeContext,
+  scene: Scene,
+  recipe: RecipeInfo,
+): Promise<ComposedScene | null> {
+  const { plan } = ctx;
+  const words = sceneWords(ctx.transcript, plan, scene.id);
+  const messages: ChatMessage[] = [
+    { role: "user", content: [{ type: "text", text: fillRequest(ctx, scene, recipe) }] },
+  ];
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const reply = await ctx.provider.complete({
+      system: loadPrompt("fill"),
+      messages,
+      maxTokens: 4_000,
+      purpose: attempt === 1 ? `fill ${scene.id}` : `fill ${scene.id} retry`,
+    });
+    messages.push({ role: "assistant", content: [{ type: "text", text: reply.text }] });
+    let data: unknown;
+    let problems: string[];
+    try {
+      data = extractJson(reply.text);
+      if ((data as { free?: unknown }).free === true) return null;
+      problems = fillProblems(recipe, data, words.length);
+    } catch (err) {
+      problems = [err instanceof Error ? err.message : String(err)];
+    }
+    if (problems.length === 0) {
+      const fps = parseFps(plan.fps);
+      const html = buildRecipeScene(
+        recipe,
+        ctx.style.name,
+        resolveWords(recipe, data as Record<string, unknown>, words),
+        {
+          sceneId: scene.id,
+          width: plan.width,
+          height: plan.height,
+          format: plan.format,
+          mode: sceneMode(plan, scene),
+          durationS: framesToSeconds(scene.end_frame - scene.start_frame, fps),
+          speakerSide: plan.speaker?.side ?? "center",
+          safeArea: safeArea(plan.format, plan.width, plan.height),
+          fontFaces: fontFaces(ctx.style.fonts),
+        },
+      );
+      return { id: scene.id, html, messages, recipe: recipe.name };
+    }
+    keepRejected(ctx.rejectedDir, `${scene.id}-fill-${attempt}`, reply.text, problems);
+    messages.push({
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: `The data is not valid yet. Fix these problems and reply with the whole JSON again:\n- ${problems.join("\n- ")}`,
+        },
+      ],
+    });
+  }
+  return null;
+}
+
+/**
+ * Writes one scene, then fixes static problems (at most `maxAttempts` replies in total). A scene with a
+ * recipe dressed for the style is filled from it first, unless `free` is set.
+ */
 export async function composeScene(
   ctx: ComposeContext,
   scene: Scene,
   maxAttempts = 3,
+  opts: { free?: boolean } = {},
 ): Promise<ComposedScene> {
+  const recipe =
+    !opts.free && scene.recipe
+      ? ctx.recipes?.find((r) => r.name === scene.recipe && r.dresses[ctx.style.name] !== undefined)
+      : undefined;
+  if (recipe) {
+    const filled = await fillScene(ctx, scene, recipe);
+    if (filled) return filled;
+  }
   const messages: ChatMessage[] = [{ role: "user", content: composeRequest(ctx, scene) }];
   let reply = await ask(ctx, scene, messages, `compose ${scene.id}`);
   for (let attempt = 1; ; attempt++) {
@@ -338,7 +486,17 @@ export async function composeScene(
   }
 }
 
-/** Sends validation problems back into the scene's conversation and returns the new reply. */
+/**
+ * Below this loaded context (tokens) a repair carries only the scene's request, the latest HTML and its
+ * problems: every earlier version kept in the conversation would soon fill a local model's context.
+ */
+export const COMPACT_REPAIRS_BELOW = 100_000;
+
+/**
+ * Sends validation problems back into the scene's conversation and returns the new reply. A provider with a
+ * small loaded context (a local model) gets the conversation cut down to the request and the latest reply
+ * first; the others keep the whole of it.
+ */
 export async function repairScene(
   ctx: ComposeContext,
   scene: Scene,
@@ -346,6 +504,11 @@ export async function repairScene(
   problems: string[],
   purpose: string,
 ): Promise<string> {
+  const context = await ctx.provider.loadedContext?.();
+  if (context !== undefined && context < COMPACT_REPAIRS_BELOW) {
+    const latest = messages.findLast((m) => m.role === "assistant");
+    messages.splice(1, messages.length - 1, ...(latest ? [latest] : []));
+  }
   messages.push({
     role: "user",
     content: [{ type: "text", text: `${loadPrompt("repair")}- ${problems.join("\n- ")}` }],

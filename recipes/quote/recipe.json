@@ -1,0 +1,18 @@
+{
+  "technique": "kinetic-type",
+  "description": "one strong sentence set big in 1 to 4 lines, each line landing on its spoken word, one word or phrase in the accent colour",
+  "formats": ["landscape", "portrait", "square"],
+  "modes": ["fullscreen", "overlay"],
+  "fields": {
+    "lines": {
+      "type": "list",
+      "min": 1,
+      "max": 4,
+      "of": {
+        "text": { "type": "text", "max": 26 },
+        "at": { "type": "word" }
+      }
+    },
+    "emphasis": { "type": "text", "max": 26, "optional": true }
+  }
+}

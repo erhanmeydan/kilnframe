@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { ffmpegPath, stylesDir } from "@kilnframe/core";
 import { describe, expect, it } from "vitest";
 import {
+  captionClip,
+  captionFrames,
   deleteUserStyle,
   findWavPreset,
   inspectImages,
@@ -162,5 +164,87 @@ describe("withoutLongPathPrefix", () => {
     );
     expect(withoutLongPathPrefix("//?/C:/Users/u/a.prproj")).toBe("C:/Users/u/a.prproj");
     expect(withoutLongPathPrefix("/Users/u/a.prproj")).toBe("/Users/u/a.prproj");
+  });
+});
+
+describe("caption previews", () => {
+  /** A transparent ProRes 4444 clip with a red box, as the caption render delivers, and a blue footage frame. */
+  function clipAndFrame() {
+    const dir = mkdtempSync(join(tmpdir(), "kf-cap-prev-"));
+    const video = join(dir, "captions-1.mov");
+    const frame = join(dir, "frame.png");
+    const a = spawnSync(ffmpegPath(), [
+      "-v",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=black@0.0:s=480x270:d=2.5:r=25,format=yuva444p10le,drawbox=x=100:y=200:w=200:h=40:c=red@1:t=fill:replace=1",
+      "-c:v",
+      "prores_ks",
+      "-profile:v",
+      "4444",
+      "-pix_fmt",
+      "yuva444p10le",
+      video,
+    ]);
+    expect(a.status).toBe(0);
+    const b = spawnSync(ffmpegPath(), [
+      "-v",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=blue:s=1920x1080",
+      "-frames:v",
+      "1",
+      frame,
+    ]);
+    expect(b.status).toBe(0);
+    return { dir, video, frame };
+  }
+
+  it("lays six frames of the caption clip over the footage, as small JPEGs", () => {
+    const { dir, video, frame } = clipAndFrame();
+    const frames = captionFrames(video, frame, 2.5, 6, join(dir, "frames"));
+    expect(frames).toHaveLength(6);
+    for (const [i, f] of frames.entries()) {
+      expect(f).toMatch(/^data:image\/jpeg;base64,/);
+      const jpeg = Buffer.from(f.split(",")[1]!, "base64");
+      expect(jpegSize(jpeg)).toEqual({ width: 480, height: 270 });
+      // the caption (red) lies over the footage (blue) in every frame, not only the first
+      const file = join(dir, `check-${i}.jpg`);
+      writeFileSync(file, jpeg);
+      const px = (x: number, y: number) =>
+        spawnSync(ffmpegPath(), [
+          "-v",
+          "error",
+          "-i",
+          file,
+          "-vf",
+          `crop=1:1:${x}:${y}`,
+          "-f",
+          "rawvideo",
+          "-pix_fmt",
+          "rgb24",
+          "-",
+        ]).stdout;
+      const [r, , b] = px(200, 220);
+      expect(r).toBeGreaterThan(180);
+      expect(b).toBeLessThan(80);
+      expect(px(20, 20)[2]).toBeGreaterThan(180);
+    }
+    // without a footage frame the captions sit on a dark ground
+    expect(captionFrames(video, null, 2.5, 6, join(dir, "plain"))).toHaveLength(6);
+  }, 60_000);
+
+  it("makes a short H.264 clip of the captions over the footage for a panel that plays video", () => {
+    const { dir, video, frame } = clipAndFrame();
+    const clip = captionClip(video, frame, join(dir, "clip"));
+    expect(clip).toMatch(/^data:video\/mp4;base64,/);
+    const mp4 = Buffer.from(clip!.split(",")[1]!, "base64");
+    expect(mp4.subarray(4, 8).toString()).toBe("ftyp");
   });
 });

@@ -102,7 +102,18 @@
         getWorkAreaOutPoint: () => tick(seq.out),
         setWorkAreaInOutPoints: () => true,
       },
-      Constants: { ExportType: { IMMEDIATELY: 0 }, TrackItemType: { CLIP: 1 } },
+      Constants: {
+        ExportType: { IMMEDIATELY: 0 },
+        TrackItemType: { CLIP: 1 },
+        MediaType: { ANY: 0, DATA: 1, VIDEO: 2, AUDIO: 3 },
+      },
+      // the demo's tracks are empty: no insert spans, no earlier caption clip to find, nothing to take off
+      TrackItemSelection: {
+        createEmptySelection: (fn) => {
+          fn(loose({ addItem: () => true }, "selection"));
+          return true;
+        },
+      },
       EncoderManager: {
         getManager: () => ({
           exportSequence: async (_s, _t, outputPath) =>
@@ -120,7 +131,11 @@
       SequenceEditor: {
         getEditor: () =>
           loose(
-            { createOverwriteItemAction: () => ({}), createInsertProjectItemAction: () => ({}) },
+            {
+              createOverwriteItemAction: () => ({}),
+              createInsertProjectItemAction: () => ({}),
+              createRemoveItemsAction: () => ({}),
+            },
             "editor",
           ),
       },
@@ -149,7 +164,13 @@
       {
         host: { uiLocale: lang === "tr" ? "tr_TR" : "en_US" },
         shell: { openExternal: async (url) => console.log("[demo] open", url) },
-        storage: { localFileSystem: { getFileForOpening: async () => null } },
+        // the demo writes no files: its open and save dialogs come back cancelled
+        storage: {
+          localFileSystem: {
+            getFileForOpening: async () => null,
+            getFileForSaving: async () => null,
+          },
+        },
       },
       "uxp",
     ),

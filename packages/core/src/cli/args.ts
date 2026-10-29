@@ -3,6 +3,7 @@ import { formatOf, outputSize, parseSize, type Size } from "../format.js";
 import { parseFrameArg, type FrameInput } from "../frames.js";
 import { parseRange } from "../media/audio.js";
 import { formatFps, parseFps, type Fps } from "../fps.js";
+import { CAPTION_LOOKS, type CaptionStyleId } from "../captions/styles.js";
 import {
   OUTPUT_FORMATS,
   OUTPUT_MODES,
@@ -120,7 +121,26 @@ export interface StoryArgs {
   baseURL: string | undefined;
 }
 
+/** Captions: transcribe, correct the words, and render a transparent caption clip. */
+export interface CaptionsArgs {
+  command: "captions";
+  audio: string;
+  look: CaptionStyleId;
+  size: Size;
+  fps: Fps;
+  out: string;
+  language: string | undefined;
+  glossary: string[];
+  /** Turkish only: "written" gives TDK spelling, "spoken" keeps the speech forms. */
+  mode: "written" | "spoken";
+  provider: string | undefined;
+  model: string | undefined;
+  effort: string | undefined;
+  baseURL: string | undefined;
+}
+
 export type CliArgs =
+  | CaptionsArgs
   | StoryArgs
   | TranscribeArgs
   | RunArgs
@@ -148,6 +168,8 @@ export const USAGE = `Usage:
   kilnframe style-preview --style <name> --out <dir> [--provider ...] [--model <id>]
   kilnframe story (--brief <text> | --script <file>) --out <dir> [--duration <s>] [--language <code>]
                         [--tone <text>] [--voice <name>] [--speech-model <id>] [--no-voice] [--provider ...]
+  kilnframe captions --audio <file> --style <look> --fps <rate> --size <WxH> --out <dir>
+                        [--glossary <name,name,...>] [--spoken] [--language <code>] [--provider ...] [--model <id>]
 
 Examples:
   kilnframe run --audio parca.wav --style kil-lacivert --fps 30000/1001 --size 1920x1080 --out ./out
@@ -215,6 +237,8 @@ export function parseCliArgs(argv: string[], knownStyles: string[]): CliArgs {
         voice: { type: "string" },
         "speech-model": { type: "string" },
         "no-voice": { type: "boolean" },
+        glossary: { type: "string" },
+        spoken: { type: "boolean" },
       },
     }),
   );
@@ -225,6 +249,32 @@ export function parseCliArgs(argv: string[], knownStyles: string[]): CliArgs {
       audio: required(values.audio, "audio"),
       out: values.out ?? "transcript.json",
       language: values.language,
+    };
+  }
+
+  if (command === "captions") {
+    const look = oneOf(
+      required(values.style, "style"),
+      Object.keys(CAPTION_LOOKS) as CaptionStyleId[],
+      "style",
+    );
+    return {
+      command,
+      audio: required(values.audio, "audio"),
+      look,
+      size: wrap(() => parseSize(required(values.size, "size"))),
+      fps: wrap(() => parseFps(required(values.fps, "fps"))),
+      out: required(values.out, "out"),
+      language: values.language,
+      glossary: (values.glossary ?? "")
+        .split(",")
+        .map((n) => n.trim())
+        .filter(Boolean),
+      mode: values.spoken ? "spoken" : "written",
+      provider: values.provider,
+      model: values.model,
+      effort: values.effort,
+      baseURL: values["base-url"],
     };
   }
 

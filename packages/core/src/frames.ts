@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { ffmpegPath } from "./config.js";
 
@@ -49,6 +58,18 @@ function previewOf(file: string, out: string): void {
     out,
   ]);
   if (r.status !== 0) throw new Error(`could not read the frame ${file}`);
+}
+
+/** A frame as the small JPEG a model is sent: a 4K PNG is over the 10 MB a request may carry. */
+export function framePreview(file: string): { mediaType: "image/jpeg"; base64: string } {
+  const dir = mkdtempSync(join(tmpdir(), "kilnframe-frame-"));
+  try {
+    const out = join(dir, "preview.jpg");
+    previewOf(file, out);
+    return { mediaType: "image/jpeg", base64: readFileSync(out).toString("base64") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /**

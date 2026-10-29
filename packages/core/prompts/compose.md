@@ -55,6 +55,35 @@ overflow: hidden;`), never with fixed pixel width/height. A class on the root br
   duration (the last frame holds if the timeline is shorter).
 - GSAP is already loaded as the global `gsap`. Three.js is available as `import * as THREE from "three"` and
   addons as `import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js"`.
+- GSAP's plugins are loaded and registered too: `SplitText`, `DrawSVGPlugin`, `MorphSVGPlugin`,
+  `MotionPathPlugin` and `CustomEase`. Use them instead of writing the same by hand, and never load or
+  register them again:
+  - SplitText splits text into lines, words or letters once the fonts are loaded:
+    `const split = SplitText.create("#SCENE_ID-title", { type: "words,chars" })`, then animate `split.words`
+    or `split.chars`. Split once while building; never revert, split again or use `autoSplit`.
+  - DrawSVG draws a stroke on: `tl.fromTo(path, { drawSVG: "0%" }, { drawSVG: "100%", duration: 0.8 }, t)`
+    (paths, lines, polylines, circles, rects). No need to measure lengths or set dash arrays.
+  - MotionPath moves something along a path: `tl.to(dot, { motionPath: { path: "#SCENE_ID-route", align:
+"#SCENE_ID-route", alignOrigin: [0.5, 0.5], autoRotate: true }, duration: 1.2 }, t)`.
+  - MorphSVG turns one shape into another: `tl.to("#SCENE_ID-a", { morphSVG: "#SCENE_ID-b", duration: 0.8 }, t)`;
+    give both as paths (`MorphSVGPlugin.convertToPath("#SCENE_ID-circle")` turns a circle or rect into one).
+  - CustomEase makes the scene's own curve: `CustomEase.create("SCENE_ID-snap", "M0,0 C0.2,0 0.1,1.2 1,1")`.
+    Start its name with SCENE_ID: every scene shares one page.
+- Icons: `kfIcon(names, { size, color, strokeWidth, id })` returns a Lucide line icon as an `<svg>` element
+  (about 1900: objects, devices, tools, media, nature, people, places, arrows, charts). Pass a few likely
+  Lucide names in order (English, kebab-case); the first that exists is used:
+  `const cam = kfIcon(["clapperboard", "film"], { size: 160, id: "SCENE_ID-icon-1" })`, then append it. It
+  draws with strokes in `currentColor`, so the style's ink colour, its stroke weight (`strokeWidth`, on a 24
+  unit grid) and DrawSVG on `cam.querySelectorAll("*")` all work. When the speech names a thing, show it with
+  an icon dressed in the style (filled shapes behind it, hatching, a hand-drawn wobble, a 3D extrusion)
+  rather than leaving it out. A style that builds its icons from primitives may still use one as a base.
+- D3 is loaded as the global `d3` for data: scales, axes, shapes (`d3.arc`, `d3.line`, `d3.area`, `d3.pie`)
+  and layouts (`d3.stack`, `d3.treemap`, `d3.hierarchy`). Never use `d3.transition`, `d3.timer` or any D3
+  timing: tween plain values on the GSAP timeline and redraw the shapes from them.
+- Three.js addons also include `three/addons/loaders/SVGLoader.js` (an icon's or any SVG path's strokes as 3D
+  meshes with `SVGLoader.pointsToStroke`, or filled shapes with `createShapes` and `ExtrudeGeometry`) and
+  post processing in `three/addons/postprocessing/`: `EffectComposer`, `RenderPass`, `UnrealBloomPass`,
+  `BokehPass`, `FXAAPass`, `OutputPass`. With a composer, call `composer.render()` in `draw(t)`.
 - Fonts: declare `@font-face` inside the template's `<style>` with the font files given in the request, e.g.
   `src: url("vendor/fonts/barlow-condensed/BarlowCondensed-ExtraBold.ttf") format("truetype")`. Use no other
   fonts. Before building text animations wait for them: `await document.fonts.load('800 120px "Family"')`.

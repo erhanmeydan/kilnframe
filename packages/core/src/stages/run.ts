@@ -8,6 +8,7 @@ import { sceneMode, type Plan } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
 import { prepareAssets, readAssetText, type AssetInput } from "../assets.js";
 import { prepareFrames, type FrameInput } from "../frames.js";
+import { loadRecipes, type RecipeInfo } from "../recipes.js";
 import { loadStyle } from "../styles.js";
 import {
   composeScene,
@@ -47,6 +48,8 @@ export interface PipelineOptions {
   assets?: AssetInput[];
   /** Frames of the footage under the range, for choosing overlays and placing them beside the speaker. */
   frames?: FrameInput[];
+  /** Fill scenes from scene recipes where the plan picks one; left out, the settings decide (off for now). */
+  recipes?: boolean;
   onProgress?: (message: string) => void;
 }
 
@@ -209,6 +212,16 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
           ...(rejected.get(id) ?? []).map((m) => `Your previous fix was rejected: ${m}`),
         ];
         rejected.delete(id);
+        // a recipe scene has no code of the model's to repair: write it freely instead
+        if (prev.recipe) {
+          log(`Recomposing ${id} without its recipe`);
+          try {
+            composed.set(id, await composeScene(ctx, scene, 3, { free: true }));
+          } catch (err) {
+            log(`Recomposing ${id} failed: ${err instanceof Error ? err.message : String(err)}`);
+          }
+          return;
+        }
         const reply = await repairScene(
           ctx,
           scene,
@@ -241,6 +254,11 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
   }
 
   return round;
+}
+
+/** The recipes a job may use: the caller's choice, else the settings' switch. */
+export function pipelineRecipes(enabled: boolean | undefined, defaults: Defaults): RecipeInfo[] {
+  return (enabled ?? defaults.recipes.enabled) ? loadRecipes() : [];
 }
 
 /** transcribe → plan → compose → validate (with repair) → stills → render → deliver → sfx. */
@@ -306,12 +324,14 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
   }
   const frames = prepareFrames(o.frames ?? [], outDir);
   if (frames.length) log(`Frames of the footage: ${frames.length}`);
+  const recipes = pipelineRecipes(o.recipes, o.defaults);
   const plan = await planInsert({
     provider,
     transcript,
     style,
     job: { ...o.job, assets, frames },
     onProgress: log,
+    recipes,
   });
   writeJson(join(outDir, "plan.json"), plan);
   log(
@@ -326,6 +346,7 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
     assetPreviews: Object.fromEntries(assets.map((a) => [a.id, a.preview])),
     frames,
     rejectedDir: join(outDir, "rejected"),
+    recipes,
   };
   log(`Composing ${plan.scenes.length} scene(s)`);
   const composed = new Map<string, ComposedScene>();
@@ -334,7 +355,9 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
   for (const result of await Promise.all(
     plan.scenes.map((s) =>
       composeScene(ctx, s).then((r) => {
-        log(`Composed ${r.id} (${++written}/${plan.scenes.length})`);
+        log(
+          `Composed ${r.id}${r.recipe ? ` from recipe ${r.recipe}` : ""} (${++written}/${plan.scenes.length})`,
+        );
         return r;
       }),
     ),

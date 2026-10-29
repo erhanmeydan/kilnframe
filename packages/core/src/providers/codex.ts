@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,15 +29,11 @@ export interface CodexStatus {
   method: "chatgpt" | "api_key" | null;
 }
 
-export function codexBinary(): string {
-  return process.env.KILNFRAME_CODEX ?? "codex";
-}
-
 export function codexStatus(): CodexStatus {
-  const version = spawnSync(codexBinary(), ["--version"], { encoding: "utf8", timeout: 20_000 });
+  const version = spawnAgentSync("codex", ["--version"], { encoding: "utf8", timeout: 20_000 });
   if (version.error || version.status !== 0)
     return { installed: false, version: null, loggedIn: false, method: null };
-  const status = spawnSync(codexBinary(), ["login", "status"], {
+  const status = spawnAgentSync("codex", ["login", "status"], {
     encoding: "utf8",
     timeout: 20_000,
   });
@@ -210,7 +206,7 @@ export class CodexProvider implements TextProvider {
     cwd: string,
   ): Promise<{ code: number; stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      const proc = spawn(codexBinary(), args, { cwd, stdio: ["pipe", "pipe", "pipe"] });
+      const proc = spawnAgent("codex", args, { cwd });
       let stdout = "";
       let stderr = "";
       proc.stdout.on("data", (c: Buffer) => (stdout += c.toString()));

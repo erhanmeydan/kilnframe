@@ -48,7 +48,7 @@
             "applicationCategory": "MultimediaApplication",
             "applicationSubCategory": "Video editing plugin",
             "operatingSystem": "macOS (Apple silicon), Windows 10, Windows 11",
-            "softwareRequirements": "Adobe Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later",
+            "softwareRequirements": "Adobe Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later",
             "downloadUrl": [
               "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg",
               "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
@@ -68,6 +68,7 @@
               "Ayrı izde ses efektleri",
               "Hikaye modu: bir konudan seslendirilmiş video",
               "Müzik sekmesi: her konuya müzik, sesin altında",
+              "Altyazı sekmesi: dokuz tasarlanmış görünüm, yapay zekanızla düzeltilen yazım ve SRT dosyası",
               "Yerel yazıya dökme ve yerel render"
             ],
             "image": "https://kilnframe.com/assets/share.jpg",
@@ -126,7 +127,7 @@
                 "name": "Hangi yapay zeka modelleriyle çalışır?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla; Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da LM Studio'daki yerel bir modelle. Sadece görsel okuyabilen modeller sunulur. Yukarıdaki benchmark on altı modeli aynı klip üzerinde karşılaştırıyor."
+                  "text": "Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla; Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da LM Studio veya Ollama'daki yerel bir modelle. Sadece görsel okuyabilen modeller sunulur. Yukarıdaki benchmark on altı modeli aynı klip üzerinde karşılaştırıyor."
                 }
               },
               {
@@ -142,7 +143,7 @@
                 "name": "Çalıştırmak için ne gerekiyor?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Premiere Pro 2026 (25.6 ve sonrası) ya da DaVinci Resolve Studio 21.1 ve sonrası, Apple silicon bir Mac ya da Windows 10 veya 11, bir ekran kartı ve yaklaşık 2 GB disk alanı."
+                  "text": "Premiere Pro 2026 (26.2 ve sonrası) ya da DaVinci Resolve Studio 21.1 ve sonrası, Apple silicon bir Mac ya da Windows 10 veya 11, bir ekran kartı ve yaklaşık 2 GB disk alanı."
                 }
               },
               {
@@ -651,7 +652,10 @@
             </p>
             <ol>
               <li>
-                <span><b>Konuyu yazın,</b> süreyi, dili ve isterseniz tonu seçin.</span>
+                <span
+                  ><b>Konuyu yazın,</b> süreyi, dili ve tonu seçin ya da kendi metninizi
+                  yapıştırın.</span
+                >
               </li>
               <li>
                 <span><b>Metni düzenleyin</b> ya da bir notla yeniden yazdırın.</span>
@@ -750,10 +754,69 @@
         </div>
       </section>
 
+      <section id="altyazi">
+        <div class="wrap story">
+          <div>
+            <span class="tc">07 · ALTYAZI</span>
+            <h2 style="margin-top: 12px">Kendi sözlerinizle altyazı.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              Altyazı sekmesi sekansın tamamını ya da bir aralığı bilgisayarınızda yazıya döker,
+              yapay zekanıza zamanlamaya dokunmadan yazımı düzelttirir ve tasarlanmış altyazıyı bir
+              ize yerleştirir.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Bir görünüm seçin,</b> renklerini ve doğru yazılması gereken adları
+                  girin.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Metni kontrol edin:</b> kelimeyi düzeltin, satırları bölün ya da birleştirin,
+                  önizleyin.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Render alın ve yerleştirin:</b> görüntünüzün üstünde şeffaf tek bir
+                  klip.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>SRT kaydedin:</b> aynı satırlar platformlar için altyazı dosyası olarak.</span
+                >
+              </li>
+            </ol>
+          </div>
+          <div>
+            <div class="spec">
+              <dl>
+                <dt>Dokuz görünüm</dt>
+                <dd>
+                  <div class="tags">
+                    <span>Kil Lacivert</span>
+                    <span>Loud</span>
+                    <span>Dinamik</span>
+                    <span>Hap</span>
+                    <span>Karaoke</span>
+                    <span>Daktilo</span>
+                    <span>Sakin</span>
+                    <span>Bant</span>
+                    <span>Editoryal</span>
+                  </div>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="foy">
         <div class="wrap">
           <div class="head">
-            <span class="tc">07 · TEKNİK FÖY</span>
+            <span class="tc">08 · TEKNİK FÖY</span>
             <div>
               <h2>Neler yapar.</h2>
               <p>Ne ürettiği, size nasıl teslim ettiği ve neyle çalıştığı.</p>
@@ -811,12 +874,12 @@
               <dd>
                 Claude planı <span class="rec">önerilen</span> · ChatGPT planı
                 <span class="rec">önerilen</span> · Grok planı · Claude, OpenAI, Gemini, xAI,
-                MiniMax, OpenRouter anahtarı · bilgisayarınızda LM Studio. Sadece görsel okuyabilen
-                modeller.
+                MiniMax, OpenRouter anahtarı · bilgisayarınızda LM Studio ya da Ollama. Sadece
+                görsel okuyabilen modeller.
               </dd>
               <dt>Gereken</dt>
               <dd>
-                Premiere Pro 2026 (25.6 ve sonrası) ya da DaVinci Resolve Studio 21.1 ve sonrası
+                Premiere Pro 2026 (26.2 ve sonrası) ya da DaVinci Resolve Studio 21.1 ve sonrası
                 (ücretsiz Resolve eklenti yüklemez). Apple silicon işlemcili Mac, Windows 10 ve 11,
                 ekran kartı. Yaklaşık 2 GB disk.
               </dd>
@@ -833,7 +896,7 @@
       <section id="benchmark">
         <div class="wrap">
           <div class="head">
-            <span class="tc">08 · BENCHMARK</span>
+            <span class="tc">09 · BENCHMARK</span>
             <div>
               <h2>On altı model, tek klip.</h2>
               <p>
@@ -1171,7 +1234,7 @@
       <section class="band">
         <div class="wrap">
           <div class="head">
-            <span class="tc">09 · GÖRÜNTÜNÜZ</span>
+            <span class="tc">10 · GÖRÜNTÜNÜZ</span>
             <div>
               <h2>Bilgisayarınızda kalır.</h2>
               <p>
@@ -1200,7 +1263,7 @@
       <section id="sss">
         <div class="wrap">
           <div class="head">
-            <span class="tc">10 · SORULAR</span>
+            <span class="tc">11 · SORULAR</span>
             <div><h2>Kurmadan önce.</h2></div>
           </div>
           <div class="faq">
@@ -1219,8 +1282,8 @@
               <p>
                 Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla;
                 Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da
-                LM Studio'daki yerel bir modelle. Sadece görsel okuyabilen modeller sunulur.
-                Yukarıdaki benchmark on altı modeli aynı klip üzerinde karşılaştırıyor.
+                LM Studio ya da Ollama'daki yerel bir modelle. Sadece görsel okuyabilen modeller
+                sunulur. Yukarıdaki benchmark on altı modeli aynı klip üzerinde karşılaştırıyor.
               </p>
             </details>
             <details>
@@ -1234,7 +1297,7 @@
             <details>
               <summary>Çalıştırmak için ne gerekiyor?</summary>
               <p>
-                Premiere Pro 2026 (25.6 ve sonrası) ya da DaVinci Resolve Studio 21.1 ve sonrası,
+                Premiere Pro 2026 (26.2 ve sonrası) ya da DaVinci Resolve Studio 21.1 ve sonrası,
                 Apple silicon bir Mac ya da Windows 10 veya 11, bir ekran kartı ve yaklaşık 2 GB
                 disk alanı.
               </p>

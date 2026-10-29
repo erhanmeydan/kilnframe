@@ -1,0 +1,289 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>steps</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #SCENE_ID-stage,
+        #SCENE_ID-bg,
+        #SCENE_ID-texture,
+        #SCENE_ID-lines {
+          position: absolute;
+          inset: 0;
+        }
+        #SCENE_ID-bg {
+          background: var(--bg);
+        }
+        #SCENE_ID-plate,
+        #SCENE_ID-title,
+        .SCENE_ID-node,
+        .SCENE_ID-label {
+          position: absolute;
+        }
+        #SCENE_ID-plate {
+          background: var(--plate);
+          border-radius: var(--plate-radius, 0);
+          transform-origin: 0 0;
+        }
+        #SCENE_ID-title {
+          margin: 0;
+          overflow: hidden;
+          font-family: var(--font-head);
+          font-weight: var(--weight-head);
+          line-height: 1.08;
+          color: var(--ink);
+        }
+        #SCENE_ID-title-inner {
+          display: block;
+        }
+        .SCENE_ID-node {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: var(--main);
+          color: var(--node-ink);
+          font-family: var(--font-num);
+          font-weight: var(--weight-num);
+          line-height: 1;
+        }
+        .SCENE_ID-node.SCENE_ID-key {
+          background: var(--accent);
+          color: var(--key-ink);
+        }
+        .SCENE_ID-label {
+          margin: 0;
+          display: flex;
+          font-family: var(--font-body);
+          font-weight: var(--weight-body);
+          line-height: 1.12;
+          color: var(--ink);
+        }
+        .SCENE_ID-line {
+          fill: none;
+          stroke: var(--line);
+          stroke-linecap: round;
+        }
+        /*DRESS*/
+      </style>
+      <div id="root" data-composition-id="SCENE_ID" data-width="WIDTH" data-height="HEIGHT">
+        <div id="SCENE_ID-stage">
+          <div id="SCENE_ID-bg"></div>
+          <div id="SCENE_ID-texture"></div>
+          <div id="SCENE_ID-plate"></div>
+          <h2 id="SCENE_ID-title"><span id="SCENE_ID-title-inner"></span></h2>
+          <svg id="SCENE_ID-lines" width="WIDTH" height="HEIGHT" viewBox="0 0 WIDTH HEIGHT"></svg>
+        </div>
+      </div>
+      <script type="application/json" id="SCENE_ID-data">
+        "__DATA__"
+      </script>
+      <script type="module">
+        /*KIT*/
+        window.__hf = window.__hf || {};
+        window.__hf.buildReady = window.__hf.buildReady || {};
+        window.__hf.buildReady["SCENE_ID"] = (async () => {
+          await KF.fonts();
+          const { data, W, H, u, overlay, stage } = KF;
+          const s = data.safeArea;
+          const plate = document.getElementById("SCENE_ID-plate");
+          const title = document.getElementById("SCENE_ID-title");
+          const titleInner = document.getElementById("SCENE_ID-title-inner");
+          const svg = document.getElementById("SCENE_ID-lines");
+          const steps = data.steps;
+          const n = steps.length;
+          const key =
+            Number.isInteger(data.highlight) && data.highlight >= 0 && data.highlight < n
+              ? data.highlight
+              : n - 1;
+
+          // the title on top, the steps in the box below it
+          let T;
+          let box;
+          if (overlay) {
+            document.getElementById("SCENE_ID-bg").style.display = "none";
+            const r = KF.region("column");
+            const pad = 36 * u;
+            const wide = r.w / r.h > 1.6;
+            const w = wide ? Math.min(r.w, r.h * 3.4) : r.w;
+            KF.place(plate, { x: r.x, y: r.y, w, h: r.h });
+            T = {
+              x: r.x + pad,
+              y: r.y + pad,
+              w: w - pad * 2,
+              h: (wide ? 0.2 : 0.12) * (r.h - pad * 2),
+            };
+            box = {
+              x: r.x + pad,
+              y: T.y + T.h + 24 * u,
+              w: w - pad * 2,
+              h: r.y + r.h - pad - (T.y + T.h + 24 * u),
+            };
+          } else {
+            plate.style.display = "none";
+            KF.speckle(document.getElementById("SCENE_ID-texture"));
+            const fw = W - s.left - s.right;
+            T = { x: s.left + 40 * u, y: s.top + 30 * u, w: Math.min(fw, W * 0.6), h: 200 * u };
+            const top = T.y + T.h + (data.format === "landscape" ? 80 : 60) * u;
+            box = { x: s.left + 40 * u, y: top, w: fw - 80 * u, h: H - s.bottom - 40 * u - top };
+          }
+          titleInner.textContent = data.title;
+          KF.place(title, T);
+          title.style.height = "auto";
+          KF.fit(title, T.w, T.h, (overlay ? 40 : 80) * u, 18 * u);
+
+          // a row when the box is wide, a column otherwise; every other step sits a little off the line
+          const row = box.w / box.h > 1.3;
+          const body = (overlay ? 26 : 40) * u;
+          if (row) {
+            // the row and its labels sit in the middle of the box's height
+            const R = Math.min((box.w / n) * 0.26, box.h * 0.2, 92 * u);
+            const used = R * 2.7 + 20 * u + body * 2.6;
+            const spare = Math.max(0, box.h - used);
+            box.y += spare / 2;
+            box.h -= spare / 2;
+          }
+          const nodes = steps.map((st, i) => {
+            let R;
+            let cx;
+            let cy;
+            let L;
+            if (row) {
+              const slot = box.w / n;
+              R = Math.min(slot * 0.26, box.h * 0.2, 92 * u);
+              cx = box.x + slot * (i + 0.5);
+              cy = box.y + R + (i % 2 ? R * 0.7 : 0);
+              L = {
+                x: cx - slot * 0.46,
+                y: cy + R + 20 * u,
+                w: slot * 0.92,
+                h: box.y + box.h - (cy + R + 20 * u),
+              };
+            } else {
+              const slot = box.h / n;
+              R = Math.min(slot * 0.32, box.w * 0.14, 80 * u);
+              cx = box.x + R + (i % 2 ? R * 0.8 : 0);
+              cy = box.y + slot * (i + 0.5);
+              const lx = box.x + R * 2.8 + 28 * u;
+              L = { x: lx, y: cy - slot * 0.45, w: box.x + box.w - lx, h: slot * 0.9 };
+            }
+            const node = KF.el("div", `SCENE_ID-node${i === key ? " SCENE_ID-key" : ""}`, stage);
+            KF.place(node, { x: cx - R, y: cy - R, w: R * 2, h: R * 2 });
+            node.textContent = String(i + 1);
+            node.style.fontSize = `${R * 0.9}px`;
+            const label = KF.el("p", "SCENE_ID-label", stage);
+            label.textContent = st.label;
+            KF.place(label, L);
+            label.style.justifyContent = row ? "center" : "flex-start";
+            label.style.textAlign = row ? "center" : "left";
+            label.style.alignItems = row ? "flex-start" : "center";
+            KF.fit(label, L.w, L.h, body, body * 0.5);
+            return { st, node, label, R, cx, cy, t: KF.at(st.at) };
+          });
+
+          // connectors from edge to edge, drawn on as the next step arrives; a drawn style makes them
+          // curvy red arrows, as a teacher would
+          const stroke = Math.max(3, KF.num("line-width", 0.55) * 14 * u);
+          const lines = nodes.slice(1).map((b, i) => {
+            const a = nodes[i];
+            const dx = b.cx - a.cx;
+            const dy = b.cy - a.cy;
+            const d = Math.hypot(dx, dy);
+            const gap = (KF.drawn ? 26 : 14) * u;
+            const x1 = a.cx + (dx / d) * (a.R + gap);
+            const y1 = a.cy + (dy / d) * (a.R + gap);
+            const x2 = b.cx - (dx / d) * (b.R + gap);
+            const y2 = b.cy - (dy / d) * (b.R + gap);
+            if (KF.drawn) {
+              const nx = -dy / d;
+              const ny = dx / d;
+              const bend = Math.min(40 * u, d * 0.12);
+              const pts = [0, 0.25, 0.5, 0.75, 1].map((f) => {
+                const k = Math.sin(f * Math.PI) * bend;
+                return [x1 + (x2 - x1) * f - nx * k, y1 + (y2 - y1) * f - ny * k];
+              });
+              const head = Math.min(22 * u, Math.hypot(x2 - x1, y2 - y1) * 0.3);
+              const ang = Math.atan2(y2 - pts[3][1], x2 - pts[3][0]);
+              const tip = (s) => [
+                x2 - head * Math.cos(ang + s * 0.55),
+                y2 - head * Math.sin(ang + s * 0.55),
+              ];
+              const shaft = KF.line(pts, { key: true });
+              const barbs = KF.line([tip(1), [x2, y2], tip(-1)], { key: true });
+              return { part: { paths: [...shaft.paths, ...barbs.paths] } };
+            }
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("class", "SCENE_ID-line");
+            path.setAttribute("d", `M${x1} ${y1} L${x2} ${y2}`);
+            path.setAttribute("stroke-width", String(stroke));
+            const len = Math.max(1, Math.hypot(x2 - x1, y2 - y1));
+            path.style.strokeDasharray = `${len}`;
+            svg.appendChild(path);
+            return { path, len };
+          });
+
+          const enter = KF.ease("enter", "back.out(1.6)");
+          const grow = KF.ease("grow", "power3.out");
+          const tl = gsap.timeline({ paused: true });
+          if (overlay) {
+            if (KF.drawn) {
+              tl.fromTo(plate, { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0.05);
+              KF.enter(tl, KF.shape("rect", KF.boxOf(plate)), 0.05, "draw");
+            } else tl.fromTo(plate, { scaleY: 0 }, { scaleY: 1, duration: 0.45, ease: grow }, 0.05);
+          }
+          const tt = Math.max(KF.at(data.title_at), overlay ? 0.25 : 0.1);
+          let prev = KF.drawn
+            ? KF.enter(tl, titleInner, tt, "rise")
+            : (KF.enter(tl, titleInner, tt, "rise"), tt + 0.15);
+          nodes.forEach((nd, i) => {
+            if (KF.drawn) {
+              // a marker loop for the node, its number and label written after it, the arrow in between
+              const t = Math.max(nd.t, prev + 0.05);
+              let at = t;
+              if (i > 0) at = KF.enter(tl, lines[i - 1].part, t, "draw");
+              const r = { x: nd.cx - nd.R, y: nd.cy - nd.R, w: nd.R * 2, h: nd.R * 2 };
+              at = KF.enter(tl, KF.shape("circle", r, { key: i === key }), at, "draw");
+              // the writing goes on while the next step is drawn
+              KF.enter(tl, nd.node, at, "text");
+              KF.enter(tl, nd.label, at, "text");
+              prev = at;
+              return;
+            }
+            const t = Math.max(nd.t, prev + (i ? 0.35 : 0.1));
+            prev = t;
+            if (i > 0) {
+              const ln = lines[i - 1];
+              tl.fromTo(
+                ln.path,
+                { strokeDashoffset: ln.len },
+                { strokeDashoffset: 0, duration: 0.35, ease: "power2.inOut" },
+                t - 0.3,
+              );
+            }
+            tl.fromTo(nd.node, { scale: 0 }, { scale: 1, duration: 0.5, ease: enter }, t);
+            tl.fromTo(nd.label, { opacity: 0 }, { opacity: 1, duration: 0.01 }, t + 0.1);
+            tl.fromTo(nd.label, { y: 18 * u }, { y: 0, duration: 0.45, ease: enter }, t + 0.1);
+            if (i === key)
+              tl.fromTo(
+                nd.node,
+                { scale: 1.16 },
+                { scale: 1, duration: 0.5, ease: "elastic.out(1, 0.5)", immediateRender: false },
+                t + 0.55,
+              );
+          });
+          tl.set({}, {}, data.durationS);
+          window.__timelines["SCENE_ID"] = tl;
+          return true;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

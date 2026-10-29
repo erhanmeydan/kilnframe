@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawnAgentSync } from "./agent-binary.js";
 import { tmpdir } from "node:os";
 
 /**
@@ -14,15 +14,11 @@ export interface GrokStatus {
   loggedIn: boolean;
 }
 
-export function grokBinary(): string {
-  return process.env.KILNFRAME_GROK ?? "grok";
-}
-
 export function grokStatus(): GrokStatus {
-  const version = spawnSync(grokBinary(), ["--version"], { encoding: "utf8", timeout: 20_000 });
+  const version = spawnAgentSync("grok", ["--version"], { encoding: "utf8", timeout: 20_000 });
   if (version.error || version.status !== 0)
     return { installed: false, version: null, loggedIn: false };
-  const models = spawnSync(grokBinary(), ["models"], {
+  const models = spawnAgentSync("grok", ["models"], {
     encoding: "utf8",
     timeout: 30_000,
     cwd: tmpdir(),

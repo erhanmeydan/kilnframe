@@ -1,0 +1,16 @@
+{
+  "technique": "kinetic-type",
+  "description": "a title and up to three labels, each appearing on its word",
+  "formats": ["landscape"],
+  "modes": ["fullscreen"],
+  "fields": {
+    "title": { "type": "text", "max": 20 },
+    "title_at": { "type": "word" },
+    "items": {
+      "type": "list",
+      "min": 1,
+      "max": 3,
+      "of": { "label": { "type": "text", "max": 12 }, "at": { "type": "word" } }
+    }
+  }
+}

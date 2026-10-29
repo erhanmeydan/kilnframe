@@ -23,6 +23,8 @@ export interface ProviderOverrides {
   apiKey?: string | undefined;
   /** "suggest" may use a lighter model than the main work (defaults.text.suggestModel). */
   purpose?: "main" | "suggest" | undefined;
+  /** LM Studio's thinking for a model that thinks: "off" (default) or "on"; ignored by every other provider. */
+  thinking?: "off" | "on" | undefined;
   /** Told when a side task falls back to the main model. */
   onFallback?: ((message: string) => void) | undefined;
 }
@@ -138,6 +140,7 @@ export function withModelFallback(
     ...(primary.listModels ? { listModels: () => primary.listModels!() } : {}),
     // the model in use: the fallback's once the primary model turned out unavailable
     modelPrice: () => active.modelPrice?.() ?? Promise.resolve(undefined),
+    loadedContext: () => active.loadedContext?.() ?? Promise.resolve(undefined),
     async complete(req) {
       try {
         return await active.complete(req);
@@ -233,6 +236,7 @@ function buildProvider(
       },
       reasoningEffort: preset?.reasoningEffort?.[model],
       reasoningField: preset?.reasoningField,
+      ...(kind === "lmstudio" || kind === "ollama" ? { thinking: o.thinking } : {}),
     });
   }
   if (kind === "openai-compatible") {

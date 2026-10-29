@@ -74,6 +74,19 @@ const FONT = `
         font-weight: 300 800;
         font-stretch: 75% 100%;
       }
+      /* Chromium draws a light scroll bar when macOS shows scroll bars always: Resolve's own dark one */
+      ::-webkit-scrollbar {
+        width: 10px;
+        background: #28282e;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #47464d;
+        border-radius: 5px;
+        border: 2px solid #28282e;
+      }
+      ::-webkit-scrollbar-corner {
+        background: #28282e;
+      }
       /* UXP pads its native fields itself, Electron does not */
       textarea {
         padding: 6px 8px;

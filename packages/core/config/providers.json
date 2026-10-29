@@ -8,14 +8,14 @@
       "displayName": "Claude (Anthropic)",
       "adapter": "anthropic",
       "baseURL": null,
-      "models": ["claude-opus-5-5", "claude-sonnet-5-5"],
+      "models": ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5"],
       "capabilities": {
         "vision": true,
         "structuredOutput": true,
         "contextWindow": 1000000
       },
       "tier": "recommended",
-      "verified": "SDK and model IDs from the claude-api reference bundled with Claude Code, 2026-09-25",
+      "verified": "SDK and model IDs from the claude-api reference bundled with Claude Code, 2026-09-25; claude-fable-5-1 (10/50 USD per MTok, adaptive thinking only, refusal fallbacks) added from the same reference, 2026-10-28",
       "keyUrl": "https://console.anthropic.com/settings/keys"
     },
     {
@@ -179,6 +179,26 @@
         "no key by default; a token can be enabled",
         "list loaded models with GET /v1/models",
         "only models LM Studio lists with type \"vlm\" are offered, for example a local Qwen 3.8 27B"
+      ]
+    },
+    {
+      "id": "ollama",
+      "displayName": "Ollama (local)",
+      "adapter": "openai-compatible",
+      "baseURL": "http://localhost:11434/v1",
+      "models": [],
+      "capabilities": {
+        "vision": "per-model",
+        "structuredOutput": false,
+        "contextWindow": 32000
+      },
+      "tier": "works",
+      "slowModels": ["*"],
+      "verified": "docs.ollama.com/api (tags, ps with context_length), docs.ollama.com/api/openai-compatibility (base URL, base64 image_url parts, reasoning_effort none), github.com/ollama/ollama/blob/main/docs/api.md (show: capabilities, model_info <arch>.context_length), checked 2026-10-29",
+      "notes": [
+        "no key; the OpenAI endpoint ignores it",
+        "only models whose /api/show capabilities include \"vision\" are offered",
+        "Ollama cuts a prompt that does not fit its context silently, so the context is read from /api/ps before a job"
       ]
     }
   ]

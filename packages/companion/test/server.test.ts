@@ -6,6 +6,7 @@ import {
   type Companion,
   type JobParams,
   type KeyStore,
+  PROTOCOL_VERSION,
   type ServerMessage,
 } from "../src/index.js";
 
@@ -183,7 +184,10 @@ describe("companion server", () => {
     });
     const c = await connect(companion.port);
     c.send({ type: "hello", token: TOKEN });
-    expect(await c.next((m) => m.type === "ready")).toMatchObject({ protocol: 1, version: "test" });
+    expect(await c.next((m) => m.type === "ready")).toMatchObject({
+      protocol: PROTOCOL_VERSION,
+      version: "test",
+    });
     c.send({ type: "job.start", params: { ...params, style: "a" } });
     c.send({ type: "job.start", params: { ...params, style: "boom" } });
     const done = await c.next((m) => m.type === "job.done");
@@ -368,12 +372,54 @@ describe("companion server", () => {
     expect(await c.next((m) => m.type === "styles")).toMatchObject({
       styles: [{ displayName: "Kil Lacivert" }],
     });
-    c.send({ type: "job.prepare", sequenceName: "Sequence 01" });
+    c.send({ type: "job.prepare", sequenceName: "Sequence 01", ref: "p1" });
+    // the ref comes back, so two folders asked for at once are not swapped
     expect(await c.next((m) => m.type === "job.prepared")).toMatchObject({
       jobDir: "/tmp/Sequence 01",
+      ref: "p1",
     });
     c.send({ type: "job.start", params: { ...params, provider: "claude-code" }, ref: "r1" });
     expect(await c.next((m) => m.type === "job.accepted")).toMatchObject({ ref: "r1" });
+  });
+
+  it("hands the Captions tab its preview folder and keeps its state in the job folder", async () => {
+    const saved: [string, unknown][] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      version: "test",
+      port: 0,
+      captionPreviews: async () => "/home/.kilnframe/previews/captions/frames",
+      saveCaptions: async (jobDir, state) => {
+        saved.push([jobDir, state]);
+      },
+      loadCaptions: async (jobDir) => ({ panel: { from: jobDir } }),
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "captions.previews", ref: "a" });
+    expect(await c.next((m) => m.type === "captions.previews")).toMatchObject({
+      dir: "/home/.kilnframe/previews/captions/frames",
+      ref: "a",
+    });
+    c.send({ type: "captions.save", jobDir: "/j/cap", state: { look: "loud" }, ref: "b" });
+    expect(await c.next((m) => m.type === "captions.saved")).toMatchObject({ ref: "b" });
+    expect(saved).toEqual([["/j/cap", { look: "loud" }]]);
+    // more than the old 1 MiB limit: a long sequence's state still arrives
+    c.send({
+      type: "captions.save",
+      jobDir: "/j/big",
+      state: { text: "x".repeat(3 * 1024 * 1024) },
+      ref: "big",
+    });
+    expect(await c.next((m) => m.type === "captions.saved" && m.ref === "big")).toBeDefined();
+    c.send({ type: "captions.load", jobDir: "/j/cap", ref: "c" });
+    expect(await c.next((m) => m.type === "captions.loaded")).toMatchObject({
+      state: { panel: { from: "/j/cap" } },
+      ref: "c",
+    });
   });
 
   it("validates job parameters", async () => {
@@ -530,6 +576,87 @@ describe("companion server", () => {
       params: { kind: "music-make", plan, outDir: "/tmp/m", durationS: 60, slider: -5 },
     });
     expect(await c.next((m) => m.type === "error")).toBeTruthy();
+  });
+
+  it("takes caption jobs and refuses an unknown look", async () => {
+    const seen: { kind?: string }[] = [];
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      version: "test",
+      port: 0,
+      runner: async (p) => {
+        seen.push(p as { kind?: string });
+        return { kind: (p as { kind?: string }).kind, n: seen.length };
+      },
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    // the lines packed, as the panel sends them (core captions/pack.ts)
+    const doc = {
+      lines: [{ s: 0, e: 0.5, w: ["Merhaba"], d: [0, 500] }],
+      language: "tr",
+      glossary: [],
+      durationS: 2,
+      width: 1920,
+      height: 1080,
+      fps: "30000/1001",
+      hideSpans: [{ startS: 1, endS: 1.5 }],
+    };
+    const colors = { text: "#fff", accent: "#f90" };
+    const jobs = [
+      {
+        kind: "captions-text",
+        audioPath: "/a.wav",
+        outDir: "/tmp/c",
+        glossary: ["Kilnframe"],
+        mode: "written",
+      },
+      { kind: "captions-render", doc, look: "loud", colors, outDir: "/tmp/c" },
+      { kind: "captions-preview", doc, looks: ["bant", "sakin"], atS: 0.2 },
+      // the panel's "Play": a short clip, shown as frames or a small video over the footage
+      {
+        kind: "captions-render",
+        doc,
+        look: "loud",
+        colors,
+        outDir: "/tmp/c/preview",
+        preview: { frame: "/tmp/c/frame.png", stills: 6, video: true },
+      },
+    ];
+    for (const [i, params] of jobs.entries()) {
+      c.send({ type: "job.start", params });
+      await c.next((m) => m.type === "job.done" && (m.result as { n?: number }).n === i + 1);
+    }
+    expect(seen.map((p) => p.kind)).toEqual(jobs.map((j) => j.kind));
+    expect((seen[3] as { preview?: unknown }).preview).toEqual({
+      frame: "/tmp/c/frame.png",
+      stills: 6,
+      video: true,
+    });
+    const before = c.messages.length;
+    c.send({
+      type: "job.start",
+      params: { kind: "captions-render", doc, look: "neon", colors, outDir: "/tmp/c" },
+      ref: "bad-1",
+    });
+    // the error names the request it answers
+    expect(await c.next((m) => m.type === "error")).toMatchObject({ ref: "bad-1" });
+    // a line whose times do not match its words is refused too
+    c.send({
+      type: "job.start",
+      params: {
+        kind: "captions-render",
+        doc: { ...doc, lines: [{ s: 0, e: 0.5, w: ["Merhaba", "dünya"], d: [0, 500] }] },
+        look: "loud",
+        colors,
+        outDir: "/tmp/c",
+      },
+      ref: "bad-2",
+    });
+    expect(await c.next((m) => m.type === "error" && m.ref === "bad-2")).toBeDefined();
+    expect(c.messages.slice(before).some((m) => m.type === "job.done")).toBe(false);
   });
 
   it("plays a music clip or preview, and nothing else", async () => {

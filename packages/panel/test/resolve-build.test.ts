@@ -55,6 +55,11 @@ describe("resolve build", () => {
     expect(readFileSync(join(out, "index.js"), "utf8")).not.toMatch(/\brequire\(/);
   });
 
+  it("opens the page's door to the save dialog for the caption SRT", () => {
+    expect(readFileSync(join(out, "preload.js"), "utf8")).toContain("saveFileCopy");
+    expect(readFileSync(join(out, "main.js"), "utf8")).toContain("kilnframe:saveFileCopy");
+  });
+
   it("loads WorkflowIntegration.node beside main.js, which the app copies from Resolve", () => {
     expect(readFileSync(join(out, "main.js"), "utf8")).toContain("./WorkflowIntegration.node");
   });

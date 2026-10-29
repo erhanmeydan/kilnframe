@@ -1,0 +1,21 @@
+{
+  "topic": "first seconds",
+  "durationS": 5,
+  "words": [
+    ["İzleyicilerin", 0.3],
+    ["yarısı", 0.9],
+    ["ilk", 1.4],
+    ["otuz", 1.7],
+    ["saniyede", 2.1],
+    ["kararını", 2.7],
+    ["veriyor", 3.2]
+  ],
+  "data": {
+    "lines": [
+      { "text": "İzleyicilerin yarısı", "at": 0 },
+      { "text": "ilk otuz saniyede", "at": 2 },
+      { "text": "kararını veriyor.", "at": 5 }
+    ],
+    "emphasis": "otuz saniyede"
+  }
+}

@@ -30,6 +30,10 @@ function fakeApi(over: Partial<KilnframeResolveApi> = {}): KilnframeResolveApi {
     showTracks: vi.fn(async () => undefined),
     placeInsert: vi.fn(async () => ({ videoTrack: 1, audioTrack: 1 })),
     createStorySequence: vi.fn(async () => undefined),
+    ourInsertSpans: vi.fn(async () => [{ startS: 2, endS: 7 }]),
+    findCaptionClip: vi.fn(async () => ({ videoTrack: 2 })),
+    replaceCaptionClip: vi.fn(async () => true),
+    saveFileCopy: vi.fn(async () => "/Users/e/Desktop/Talk captions-1.srt"),
     isRendering: vi.fn(async () => false),
     cancelExports: vi.fn(async () => undefined),
     pickImages: vi.fn(async () => []),
@@ -169,5 +173,41 @@ describe("resolve host", () => {
     expect(api.exportRangeAudio).toHaveBeenCalledWith("tl-1", 2, 9.04, "/j/sequence.wav");
     await h.exportFrame(s, 3, "/j/", "footage-1.png", 1920, 1080);
     expect(api.exportFrame).toHaveBeenCalledWith("tl-1", 3, "/j/footage-1.png");
+  });
+
+  it("passes the insert spans and the caption clip's find and replace to the bridge", async () => {
+    const api = fakeApi();
+    const h = createResolveHost(api);
+    const s = await h.currentSequence();
+    expect(await h.ourInsertSpans(s)).toEqual([{ startS: 2, endS: 7 }]);
+    expect(api.ourInsertSpans).toHaveBeenCalledWith("tl-1");
+    expect(await h.findCaptionClip(s, "/j/captions-1.mov", 2, 10)).toEqual({ videoTrack: 2 });
+    expect(api.findCaptionClip).toHaveBeenCalledWith("tl-1", "/j/captions-1.mov", 2, 10);
+    const old = { path: "/j/captions-1.mov", atS: 0, durationS: 30 };
+    expect(await h.replaceCaptionClip(s, old, "/j/captions-2.mov", 2, 10, 2)).toBe(true);
+    expect(api.replaceCaptionClip).toHaveBeenCalledWith("tl-1", old, "/j/captions-2.mov", 2, 10, 2);
+  });
+
+  it("copies the SRT through the app's own save dialog", async () => {
+    const api = fakeApi();
+    const h = createResolveHost(api);
+    expect(
+      await h.saveFileCopy("/Users/e/Movies/Kilnframe/P/c/captions-1.srt", "Talk captions-1.srt"),
+    ).toBe("/Users/e/Desktop/Talk captions-1.srt");
+    expect(api.saveFileCopy).toHaveBeenCalledWith(
+      "/Users/e/Movies/Kilnframe/P/c/captions-1.srt",
+      "Talk captions-1.srt",
+    );
+  });
+
+  it("says a caption clip that cannot be replaced in the panel's words", async () => {
+    setLang("en");
+    const h = createResolveHost(
+      fakeApi({ replaceCaptionClip: vi.fn(async () => Promise.reject(new Error("PLACE_FAILED"))) }),
+    );
+    const s = await h.currentSequence();
+    await expect(
+      h.replaceCaptionClip(s, { path: "/a", atS: 0, durationS: 1 }, "/b", 0, 1, 0),
+    ).rejects.toThrow("The animation could not be placed on the timeline.");
   });
 });

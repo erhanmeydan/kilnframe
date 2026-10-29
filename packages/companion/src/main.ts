@@ -7,9 +7,8 @@ import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  claudeBinary,
-  codexBinary,
-  grokBinary,
+  spawnAgentSync,
+  withFreshPath,
   withoutHostSession,
   claudeCodeStatus,
   codexStatus,
@@ -36,7 +35,11 @@ import { type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands
 import { OsKeyStore } from "./keys.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
 import {
+  captionPreviewFrames,
+  clearCaptionPreviews,
   deleteUserStyle,
+  loadCaptionsState,
+  saveCaptionsState,
   findPreviewPreset,
   findWavPreset,
   inspectImages,
@@ -70,6 +73,8 @@ const hardware = keepWhen(
 async function main() {
   // data kept under the old name (motion-insert, until 9 Oct 2026) moves over before anything reads it
   for (const moved of moveLegacyFolders()) process.stderr.write(`moved old data to ${moved}\n`);
+  // caption previews a stopped job or a quit left behind
+  clearCaptionPreviews();
   const token = randomBytes(32).toString("hex");
   const keys = new OsKeyStore();
   const defaults = loadDefaults();
@@ -114,6 +119,9 @@ async function main() {
       ),
     prepareJob: async (projectPath, sequenceName, jobRoot) =>
       prepareJobDir(projectPath, sequenceName, new Date(), { jobRoot }),
+    captionPreviews: async () => captionPreviewFrames(),
+    saveCaptions: async (jobDir, state) => saveCaptionsState(jobDir, state),
+    loadCaptions: async (jobDir) => loadCaptionsState(jobDir),
     deleteStyle: async (name) => deleteUserStyle(name),
     listVoices: async () => {
       const defaults = loadDefaults();
@@ -188,13 +196,14 @@ async function main() {
       updateCache = null;
       openInTerminal(updateCommand(agent));
     },
-    testProvider: async (provider, model, baseURL) => {
+    testProvider: async (provider, model, baseURL, thinking) => {
       try {
         return await testProvider(
           createTextProvider(loadDefaults(), {
             provider,
             model,
             baseURL,
+            thinking,
             apiKey: await keys.get(provider === "auto" ? "anthropic" : provider),
           }),
         );
@@ -268,9 +277,7 @@ main().catch((err: unknown) => {
  * touches a credential. It signs that CLI out on this computer, not just in Kilnframe.
  */
 function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
-  const bin =
-    agent === "claude-code" ? claudeBinary() : agent === "codex" ? codexBinary() : grokBinary();
-  const r = spawnSync(bin, logoutArgs(agent), {
+  const r = spawnAgentSync(agent === "claude-code" ? "claude" : agent, logoutArgs(agent), {
     encoding: "utf8",
     timeout: 30_000,
     env: withoutHostSession(process.env),
@@ -296,7 +303,8 @@ function openInTerminal(command: string, env: Record<string, string> = {}): void
     ]);
   } else if (process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", command], {
-      env: { ...process.env, ...env },
+      // the companion's own PATH is the one of sign-in time: an agent installed since would not be found
+      env: { ...withFreshPath(process.env), ...env },
       detached: true,
       stdio: "ignore",
     }).unref();

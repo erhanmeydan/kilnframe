@@ -118,11 +118,37 @@ export interface RenderOptions {
   output: string;
   format: "mp4" | "mov";
   onLine?: (line: string) => void;
+  /** Frames captured so far: given, the render runs without --quiet so HyperFrames reports them. */
+  onFrames?: (done: number, total: number) => void;
+}
+
+/** A `@hf-progress {"code":"capture","done":…,"total":…}` line's frame counts, else null. */
+export function capturedFrames(line: string): { done: number; total: number } | null {
+  if (!line.startsWith("@hf-progress ")) return null;
+  try {
+    const p = JSON.parse(line.slice("@hf-progress ".length)) as Record<string, unknown>;
+    if (p.code !== "capture" || typeof p.done !== "number" || typeof p.total !== "number")
+      return null;
+    return { done: p.done, total: p.total };
+  } catch {
+    return null;
+  }
 }
 
 export async function renderProject(projectDir: string, o: RenderOptions): Promise<RunResult> {
-  const args = ["render", "--fps", o.fps, "-o", o.output, "--format", o.format, "--quiet"];
-  const r = await runHyperframes(args, projectDir, o.onLine);
-  if (r.code !== 0) throw new Error(`hyperframes render failed:\n${r.stderr || r.stdout}`);
+  const args = ["render", "--fps", o.fps, "-o", o.output, "--format", o.format];
+  if (!o.onFrames) args.push("--quiet");
+  const onFrames = o.onFrames;
+  const onLine = onFrames
+    ? (line: string) => {
+        const f = capturedFrames(line);
+        if (f) onFrames(f.done, f.total);
+        o.onLine?.(line);
+      }
+    : o.onLine;
+  const r = await runHyperframes(args, projectDir, onLine);
+  // without --quiet the log is long: its end holds the failure
+  if (r.code !== 0)
+    throw new Error(`hyperframes render failed:\n${(r.stderr || r.stdout).slice(-4000)}`);
   return r;
 }

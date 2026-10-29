@@ -6,6 +6,7 @@ import { LISTEN_HOST, LISTEN_HOST_V6, isLoopbackAddress } from "./loopback.js";
 import type { KeyStore } from "./keys.js";
 import {
   ClientMessageSchema,
+  MAX_MESSAGE_BYTES,
   PROTOCOL_VERSION,
   type AppUpdateState,
   type ServerMessage,
@@ -46,7 +47,12 @@ export interface CompanionOptions {
   /** Opens an agent CLI's own update (claude update, codex update, grok update) in a terminal window. */
   updateAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
   /** One short request with a picture through a provider (the settings' connection test). */
-  testProvider?: (provider: string, model?: string, baseURL?: string) => Promise<unknown>;
+  testProvider?: (
+    provider: string,
+    model?: string,
+    baseURL?: string,
+    thinking?: "off" | "on",
+  ) => Promise<unknown>;
   /** Style cards (name, display name, summary, thumbnail) for the panel's style picker. */
   listStyles?: () => Promise<unknown[]>;
   /** The speech provider's voices and whether its key is set, for story mode. */
@@ -70,6 +76,12 @@ export interface CompanionOptions {
   appUpdates?: AppUpdates | undefined;
   /** Whether a job is running or waiting, for the app: it holds off quitting while the companion is busy. */
   onBusy?: (busy: boolean) => void;
+  /** The folder for the Captions tab's preview frames (under the app's own folder). */
+  captionPreviews?: () => Promise<string>;
+  /** Keeps the Captions tab's state in a caption job folder. */
+  saveCaptions?: (jobDir: string, state: Record<string, unknown>) => Promise<void>;
+  /** What a caption job folder keeps, or null. */
+  loadCaptions?: (jobDir: string) => Promise<unknown>;
   /** Creates a job folder next to the Premiere project and returns its path. */
   prepareJob?: (
     projectPath: string | undefined,
@@ -148,7 +160,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
 
   o.appUpdates?.onState((update) => broadcast({ type: "app.update", update }));
 
-  const wss = new WebSocketServer({ host: LISTEN_HOST, port: o.port, maxPayload: 1 << 20 });
+  const wss = new WebSocketServer({
+    host: LISTEN_HOST,
+    port: o.port,
+    maxPayload: MAX_MESSAGE_BYTES,
+  });
 
   const onConnection = (ws: WebSocket, req: IncomingMessage) => {
     if (!isLoopbackAddress(req.socket.remoteAddress ?? "")) {
@@ -178,9 +194,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       }
       const result = ClientMessageSchema.safeParse(parsed);
       if (!result.success) {
+        const ref = (parsed as { ref?: unknown } | null)?.ref;
         send({
           type: "error",
           message: `Invalid message: ${result.error.issues.map((i) => i.message).join("; ")}`,
+          ...(typeof ref === "string" ? { ref } : {}),
         });
         return;
       }
@@ -248,6 +266,32 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             send({
               type: "job.prepared",
               jobDir: await o.prepareJob(msg.projectPath, msg.sequenceName, msg.jobRoot),
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "captions.previews":
+            if (!o.captionPreviews) throw new Error("captions are not supported");
+            send({
+              type: "captions.previews",
+              dir: await o.captionPreviews(),
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "captions.save":
+            if (!o.saveCaptions) throw new Error("captions are not supported");
+            await o.saveCaptions(msg.jobDir, msg.state);
+            send({
+              type: "captions.saved",
+              jobDir: msg.jobDir,
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "captions.load":
+            send({
+              type: "captions.loaded",
+              jobDir: msg.jobDir,
+              state: o.loadCaptions ? await o.loadCaptions(msg.jobDir) : null,
+              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "speech.voices": {
@@ -347,7 +391,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               type: "providers.tested",
               provider: msg.provider,
               result: o.testProvider
-                ? await o.testProvider(msg.provider, msg.model, msg.baseURL)
+                ? await o.testProvider(msg.provider, msg.model, msg.baseURL, msg.thinking)
                 : null,
             });
             break;
@@ -372,6 +416,8 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
         send({
           type: "error",
           message: `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`,
+          // the request's own ref, so the panel fails that request and no other
+          ...("ref" in msg && msg.ref ? { ref: msg.ref } : {}),
         });
       }
     });
@@ -384,7 +430,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       const port = (wss.address() as AddressInfo).port;
       // the panel may only connect to ws://localhost, which Windows resolves to ::1 first and does not retry on
       // 127.0.0.1 (11 Oct 2026); so the IPv6 loopback answers on the same port too, where the computer has one
-      const wss6 = new WebSocketServer({ host: LISTEN_HOST_V6, port, maxPayload: 1 << 20 });
+      const wss6 = new WebSocketServer({
+        host: LISTEN_HOST_V6,
+        port,
+        maxPayload: MAX_MESSAGE_BYTES,
+      });
       wss6.on("connection", onConnection);
       const v6Ready = new Promise<void>((ready) => {
         wss6.once("listening", () => ready());

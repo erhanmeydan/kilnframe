@@ -1,6 +1,6 @@
 export type Shape = "landscape" | "portrait" | "square";
 
-function shapeOf(size: string): Shape | null {
+export function shapeOf(size: string): Shape | null {
   const m = /^(\d+)x(\d+)$/.exec(size);
   if (!m) return null;
   const w = Number(m[1]);

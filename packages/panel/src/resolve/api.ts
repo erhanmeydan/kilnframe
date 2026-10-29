@@ -68,6 +68,27 @@ export interface ResolveBridge {
     id: string,
     clips: { file: string; atS: number; durationS: number }[],
   ): Promise<{ audioTrack: number }>;
+  /** The animation inserts' spans, in seconds from the timeline start. */
+  ourInsertSpans(id: string): Promise<{ startS: number; endS: number }[]>;
+  /** The 0-based video track of an untouched clip of `mediaPath` at `atS` lasting `durationS`, or null. */
+  findCaptionClip(
+    id: string,
+    mediaPath: string,
+    atS: number,
+    durationS: number,
+  ): Promise<{ videoTrack: number } | null>;
+  /**
+   * The earlier caption clip, looked up on the 0-based video track where it lay (`old`), replaced by `file` at
+   * `atS` for `durationS`; the old one back on failure. False, with nothing changed, when it is not there.
+   */
+  replaceCaptionClip(
+    id: string,
+    old: { path: string; atS: number; durationS: number },
+    file: string,
+    atS: number,
+    durationS: number,
+    videoTrack: number,
+  ): Promise<boolean>;
   createStorySequence(
     templateId: string,
     name: string,
@@ -79,6 +100,8 @@ export interface ResolveBridge {
 
 export interface KilnframeResolveApi extends ResolveBridge {
   pickImages(types: string[]): Promise<string[]>;
+  /** A caption SRT copied to where the editor picks in a save dialog; null when cancelled. */
+  saveFileCopy(source: string, suggestedName: string): Promise<string | null>;
   openUrl(url: string): Promise<void>;
   readTextFile(path: string): Promise<string>;
   writeTextFile(path: string, text: string): Promise<void>;

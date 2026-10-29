@@ -1,4 +1,10 @@
 import {
+  CAPTION_LOOKS,
+  type CaptionColors,
+  type CaptionDoc,
+  correctCaptionWords,
+  previewCaptionStill,
+  renderCaptions,
   createSpeechProvider,
   createStyle,
   loadPalette,
@@ -11,6 +17,7 @@ import {
   rewriteSectionPrompt,
   NoSpeechError,
   splitLong,
+  unpackLines,
   transcribe,
   writeMusicPlan,
   type Transcript,
@@ -34,13 +41,18 @@ import {
   runPipeline,
   type Plan,
   type RenderPlanResult,
+  type Defaults,
+  type TextProvider,
 } from "@kilnframe/core";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { stillImages } from "./panel-support.js";
+import { captionClip, captionFrames, captionPreviewRun, stillImages } from "./panel-support.js";
 import type { KeyStore } from "./keys.js";
 import type {
+  CaptionsPreviewJobParams,
+  CaptionsRenderJobParams,
+  CaptionsTextJobParams,
   JobParams,
   MusicMakeJobParams,
   StoryVoiceJobParams,
@@ -54,10 +66,30 @@ function readScript(path: string | undefined): string | undefined {
   return readFileSync(path, "utf8");
 }
 
+/**
+ * The text model of the Music tab: it plans the music and rewrites a section for a note. It runs on the music
+ * provider's own key (the Google key Lyria uses), never on the text model the editor chose for animations.
+ */
+export async function musicTextProvider(defaults: Defaults, keys: KeyStore): Promise<TextProvider> {
+  const music = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
+  const apiKey = music ? await keys.get(music.keyName) : undefined;
+  if (!apiKey) throw new Error("Music needs a Google Gemini key. Add it in Settings.");
+  return createTextProvider(defaults, {
+    provider: defaults.music.planner.provider,
+    model: defaults.music.planner.model,
+    apiKey,
+  });
+}
+
 /** Runs the core pipeline for a panel job, with the API key read from the keychain. */
 export function pipelineRunner(keys: KeyStore): JobRunner {
   return async (params: JobParams, events) => {
     const defaults = loadDefaults();
+    if (params.kind === "captions-text")
+      return captionsTextJob(params, keys, defaults, events.progress);
+    if (params.kind === "captions-render")
+      return captionsRenderJob(params, events.progress, events.signal);
+    if (params.kind === "captions-preview") return captionsPreviewJob(params, events.signal);
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
     if (params.kind === "music-make")
       return musicMakeJob(params, keys, events.progress, events.signal);
@@ -79,17 +111,8 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       });
       return { kind: "parts", ...r };
     }
-    const providerName = params.provider ?? defaults.text.provider;
-    // "auto" falls back to the Anthropic API, so its key is the Anthropic one
-    const apiKey = await keys.get(providerName === "auto" ? "anthropic" : providerName);
-    const provider = createTextProvider(defaults, {
-      provider: providerName,
-      model: params.model,
-      baseURL: params.baseURL,
-      apiKey,
-    });
-    if (params.kind === "style") return styleJob(params, provider, events.progress);
     if (params.kind === "music-plan") {
+      const planner = await musicTextProvider(defaults, keys);
       mkdirSync(params.outDir, { recursive: true });
       const ranged = params.rangeStartS !== undefined && params.rangeEndS !== undefined;
       const speech = ranged ? join(params.outDir, "range.wav") : params.audioPath;
@@ -107,7 +130,7 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
         : (transcript?.duration_s ?? (await decodeAudio(speech)).length / 16_000);
       const usage = new UsageMeter();
       const plan = await writeMusicPlan({
-        provider: usage.wrap(provider),
+        provider: usage.wrap(planner),
         transcript,
         durationS,
         note: params.note,
@@ -122,9 +145,20 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
         speechFile: speech,
         durationS,
         listPriceUsd: usage.total().listPriceUsd || 0,
-        billing: provider.billing ?? "api",
+        billing: planner.billing ?? "api",
       };
     }
+    const providerName = params.provider ?? defaults.text.provider;
+    // "auto" falls back to the Anthropic API, so its key is the Anthropic one
+    const apiKey = await keys.get(providerName === "auto" ? "anthropic" : providerName);
+    const provider = createTextProvider(defaults, {
+      provider: providerName,
+      model: params.model,
+      baseURL: params.baseURL,
+      thinking: params.thinking,
+      apiKey,
+    });
+    if (params.kind === "style") return styleJob(params, provider, events.progress);
     if (params.kind === "story-write") {
       const usage = new UsageMeter();
       const story = await writeStory({
@@ -273,6 +307,23 @@ async function styleJob(
   };
 }
 
+/**
+ * Story music is extra: when it fails (a free tier Gemini key gets no Lyria requests at all), the narration is
+ * still delivered and the reason travels with it.
+ */
+export async function musicOrNote<T>(
+  make: () => Promise<T>,
+): Promise<{ music: T | null; musicError: string | null }> {
+  try {
+    return { music: await make(), musicError: null };
+  } catch (err) {
+    return {
+      music: null,
+      musicError: String(err instanceof Error ? err.message : err).split("\n")[0] ?? "",
+    };
+  }
+}
+
 /** Reads the approved narration aloud into the job folder (story.txt and narration.wav). */
 async function storyVoiceJob(
   params: StoryVoiceJobParams,
@@ -302,25 +353,31 @@ async function storyVoiceJob(
     .find((p) => p.id === speech.id)
     ?.models.find((m) => m.id === speech.model)?.price;
   let music: { file: string; priceUsd: number } | null = null;
+  let musicError: string | null = null;
   if (params.music) {
     const mood =
       (params.music.style ? loadPalette(params.music.style).music : undefined) ??
       `A calm, warm documentary score that fits a narration read in this manner: ${params.style ?? "clear and warm"}.`;
-    music = await makeMusic({
-      defaults,
-      apiKey: (await keys.get(defaults.music.provider)) ?? "",
-      brief: mood,
-      subject: params.music.subject ?? params.title,
-      narration: result.file,
-      durationS: result.durationS,
-      outFile: join(params.outDir, "music.wav"),
-      onProgress: progress,
-    });
+    const brief = params.music;
+    ({ music, musicError } = await musicOrNote(async () =>
+      makeMusic({
+        defaults,
+        apiKey: (await keys.get(defaults.music.provider)) ?? "",
+        brief: mood,
+        subject: brief.subject ?? params.title,
+        narration: result.file,
+        durationS: result.durationS,
+        outFile: join(params.outDir, "music.wav"),
+        onProgress: progress,
+      }),
+    ));
+    if (musicError) progress(`Music failed, the story goes on without it: ${musicError}`);
   }
   return {
     kind: "story-voice",
     music: music?.file ?? null,
     musicPriceUsd: music?.priceUsd ?? 0,
+    musicError,
     file: result.file,
     durationS: result.durationS,
     chunks: result.chunks,
@@ -347,18 +404,12 @@ async function musicMakeJob(
   // a section joined in the panel may be longer than one Lyria piece: split again here
   let plan = splitLong(params.plan);
   const notes = Object.entries(params.notes ?? {}).filter(([, note]) => note.trim());
-  // the notes are rewritten by the text model: its price goes into the music spend too
+  // the notes are rewritten by the music planner (Gemini): its price goes into the music spend too
   const usage = new UsageMeter();
   let billing: string = "api";
   if (notes.length) {
     progress("Rewriting the music for your notes");
-    const name = params.provider ?? defaults.text.provider;
-    const text = createTextProvider(defaults, {
-      provider: name,
-      model: params.model,
-      baseURL: params.baseURL,
-      apiKey: await keys.get(name === "auto" ? "anthropic" : name),
-    });
+    const text = await musicTextProvider(defaults, keys);
     billing = text.billing ?? "api";
     const metered = usage.wrap(text);
     for (const [id, note] of notes) {
@@ -387,4 +438,159 @@ async function musicMakeJob(
     textPriceUsd: usage.total().listPriceUsd || 0,
     billing,
   };
+}
+
+/**
+ * The Captions tab's first step: Whisper's words for the range, then the text model's corrections.
+ * A correction that cannot run (no key, a bad reply) is not a failure: the Whisper words go back as they are.
+ * `correctionError` says when the correction failed, or when only some of its parts could be corrected.
+ */
+async function captionsTextJob(
+  params: CaptionsTextJobParams,
+  keys: KeyStore,
+  defaults: ReturnType<typeof loadDefaults>,
+  progress: (message: string) => void,
+) {
+  mkdirSync(params.outDir, { recursive: true });
+  const ranged = params.rangeStartS !== undefined && params.rangeEndS !== undefined;
+  const speech = ranged ? join(params.outDir, "range.wav") : params.audioPath;
+  if (ranged) await cutAudio(params.audioPath, speech, params.rangeStartS!, params.rangeEndS!);
+  // a range without speech surfaces as the job's error (NoSpeechError, "No speech was found ...")
+  const transcript = await transcribe({ audioPath: speech, defaults, onProgress: progress });
+  const language = transcript.language ?? "";
+  let words = transcript.words;
+  let corrected = false;
+  let correctionError: string | undefined;
+  try {
+    const name = params.provider ?? defaults.text.provider;
+    const provider = createTextProvider(defaults, {
+      provider: name,
+      model: params.model,
+      baseURL: params.baseURL,
+      thinking: params.thinking,
+      apiKey: await keys.get(name === "auto" ? "anthropic" : name),
+    });
+    provider.preflight?.();
+    const result = await correctCaptionWords({
+      provider,
+      words,
+      language,
+      glossary: params.glossary,
+      mode: params.mode,
+      onProgress: progress,
+    });
+    if (result.corrected) {
+      words = result.words;
+      corrected = true;
+      // some parts kept Whisper's text: said all the same
+      if (result.error) correctionError = result.error;
+    } else correctionError = result.error ?? "The text was not corrected.";
+  } catch (err) {
+    correctionError = err instanceof Error ? err.message : String(err);
+  }
+  const durationS = transcript.duration_s;
+  const result = {
+    kind: "captions-text" as const,
+    language,
+    words,
+    corrected,
+    // Whisper's own words, so the panel can mark the lines the correction changed
+    ...(corrected ? { original: transcript.words } : {}),
+    ...(correctionError ? { correctionError } : {}),
+    durationS,
+  };
+  writeFileSync(join(params.outDir, "captions.json"), JSON.stringify(result, null, 2));
+  return result;
+}
+
+/** The doc as the core takes it: the lines unpacked. */
+function docOf(doc: CaptionsRenderJobParams["doc"]): CaptionDoc {
+  return { ...doc, lines: unpackLines(doc.lines) };
+}
+
+/** The colours as the core takes them: no `box` key at all when the look has none. */
+function captionColors(c: {
+  text: string;
+  accent: string;
+  box?: string | undefined;
+}): CaptionColors {
+  return { text: c.text, accent: c.accent, ...(c.box ? { box: c.box } : {}) };
+}
+
+/** Stops a caption job the editor (or the panel, for a newer preview) cancelled, between its steps. */
+function stopIfCancelled(signal: AbortSignal): void {
+  if (signal.aborted) throw new Error("The job was stopped.");
+}
+
+/**
+ * Renders the approved caption lines as a transparent clip and an SRT in the job folder. With `preview` (the
+ * panel's "Play") it renders into a preview run folder under the app's own folder instead, returns the clip
+ * only as frames over the footage frame (and a small H.264 clip) and deletes that folder: nothing of a
+ * preview stays on disk, and nothing of it ever lands in the job folder.
+ */
+async function captionsRenderJob(
+  params: CaptionsRenderJobParams,
+  progress: (message: string) => void,
+  signal: AbortSignal,
+) {
+  const preview = params.preview;
+  const outDir = preview ? captionPreviewRun() : params.outDir;
+  const doc = docOf(params.doc);
+  try {
+    const r = await renderCaptions({
+      doc,
+      look: params.look,
+      colors: captionColors(params.colors),
+      outDir,
+      ...(params.srtOffsetS ? { srtOffsetS: params.srtOffsetS } : {}),
+      onProgress: progress,
+    });
+    if (!preview) return { kind: "captions-render", video: r.video, srt: r.srt };
+    stopIfCancelled(signal);
+    const frame = preview.frame ?? null;
+    const frames = captionFrames(r.video, frame, doc.durationS, preview.stills, outDir);
+    stopIfCancelled(signal);
+    return {
+      kind: "captions-render",
+      frames,
+      clip: preview.video ? captionClip(r.video, frame, outDir) : null,
+    };
+  } finally {
+    if (preview) rmSync(outDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * One still per asked look, each in the look's own colours unless colours were given, returned as small JPEG
+ * data URLs (the panel cannot read a file by its path); the PNGs are deleted afterwards. A look that cannot
+ * be drawn gets null and the others still come; only when none can be drawn does the job fail.
+ */
+async function captionsPreviewJob(params: CaptionsPreviewJobParams, signal: AbortSignal) {
+  const run = captionPreviewRun();
+  const doc = docOf(params.doc);
+  try {
+    const images: Record<string, string | null> = {};
+    let firstError: unknown = null;
+    for (const look of params.looks) {
+      stopIfCancelled(signal);
+      try {
+        const png = await previewCaptionStill({
+          doc,
+          look,
+          colors: captionColors(params.colors ?? CAPTION_LOOKS[look].colors),
+          atS: params.atS,
+          frame: params.frame ?? null,
+          out: join(run, `${look}.png`),
+        });
+        images[look] = stillImages([png], [look])[0]?.image ?? null;
+      } catch (err) {
+        firstError ??= err;
+        images[look] = null;
+      }
+    }
+    if (firstError && Object.values(images).every((v) => v === null)) throw firstError;
+    return { kind: "captions-preview", images };
+  } finally {
+    rmSync(run, { recursive: true, force: true });
+  }
 }

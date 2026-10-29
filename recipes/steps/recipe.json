@@ -1,0 +1,20 @@
+{
+  "technique": "diagram",
+  "description": "a process of 3 to 5 steps in order, each node and its label appearing on its word, joined by drawn connectors, one step in the accent",
+  "formats": ["landscape", "portrait", "square"],
+  "modes": ["fullscreen", "overlay"],
+  "fields": {
+    "title": { "type": "text", "max": 34 },
+    "title_at": { "type": "word" },
+    "steps": {
+      "type": "list",
+      "min": 3,
+      "max": 5,
+      "of": {
+        "label": { "type": "text", "max": 22 },
+        "at": { "type": "word" }
+      }
+    },
+    "highlight": { "type": "number", "optional": true }
+  }
+}

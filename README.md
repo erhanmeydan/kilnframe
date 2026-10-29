@@ -29,7 +29,7 @@ the range.
 
 ## Install
 
-You need Premiere Pro 2026 (25.6 or later) or DaVinci Resolve Studio 21.1 or later, and a computer with a
+You need Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later, and a computer with a
 GPU. The free version of DaVinci Resolve does not load plugins: Resolve needs Studio.
 
 |                                    | Download                                                                                                         |
@@ -56,13 +56,18 @@ downloaded once, with the first animation.
 Kilnframe writes the animations with a model you choose. Only models that can see images are offered: they
 check the stills, match your style and find where you are in the frame.
 
-| Way          | What you need                                             | Who pays                      |
-| ------------ | --------------------------------------------------------- | ----------------------------- |
-| Claude plan  | [Claude Code](https://claude.com/claude-code), signed in  | your Claude subscription      |
-| ChatGPT plan | [Codex](https://github.com/openai/codex), signed in       | your ChatGPT subscription     |
-| Grok plan    | [Grok Build](https://x.ai/build), signed in               | your Grok subscription        |
-| API key      | Claude, OpenAI, Google Gemini, xAI, MiniMax or OpenRouter | per use, on that account      |
-| Local        | a vision model in [LM Studio](https://lmstudio.ai)        | free, slower, simpler results |
+| Way          | What you need                                                                      | Who pays                      |
+| ------------ | ---------------------------------------------------------------------------------- | ----------------------------- |
+| Claude plan  | [Claude Code](https://claude.com/claude-code), signed in                           | your Claude subscription      |
+| ChatGPT plan | [Codex](https://github.com/openai/codex), signed in                                | your ChatGPT subscription     |
+| Grok plan    | [Grok Build](https://x.ai/build), signed in                                        | your Grok subscription        |
+| API key      | Claude, OpenAI, Google Gemini, xAI, MiniMax or OpenRouter                          | per use, on that account      |
+| Local        | a vision model in [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) | free, slower, simpler results |
+
+For LM Studio, load the model with a context of at least 64K tokens: a shorter one can run out while a
+scene is written. For Ollama, set its context length to at least 64K in Ollama's settings: Ollama cuts a
+longer prompt without saying so, so Kilnframe checks the context before it starts. For a model that thinks, the settings have a Thinking option, Off by default: faster, and
+it uses less of the context.
 
 The plans work through the terminal programs, not the desktop apps: the Claude, ChatGPT or Grok app alone is
 not enough. Claude Code needs a paid Claude plan. Install one with its vendor's command, then type `claude`,
@@ -92,7 +97,7 @@ A step-by-step guide with screenshots: [docs/ilk-animasyon.md](docs/ilk-animasyo
 
 1. Open the **Music** tab and choose **Whole Timeline** or **In/Out**. Write what you would like (calm piano,
    drums at the end) or leave it to the AI.
-2. Press **Plan the Music**. The AI splits the speech into sections by topic, each with its mood, tempo and
+2. Press **Plan the Music**. Gemini, on the same Google key as the music, splits the speech into sections by topic, each with its mood, tempo and
    how it hands over to the next. Change a section's direction, join two, or leave one without music.
 3. Press **Make the Music**. Google Lyria writes one piece per section. This needs a Google Gemini key
    (settings, Narration and Music) and costs about $0.08 per section on your Google account.
@@ -103,6 +108,18 @@ The music sits around -21 dB on your audio meter while you speak, comes up in th
 grows towards the end; set the level in the settings. All Lyria music carries Google's inaudible SynthID
 watermark and its use follows Google's terms. Each job folder keeps a record of what made it
 (`music/music.json`).
+
+## Captions
+
+1. Open the **Captions** tab and choose **Whole Sequence** or **In/Out**. Pick a look: Kil Navy, Loud,
+   Dynamic, Pill, Karaoke, Typewriter, Calm, Band or Editorial, and change its colours if you like.
+2. Add names and terms the speech uses (TopView, Claude) so they are spelt right, and choose **By the Spelling
+   Rules** or **As Spoken**. Press **Prepare Captions**: the speech is written down on your computer and your
+   AI corrects the spelling without touching the timing.
+3. Under **Check the Text**, fix a word, split or join lines; the lines the AI changed are marked. **Play** shows a
+   preview.
+4. Press **Render and Place**. The captions land on a video track above your footage as one clip with
+   transparency, and **Save the SRT File** gives you the same lines as subtitles.
 
 ## Styles
 
@@ -203,7 +220,7 @@ birlikte aralığın üstüne yerleştirir.
 
 ### Kurulum
 
-Premiere Pro 2026 (25.6 ya da sonrası) ya da DaVinci Resolve Studio 21.1 ya da sonrası, ve ekran kartı olan
+Premiere Pro 2026 (26.2 ya da sonrası) ya da DaVinci Resolve Studio 21.1 ya da sonrası, ve ekran kartı olan
 bir bilgisayar gerekir. DaVinci Resolve'un ücretsiz sürümü eklenti yüklemez, Resolve için Studio gerekir.
 
 - macOS, Apple silicon (M1 ve sonrası): [Kilnframe-mac.pkg](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg)
@@ -226,8 +243,13 @@ animasyonda bir kez iner.
 ### Yapay zeka bağlantısı
 
 Panelin ayarlarından (⚙) seçersiniz: Claude Code, Codex ya da Grok ile kendi aboneliğiniz; Claude, OpenAI,
-Google Gemini, xAI, MiniMax ya da OpenRouter anahtarı; ya da LM Studio ile bilgisayarınızdaki bir model.
+Google Gemini, xAI, MiniMax ya da OpenRouter anahtarı; ya da LM Studio veya Ollama ile bilgisayarınızdaki bir model.
 Sadece görsel okuyabilen modeller sunulur. Anahtarlar işletim sisteminin anahtar zincirinde saklanır.
+LM Studio'da modeli en az 64K bağlamla yükleyin, daha kısa bir bağlam sahne yazılırken yetmeyebilir.
+Ollama'da ayarlardan bağlam uzunluğunu en az 64K yapın: Ollama daha uzun bir istemi haber vermeden kırpar,
+Kilnframe bu yüzden işe başlamadan bağlamı kontrol eder.
+Düşünen bir model için ayarlarda Düşünme seçeneği vardır ve varsayılan olarak Kapalı'dır: daha hızlıdır ve
+bağlamı daha az kullanır.
 
 Planla çalışmak için masaüstü uygulaması yetmez, terminaldeki program gerekir: Claude Code, Codex ya da Grok
 Build. Claude Code için ücretli bir Claude planı gerekir. Kurulum komutları yukarıdaki tabloda ve
@@ -241,7 +263,7 @@ Adım adım, ekran görüntülü rehber: [docs/ilk-animasyon.md](docs/ilk-animas
 
 1. **Müzik** sekmesini açın, **Tüm Timeline** ya da **In/Out**'u seçin. İsteğinizi yazın (sakin piyano,
    finalde davul) ya da yapay zekaya bırakın.
-2. **Müzik Planı Çıkar**'a basın. Yapay zeka konuşmayı konulara göre bölümlere ayırır; her bölümün havası,
+2. **Müzik Planı Çıkar**'a basın. Müzikle aynı Google anahtarıyla Gemini konuşmayı konulara göre bölümlere ayırır; her bölümün havası,
    temposu ve bir sonrakine nasıl geçtiği yazar. Bir bölümün yönünü değiştirebilir, iki bölümü
    birleştirebilir ya da bir bölümü müziksiz bırakabilirsiniz.
 3. **Müziği Üret**'e basın. Her bölümün müziğini Google Lyria yazar. Bunun için Google Gemini anahtarı
@@ -253,6 +275,18 @@ Siz konuşurken müzik ses göstergesinde yaklaşık -21 dB'de durur, boşluklar
 büyür; seviyeyi Ayarlar'dan değiştirebilirsiniz. Lyria'nın bütün müzikleri Google'ın duyulmayan SynthID
 filigranını taşır ve kullanımı Google'ın koşullarına tabidir. Her iş klasöründe müziğin nasıl yapıldığının
 kaydı durur (`music/music.json`).
+
+### Altyazı
+
+1. **Altyazı** sekmesini açın, **Tüm Sekans** ya da **In/Out**'u seçin. Bir görünüm seçin: Kil Lacivert,
+   Loud, Dinamik, Hap, Karaoke, Daktilo, Sakin, Bant ya da Editoryal; isterseniz renklerini değiştirin.
+2. Konuşmada geçen adları ve terimleri ekleyin (TopView, Claude) ki doğru yazılsın; **Yazım Kurallarına
+   Göre** ya da **Konuşulduğu Gibi**'yi seçin. **Altyazıyı Hazırla**'ya basın: konuşma bilgisayarınızda
+   yazıya dökülür, yapay zekanız zamanlamaya dokunmadan yazımı düzeltir.
+3. **Metni Kontrol Et** bölümünde bir kelimeyi düzeltin, satırları bölün ya da birleştirin; yapay zekanın
+   değiştirdiği satırlar işaretlidir. **Oynat** önizleme gösterir.
+4. **Render Al ve Yerleştir**'e basın. Altyazı görüntünüzün üstündeki bir video izine şeffaf tek bir klip
+   olarak gelir; **SRT Dosyasını Kaydet** aynı satırları altyazı dosyası olarak verir.
 
 ### Bilgisayarınızdan ne çıkar
 

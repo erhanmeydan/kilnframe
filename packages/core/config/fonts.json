@@ -50,6 +50,12 @@
       "weights": "100-900"
     },
     {
+      "family": "Montserrat",
+      "file": "vendor/fonts/montserrat/Montserrat-Variable.ttf",
+      "character": "geometric sans, urban, strong in bold caption weights",
+      "weights": "100-900"
+    },
+    {
       "family": "Nunito",
       "file": "vendor/fonts/nunito/Nunito-Variable.ttf",
       "character": "rounded sans, gentle",
@@ -72,6 +78,48 @@
       "file": "vendor/fonts/playfair-display/PlayfairDisplay-Variable.ttf",
       "character": "high contrast serif display, editorial; use lining figures",
       "weights": "400-900"
+    },
+    {
+      "family": "Playfair Display",
+      "file": "vendor/fonts/playfair-display/PlayfairDisplay-Italic-Variable.ttf",
+      "character": "italic of the high contrast serif display, elegant emphasis; use lining figures",
+      "weights": "400-900 italic"
+    },
+    {
+      "family": "Poppins",
+      "file": "vendor/fonts/poppins/Poppins-Regular.ttf",
+      "character": "geometric sans, round and friendly, social-media captions",
+      "weights": "400"
+    },
+    {
+      "family": "Poppins",
+      "file": "vendor/fonts/poppins/Poppins-Medium.ttf",
+      "character": "geometric sans, round and friendly, social-media captions",
+      "weights": "500"
+    },
+    {
+      "family": "Poppins",
+      "file": "vendor/fonts/poppins/Poppins-SemiBold.ttf",
+      "character": "geometric sans, round and friendly, social-media captions",
+      "weights": "600"
+    },
+    {
+      "family": "Poppins",
+      "file": "vendor/fonts/poppins/Poppins-Bold.ttf",
+      "character": "geometric sans, round and friendly, social-media captions",
+      "weights": "700"
+    },
+    {
+      "family": "Poppins",
+      "file": "vendor/fonts/poppins/Poppins-ExtraBold.ttf",
+      "character": "geometric sans, round and friendly, social-media captions",
+      "weights": "800"
+    },
+    {
+      "family": "Poppins",
+      "file": "vendor/fonts/poppins/Poppins-Black.ttf",
+      "character": "geometric sans, round and friendly, social-media captions",
+      "weights": "900"
     },
     {
       "family": "Sora",

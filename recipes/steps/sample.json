@@ -1,0 +1,27 @@
+{
+  "topic": "making a video",
+  "durationS": 6,
+  "words": [
+    ["Önce", 0.3],
+    ["metni", 0.6],
+    ["yazıyoruz,", 1.0],
+    ["sonra", 1.7],
+    ["sesi", 2.0],
+    ["kaydediyoruz,", 2.3],
+    ["animasyonu", 3.1],
+    ["ekliyoruz", 3.7],
+    ["ve", 4.3],
+    ["yayınlıyoruz", 4.6]
+  ],
+  "data": {
+    "title": "Bir video nasıl çıkar",
+    "title_at": 0,
+    "steps": [
+      { "label": "Metni yaz", "at": 1 },
+      { "label": "Sesi kaydet", "at": 4 },
+      { "label": "Animasyon ekle", "at": 6 },
+      { "label": "Yayınla", "at": 9 }
+    ],
+    "highlight": 2
+  }
+}

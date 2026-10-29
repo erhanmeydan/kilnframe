@@ -1,7 +1,7 @@
 // packages/core/src/music/score/write-plan.ts
 // The music plan from the user's text model: transcript with word times in, a sectioned plan out, checked and
 // repaired like the scene plan.
-import { readFileSync } from "node:fs";
+import { framePreview } from "../../frames.js";
 import { loadPrompt, extractJson } from "../../prompts.js";
 import type { ChatMessage, TextProvider } from "../../providers/types.js";
 import type { Transcript } from "../../schemas/transcript.js";
@@ -51,8 +51,7 @@ export async function writeMusicPlan(o: {
   o.onProgress?.("Planning the music");
   const images: ChatMessage["content"] = (o.frames ?? []).map((f) => ({
     type: "image" as const,
-    mediaType: "image/png",
-    base64: readFileSync(f.path).toString("base64"),
+    ...framePreview(f.path),
   }));
   const messages: ChatMessage[] = [
     {
