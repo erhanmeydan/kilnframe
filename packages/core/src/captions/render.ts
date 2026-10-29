@@ -107,11 +107,19 @@ export async function renderCaptions(
       buildCaptionProject(o.doc, o.look, o.colors, dir, segment);
       log(`Rendering captions${part}`);
       const master = join(dir, "renders", "master.mov");
+      // a long piece takes minutes: its share of frames tells the editor it is moving
+      let shown = -1;
       // non-standard sequence rates render at the nearest standard rate; delivery converts to the exact rate
       await renderProject(dir, {
         fps: formatFps(renderFps(parseFps(o.doc.fps))),
         output: master,
         format: "mov",
+        onFrames: (done, total) => {
+          const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+          if (pct === shown) return;
+          shown = pct;
+          log(`Rendering captions${part}: ${pct}%`);
+        },
       });
       log(`Encoding the caption clip${part}`);
       const piece = segments.length > 1 ? join(projectDir, `piece-${k + 1}.mov`) : video;
