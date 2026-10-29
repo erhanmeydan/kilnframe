@@ -355,6 +355,22 @@ describe("helpers", () => {
     expect(() => extractHtml("<div>no template</div>")).toThrow(/template/);
   });
 
+  it("takes the fence that holds the scene, and wraps a scene that lost its <template>", () => {
+    const scene = '<template><div id="root" data-composition-id="s2"></div></template>';
+    const twoFences =
+      'First a snippet:\n```html\n<div class="x"></div>\n```\nThe scene:\n```html\n' +
+      scene +
+      "\n```";
+    expect(extractHtml(twoFences)).toBe(`${scene}\n`);
+    const unwrapped =
+      '```html\n<!doctype html>\n<html><head><title>s2</title><style>#head{}</style></head><body>\n<style>#root{}</style>\n<div id="root" data-composition-id="s2"></div>\n<script>window.__timelines = window.__timelines || {};</script>\n</body></html>\n```';
+    const html = extractHtml(unwrapped);
+    expect(html).toMatch(/<template>\s*<style>#head\{\}<\/style>\s*<style>#root\{\}<\/style>/);
+    expect(html).toContain('data-composition-id="s2"');
+    expect(html).toMatch(/<\/script>\s*<\/template>/);
+    expect(html).not.toContain("<title>");
+  });
+
   it("maps HyperFrames findings to scenes", () => {
     const ids = ["s1", "s2"];
     expect(

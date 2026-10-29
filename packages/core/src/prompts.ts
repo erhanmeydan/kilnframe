@@ -39,11 +39,30 @@ export function extractJson(text: string): unknown {
   throw new Error("The reply contains no JSON object.");
 }
 
-/** Pulls the HTML document out of a ```html fence (or the whole reply if it is bare HTML). */
+/**
+ * Pulls the scene document out of the reply: the ```html fence that holds the <template> (or the whole reply
+ * if it is bare HTML). Smaller local models sometimes show a snippet in a fence first, or leave out the
+ * <template> around a complete scene; a scene root with its composition id is then wrapped in one.
+ */
 export function extractHtml(text: string): string {
-  const fenced = /```html\s*([\s\S]*?)```/i.exec(text);
-  const html = (fenced ? (fenced[1] as string) : text).trim();
-  if (!/<template[\s>]/i.test(html))
-    throw new Error("The reply contains no scene HTML with a <template>.");
-  return `${html}\n`;
+  const fences = [...text.matchAll(/```html\s*([\s\S]*?)```/gi)].map((m) =>
+    (m[1] as string).trim(),
+  );
+  const candidates = fences.length ? fences : [text.trim()];
+  const html = candidates.find((c) => /<template[\s>]/i.test(c));
+  if (html) return `${html}\n`;
+  const bare = candidates.find((c) => /data-composition-id=/i.test(c));
+  if (bare) return wrapInTemplate(bare);
+  throw new Error("The reply contains no scene HTML with a <template>.");
+}
+
+/** A scene written without its <template>: its head's styles and scripts and its body go into one. */
+function wrapInTemplate(html: string): string {
+  const head = /<head[^>]*>([\s\S]*?)<\/head>/i.exec(html);
+  const body = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(html);
+  const inner =
+    head || body
+      ? `${(head?.[1] ?? "").replace(/<title>[\s\S]*?<\/title>|<meta[^>]*>/gi, "")}\n${body?.[1] ?? ""}`
+      : html.replace(/<!doctype[^>]*>|<\/?html[^>]*>/gi, "");
+  return `<!doctype html>\n<html>\n  <body>\n    <template>\n${inner.trim()}\n    </template>\n  </body>\n</html>\n`;
 }
