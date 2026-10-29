@@ -56,4 +56,35 @@ describe("job errors in the panel's language", () => {
   it("leaves any other message as it is", () => {
     expect(readableJobError("OpenRouter error 500: down")).toBeNull();
   });
+
+  it("says a Gemini key's free tier daily limit, with about how long until it resets", () => {
+    const message =
+      'gemini error 429: {"error":{"code":429,"message":"You exceeded your current quota. Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.8-flash\nPlease retry in 9h33m12.5s."}}';
+    expect(readableJobError(message)).toEqual({
+      key: "job.geminiFreeTier",
+      vars: { limit: 20, hours: 10 },
+      reasons: [],
+    });
+  });
+
+  it("says a free tier limit without a wait when Google gives none", () => {
+    expect(
+      readableJobError("gemini error 429: generate_content_free_tier_requests, limit: 20"),
+    ).toEqual({ key: "job.geminiFreeTierNoWait", vars: { limit: 20 }, reasons: [] });
+  });
+
+  it("says Lyria is not on the free tier", () => {
+    expect(
+      readableJobError(
+        "Lyria failed (429): Quota exceeded, limit: 0 requests per day on Free Tier",
+      ),
+    ).toEqual({ key: "job.lyriaFreeTier", vars: {}, reasons: [] });
+  });
+
+  it("has every new message in both languages", () => {
+    for (const k of ["job.geminiFreeTier", "job.geminiFreeTierNoWait", "job.lyriaFreeTier"]) {
+      expect(en).toHaveProperty(k);
+      expect(tr).toHaveProperty(k);
+    }
+  });
 });

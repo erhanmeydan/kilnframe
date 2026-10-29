@@ -5,6 +5,7 @@ import type { ServerMessage } from "./companion-session";
 import { formatUsd } from "./cost";
 import type { HostSequence } from "./host";
 import { lang, t } from "./i18n";
+import { readableJobText } from "./job-errors";
 import type { Range } from "./range";
 
 export interface MusicSection {
@@ -380,7 +381,8 @@ async function musicJob(
       st.error =
         m.type === "job.cancelled"
           ? t("job.stopped")
-          : t("music.jobFailed", { message: String(m.message ?? m.type) });
+          : (readableJobText(String(m.message ?? m.type)) ??
+            t("music.jobFailed", { message: String(m.message ?? m.type) }));
       ctx.trace(`music: failed ${String(m.message ?? m.type)}`);
       ctx.render();
     }
