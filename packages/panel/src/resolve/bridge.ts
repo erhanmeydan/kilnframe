@@ -77,8 +77,8 @@ export function createResolveBridge(
           let ours = false;
           for (const item of ((await tl.GetItemListInTrack(type, i)) ?? []) as R[]) {
             if ((await item.GetEnd()) <= from || (await item.GetStart()) >= to) continue;
-            const path = await (await item.GetMediaPoolItem())?.GetClipProperty("File Path");
-            if (typeof path === "string" && isOurInsert(path)) ours = true;
+            const path = await pathOf(item);
+            if (path && isOurInsert(path)) ours = true;
           }
           if (ours && (await tl.SetTrackEnable(type, i, false))) hidden.push({ type, index: i });
         }
@@ -299,9 +299,14 @@ export function createResolveBridge(
     }
   }
 
-  /** The file behind a timeline item, or null for a title, a generator or an offline clip. */
+  /**
+   * The file behind a timeline item, or null for a title, a generator, a compound or an offline clip. Some of
+   * these hand back a media pool item that is no object with GetClipProperty, so its presence is checked.
+   */
   async function pathOf(item: R): Promise<string | null> {
-    const path = await (await item.GetMediaPoolItem())?.GetClipProperty("File Path");
+    const media = (await item.GetMediaPoolItem()) as R | null | undefined;
+    if (!media || typeof media.GetClipProperty !== "function") return null;
+    const path = await media.GetClipProperty("File Path");
     return typeof path === "string" && path ? path : null;
   }
 

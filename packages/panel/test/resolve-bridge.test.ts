@@ -118,6 +118,21 @@ describe("resolve bridge", () => {
     expect(f.log.pages).toEqual(["deliver", "edit"]);
   });
 
+  it("passes over titles and compound clips, which have no file path", async () => {
+    const f = makeFakeResolve({ ourInsertOnV2: true });
+    f.project.timeline.tracks.video[0]!.items.push({
+      start: 90000,
+      end: 90100,
+      sourceIn: 0,
+      sourceOut: 99,
+      path: "",
+    });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.hideOurInserts(seq.id, 0, 10)).resolves.toEqual([{ type: "video", index: 2 }]);
+    await expect(b.ourInsertSpans(seq.id)).resolves.toHaveLength(1);
+  });
+
   it("hides and shows off the Deliver page when the editor started there, and goes back to it", async () => {
     const f = makeFakeResolve({ ourInsertOnV2: true });
     const b = bridge(f);

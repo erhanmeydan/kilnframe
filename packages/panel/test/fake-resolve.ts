@@ -132,10 +132,14 @@ export function makeFakeResolve(o: FakeOptions = {}) {
   const folders: { name: string; subs: unknown[] }[] = [];
   const root = { name: "Master", subs: folders };
 
-  const mpi = (path: string) => ({
-    path,
-    GetClipProperty: async (k?: string) => (k === "File Path" ? path : { "File Path": path }),
-  });
+  // a title or compound clip ("" here) hands back a media pool item without GetClipProperty
+  const mpi = (path: string) =>
+    path
+      ? {
+          path,
+          GetClipProperty: async (k?: string) => (k === "File Path" ? path : { "File Path": path }),
+        }
+      : {};
   const wrapItem = (tl: FakeTimeline, type: "video" | "audio", idx: number, it: FakeItem) => ({
     raw: it,
     GetStart: async () => it.start,
