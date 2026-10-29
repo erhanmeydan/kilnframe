@@ -115,7 +115,7 @@ describe("correctTranscript", () => {
       const text = userText(req);
       expect(text.split(" ").length).toBeLessThanOrEqual(800);
       expect(text.endsWith(".")).toBe(true);
-      expect(req.maxTokens).toBe(text.split(" ").length * 6);
+      expect(req.maxTokens).toBe(4096 + text.split(" ").length * 8);
     }
     expect(r.corrected).toBe(true);
     expect(r.words).toHaveLength(3000);

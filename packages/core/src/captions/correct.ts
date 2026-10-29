@@ -5,6 +5,13 @@ import type { CaptionWord } from "./types.js";
 
 /** Longest chunk sent to the model, in words. alignWords is quadratic, so it also runs per chunk. */
 const CHUNK_WORDS = 800;
+/**
+ * Reply budget: the words themselves (a Turkish word can take several tokens) plus room for a model that
+ * thinks first, which spends the same budget.
+ */
+function replyTokens(words: number): number {
+  return 4096 + words * 8;
+}
 /** A reply whose word count differs from its source by more than this share counts as a rewrite. */
 const MAX_COUNT_DRIFT = 0.3;
 
@@ -101,7 +108,7 @@ export async function correctTranscript(o: CorrectOptions): Promise<CorrectResul
       const response = await o.provider.complete({
         system,
         messages: [{ role: "user", content: [{ type: "text", text: source }] }],
-        maxTokens: chunk.length * 2 * 3,
+        maxTokens: replyTokens(chunk.length),
         purpose: "captions-correct",
       });
       const text = unwrap(response.text);
