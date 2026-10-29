@@ -12,8 +12,9 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 - Review: a still of every scene before anything renders; redo one scene with a note.
 - Formats: landscape 16:9, portrait 9:16, square 1:1, at the sequence's frame rate.
 - Sound effects synthesised in code, delivered as a separate WAV track.
-- Story mode: no recording needed; write a topic, Kilnframe writes the story, narrates it (Gemini TTS), adds music and builds a new sequence.
+- Story mode: no recording needed; write a topic and Kilnframe writes the story, or paste a text of your own; it narrates it (Gemini TTS), adds music and builds a new sequence.
 - Music tab: music for every topic of a video, ducked under the voice, one clip per section.
+- Captions tab: captions for the whole sequence or a range in nine designed looks, written down locally, spelling corrected by the editor's AI without moving the timing, placed as one transparent clip, and saved as an SRT file.
 - Local speech recognition (Whisper) with word timings, Turkish and many other languages.
 
 ## AI it works with
