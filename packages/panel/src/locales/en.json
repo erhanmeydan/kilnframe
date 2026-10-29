@@ -294,6 +294,7 @@
   "job.geminiFreeTier": "Your Google Gemini key is on the free tier and has used its {limit} requests for today. It resets in about {hours} hours, or turn on billing in Google AI Studio to go on now. One animation takes many requests, so the free tier is enough for one or two short ones a day.",
   "job.geminiFreeTierNoWait": "Your Google Gemini key is on the free tier and has used its {limit} requests for today. Try again tomorrow, or turn on billing in Google AI Studio to go on now.",
   "job.lyriaFreeTier": "Your Gemini key is on the free tier, which allows no music (Lyria). Turn on billing in Google AI Studio to make music.",
+  "job.noCredits": "Your {provider} account is out of credits, or the key has reached its spending limit. Add credits or raise the key's limit on {provider}'s website, then try again.",
   "job.checksFailed": "The AI could not get the animation past its checks in {n} repair rounds. Try again, or pick a stronger model in Settings.",
   "job.keyExpired": "Your {provider} API key has expired. Create a new key on the {provider} site and paste it in Settings.",
   "job.keyRejected": "{provider} did not accept the API key. Check it in Settings, or create a new one on the {provider} site.",

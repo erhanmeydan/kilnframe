@@ -19,7 +19,11 @@ const PROVIDER_NAMES: Record<string, string> = {
 
 export type ReadableError =
   | { key: "job.checksFailed"; vars: { n: number }; reasons: CheckKey[] }
-  | { key: "job.keyExpired" | "job.keyRejected"; vars: { provider: string }; reasons: [] }
+  | {
+      key: "job.keyExpired" | "job.keyRejected" | "job.noCredits";
+      vars: { provider: string };
+      reasons: [];
+    }
   | {
       key: "job.contextTooSmall" | "job.contextTooSmallOllama";
       vars: Record<string, never>;
@@ -44,6 +48,14 @@ export function readableJobError(message: string): ReadableError | null {
     return { key: "job.ollamaContextUnknown", vars: {}, reasons: [] };
   if (message.includes("Music needs a Google Gemini key"))
     return { key: "music.noKey", vars: {}, reasons: [] };
+  // an account out of credits, or a key over its spending limit (OpenRouter's 402)
+  const credits = /^(\S+) error 402: .*(credit|afford)/i.exec(message);
+  if (credits)
+    return {
+      key: "job.noCredits",
+      vars: { provider: PROVIDER_NAMES[credits[1]!] ?? credits[1]! },
+      reasons: [],
+    };
   // a free tier Gemini key gets no music at all (Lyria's limit there is 0)
   if (/Lyria failed \(429\)/.test(message) && /free[ _]tier|limit: 0\b/i.test(message))
     return { key: "job.lyriaFreeTier", vars: {}, reasons: [] };

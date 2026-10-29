@@ -114,4 +114,13 @@ describe("job errors in the panel's language", () => {
       reasons: [],
     });
   });
+
+  it("says an account out of credits or over its spending limit, without the provider's key link", () => {
+    expect(
+      readableJobError(
+        "openrouter error 402: This request requires more credits, or fewer max_tokens. You requested up to 64000 tokens, but can only afford 9356. To increase, visit https://openrouter.ai/workspaces/default/keys/abc and adjust the key's weekly limit",
+      ),
+    ).toEqual({ key: "job.noCredits", vars: { provider: "OpenRouter" }, reasons: [] });
+    expect(tr).toHaveProperty("job.noCredits");
+  });
 });

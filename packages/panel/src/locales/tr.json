@@ -294,6 +294,7 @@
   "job.geminiFreeTier": "Google Gemini anahtarınız ücretsiz katmanda ve bugünkü {limit} isteğini doldurdu. Sınır yaklaşık {hours} saat sonra yenilenir; hemen devam etmek için Google AI Studio'da faturalandırmayı açın. Bir animasyon çok sayıda istek yaptığı için ücretsiz katman günde bir iki kısa animasyona yeter.",
   "job.geminiFreeTierNoWait": "Google Gemini anahtarınız ücretsiz katmanda ve bugünkü {limit} isteğini doldurdu. Yarın yeniden deneyin ya da hemen devam etmek için Google AI Studio'da faturalandırmayı açın.",
   "job.lyriaFreeTier": "Gemini anahtarınız ücretsiz katmanda ve bu katman müzik (Lyria) üretmeye izin vermiyor. Müzik için Google AI Studio'da faturalandırmayı açın.",
+  "job.noCredits": "{provider} hesabınızda kredi kalmadı ya da anahtarın harcama sınırı doldu. {provider} sitesinden kredi yükleyin ya da anahtarın sınırını yükseltin, sonra yeniden deneyin.",
   "job.checksFailed": "Yapay zeka animasyonu {n} onarım denemesinde de kontrollerden geçiremedi. Yeniden deneyin ya da Ayarlar'dan daha güçlü bir model seçin.",
   "job.keyExpired": "{provider} API anahtarınızın süresi dolmuş. {provider} sitesinden yeni bir anahtar oluşturup Ayarlar'a yapıştırın.",
   "job.keyRejected": "{provider} API anahtarını kabul etmedi. Ayarlar'dan kontrol edin ya da {provider} sitesinden yeni bir anahtar oluşturun.",
