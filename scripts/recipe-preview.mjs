@@ -113,7 +113,6 @@ for (const format of formats) {
       (f) => `${f.code ?? "check"}: ${f.message}`,
     );
     let ms = null;
-    let output = null;
     if (!problems.length) {
       const t0 = Date.now();
       const r = await renderPlan({
@@ -124,7 +123,7 @@ for (const format of formats) {
         prechecked: true,
       });
       ms = Date.now() - t0;
-      output = r.output;
+      const output = r.output;
       if (output)
         contactSheet(
           output,

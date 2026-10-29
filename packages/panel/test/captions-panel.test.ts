@@ -228,6 +228,13 @@ describe("captions tab", () => {
     const f = fakeCtx({ videoStyle: () => "kil-lacivert" });
     const html = captionsBox(newCaptions(), f.ctx);
     expect(html).toContain("[captions-scope:all on]Tüm Sekans");
+    // with an In/Out the captions are for it until the editor picks the whole sequence
+    const range = { startS: 10, endS: 30, durationS: 20, source: "inout" as const, warning: null };
+    const withRange = fakeCtx({ videoStyle: () => "kil-lacivert", inOut: () => range });
+    const st = newCaptions();
+    expect(captionsBox(st, withRange.ctx)).toContain("[captions-scope:range on]In/Out");
+    captionsAct(st, withRange.ctx, "captions-scope", "all");
+    expect(captionsBox(st, withRange.ctx)).toContain("[captions-scope:all on]Tüm Sekans");
     const tiles = [...html.matchAll(/data-act="captions-look" data-val="([^"]+)"/g)].map(
       (m) => m[1],
     );

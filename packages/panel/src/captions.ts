@@ -47,7 +47,8 @@ export interface PlacedCaptions {
 }
 
 export interface CaptionsState {
-  scope: "all" | "range";
+  /** What the editor picked; null until they pick, when an In/Out means the range. */
+  scope: "all" | "range" | null;
   stage: "idle" | "texting" | "review" | "rendering" | "placing" | "placed";
   settings: CaptionsSettings;
   /** The glossary as typed: commas and all. */
@@ -118,7 +119,7 @@ function newSettings(): CaptionsSettings {
 
 export function newCaptions(): CaptionsState {
   return {
-    scope: "all",
+    scope: null,
     stage: "idle",
     settings: newSettings(),
     glossaryText: "",
@@ -454,6 +455,12 @@ function colorRow(st: CaptionsState, ctx: CaptionsCtx, look: CaptionLook): strin
     )}</div>${own ? `<div class="link" data-act="captions-colors-reset">${t("captions.colorsReset")}</div>` : ""}`;
 }
 
+/** What the captions are for: the editor's pick, else the In/Out when there is one. */
+function scopeOf(st: CaptionsState, ctx: CaptionsCtx): "all" | "range" {
+  if (!ctx.inOut()) return "all";
+  return st.scope ?? "range";
+}
+
 /** Whether to offer the Turkish spelling choice: the last transcript was Turkish, or a Turkish panel before one. */
 function turkishSpeech(st: CaptionsState): boolean {
   return st.language === null ? lang() === "tr" : st.language === "tr";
@@ -477,9 +484,10 @@ function stepOne(st: CaptionsState, ctx: CaptionsCtx): string {
     })
     .join("");
   const hasText = st.lines.length > 0;
-  return `${ctx.rangeLine(range ? st.scope : "all")}
+  const scope = scopeOf(st, ctx);
+  return `${ctx.rangeLine(scope)}
   <div class="lbl">${t("captions.scope")}</div>
-  ${ctx.seg("captions-scope", range ? st.scope : "all", scopes)}
+  ${ctx.seg("captions-scope", scope, scopes)}
   <div class="lbl">${t("captions.look")}</div>
   <div class="tiles cap-tiles">${tiles}</div>
   <div class="lbl">${t("captions.colors")}</div>
@@ -721,6 +729,8 @@ async function makeText(st: CaptionsState, ctx: CaptionsCtx): Promise<void> {
     return ctx.render();
   }
   const inOut = ctx.inOut();
+  // the job keeps the range it was made for; with no In/Out there was no choice to keep
+  if (inOut) st.scope = scopeOf(st, ctx);
   const range: Range =
     st.scope === "range" && inOut
       ? inOut
@@ -985,7 +995,7 @@ interface SavedCaptions {
   seqId: string;
   seqName: string;
   projectPath: string;
-  scope: CaptionsState["scope"];
+  scope: "all" | "range";
   rangeStartS: number;
   durationS: number;
   format: CaptionsState["format"];
@@ -1016,7 +1026,7 @@ function persist(st: CaptionsState, ctx: CaptionsCtx): void {
     seqId: st.seqId,
     seqName: st.seqName,
     projectPath: st.projectPath,
-    scope: st.scope,
+    scope: st.scope ?? "all",
     rangeStartS: ms(st.rangeStartS),
     durationS: ms(st.durationS),
     format: st.format,
@@ -1314,7 +1324,7 @@ async function footageFrame(
 
 /** A third into the range the captions are for: where the tiles' frame is taken. */
 function aThird(st: CaptionsState, ctx: CaptionsCtx, target: HostSequence): number {
-  const inOut = st.scope === "range" ? ctx.inOut() : null;
+  const inOut = scopeOf(st, ctx) === "range" ? ctx.inOut() : null;
   const range = inOut ?? { startS: 0, durationS: target.endSeconds };
   return range.startS + range.durationS / 3;
 }
@@ -1326,7 +1336,7 @@ const failedLately = (failed: { key: string; at: number } | null, key: string) =
   failed?.key === key && Date.now() - failed.at < PREVIEW_RETRY_MS;
 
 function tilesKeyOf(st: CaptionsState, ctx: CaptionsCtx): string {
-  const range = st.scope === "range" ? ctx.inOut() : null;
+  const range = scopeOf(st, ctx) === "range" ? ctx.inOut() : null;
   return JSON.stringify([
     st.seqId,
     range ? [range.startS, range.endS] : "all",
