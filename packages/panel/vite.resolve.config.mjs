@@ -39,6 +39,8 @@ export default defineConfig({
         for (const f of ["OpenSans-Variable.ttf", "OFL.txt"])
           cpSync(resolve(font, f), resolve(out, "fonts", f));
         cpSync(resolve(root, "public", "icons"), resolve(out, "icons"), { recursive: true });
+        // the app's own icon, for the Dock and the taskbar while the panel is open (main.ts)
+        cpSync(resolve(root, "..", "app", "assets", "icon.png"), resolve(out, "icons", "app.png"));
         const xml = readFileSync(resolve(root, "resolve", "manifest.xml"), "utf8");
         writeFileSync(resolve(out, "manifest.xml"), xml.replace("__VERSION__", manifest.version));
       },

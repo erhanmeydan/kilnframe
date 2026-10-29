@@ -158,6 +158,8 @@ function createWindow() {
     minWidth: 320,
     minHeight: 480,
     title: "Kilnframe",
+    // Windows shows it on the taskbar
+    icon: join(__dirname, "icons", "app.png"),
     backgroundColor: "#1e1f22",
     alwaysOnTop: s.onTop,
     webPreferences: {
@@ -184,6 +186,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Resolve runs its panels in its own Electron, which the Dock shows with Electron's icon; the name there
+  // comes from that app's bundle and cannot be changed from here
+  app.dock?.setIcon(join(__dirname, "icons", "app.png"));
   register();
   createWindow();
 });
