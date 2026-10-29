@@ -10,6 +10,7 @@ import {
   stillWindow,
   newCaptions,
   typedColors,
+  utf8Length,
   type CaptionsCtx,
   type CaptionsState,
 } from "../src/captions";
@@ -1402,5 +1403,20 @@ describe("captions tab", () => {
         expect(w.top + w.boxH).toBeLessThanOrEqual(w.fullH);
       }
     });
+  });
+});
+
+describe("utf8Length", () => {
+  it("counts like TextEncoder, which Premiere's UXP does not have", () => {
+    for (const text of [
+      "",
+      "abc",
+      "İıŞşĞğÇçÖöÜü",
+      "日本語",
+      "emoji 🎬👍🏽",
+      "lone \ud800 x",
+      "end \ud83c",
+    ])
+      expect(utf8Length(text)).toBe(new TextEncoder().encode(text).length);
   });
 });

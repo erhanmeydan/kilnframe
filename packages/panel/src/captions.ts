@@ -592,12 +592,30 @@ export function captionsBox(st: CaptionsState, ctx: CaptionsCtx): string {
 /** Some room for what the session adds to a message (its ref). */
 const MESSAGE_MARGIN = 1024;
 
+/** A text's length in UTF-8 bytes, counted by hand: Premiere's UXP has no TextEncoder. */
+export function utf8Length(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xd800 && c < 0xdc00 && i + 1 < text.length) {
+      const next = text.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next < 0xe000) {
+        bytes += 4;
+        i++;
+      } else bytes += 3;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
 /**
  * Whether a message fits what the companion takes. One that does not is not sent (the companion would close
  * the connection): the tab says so in one line instead.
  */
 function fits(st: CaptionsState, ctx: CaptionsCtx, message: unknown): boolean {
-  const bytes = new TextEncoder().encode(JSON.stringify(message)).length;
+  const bytes = utf8Length(JSON.stringify(message));
   if (bytes <= MAX_MESSAGE_BYTES - MESSAGE_MARGIN) return true;
   st.error = t("captions.tooLarge");
   ctx.trace(`captions: a message of ${bytes} bytes was not sent`);
