@@ -97,7 +97,7 @@ A step-by-step guide with screenshots: [docs/ilk-animasyon.md](docs/ilk-animasyo
 
 1. Open the **Music** tab and choose **Whole Timeline** or **In/Out**. Write what you would like (calm piano,
    drums at the end) or leave it to the AI.
-2. Press **Plan the Music**. The AI splits the speech into sections by topic, each with its mood, tempo and
+2. Press **Plan the Music**. Gemini, on the same Google key as the music, splits the speech into sections by topic, each with its mood, tempo and
    how it hands over to the next. Change a section's direction, join two, or leave one without music.
 3. Press **Make the Music**. Google Lyria writes one piece per section. This needs a Google Gemini key
    (settings, Narration and Music) and costs about $0.08 per section on your Google account.
@@ -108,6 +108,18 @@ The music sits around -21 dB on your audio meter while you speak, comes up in th
 grows towards the end; set the level in the settings. All Lyria music carries Google's inaudible SynthID
 watermark and its use follows Google's terms. Each job folder keeps a record of what made it
 (`music/music.json`).
+
+## Captions
+
+1. Open the **Captions** tab and choose **Whole Sequence** or **In/Out**. Pick a look: Kil Navy, Loud,
+   Dynamic, Pill, Karaoke, Typewriter, Calm, Band or Editorial, and change its colours if you like.
+2. Add names and terms the speech uses (TopView, Claude) so they are spelt right, and choose **By the Spelling
+   Rules** or **As Spoken**. Press **Prepare Captions**: the speech is written down on your computer and your
+   AI corrects the spelling without touching the timing.
+3. Under **Check the Text**, fix a word, split or join lines; the lines the AI changed are marked. **Play** shows a
+   preview.
+4. Press **Render and Place**. The captions land on a video track above your footage as one clip with
+   transparency, and **Save the SRT File** gives you the same lines as subtitles.
 
 ## Styles
 
@@ -251,7 +263,7 @@ Adım adım, ekran görüntülü rehber: [docs/ilk-animasyon.md](docs/ilk-animas
 
 1. **Müzik** sekmesini açın, **Tüm Timeline** ya da **In/Out**'u seçin. İsteğinizi yazın (sakin piyano,
    finalde davul) ya da yapay zekaya bırakın.
-2. **Müzik Planı Çıkar**'a basın. Yapay zeka konuşmayı konulara göre bölümlere ayırır; her bölümün havası,
+2. **Müzik Planı Çıkar**'a basın. Müzikle aynı Google anahtarıyla Gemini konuşmayı konulara göre bölümlere ayırır; her bölümün havası,
    temposu ve bir sonrakine nasıl geçtiği yazar. Bir bölümün yönünü değiştirebilir, iki bölümü
    birleştirebilir ya da bir bölümü müziksiz bırakabilirsiniz.
 3. **Müziği Üret**'e basın. Her bölümün müziğini Google Lyria yazar. Bunun için Google Gemini anahtarı
@@ -263,6 +275,18 @@ Siz konuşurken müzik ses göstergesinde yaklaşık -21 dB'de durur, boşluklar
 büyür; seviyeyi Ayarlar'dan değiştirebilirsiniz. Lyria'nın bütün müzikleri Google'ın duyulmayan SynthID
 filigranını taşır ve kullanımı Google'ın koşullarına tabidir. Her iş klasöründe müziğin nasıl yapıldığının
 kaydı durur (`music/music.json`).
+
+### Altyazı
+
+1. **Altyazı** sekmesini açın, **Tüm Sekans** ya da **In/Out**'u seçin. Bir görünüm seçin: Kil Lacivert,
+   Loud, Dinamik, Hap, Karaoke, Daktilo, Sakin, Bant ya da Editoryal; isterseniz renklerini değiştirin.
+2. Konuşmada geçen adları ve terimleri ekleyin (TopView, Claude) ki doğru yazılsın; **Yazım Kurallarına
+   Göre** ya da **Konuşulduğu Gibi**'yi seçin. **Altyazıyı Hazırla**'ya basın: konuşma bilgisayarınızda
+   yazıya dökülür, yapay zekanız zamanlamaya dokunmadan yazımı düzeltir.
+3. **Metni Kontrol Et** bölümünde bir kelimeyi düzeltin, satırları bölün ya da birleştirin; yapay zekanın
+   değiştirdiği satırlar işaretlidir. **Oynat** önizleme gösterir.
+4. **Render Al ve Yerleştir**'e basın. Altyazı görüntünüzün üstündeki bir video izine şeffaf tek bir klip
+   olarak gelir; **SRT Dosyasını Kaydet** aynı satırları altyazı dosyası olarak verir.
 
 ### Bilgisayarınızdan ne çıkar
 
