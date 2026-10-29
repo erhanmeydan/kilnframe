@@ -59,6 +59,7 @@ import { readableJobText } from "./job-errors";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
+import { OWN_MAX_S, ownParagraphs, ownSummary, ownTitle, storySeconds } from "./story-own";
 import { MIN_PREMIERE } from "./premiere-version";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
@@ -134,6 +135,9 @@ interface StoryState {
   last: string;
   error: string | null;
   done: { name: string; durationS: number; musicNote?: string } | null;
+  /** "own": the editor pastes a text written elsewhere, no model writes it. */
+  source: "write" | "own";
+  own: string;
 }
 
 function newStory(): StoryState {
@@ -161,6 +165,8 @@ function newStory(): StoryState {
     last: "",
     error: null,
     done: null,
+    source: stored("story-source") === "own" ? "own" : "write",
+    own: "",
   };
 }
 
@@ -172,12 +178,6 @@ function voiceCharacter(character: string): string {
   const key = `voice.${character}` as MessageKey;
   const text = t(key);
   return text === key ? character : text;
-}
-
-/** Narration pace measured on Gemini TTS (packages/core/src/stages/story.ts). */
-function storySeconds(text: string, language: string): number {
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return words / (language === "tr" ? 1.5 : 2.2);
 }
 
 interface OwnStyle {
@@ -1100,9 +1100,13 @@ function storyBox(): string {
   <div class="note muted">${t("story.scriptHint")}</div>
   <textarea id="story-script" rows="12">${esc(st.script)}</textarea>
   <div class="note muted">${t("story.estimate", { duration: formatDuration(storySeconds(st.script, st.language)) })}</div>
-  <div class="lbl">${t("story.note")}</div>
+  ${
+    st.source === "own"
+      ? ""
+      : `<div class="lbl">${t("story.note")}</div>
   <textarea id="story-note" rows="2" placeholder="${t("story.notePlaceholder")}">${esc(st.note)}</textarea>
-  <div class="btn2 mt" data-act="story-rewrite">${t("story.rewrite")}</div>
+  <div class="btn2 mt" data-act="story-rewrite">${t("story.rewrite")}</div>`
+  }
   <div class="lbl">${t("story.voice")}</div>
   ${st.keySet ? "" : `<div class="box warn">${t("story.noKey")}</div>`}
   <div class="vlist">${voices}</div>
@@ -1133,7 +1137,22 @@ function storyBox(): string {
   }
   <div class="btn mt" data-act="story-make">${t("story.make")}</div>`;
   }
-  return `${err}
+  const source = seg("story-source", st.source, [
+    ["write", t("story.sourceWrite")],
+    ["own", t("story.sourceOwn")],
+  ]);
+  if (st.source === "own")
+    return `${err}${source}
+  <div class="lbl">${t("story.ownLabel")}</div>
+  <textarea id="story-own" rows="12" placeholder="${t("story.ownPlaceholder")}">${esc(st.own)}</textarea>
+  <div class="note muted" id="story-own-count">${ownCountLine(st.own, st.language)}</div>
+  <div class="lbl">${t("story.language")}</div>
+  ${seg("story-lang", st.language, [
+    ["tr", t("story.lang.tr")],
+    ["en", t("story.lang.en")],
+  ])}
+  <div class="btn mt" data-act="story-own-go">${t("story.ownGo")}</div>`;
+  return `${err}${source}
   <div class="lbl">${t("story.brief")}</div>
   <textarea id="story-brief" rows="4" placeholder="${t("story.briefPlaceholder")}">${esc(st.brief)}</textarea>
   <div class="lbl">${t("story.length")}</div>
@@ -1157,6 +1176,16 @@ function storyBox(): string {
   <input class="img-note" id="story-tone" type="text" placeholder="${t("story.tonePlaceholder")}" value="${esc(st.tone)}">
   <div class="row small muted mt"><span>${providerLabel()}</span></div>
   <div class="btn" data-act="story-write">${t("story.write")}</div>`;
+}
+
+/** "412 words · about 2:45 when read aloud", and a warning past the story limit. */
+function ownCountLine(text: string, language: string): string {
+  const sum = ownSummary(text, language);
+  if (!sum.words) return "";
+  const line = t("story.ownCount", { n: sum.words, duration: formatDuration(sum.seconds) });
+  return sum.tooLong
+    ? `${line}<div class="warn-text">${t("story.ownTooLong", { max: formatDuration(OWN_MAX_S) })}</div>`
+    : line;
 }
 
 /** Runs a story job and calls back with its result; progress goes to the story's status line. */
@@ -2257,7 +2286,8 @@ function render() {
       const input = document.getElementById(`${kind}-note-${i}`) as HTMLInputElement | null;
       if (input) img.note = input.value ?? "";
     });
-  const storyFields: [string, "brief" | "script" | "note" | "tone" | "customLength"][] = [
+  const storyFields: [string, "brief" | "script" | "note" | "tone" | "customLength" | "own"][] = [
+    ["story-own", "own"],
     ["story-length-input", "customLength"],
     ["story-brief", "brief"],
     ["story-script", "script"],
@@ -2324,6 +2354,7 @@ function render() {
       if (input) input.value = img.note;
     });
   for (const [id, key] of [
+    ["story-own", "own"],
     ["story-length-input", "customLength"],
     ["story-brief", "brief"],
     ["story-script", "script"],
@@ -3410,6 +3441,12 @@ root.addEventListener("input", (event) => {
   // a typed line is kept in the job folder once the typing pauses
   else if (id.startsWith("cap-line-"))
     captionsLineInput(state.captions, captionsCtx, () => captionsReadFields(state.captions));
+  // the word count under a pasted story follows the typing, without a render that would move the cursor
+  else if (id === "story-own") {
+    const text = (event.target as HTMLTextAreaElement).value ?? "";
+    const line = document.getElementById("story-own-count");
+    if (line) line.innerHTML = ownCountLine(text, state.story.language);
+  }
 });
 root.addEventListener("pointermove", (event) => {
   if (!focusedField || Date.now() - lastTyped < 500) return;
@@ -3638,7 +3675,33 @@ function runAction(el: HTMLElement) {
       if (choice !== "custom") state.story.durationS = Number(choice);
     }
   } else if (act === "story-lang") state.story.language = val as "tr" | "en";
-  else if (act === "story-write") {
+  else if (act === "story-source") {
+    state.story.source = val === "own" ? "own" : "write";
+    state.story.error = null;
+    store("story-source", state.story.source);
+  } else if (act === "story-own-go") {
+    render();
+    const st = state.story;
+    const sum = ownSummary(st.own, st.language);
+    if (!sum.words) {
+      st.error = t("story.ownEmpty");
+      return render();
+    }
+    if (sum.tooLong) {
+      st.error = t("story.ownTooLong", { max: formatDuration(OWN_MAX_S) });
+      return render();
+    }
+    // the editor's own words go to the narration screen as they are: no model writes or changes them
+    st.error = null;
+    st.script = ownParagraphs(st.own);
+    st.title = ownTitle(st.own);
+    st.voiceStyle = "";
+    st.stage = "script";
+    render();
+    return void loadVoices()
+      .then(render)
+      .catch((e: unknown) => trace(`voices threw: ${String(e)}`));
+  } else if (act === "story-write") {
     render();
     if (!state.story.brief.trim()) {
       state.story.error = t("story.needBrief");
