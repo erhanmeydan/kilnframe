@@ -76,7 +76,7 @@ describe("root page", () => {
   it("makes a scene outside its time fully transparent, not only hidden", () => {
     // a hidden scene's SVG filter (a paper grain) was still drawn into every frame
     expect(rootHtml(plan)).toContain(
-      '#root > [data-composition-id][style*="visibility: hidden"] { opacity: 0 !important; }',
+      '[data-composition-src][style*="visibility: hidden"], [data-composition-file][style*="visibility: hidden"] { opacity: 0 !important; }',
     );
   });
 });
