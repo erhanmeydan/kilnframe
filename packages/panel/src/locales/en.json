@@ -299,6 +299,7 @@
   "job.keyRejected": "{provider} did not accept the API key. Check it in Settings, or create a new one on the {provider} site.",
   "job.contextTooSmall": "The model's context was not enough for this range. Load the model in LM Studio with a longer context (at least 64K recommended), or choose a shorter range.",
   "job.contextTooSmallOllama": "The model's context was not enough for this range. Set Ollama's context length to at least 64K (in the Ollama app's settings), then try again, or choose a shorter range.",
+  "job.ollamaContextUnknown": "Kilnframe could not read the context Ollama runs the model with, so Ollama might cut the prompt without saying so. Update Ollama, set its context length to at least 64K in its settings and try again.",
   "check.overlay_faint_layer": "An overlay scene left an almost invisible layer over the footage, which would show as a haze on the speaker.",
   "check.scene_shows_nothing": "A scene came out empty.",
   "review.cancelParts": "Cancel drops all the parts; the parts already placed stay on the timeline. Continue Later keeps the stills; go on from the home screen.",

@@ -270,23 +270,37 @@ export class OpenAICompatibleProvider implements TextProvider {
     return this.ollamaShowLookup;
   }
 
-  private ollamaContextLookup: Promise<number | undefined> | undefined;
+  /** The context once read; a failed read is not kept, so the next request asks Ollama again. */
+  private ollamaContextKnown: number | undefined;
 
   /**
    * The context Ollama really runs the model with. Ollama cuts a prompt that does not fit without saying so,
    * and loads a model with its own default context (often 4K), not the model's maximum: a model that is not
    * running is loaded first (POST /api/generate with no prompt loads it), then GET /api/ps says its context.
+   * When it cannot be read (an older Ollama without context_length), the job stops with a readable message
+   * rather than send a prompt that may be cut.
    */
-  private ollamaContext(): Promise<number | undefined> {
-    this.ollamaContextLookup ??= (async () => {
+  private async ollamaContext(): Promise<number> {
+    if (this.ollamaContextKnown !== undefined) return this.ollamaContextKnown;
+    let context: number | null | undefined;
+    try {
       let running = await this.ollamaRunning();
       if (!running.has(this.model)) {
         await this.ollamaJson("/api/generate", { model: this.model, keep_alive: "30m" });
         running = await this.ollamaRunning();
       }
-      return running.get(this.model) ?? undefined;
-    })().catch(() => undefined);
-    return this.ollamaContextLookup;
+      context = running.get(this.model);
+    } catch (err) {
+      if (err instanceof ProviderError && /not running/.test(err.message)) throw err;
+    }
+    if (typeof context !== "number" || context <= 0)
+      throw new ProviderError(
+        "Kilnframe could not read the context Ollama runs the model with, so Ollama might cut the prompt without saying so. Update Ollama, set its context length to at least 64K and try again.",
+        false,
+        "context-exceeded",
+      );
+    this.ollamaContextKnown = context;
+    return context;
   }
 
   /** Set once LM Studio has refused reasoning_effort, so later requests leave it out. */

@@ -104,3 +104,8 @@ export function buildRecipeScene(
     .replace(/\bHEIGHT\b/g, String(height))
     .replace('"__DATA__"', () => json);
 }
+
+/** Whether a scene's HTML was built from a recipe: the skeletons carry their data in <scene>-data. */
+export function isRecipeScene(html: string, sceneId: string): boolean {
+  return html.includes(`type="application/json" id="${sceneId}-data"`);
+}

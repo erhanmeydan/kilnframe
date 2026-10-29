@@ -27,7 +27,11 @@ export type ReadableError =
     }
   | { key: "job.geminiFreeTier"; vars: { limit: number; hours: number }; reasons: [] }
   | { key: "job.geminiFreeTierNoWait"; vars: { limit: number }; reasons: [] }
-  | { key: "job.lyriaFreeTier"; vars: Record<string, never>; reasons: [] };
+  | {
+      key: "job.lyriaFreeTier" | "job.ollamaContextUnknown" | "music.noKey";
+      vars: Record<string, never>;
+      reasons: [];
+    };
 
 /**
  * A job error the panel can say in its own language instead of the core's English: the composition that
@@ -36,6 +40,10 @@ export type ReadableError =
  * to the log.
  */
 export function readableJobError(message: string): ReadableError | null {
+  if (message.includes("could not read the context Ollama runs the model with"))
+    return { key: "job.ollamaContextUnknown", vars: {}, reasons: [] };
+  if (message.includes("Music needs a Google Gemini key"))
+    return { key: "music.noKey", vars: {}, reasons: [] };
   // a free tier Gemini key gets no music at all (Lyria's limit there is 0)
   if (/Lyria failed \(429\)/.test(message) && /free[ _]tier|limit: 0\b/i.test(message))
     return { key: "job.lyriaFreeTier", vars: {}, reasons: [] };

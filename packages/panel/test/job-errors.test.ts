@@ -97,4 +97,21 @@ describe("job errors in the panel's language", () => {
     expect(en).toHaveProperty("job.contextTooSmallOllama");
     expect(tr).toHaveProperty("job.contextTooSmallOllama");
   });
+
+  it("says Ollama's unreadable context in the panel's language", () => {
+    expect(
+      readableJobError(
+        "Kilnframe could not read the context Ollama runs the model with, so Ollama might cut the prompt without saying so.",
+      ),
+    ).toEqual({ key: "job.ollamaContextUnknown", vars: {}, reasons: [] });
+    expect(tr).toHaveProperty("job.ollamaContextUnknown");
+  });
+
+  it("says a missing music key in the panel's language", () => {
+    expect(readableJobError("Music needs a Google Gemini key. Add it in Settings.")).toEqual({
+      key: "music.noKey",
+      vars: {},
+      reasons: [],
+    });
+  });
 });

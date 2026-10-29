@@ -86,3 +86,12 @@ describe("buildRecipeScene", () => {
     expect(html).toContain('"format":"landscape"');
   });
 });
+
+describe("isRecipeScene", () => {
+  it("knows a scene built from a recipe by its data block", async () => {
+    const { isRecipeScene } = await import("../src/recipe-fill.js");
+    const html = buildRecipeScene(demo, "flat-infografik", resolveWords(demo, valid, words), input);
+    expect(isRecipeScene(html, "s3")).toBe(true);
+    expect(isRecipeScene('<div id="s3-title"></div>', "s3")).toBe(false);
+  });
+});

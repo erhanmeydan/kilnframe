@@ -299,6 +299,7 @@
   "job.keyRejected": "{provider} API anahtarını kabul etmedi. Ayarlar'dan kontrol edin ya da {provider} sitesinden yeni bir anahtar oluşturun.",
   "job.contextTooSmall": "Modelin bağlamı bu aralık için yetmedi. LM Studio'da modeli daha uzun bir bağlamla yükleyin (en az 64K önerilir) ya da daha kısa bir aralık seçin.",
   "job.contextTooSmallOllama": "Modelin bağlamı bu aralık için yetmedi. Ollama ayarlarından bağlam uzunluğunu en az 64K yapıp yeniden deneyin ya da daha kısa bir aralık seçin.",
+  "job.ollamaContextUnknown": "Kilnframe, Ollama'nın modeli hangi bağlamla çalıştırdığını okuyamadı; Ollama istemi haber vermeden kırpabilir. Ollama'yı güncelleyin, ayarlarından bağlam uzunluğunu en az 64K yapın ve yeniden deneyin.",
   "check.overlay_faint_layer": "Üst katman sahnelerinden biri görüntünün üstüne neredeyse görünmez bir katman bıraktı; konuşanın üstünde pus gibi görünürdü.",
   "check.scene_shows_nothing": "Bir sahne boş çıktı.",
   "review.cancelParts": "Vazgeç bütün parçaları bırakır, yerleşmiş parçalar timeline'da kalır. Sonra Devam Et kareleri saklar, ana ekrandan sürdürebilirsiniz.",

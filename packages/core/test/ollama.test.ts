@@ -183,3 +183,34 @@ describe("Ollama", () => {
     expect(p.name).toBe("ollama");
   });
 });
+
+describe("Ollama context it cannot read", () => {
+  it("stops with a clear message instead of sending a prompt Ollama may cut, and asks again next time", async () => {
+    const f = {
+      tags: ["m"],
+      show: { m: { capabilities: ["vision"] } },
+      ps: {} as Record<string, number>,
+    };
+    // an Ollama that reports no context_length in /api/ps
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/api/ps"))
+          return new Response(JSON.stringify({ models: [{ name: "m" }] }));
+        if (url.endsWith("/api/show"))
+          return new Response(JSON.stringify({ capabilities: ["vision"] }));
+        if (url.endsWith("/api/generate")) return new Response("{}");
+        return ok();
+      }),
+    );
+    void f;
+    const p = ollama("m");
+    const err = await p.complete(req(100)).catch((e: unknown) => e);
+    expect((err as Error).message).toMatch(
+      /could not read the context Ollama runs the model with/i,
+    );
+    // a later try reads again rather than keeping the failure
+    fakeOllama({ tags: ["m"], show: { m: { capabilities: ["vision"] } }, ps: { m: 65_536 } });
+    await expect(p.complete(req(100))).resolves.toBeDefined();
+  });
+});

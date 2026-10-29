@@ -29,7 +29,7 @@ import {
   newCaptions,
   type CaptionsCtx,
 } from "./captions";
-import { feedbackPage, shouldReport } from "./feedback";
+import { NOT_REPORTED, feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
   STORY_LENGTH,
@@ -2153,16 +2153,11 @@ function reportProvider(): string {
 
 /** "Report This Error ↗": the site's feedback page opens with the error and the versions filled in. */
 function reportLink(error: string): string {
-  if (
-    !shouldReport(error, [
-      t("job.stopped"),
-      t("story.needBrief"),
-      t("story.badLength"),
-      t("export.cancelled"),
-      t("premiere.tooOld", { version: MIN_PREMIERE }),
-    ])
-  )
-    return "";
+  // the messages with a number in them are written out with it, as the panel shows them
+  const own = NOT_REPORTED.map((k) =>
+    t(k, { version: MIN_PREMIERE, max: formatDuration(OWN_MAX_S) }),
+  );
+  if (!shouldReport(error, own)) return "";
   const url = feedbackPage({ kind: "error", error, ...mailAbout() });
   return `<div class="link mt" data-act="open-url" data-val="${esc(url)}">${t("feedback.report")} ↗</div>`;
 }

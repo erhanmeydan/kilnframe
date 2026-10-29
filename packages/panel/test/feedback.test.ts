@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { FEEDBACK_PAGE, feedbackPage, shouldReport, withoutUserName } from "../src/feedback";
+import {
+  FEEDBACK_PAGE,
+  NOT_REPORTED,
+  feedbackPage,
+  shouldReport,
+  withoutUserName,
+} from "../src/feedback";
 
 /** The fields a feedback link carries after the "#", as the page reads them. */
 const fields = (url: string) => {
@@ -96,5 +102,13 @@ describe("withoutUserName", () => {
     expect(withoutUserName("C:\\Users\\Erhan Meydan\\Videos\\a.wav")).toBe("~\\Videos\\a.wav");
     expect(withoutUserName("/home/ali/x")).toBe("~/x");
     expect(withoutUserName("no path here")).toBe("no path here");
+  });
+
+  describe("errors that are the editor's own", () => {
+    it("include the own text's empty and too long notes", () => {
+      expect(NOT_REPORTED).toContain("story.ownEmpty");
+      expect(NOT_REPORTED).toContain("story.ownTooLong");
+      expect(NOT_REPORTED).toContain("export.cancelled");
+    });
   });
 });

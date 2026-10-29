@@ -3,6 +3,8 @@
 // and a copy button, so it works whatever handles mail links on the computer. A reported error carries its
 // text only; the user's name is taken out of paths.
 
+import type { MessageKey } from "./i18n";
+
 export const FEEDBACK_PAGE = "https://kilnframe.com/feedback/";
 
 /** Windows opens links through a call that refuses very long ones; the whole link stays well below. */
@@ -23,6 +25,17 @@ export interface FeedbackInfo {
 export function withoutUserName(text: string): string {
   return text.replace(/\/(?:Users|home)\/[^/\s]+/g, "~").replace(/[A-Za-z]:\\Users\\[^\\]+/g, "~");
 }
+
+/** Messages that are the editor's own doing (a stop, an empty field, an old Premiere): no report link. */
+export const NOT_REPORTED = [
+  "job.stopped",
+  "story.needBrief",
+  "story.badLength",
+  "story.ownEmpty",
+  "story.ownTooLong",
+  "export.cancelled",
+  "premiere.tooOld",
+] as const satisfies readonly MessageKey[];
 
 /** Whether an error is worth a report: not the editor's own stop, not a field they left empty. */
 export function shouldReport(error: string, own: string[]): boolean {
