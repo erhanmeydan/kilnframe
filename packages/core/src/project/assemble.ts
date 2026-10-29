@@ -45,6 +45,8 @@ export function rootHtml(plan: Plan): string {
     <script src="vendor/gsap/gsap.min.js"></script>
 ${GSAP_PLUGINS.map((p) => `    <script src="vendor/gsap/${p}.min.js"></script>`).join("\n")}
     <script>gsap.registerPlugin(${GSAP_PLUGINS.join(", ")});</script>
+    <script src="vendor/d3/d3.min.js"></script>
+    <script src="vendor/icons/lucide.js"></script>
     <script type="importmap">
       { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
     </script>

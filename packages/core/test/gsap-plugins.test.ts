@@ -56,4 +56,18 @@ describe("GSAP plugins", () => {
       expect(html.indexOf(`vendor/gsap/${p}.min.js`)).toBeGreaterThan(core);
     expect(html).toContain(`gsap.registerPlugin(${GSAP_PLUGINS.join(", ")});`);
   });
+
+  it("loads D3 and the icon set for every scene, from the app's own files", () => {
+    const html = rootHtml(plan);
+    expect(html).toContain('<script src="vendor/d3/d3.min.js"></script>');
+    expect(html).toContain('<script src="vendor/icons/lucide.js"></script>');
+    expect(existsSync(join(vendorDir(), "d3", "d3.min.js"))).toBe(true);
+    expect(existsSync(join(vendorDir(), "icons", "lucide.js"))).toBe(true);
+    for (const f of [
+      "postprocessing/UnrealBloomPass.js",
+      "postprocessing/BokehPass.js",
+      "loaders/SVGLoader.js",
+    ])
+      expect(existsSync(join(vendorDir(), "three", "addons", f))).toBe(true);
+  });
 });
