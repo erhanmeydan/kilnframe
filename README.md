@@ -2,14 +2,14 @@
 
 <h1 align="center">Kilnframe</h1>
 
-<p align="center">Animated inserts and music for Premiere Pro and DaVinci Resolve Studio, made from what you say.<br>
+<p align="center">Animated inserts and music for Premiere Pro, DaVinci Resolve Studio and FilmCraft, made from what you say.<br>
 Select a range, pick a style, and a code-made animation with sound effects lands on your timeline.</p>
 
 <p align="center"><a href="#türkçe">Türkçe</a></p>
 
 ---
 
-Kilnframe is a free, open source plugin for Adobe Premiere Pro and DaVinci Resolve Studio. You mark an in/out range on the timeline;
+Kilnframe is a free, open source plugin for Adobe Premiere Pro and DaVinci Resolve Studio, and it also works with the open source editor [FilmCraft](https://github.com/storytold/filmcraft). You mark an in/out range on the timeline;
 Kilnframe listens to the speech in it, plans scenes that fit what is said (a chart for a number, a diagram
 for a process, a 3D metaphor for an idea, big type for a strong sentence), writes each scene as an
 HTML, CSS and JavaScript animation, renders it on your own computer with
@@ -29,8 +29,9 @@ the range.
 
 ## Install
 
-You need Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later, and a computer with a
-GPU. The free version of DaVinci Resolve does not load plugins: Resolve needs Studio.
+You need Premiere Pro 2026 (26.2 or later), DaVinci Resolve Studio 21.1 or later or FilmCraft 0.14.0 or
+later, and a computer with a GPU. The free version of DaVinci Resolve does not load plugins: Resolve needs
+Studio.
 
 |                                    | Download                                                                                                         |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -43,6 +44,10 @@ Intel Macs are not supported yet.
    Premiere plugin and, when Resolve Studio is installed, the Resolve panel in one go.
 2. Restart Premiere, then open **Window > UXP Plugins > Kilnframe**. In Resolve, restart it and open
    **Workspace > Workflow Integrations > Kilnframe**.
+3. FilmCraft has no plugin system, so it is opened from Kilnframe: click the Kilnframe icon in the menu bar
+   or system tray and choose **Open FilmCraft**. Kilnframe starts FilmCraft and opens its panel in a window
+   beside it. If FilmCraft was already open, Kilnframe offers to close it (FilmCraft asks to save your work)
+   and reopen it. The item shows only when FilmCraft is installed.
 
 On Windows, SmartScreen may say it protected your PC, because the installer is not code signed yet. Click
 **More info**, then **Run anyway**. The Mac installer is signed and notarized by Apple.
@@ -199,7 +204,7 @@ for Testing, Electron, GSAP (GreenSock's no-charge license) and open source font
 
 ## Türkçe
 
-Kilnframe, Premiere Pro ve DaVinci Resolve Studio için ücretsiz ve açık kaynak bir eklenti. Timeline'da bir aralık seçersiniz,
+Kilnframe, Premiere Pro ve DaVinci Resolve Studio için ücretsiz ve açık kaynak bir eklenti; açık kaynak video editörü [FilmCraft](https://github.com/storytold/filmcraft) ile de çalışır. Timeline'da bir aralık seçersiniz,
 Kilnframe o aralıktaki konuşmayı dinler ve söylenene uygun sahneler planlar: bir sayı için grafik, bir
 süreç için diyagram, bir fikir için 3D bir metafor, güçlü bir cümle için büyük yazı. Her sahneyi HTML, CSS
 ve JavaScript ile animasyon olarak yazar, sizin bilgisayarınızda render alır ve videoyu ses efektleriyle
@@ -220,8 +225,9 @@ birlikte aralığın üstüne yerleştirir.
 
 ### Kurulum
 
-Premiere Pro 2026 (26.2 ya da sonrası) ya da DaVinci Resolve Studio 21.1 ya da sonrası, ve ekran kartı olan
-bir bilgisayar gerekir. DaVinci Resolve'un ücretsiz sürümü eklenti yüklemez, Resolve için Studio gerekir.
+Premiere Pro 2026 (26.2 ya da sonrası), DaVinci Resolve Studio 21.1 ya da sonrası ya da FilmCraft 0.14.0 ya
+da sonrası, ve ekran kartı olan bir bilgisayar gerekir. DaVinci Resolve'un ücretsiz sürümü eklenti yüklemez,
+Resolve için Studio gerekir.
 
 - macOS, Apple silicon (M1 ve sonrası): [Kilnframe-mac.pkg](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg)
 - Windows 10 ya da 11, 64 bit: [Kilnframe-Windows.exe](https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe)
@@ -232,6 +238,10 @@ Intel işlemcili Mac'ler henüz desteklenmiyor.
    simge), Premiere eklentisini ve Resolve Studio kuruluysa Resolve panelini birlikte kurar.
 2. Premiere'i yeniden başlatın ve **Window > UXP Plugins > Kilnframe** ile paneli açın. Resolve'da
    Resolve'u yeniden başlatın ve **Workspace > Workflow Integrations > Kilnframe**'i açın.
+3. FilmCraft'ın eklenti sistemi yoktur, bu yüzden FilmCraft Kilnframe'den açılır: menü çubuğundaki ya da
+   sistem tepsisindeki Kilnframe simgesine basıp **FilmCraft'ı Aç**'ı seçin. Kilnframe FilmCraft'ı başlatır
+   ve panelini yanında ayrı bir pencerede açar. FilmCraft zaten açıksa Kilnframe onu kapatıp yeniden açmayı
+   önerir (FilmCraft çalışmanızı kaydetmenizi ister). Bu seçenek yalnızca FilmCraft kuruluysa görünür.
 
 Windows'ta SmartScreen "Bilgisayarınız korundu" diyebilir, çünkü kurulum dosyası henüz imzalı değil.
 **Ek bilgi**'ye, sonra **Yine de çalıştır**'a basın. Mac kurulumu imzalı ve Apple onaylıdır.

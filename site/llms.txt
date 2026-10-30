@@ -1,6 +1,6 @@
 # Kilnframe
 
-> Kilnframe is a free, open source (Apache 2.0) plugin for Adobe Premiere Pro and DaVinci Resolve Studio. The editor marks an in/out range on the timeline and picks a style; Kilnframe listens to what is said in that range, plans scenes, writes the animation as code (HTML, CSS, JavaScript, GSAP, Three.js), renders it on the editor's own computer with HyperFrames and places the clip and its sound effects on the timeline above the range. It can also score a whole video: it splits the speech into topics, writes music for each (Google Lyria) and keeps it under the voice.
+> Kilnframe is a free, open source (Apache 2.0) plugin for Adobe Premiere Pro and DaVinci Resolve Studio, and it also works with the open source editor FilmCraft. The editor marks an in/out range on the timeline and picks a style; Kilnframe listens to what is said in that range, plans scenes, writes the animation as code (HTML, CSS, JavaScript, GSAP, Three.js), renders it on the editor's own computer with HyperFrames and places the clip and its sound effects on the timeline above the range. It can also score a whole video: it splits the speech into topics, writes music for each (Google Lyria) and keeps it under the voice.
 
 Made by Erhan Meydan, a graphic designer and video creator. No account and no sign-in; the footage never leaves the computer, only text (the transcript and the plan) and a few still frames go to the AI the editor chooses.
 
@@ -27,7 +27,7 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 
 ## Requirements
 
-- Adobe Premiere Pro 2026 (26.2 or later), or DaVinci Resolve Studio 21.1 or later. The free version of DaVinci Resolve does not load workflow integration plugins.
+- Adobe Premiere Pro 2026 (26.2 or later), DaVinci Resolve Studio 21.1 or later, or FilmCraft 0.14.0 or later. The free version of DaVinci Resolve does not load workflow integration plugins. FilmCraft has no plugin system: it is opened from the Kilnframe menu (Open FilmCraft), which starts it and opens the panel in a window beside it.
 - macOS on Apple silicon (M1 or later), or Windows 10 or 11.
 - A graphics card (GPU); about 2 GB of disk.
 

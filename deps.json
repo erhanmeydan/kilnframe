@@ -241,6 +241,17 @@
       "files": ["packages/core/config/defaults.json"]
     },
     {
+      "id": "filmcraft",
+      "group": "app",
+      "current": "v0.14.0",
+      "source": {
+        "type": "github-release",
+        "repo": "storytold/filmcraft"
+      },
+      "notes": "https://github.com/storytold/filmcraft/releases",
+      "files": []
+    },
+    {
       "id": "openrouter-models",
       "group": "app",
       "current": "-",

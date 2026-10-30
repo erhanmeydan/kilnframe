@@ -48,7 +48,7 @@
             "applicationCategory": "MultimediaApplication",
             "applicationSubCategory": "Video editing plugin",
             "operatingSystem": "macOS (Apple silicon), Windows 10, Windows 11",
-            "softwareRequirements": "Adobe Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later",
+            "softwareRequirements": "Adobe Premiere Pro 2026 (26.2 or later), DaVinci Resolve Studio 21.1 or later or FilmCraft 0.14.0 or later",
             "downloadUrl": [
               "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg",
               "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
@@ -144,7 +144,7 @@
                 "name": "What do I need to run it?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later, a Mac with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk."
+                  "text": "Premiere Pro 2026 (26.2 or later), DaVinci Resolve Studio 21.1 or later or FilmCraft 0.14.0 or later, a Mac with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk."
                 }
               },
               {
@@ -161,6 +161,14 @@
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "Yes, in DaVinci Resolve Studio 21.1 or later, on Mac and Windows. The installer puts the panel in Resolve; open it from Workspace, Workflow Integrations, Kilnframe. The free version of Resolve does not load plugins."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work with FilmCraft?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, with FilmCraft 0.14.0 or later, on Mac and Windows. FilmCraft has no plugin system, so you open it from Kilnframe: click the Kilnframe icon in the menu bar or system tray and choose Open FilmCraft. Kilnframe starts FilmCraft and opens its panel in a window beside it. If FilmCraft was already open, Kilnframe offers to close it (FilmCraft asks to save your work) and reopen it."
                 }
               },
               {
@@ -866,9 +874,9 @@
               </dd>
               <dt>Runs on</dt>
               <dd>
-                Premiere Pro 2026 (26.2+) or DaVinci Resolve Studio 21.1+ (the free Resolve loads no
-                plugins). Mac with Apple silicon, Windows 10 and 11, a graphics card. About 2 GB of
-                disk.
+                Premiere Pro 2026 (26.2+), DaVinci Resolve Studio 21.1+ (the free Resolve loads no
+                plugins) or FilmCraft 0.14+. Mac with Apple silicon, Windows 10 and 11, a graphics
+                card. About 2 GB of disk.
               </dd>
               <dt>Updates</dt>
               <dd>
@@ -1305,8 +1313,9 @@
             <details>
               <summary>What do I need to run it?</summary>
               <p>
-                Premiere Pro 2026 (26.2 or later) or DaVinci Resolve Studio 21.1 or later, a Mac
-                with Apple silicon or Windows 10 or 11, a graphics card and about 2 GB of disk.
+                Premiere Pro 2026 (26.2 or later), DaVinci Resolve Studio 21.1 or later or FilmCraft
+                0.14.0 or later, a Mac with Apple silicon or Windows 10 or 11, a graphics card and
+                about 2 GB of disk.
               </p>
             </details>
             <details>
@@ -1323,6 +1332,16 @@
                 Yes, in DaVinci Resolve Studio 21.1 or later, on Mac and Windows. The installer puts
                 the panel in Resolve; open it from Workspace, Workflow Integrations, Kilnframe. The
                 free version of Resolve does not load plugins.
+              </p>
+            </details>
+            <details>
+              <summary>Does it work with FilmCraft?</summary>
+              <p>
+                Yes, with FilmCraft 0.14.0 or later, on Mac and Windows. FilmCraft has no plugin
+                system, so you open it from Kilnframe: click the Kilnframe icon in the menu bar or
+                system tray and choose Open FilmCraft. Kilnframe starts FilmCraft and opens its
+                panel in a window beside it. If FilmCraft was already open, Kilnframe offers to
+                close it (FilmCraft asks to save your work) and reopen it.
               </p>
             </details>
             <details>
