@@ -28,7 +28,7 @@ export interface PlaceResult {
 }
 
 export interface Host {
-  kind: "premiere" | "resolve";
+  kind: "premiere" | "resolve" | "filmcraft";
   /** The active sequence; throws a readable message when there is no project or sequence. */
   currentSequence(): Promise<HostSequence>;
   /** Resolve: true once after an export that could not put the editor's Deliver settings back. */

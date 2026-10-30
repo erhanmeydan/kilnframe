@@ -4,13 +4,10 @@
 // that and keeps the port and token in memory, so a FilmCraft it did not start (or started before it restarted)
 // reads as not running. The token never goes into an error message or a log.
 import { createConnection, type Socket } from "node:net";
-import { NOT_RUNNING } from "../resolve/api";
+import { CONNECTION_LOST, NOT_RUNNING, TIMED_OUT } from "../resolve/api";
 
-export { NOT_RUNNING };
-/** The connection closed after the request went out: FilmCraft may or may not have done it. */
-export const CONNECTION_LOST = "FILMCRAFT_CONNECTION_LOST";
-/** No reply in time; the connection is closed so the requests after it can go. */
-export const TIMED_OUT = "FILMCRAFT_TIMED_OUT";
+// TIMED_OUT closes the connection so the requests after it can go
+export { CONNECTION_LOST, NOT_RUNNING, TIMED_OUT };
 
 /** How long a request waits for its reply unless it says otherwise. */
 export const REPLY_LIMIT_MS = 30_000;

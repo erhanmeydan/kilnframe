@@ -112,6 +112,8 @@ export interface KilnframeResolveApi extends ResolveBridge {
   pluginVersion(): string;
   /** Whether the panel window stays above Resolve, as it opened. */
   onTop(): boolean;
+  /** Which editor the window belongs to; absent in an older app, which only hosts Resolve. */
+  editor?(): "resolve" | "filmcraft" | undefined;
   setOnTop(on: boolean): Promise<void>;
 }
 
@@ -123,3 +125,7 @@ export const RENDER_FAILED = "RENDER_FAILED";
 export const EXPORTS_STOPPED = "EXPORTS_STOPPED";
 /** FilmCraft is not running with its control channel open, or the app no longer has its port and token. */
 export const NOT_RUNNING = "FILMCRAFT_NOT_RUNNING";
+/** The connection to FilmCraft closed after a request went out: FilmCraft may or may not have done it. */
+export const CONNECTION_LOST = "FILMCRAFT_CONNECTION_LOST";
+/** FilmCraft did not reply in time. */
+export const TIMED_OUT = "FILMCRAFT_TIMED_OUT";

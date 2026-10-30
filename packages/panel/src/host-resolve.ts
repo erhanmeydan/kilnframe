@@ -1,9 +1,12 @@
-// The DaVinci Resolve Studio host: the panel's Host over window.kilnframeResolve (preload.ts), which forwards
+// The DaVinci Resolve Studio and FilmCraft host: the panel's Host over window.kilnframeResolve (preload.ts), which forwards
 // to the bridge in the Electron main process (resolve/bridge.ts) and to a few file and OS calls.
 import type { Host, HostSequence } from "./host";
 import { t } from "./i18n";
 import {
+  CONNECTION_LOST,
   EXPORTS_STOPPED,
+  NOT_RUNNING,
+  TIMED_OUT,
   NO_SEQUENCE,
   PLACE_FAILED,
   RENDER_BUSY,
@@ -12,9 +15,13 @@ import {
 } from "./resolve/api";
 
 /** A project name as a folder name: no path separators or characters Windows refuses. */
-const folderName = (name: string) => name.replace(/[\\/:*?"<>|]/g, "-").trim() || "Resolve";
+const folderName = (name: string, fallback: string) =>
+  name.replace(/[\\/:*?"<>|]/g, "-").trim() || fallback;
 
-export function createResolveHost(api: KilnframeResolveApi): Host {
+export function createResolveHost(
+  api: KilnframeResolveApi,
+  kind: "resolve" | "filmcraft" = "resolve",
+): Host {
   let onTop = api.onTop();
   /** The bridge's codes in the panel's words; anything else as it came. */
   const words = async <T>(p: Promise<T>): Promise<T> => {
@@ -24,6 +31,10 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
       const m = err instanceof Error ? err.message : String(err);
       if (m.includes(NO_SEQUENCE)) throw new Error(t("seq.noSequence"), { cause: err });
       if (m.includes(EXPORTS_STOPPED)) throw new Error(t("job.stopped"), { cause: err });
+      if (m.includes(NOT_RUNNING)) throw new Error(t("filmcraft.notRunning"), { cause: err });
+      if (m.includes(CONNECTION_LOST))
+        throw new Error(t("filmcraft.connectionLost"), { cause: err });
+      if (m.includes(TIMED_OUT)) throw new Error(t("filmcraft.timedOut"), { cause: err });
       if (m.includes(RENDER_BUSY)) throw new Error(t("resolve.renderBusy"), { cause: err });
       if (m.includes(RENDER_FAILED)) throw new Error(t("resolve.renderFailed"), { cause: err });
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
@@ -32,7 +43,7 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
   };
 
   return {
-    kind: "resolve",
+    kind,
     async currentSequence(): Promise<HostSequence> {
       const s = await words(api.currentSequence());
       return {
@@ -40,7 +51,7 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
         name: s.name,
         projectPath: "",
         // ~/Movies/Kilnframe on a Mac, Videos\Kilnframe on Windows
-        jobRoot: `${api.homedir().replace(/\\/g, "/")}/${api.platform() === "win" ? "Videos" : "Movies"}/Kilnframe/${folderName(s.projectName)}`,
+        jobRoot: `${api.homedir().replace(/\\/g, "/")}/${api.platform() === "win" ? "Videos" : "Movies"}/Kilnframe/${folderName(s.projectName, kind === "filmcraft" ? "FilmCraft" : "Resolve")}`,
         fps: s.fps,
         fpsValue: s.fpsValue,
         width: s.width,

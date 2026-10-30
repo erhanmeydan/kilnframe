@@ -34,6 +34,7 @@ const info = ipcRenderer.sendSync("kilnframe:info") as {
   locale: string;
   pluginVersion: string;
   onTop: boolean;
+  editor?: "resolve" | "filmcraft";
 };
 
 contextBridge.exposeInMainWorld("kilnframeResolve", {
@@ -45,4 +46,5 @@ contextBridge.exposeInMainWorld("kilnframeResolve", {
   locale: () => info.locale,
   pluginVersion: () => info.pluginVersion,
   onTop: () => info.onTop,
+  editor: () => info.editor,
 });

@@ -4,7 +4,7 @@ import { PROTOCOL_VERSION, protocolMismatch } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
 import { audioRangeParams } from "./audio-range";
-import { host, type HostSequence, type PlaceResult } from "./host";
+import { host, type Host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
 import {
@@ -517,6 +517,9 @@ function header(title: string, right: string) {
 }
 
 /** Where the app is downloaded; the release page always has the newest installers. */
+/** The value for the editor the panel runs in. */
+const editorText = <T>(by: Record<Host["kind"], T>): T => by[host().kind];
+
 const DOWNLOAD_URL = "https://github.com/erhanmeydan/kilnframe/releases/latest";
 
 /** The app's update, or the side to update when the panel and the app do not match. */
@@ -525,7 +528,7 @@ function updateBox(): string {
   if (state.mismatch === "app")
     return `<div class="box warn"><div>${t("mismatch.app")}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
   if (state.mismatch === "panel")
-    return `<div class="box warn">${t(host().kind === "resolve" ? "mismatch.panelResolve" : "mismatch.panel")}</div>`;
+    return `<div class="box warn">${t(editorText({ premiere: "mismatch.panel", resolve: "mismatch.panelResolve", filmcraft: "mismatch.panelFilmcraft" }))}</div>`;
   const u = state.update;
   if (!u || u.status === "none" || u.status === "checking") return "";
   const v = esc(u.version ?? "");
@@ -2134,7 +2137,11 @@ function mailAbout() {
   return {
     app: state.appVersion ?? t("settings.unknown"),
     panel: panelVersion(),
-    editor: host().kind === "resolve" ? ("DaVinci Resolve" as const) : ("Premiere" as const),
+    editor: editorText({
+      premiere: "Premiere",
+      resolve: "DaVinci Resolve",
+      filmcraft: "FilmCraft",
+    } as const),
     os: host().platform(),
     lang: lang(),
     ai: reportProvider(),
@@ -2171,7 +2178,7 @@ function versionLine(): string {
     lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
   return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackPage({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
     differ
-      ? `<div class="small warn-text">${t(host().kind === "resolve" ? "settings.versionsDifferResolve" : "settings.versionsDiffer")}</div>`
+      ? `<div class="small warn-text">${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`
       : ""
   }`;
 }
@@ -2547,7 +2554,7 @@ const captionsCtx: CaptionsCtx = {
   // the HTML element list (https://developer.adobe.com/premiere-pro/uxp/) nor the Premiere samples say which
   // codecs or sources (a data: URL of an H.264 clip) it plays inside Premiere. Until that is tried there,
   // Premiere steps through stills; Resolve's panel is Chromium (Electron) and plays the clip.
-  playsVideo: () => host().kind === "resolve",
+  playsVideo: () => host().kind !== "premiere",
   img: (key, src, width, height) => imgSlot(key, src, width, height),
   refresh: (pictures) => {
     for (const [key, src] of Object.entries(pictures)) images.get(key)?.setAttribute("src", src);

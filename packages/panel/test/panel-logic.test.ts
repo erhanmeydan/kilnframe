@@ -305,3 +305,19 @@ describe("resolve wording", () => {
     }
   });
 });
+
+describe("filmcraft wording", () => {
+  it("tells a FilmCraft user to reopen FilmCraft, not to install into Premiere or Resolve", () => {
+    for (const l of [en, tr] as Record<string, string>[]) {
+      for (const k of [
+        "mismatch.panelFilmcraft",
+        "settings.versionsDifferFilmcraft",
+        "filmcraft.notRunning",
+      ]) {
+        expect(l[k], k).toMatch(/FilmCraft/);
+        expect(l[k], k).not.toMatch(/Premiere|DaVinci|Resolve/);
+        expect(l[k], k).not.toMatch(/[\u2013\u2014]/);
+      }
+    }
+  });
+});

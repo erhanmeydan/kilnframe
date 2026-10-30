@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { setLang } from "../src/i18n";
 import { createResolveHost } from "../src/host-resolve";
+import { CONNECTION_LOST, NOT_RUNNING, TIMED_OUT } from "../src/resolve/api";
+import en from "../src/locales/en.json";
+import tr from "../src/locales/tr.json";
 import type { KilnframeResolveApi, ResolveSequence } from "../src/resolve/api";
 import { HOST_MEMBERS } from "./host-members";
 
@@ -209,5 +212,37 @@ describe("resolve host", () => {
     await expect(
       h.replaceCaptionClip(s, { path: "/a", atS: 0, durationS: 1 }, "/b", 0, 1, 0),
     ).rejects.toThrow("The animation could not be placed on the timeline.");
+  });
+});
+
+describe("filmcraft host", () => {
+  it("is the resolve host with its own kind and folder name", async () => {
+    const api = fakeApi({
+      currentSequence: vi.fn(async () => ({ ...seq, projectName: "" })),
+    });
+    const h = createResolveHost(api, "filmcraft");
+    expect(h.kind).toBe("filmcraft");
+    expect((await h.currentSequence()).jobRoot).toBe("/Users/e/Movies/Kilnframe/FilmCraft");
+    expect(createResolveHost(api).kind).toBe("resolve");
+  });
+
+  it("says in the panel's words that FilmCraft is not open, lost or slow", async () => {
+    setLang("en");
+    for (const [code, key] of [
+      [NOT_RUNNING, "filmcraft.notRunning"],
+      [CONNECTION_LOST, "filmcraft.connectionLost"],
+      [TIMED_OUT, "filmcraft.timedOut"],
+    ] as const) {
+      const h = createResolveHost(
+        fakeApi({
+          currentSequence: vi.fn(async () => {
+            throw new Error(code);
+          }),
+        }),
+        "filmcraft",
+      );
+      await expect(h.currentSequence()).rejects.toThrow((en as Record<string, string>)[key]);
+      expect((tr as Record<string, string>)[key]).toBeTruthy();
+    }
   });
 });
