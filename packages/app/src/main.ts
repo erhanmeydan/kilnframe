@@ -43,6 +43,7 @@ import {
   filmCraftRunning,
   findFilmCraft,
   launchFilmCraft,
+  quitFilmCraft,
   channelAnswer,
   type Endpoint,
 } from "./filmcraft.js";
@@ -74,8 +75,12 @@ const text = turkish
       resolveNotStudio:
         "Kilnframe paneli DaVinci Resolve Studio gerektirir, ücretsiz sürüm eklenti yüklemiyor.",
       filmCraft: "FilmCraft'ı Aç",
-      filmCraftWithout:
-        "FilmCraft Kilnframe olmadan açılmış. Projenizi kaydedip FilmCraft'ı kapatın, sonra buradan açın.",
+      filmCraftWithout: "FilmCraft Kilnframe olmadan açılmış.",
+      filmCraftWithoutDetail:
+        "Kilnframe paneli için FilmCraft'ın kapatılıp buradan yeniden açılması gerekiyor. Kaydedilmemiş bir işiniz varsa FilmCraft kaydetmenizi isteyecek.",
+      filmCraftReopen: "FilmCraft'ı Kapat ve Yeniden Aç",
+      cancel: "Vazgeç",
+      filmCraftStayedOpen: "FilmCraft açık kaldı.",
       filmCraftFailed: "FilmCraft başlatılamadı. Açıksa kapatıp yeniden deneyin.",
       filmCraftPanelFailed: "Kilnframe paneli açılamadı, günlüğe bakın.",
       updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
@@ -107,8 +112,12 @@ const text = turkish
       resolveNotStudio:
         "The Kilnframe panel needs DaVinci Resolve Studio; the free version loads no plugins.",
       filmCraft: "Open FilmCraft",
-      filmCraftWithout:
-        "FilmCraft was opened without Kilnframe. Save your project and quit FilmCraft, then open it from here.",
+      filmCraftWithout: "FilmCraft was opened without Kilnframe.",
+      filmCraftWithoutDetail:
+        "The Kilnframe panel needs FilmCraft to be closed and opened again from here. If you have unsaved work, FilmCraft will ask you to save it.",
+      filmCraftReopen: "Close FilmCraft and Reopen",
+      cancel: "Cancel",
+      filmCraftStayedOpen: "FilmCraft stayed open.",
       filmCraftFailed: "FilmCraft could not be started. If it is open, quit it and try again.",
       filmCraftPanelFailed: "The Kilnframe panel could not be opened, see the log.",
       updateReady: "Version {v} is ready. Update from the panel.",
@@ -389,7 +398,21 @@ const filmCraft = createFilmCraftOpener({
   answers: (ep) => channelAnswer(ep.port, ep.token),
   launch: (program) => launchFilmCraft(program),
   showPanel: showFilmCraftPanel,
-  openWithoutKilnframe: () => notify(text.filmCraftWithout),
+  askToReopen: async () => {
+    // a menu bar app's question comes forward only when the app does
+    app.focus({ steal: true });
+    const { response } = await dialog.showMessageBox({
+      type: "question",
+      message: text.filmCraftWithout,
+      detail: text.filmCraftWithoutDetail,
+      buttons: [text.filmCraftReopen, text.cancel],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    return response === 0;
+  },
+  quit: () => quitFilmCraft(process.platform),
+  stayedOpen: () => notify(text.filmCraftStayedOpen),
   failed: (err) => {
     logLine(`filmcraft: ${err.message}`);
     notify(text.filmCraftFailed);

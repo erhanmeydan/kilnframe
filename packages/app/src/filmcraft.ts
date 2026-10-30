@@ -135,6 +135,21 @@ export function channelAnswer(port: number, token: string, limitMs = 2000): Prom
   });
 }
 
+/**
+ * Asks FilmCraft to quit the way its own menu would, so it can offer to save; never forced. Whether it quit is
+ * read from the process list afterwards. Never throws.
+ */
+export async function quitFilmCraft(platform: NodeJS.Platform, exec: Exec = run): Promise<void> {
+  try {
+    if (platform === "win32")
+      // without /F: a close request; image names match without regard to case (FilmCraft.exe, filmcraft.exe)
+      await exec("taskkill", ["/IM", "filmcraft.exe"]);
+    else await exec("osascript", ["-e", 'tell application "FilmCraft" to quit']);
+  } catch {
+    // a save prompt can outlast the call; the process list says what happened
+  }
+}
+
 /** Whether the channel on `port` answers `ui.inspect` with ok. Never throws. */
 export async function probeChannel(port: number, token: string, limitMs = 2000): Promise<boolean> {
   return (await channelAnswer(port, token, limitMs)) === "ok";
@@ -224,18 +239,45 @@ export interface OpenerDeps {
   answers: (ep: Endpoint) => Promise<ChannelAnswer>;
   launch: (program: string) => Promise<Endpoint>;
   showPanel: () => void;
-  /** FilmCraft runs without the channel: a second start would only bring it forward. */
-  openWithoutKilnframe: () => void;
+  /**
+   * FilmCraft runs without the channel (a second start would only bring it forward): whether the user wants it
+   * closed and opened again from here.
+   */
+  askToReopen: () => Promise<boolean>;
+  /** Asks FilmCraft to quit (quitFilmCraft). */
+  quit: () => Promise<void>;
+  /** FilmCraft was asked to quit and is still open, e.g. its save prompt was cancelled. */
+  stayedOpen: () => void;
   failed: (err: Error) => void;
+  /** Pause between checks while FilmCraft quits. */
+  pollMs?: number;
+  /** How long to wait for it to quit: the user may sit in a save prompt. */
+  closeLimitMs?: number;
 }
 
 /**
  * The menu's Open FilmCraft: starts FilmCraft with its channel when it is closed, leaves one opened another way
- * alone, and opens the panel beside it. The endpoint lives here, in memory only.
+ * alone unless the user agrees to close and reopen it, and opens the panel beside it. The endpoint lives here,
+ * in memory only.
  */
 export function createFilmCraftOpener(deps: OpenerDeps) {
+  const { pollMs = 500, closeLimitMs = 120_000 } = deps;
   let endpoint: Endpoint | null = null;
   let opening: Promise<void> | null = null;
+
+  /** Closes a FilmCraft opened without Kilnframe when the user agrees; true once it has quit. */
+  async function closeTheirs(): Promise<boolean> {
+    if (!(await deps.askToReopen())) return false;
+    await deps.quit();
+    const deadline = Date.now() + closeLimitMs;
+    for (;;) {
+      if (!(await deps.running())) return true;
+      if (Date.now() >= deadline) break;
+      await new Promise((r) => setTimeout(r, pollMs));
+    }
+    deps.stayedOpen();
+    return false;
+  }
 
   async function open(): Promise<void> {
     const running = await deps.running();
@@ -244,8 +286,8 @@ export function createFilmCraftOpener(deps: OpenerDeps) {
     const ours = running && endpoint !== null && (await deps.answers(endpoint)) !== "refused";
     if (!ours) endpoint = null;
     const state = filmCraftState(running, ours, true);
-    if (state === "open-without-kilnframe") return deps.openWithoutKilnframe();
-    if (state === "closed") {
+    if (state === "open-without-kilnframe" && !(await closeTheirs())) return;
+    if (state !== "ours") {
       try {
         endpoint = await deps.launch(deps.program());
       } catch (err) {
@@ -256,7 +298,7 @@ export function createFilmCraftOpener(deps: OpenerDeps) {
   }
 
   return {
-    /** A second click while FilmCraft starts waits for the first. */
+    /** A second click while FilmCraft starts, quits or the question is open waits for the first. */
     open(): Promise<void> {
       opening ??= open().finally(() => {
         opening = null;

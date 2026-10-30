@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFilmCraftOpener, filmCraftMenuItems } from "../src/filmcraft.js";
+import { createFilmCraftOpener, filmCraftMenuItems, quitFilmCraft } from "../src/filmcraft.js";
 import { installArgs, needsInstall, removeArgs, replacesSameVersion } from "../src/plugin.js";
 import { companionPath } from "../src/shell-path.js";
 
@@ -75,6 +75,10 @@ describe("Open FilmCraft", () => {
     running: boolean;
     answers?: "ok" | "refused" | "no-answer";
     launch?: () => Promise<typeof ep>;
+    /** The answer to the close-and-reopen question. */
+    reopen?: boolean;
+    /** Whether FilmCraft quits when asked (false: the user cancelled its save prompt). */
+    quits?: boolean;
   }) => {
     const calls: string[] = [];
     let running = o.running;
@@ -89,7 +93,17 @@ describe("Open FilmCraft", () => {
         return r;
       },
       showPanel: () => calls.push("panel"),
-      openWithoutKilnframe: () => calls.push("warn"),
+      askToReopen: async () => {
+        calls.push("ask");
+        return o.reopen ?? false;
+      },
+      quit: async () => {
+        calls.push("quit");
+        if (o.quits ?? true) setTimeout(() => (running = false), 5);
+      },
+      stayedOpen: () => calls.push("stayed open"),
+      pollMs: 1,
+      closeLimitMs: 50,
       failed: (err) => calls.push(`failed ${err.message}`),
     });
     return { opener, calls };
@@ -119,11 +133,36 @@ describe("Open FilmCraft", () => {
     expect(calls).toEqual(["panel"]);
   });
 
-  it("never touches a FilmCraft opened without Kilnframe", async () => {
-    const { opener, calls } = setup({ running: true });
+  it("asks before touching a FilmCraft opened without Kilnframe, and leaves it on Cancel", async () => {
+    const { opener, calls } = setup({ running: true, reopen: false });
     await opener.open();
-    expect(calls).toEqual(["warn"]);
+    expect(calls).toEqual(["ask"]);
     expect(opener.endpoint()).toBeNull();
+  });
+
+  it("closes and reopens it with the channel when the user agrees", async () => {
+    const { opener, calls } = setup({ running: true, reopen: true });
+    await opener.open();
+    expect(calls).toEqual([
+      "ask",
+      "quit",
+      "launch /Applications/FilmCraft.app/Contents/MacOS/FilmCraft",
+      "panel",
+    ]);
+    expect(opener.endpoint()).toEqual(ep);
+  });
+
+  it("starts nothing when FilmCraft stays open (its save prompt cancelled)", async () => {
+    const { opener, calls } = setup({ running: true, reopen: true, quits: false });
+    await opener.open();
+    expect(calls).toEqual(["ask", "quit", "stayed open"]);
+    expect(opener.endpoint()).toBeNull();
+  });
+
+  it("asks once when the menu is clicked again during the question", async () => {
+    const { opener, calls } = setup({ running: true, reopen: false });
+    await Promise.all([opener.open(), opener.open()]);
+    expect(calls).toEqual(["ask"]);
   });
 
   it("does not take a FilmCraft opened by hand on its old port for its own", async () => {
@@ -131,7 +170,7 @@ describe("Open FilmCraft", () => {
     await opener.open();
     calls.length = 0;
     await opener.open();
-    expect(calls).toEqual(["warn"]);
+    expect(calls).toEqual(["ask"]);
     expect(opener.endpoint()).toBeNull();
   });
 
@@ -168,5 +207,37 @@ describe("Open FilmCraft", () => {
     finish(ep);
     await Promise.all([first, second]);
     expect(calls.filter((c) => c.startsWith("launch"))).toHaveLength(1);
+  });
+});
+
+describe("quitFilmCraft", () => {
+  const record = () => {
+    const calls: string[][] = [];
+    const exec = async (cmd: string, args: string[]) => {
+      calls.push([cmd, ...args]);
+      return "";
+    };
+    return { calls, exec };
+  };
+
+  it("asks FilmCraft to quit on a Mac, so it can offer to save", async () => {
+    const { calls, exec } = record();
+    await quitFilmCraft("darwin", exec);
+    expect(calls).toEqual([["osascript", "-e", 'tell application "FilmCraft" to quit']]);
+  });
+
+  it("closes it on Windows without forcing (no /F)", async () => {
+    const { calls, exec } = record();
+    await quitFilmCraft("win32", exec);
+    // image names are matched without regard to case: FilmCraft.exe and filmcraft.exe alike
+    expect(calls).toEqual([["taskkill", "/IM", "filmcraft.exe"]]);
+  });
+
+  it("never throws: whether it quit is read from the process list", async () => {
+    await expect(
+      quitFilmCraft("darwin", async () => {
+        throw new Error("timed out");
+      }),
+    ).resolves.toBeUndefined();
   });
 });
