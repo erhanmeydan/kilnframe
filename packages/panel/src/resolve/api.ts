@@ -121,3 +121,5 @@ export const RENDER_BUSY = "RENDER_BUSY";
 export const PLACE_FAILED = "PLACE_FAILED";
 export const RENDER_FAILED = "RENDER_FAILED";
 export const EXPORTS_STOPPED = "EXPORTS_STOPPED";
+/** FilmCraft is not running with its control channel open, or the app no longer has its port and token. */
+export const NOT_RUNNING = "FILMCRAFT_NOT_RUNNING";
