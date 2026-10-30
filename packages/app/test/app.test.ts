@@ -71,13 +71,17 @@ describe("replacing a plugin of the same version", () => {
 
 describe("Open FilmCraft", () => {
   const ep = { port: 4321, token: "t" };
-  const setup = (o: { running: boolean; answers?: boolean; launch?: () => Promise<typeof ep> }) => {
+  const setup = (o: {
+    running: boolean;
+    answers?: "ok" | "refused" | "no-answer";
+    launch?: () => Promise<typeof ep>;
+  }) => {
     const calls: string[] = [];
     let running = o.running;
     const opener = createFilmCraftOpener({
       program: () => "/Applications/FilmCraft.app/Contents/MacOS/FilmCraft",
       running: async () => running,
-      answers: async () => o.answers ?? true,
+      answers: async () => o.answers ?? "ok",
       launch: async (program) => {
         calls.push(`launch ${program}`);
         const r = await (o.launch ?? (async () => ep))();
@@ -123,12 +127,21 @@ describe("Open FilmCraft", () => {
   });
 
   it("does not take a FilmCraft opened by hand on its old port for its own", async () => {
-    const { opener, calls } = setup({ running: false, answers: false });
+    const { opener, calls } = setup({ running: false, answers: "refused" });
     await opener.open();
     calls.length = 0;
     await opener.open();
     expect(calls).toEqual(["warn"]);
     expect(opener.endpoint()).toBeNull();
+  });
+
+  it("keeps a busy FilmCraft that does not answer in time for its own", async () => {
+    const { opener, calls } = setup({ running: false, answers: "no-answer" });
+    await opener.open();
+    calls.length = 0;
+    await opener.open();
+    expect(calls).toEqual(["panel"]);
+    expect(opener.endpoint()).toEqual(ep);
   });
 
   it("says when FilmCraft could not be started, without opening the panel", async () => {

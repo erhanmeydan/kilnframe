@@ -8,6 +8,7 @@ import {
   freePort,
   launchFilmCraft,
   probeChannel,
+  channelAnswer,
 } from "../src/filmcraft";
 
 const MAC = "/Applications/FilmCraft.app/Contents/MacOS/FilmCraft";
@@ -140,6 +141,23 @@ describe("probeChannel", () => {
     expect(await probeChannel(port, "tok")).toBe(false);
     const dead = await freePort();
     expect(await probeChannel(dead, "tok")).toBe(false);
+  });
+});
+
+describe("channelAnswer", () => {
+  it("tells ok, refused and no answer in time apart", async () => {
+    const { port } = await channel((r) => ({ id: r.id, ok: true, result: {} }));
+    expect(await channelAnswer(port, "tok")).toBe("ok");
+    const no = await channel((r) => ({ id: r.id, ok: false, error: "bad token" }));
+    expect(await channelAnswer(no.port, "tok")).toBe("refused");
+    expect(await channelAnswer(await freePort(), "tok")).toBe("refused");
+    // a busy FilmCraft: the connection is taken, the reply does not come
+    const busy = createServer((c) => c.on("error", () => undefined));
+    servers.push(busy);
+    const busyPort = await new Promise<number>((ok) =>
+      busy.listen(0, "127.0.0.1", () => ok((busy.address() as { port: number }).port)),
+    );
+    expect(await channelAnswer(busyPort, "tok", 100)).toBe("no-answer");
   });
 });
 

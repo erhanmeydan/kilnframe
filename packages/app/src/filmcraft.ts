@@ -92,37 +92,52 @@ export async function filmCraftRunning(
   }
 }
 
-/** Whether the channel on `port` answers `ui.inspect` with ok. Never throws. */
-export function probeChannel(port: number, token: string, limitMs = 2000): Promise<boolean> {
+export type ChannelAnswer = "ok" | "refused" | "no-answer";
+
+/**
+ * How the channel on `port` takes `ui.inspect` with this token: `ok`; `refused` (an error reply, or nothing
+ * listening); `no-answer` when no reply comes within `limitMs` (FilmCraft busy). Never throws.
+ */
+export function channelAnswer(port: number, token: string, limitMs = 2000): Promise<ChannelAnswer> {
   return new Promise((done) => {
     const s = createConnection({ host: "127.0.0.1", port });
     let buffer = "";
+    let connected = false;
     let finished = false;
-    const finish = (value: boolean) => {
+    const finish = (value: ChannelAnswer) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
       s.destroy();
       done(value);
     };
-    const timer = setTimeout(() => finish(false), limitMs);
+    const timer = setTimeout(() => finish("no-answer"), limitMs);
     s.setEncoding("utf8");
-    s.once("connect", () =>
-      s.write(JSON.stringify({ id: 1, token, method: "ui.inspect", params: {} }) + "\n"),
-    );
+    s.once("connect", () => {
+      connected = true;
+      s.write(JSON.stringify({ id: 1, token, method: "ui.inspect", params: {} }) + "\n");
+    });
     s.on("data", (chunk: string) => {
       buffer += chunk;
       const nl = buffer.indexOf("\n");
       if (nl < 0) return;
       try {
-        finish((JSON.parse(buffer.slice(0, nl)) as { ok?: boolean }).ok === true);
+        const ok = (JSON.parse(buffer.slice(0, nl)) as { ok?: boolean }).ok === true;
+        finish(ok ? "ok" : "refused");
       } catch {
-        finish(false);
+        finish("refused");
       }
     });
-    s.on("error", () => finish(false));
-    s.on("close", () => finish(false));
+    // before the connection is made, an error means nothing listens; a connection dropped without a reply
+    // says nothing about the token
+    s.on("error", () => finish(connected ? "no-answer" : "refused"));
+    s.on("close", () => finish(connected ? "no-answer" : "refused"));
   });
+}
+
+/** Whether the channel on `port` answers `ui.inspect` with ok. Never throws. */
+export async function probeChannel(port: number, token: string, limitMs = 2000): Promise<boolean> {
+  return (await channelAnswer(port, token, limitMs)) === "ok";
 }
 
 export interface LaunchDeps {
@@ -205,8 +220,8 @@ export interface OpenerDeps {
   /** Looked up on every open: FilmCraft may have moved since. */
   program: () => string;
   running: () => Promise<boolean>;
-  /** Whether the FilmCraft on this endpoint still answers with this token. */
-  answers: (ep: Endpoint) => Promise<boolean>;
+  /** How the FilmCraft on this endpoint takes this token (channelAnswer). */
+  answers: (ep: Endpoint) => Promise<ChannelAnswer>;
   launch: (program: string) => Promise<Endpoint>;
   showPanel: () => void;
   /** FilmCraft runs without the channel: a second start would only bring it forward. */
@@ -224,8 +239,9 @@ export function createFilmCraftOpener(deps: OpenerDeps) {
 
   async function open(): Promise<void> {
     const running = await deps.running();
-    // still ours only when the FilmCraft on our port takes our token; one started by hand since then does not
-    const ours = running && endpoint !== null && (await deps.answers(endpoint));
+    // a FilmCraft started by hand since then refuses our token; a busy one (exporting) may not answer in time
+    // and stays ours, so the open panel keeps its connection
+    const ours = running && endpoint !== null && (await deps.answers(endpoint)) !== "refused";
     if (!ours) endpoint = null;
     const state = filmCraftState(running, ours, true);
     if (state === "open-without-kilnframe") return deps.openWithoutKilnframe();

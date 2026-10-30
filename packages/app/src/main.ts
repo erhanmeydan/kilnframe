@@ -43,7 +43,7 @@ import {
   filmCraftRunning,
   findFilmCraft,
   launchFilmCraft,
-  probeChannel,
+  channelAnswer,
   type Endpoint,
 } from "./filmcraft.js";
 
@@ -75,7 +75,7 @@ const text = turkish
         "Kilnframe paneli DaVinci Resolve Studio gerektirir, ücretsiz sürüm eklenti yüklemiyor.",
       filmCraft: "FilmCraft'ı Aç",
       filmCraftWithout:
-        "FilmCraft Kilnframe olmadan açılmış. Projeni kaydedip FilmCraft'ı kapat, sonra buradan aç.",
+        "FilmCraft Kilnframe olmadan açılmış. Projenizi kaydedip FilmCraft'ı kapatın, sonra buradan açın.",
       filmCraftFailed: "FilmCraft başlatılamadı. Açıksa kapatıp yeniden deneyin.",
       filmCraftPanelFailed: "Kilnframe paneli açılamadı, günlüğe bakın.",
       updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
@@ -386,7 +386,7 @@ function showFilmCraftPanel() {
 const filmCraft = createFilmCraftOpener({
   program: () => filmCraftProgram() ?? "",
   running: () => filmCraftRunning(process.platform),
-  answers: (ep) => probeChannel(ep.port, ep.token),
+  answers: (ep) => channelAnswer(ep.port, ep.token),
   launch: (program) => launchFilmCraft(program),
   showPanel: showFilmCraftPanel,
   openWithoutKilnframe: () => notify(text.filmCraftWithout),
