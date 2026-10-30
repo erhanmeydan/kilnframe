@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createFilmCraftOpener, filmCraftMenuItems } from "../src/filmcraft.js";
 import { installArgs, needsInstall, removeArgs, replacesSameVersion } from "../src/plugin.js";
 import { companionPath } from "../src/shell-path.js";
 
@@ -65,5 +66,94 @@ describe("replacing a plugin of the same version", () => {
   it("removes by the name Creative Cloud lists", () => {
     expect(removeArgs("Kilnframe", "darwin")).toEqual(["--remove", "Kilnframe"]);
     expect(removeArgs("Kilnframe", "win32")).toEqual(["/remove", "Kilnframe"]);
+  });
+});
+
+describe("Open FilmCraft", () => {
+  const ep = { port: 4321, token: "t" };
+  const setup = (o: { running: boolean; answers?: boolean; launch?: () => Promise<typeof ep> }) => {
+    const calls: string[] = [];
+    let running = o.running;
+    const opener = createFilmCraftOpener({
+      program: () => "/Applications/FilmCraft.app/Contents/MacOS/FilmCraft",
+      running: async () => running,
+      answers: async () => o.answers ?? true,
+      launch: async (program) => {
+        calls.push(`launch ${program}`);
+        const r = await (o.launch ?? (async () => ep))();
+        running = true;
+        return r;
+      },
+      showPanel: () => calls.push("panel"),
+      openWithoutKilnframe: () => calls.push("warn"),
+      failed: (err) => calls.push(`failed ${err.message}`),
+    });
+    return { opener, calls };
+  };
+
+  it("is offered only when FilmCraft is installed", () => {
+    const click = () => undefined;
+    expect(filmCraftMenuItems(null, "Open FilmCraft", click)).toEqual([]);
+    expect(filmCraftMenuItems("/x/FilmCraft", "Open FilmCraft", click)).toEqual([
+      { label: "Open FilmCraft", click },
+    ]);
+  });
+
+  it("starts a closed FilmCraft, keeps its endpoint and opens the panel", async () => {
+    const { opener, calls } = setup({ running: false });
+    expect(opener.endpoint()).toBeNull();
+    await opener.open();
+    expect(calls).toEqual(["launch /Applications/FilmCraft.app/Contents/MacOS/FilmCraft", "panel"]);
+    expect(opener.endpoint()).toEqual(ep);
+  });
+
+  it("only brings the panel forward when FilmCraft is already ours", async () => {
+    const { opener, calls } = setup({ running: false });
+    await opener.open();
+    calls.length = 0;
+    await opener.open();
+    expect(calls).toEqual(["panel"]);
+  });
+
+  it("never touches a FilmCraft opened without Kilnframe", async () => {
+    const { opener, calls } = setup({ running: true });
+    await opener.open();
+    expect(calls).toEqual(["warn"]);
+    expect(opener.endpoint()).toBeNull();
+  });
+
+  it("does not take a FilmCraft opened by hand on its old port for its own", async () => {
+    const { opener, calls } = setup({ running: false, answers: false });
+    await opener.open();
+    calls.length = 0;
+    await opener.open();
+    expect(calls).toEqual(["warn"]);
+    expect(opener.endpoint()).toBeNull();
+  });
+
+  it("says when FilmCraft could not be started, without opening the panel", async () => {
+    const { opener, calls } = setup({
+      running: false,
+      launch: async () => {
+        throw new Error("no answer");
+      },
+    });
+    await opener.open();
+    expect(calls.slice(1)).toEqual(["failed no answer"]);
+    expect(opener.endpoint()).toBeNull();
+  });
+
+  it("starts FilmCraft once when the menu is clicked twice", async () => {
+    let finish: (e: typeof ep) => void = () => undefined;
+    const { opener, calls } = setup({
+      running: false,
+      launch: () => new Promise((ok) => (finish = ok)),
+    });
+    const first = opener.open();
+    const second = opener.open();
+    await new Promise((r) => setTimeout(r, 0));
+    finish(ep);
+    await Promise.all([first, second]);
+    expect(calls.filter((c) => c.startsWith("launch"))).toHaveLength(1);
   });
 });

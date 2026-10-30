@@ -141,6 +141,23 @@ writeFileSync(
   ),
 );
 
+// the panel beside FilmCraft (packages/panel/dist-filmcraft), which the app opens in its own window (src/main.ts)
+const filmCraftPanel = join(root, "packages", "panel", "dist-filmcraft");
+if (!existsSync(join(filmCraftPanel, "panel.js")))
+  throw new Error("packages/panel/dist-filmcraft is missing: run pnpm build first.");
+cpSync(filmCraftPanel, join(extra, "filmcraft-panel"), {
+  recursive: true,
+  filter: (src) => !src.endsWith(".map"),
+});
+const filmCraftManifest = join(extra, "filmcraft-panel", "manifest.xml");
+writeFileSync(
+  filmCraftManifest,
+  readFileSync(filmCraftManifest, "utf8").replace(
+    /<Version>[^<]*<\/Version>/,
+    `<Version>${version}</Version>`,
+  ),
+);
+
 console.log("3/4 trimming");
 const modules = join(stage, "node_modules");
 // onnxruntime-node ships every platform's library; keep this platform and architecture. The binding links
@@ -214,6 +231,7 @@ writeFileSync(
         { from: "extra/vendor", to: "vendor" },
         { from: "extra/plugin", to: "plugin" },
         { from: "extra/resolve-panel", to: "resolve-panel" },
+        { from: "extra/filmcraft-panel", to: "filmcraft-panel" },
         { from: "extra/licenses", to: "licenses" },
       ],
       mac: {

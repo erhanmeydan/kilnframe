@@ -186,3 +186,67 @@ export async function launchFilmCraft(
     "FilmCraft did not answer on its control channel in time. Close FilmCraft and try again.",
   );
 }
+
+/** The menu's Open FilmCraft item, only when FilmCraft is installed. */
+export function filmCraftMenuItems<C>(
+  program: string | null,
+  label: string,
+  click: C,
+): { label: string; click: C }[] {
+  return program ? [{ label, click }] : [];
+}
+
+export interface Endpoint {
+  port: number;
+  token: string;
+}
+
+export interface OpenerDeps {
+  /** Looked up on every open: FilmCraft may have moved since. */
+  program: () => string;
+  running: () => Promise<boolean>;
+  /** Whether the FilmCraft on this endpoint still answers with this token. */
+  answers: (ep: Endpoint) => Promise<boolean>;
+  launch: (program: string) => Promise<Endpoint>;
+  showPanel: () => void;
+  /** FilmCraft runs without the channel: a second start would only bring it forward. */
+  openWithoutKilnframe: () => void;
+  failed: (err: Error) => void;
+}
+
+/**
+ * The menu's Open FilmCraft: starts FilmCraft with its channel when it is closed, leaves one opened another way
+ * alone, and opens the panel beside it. The endpoint lives here, in memory only.
+ */
+export function createFilmCraftOpener(deps: OpenerDeps) {
+  let endpoint: Endpoint | null = null;
+  let opening: Promise<void> | null = null;
+
+  async function open(): Promise<void> {
+    const running = await deps.running();
+    // still ours only when the FilmCraft on our port takes our token; one started by hand since then does not
+    const ours = running && endpoint !== null && (await deps.answers(endpoint));
+    if (!ours) endpoint = null;
+    const state = filmCraftState(running, ours, true);
+    if (state === "open-without-kilnframe") return deps.openWithoutKilnframe();
+    if (state === "closed") {
+      try {
+        endpoint = await deps.launch(deps.program());
+      } catch (err) {
+        return deps.failed(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+    deps.showPanel();
+  }
+
+  return {
+    /** A second click while FilmCraft starts waits for the first. */
+    open(): Promise<void> {
+      opening ??= open().finally(() => {
+        opening = null;
+      });
+      return opening;
+    },
+    endpoint: (): Endpoint | null => endpoint,
+  };
+}

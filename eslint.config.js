@@ -8,6 +8,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/dist-probe/**",
       "**/dist-resolve/**",
+      "**/dist-filmcraft/**",
       "**/node_modules/**",
       "**/vendor/**",
       "out/**",

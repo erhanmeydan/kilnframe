@@ -1,9 +1,19 @@
 // Kilnframe Helper: the companion (packages/companion) as a menu bar / tray app. It starts the companion
 // with Electron's own Node (ELECTRON_RUN_AS_NODE), restarts it if it stops, and offers a small menu. The
 // panel in Premiere talks to the companion exactly as before; this app only keeps it running.
-import { app, dialog, Menu, nativeImage, Notification, powerMonitor, shell, Tray } from "electron";
+import {
+  app,
+  dialog,
+  Menu,
+  nativeImage,
+  Notification,
+  powerMonitor,
+  shell,
+  Tray,
+  type BrowserWindow,
+} from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
-import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, uptime } from "node:os";
 import { dirname, join } from "node:path";
@@ -27,6 +37,15 @@ import {
   resolveInstallState,
   resolvePaths,
 } from "./resolve-plugin.js";
+import {
+  createFilmCraftOpener,
+  filmCraftMenuItems,
+  filmCraftRunning,
+  findFilmCraft,
+  launchFilmCraft,
+  probeChannel,
+  type Endpoint,
+} from "./filmcraft.js";
 
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -54,6 +73,11 @@ const text = turkish
       resolveFailed: "Resolve paneli kurulamadı, günlüğe bakın.",
       resolveNotStudio:
         "Kilnframe paneli DaVinci Resolve Studio gerektirir, ücretsiz sürüm eklenti yüklemiyor.",
+      filmCraft: "FilmCraft'ı Aç",
+      filmCraftWithout:
+        "FilmCraft Kilnframe olmadan açılmış. Projeni kaydedip FilmCraft'ı kapat, sonra buradan aç.",
+      filmCraftFailed: "FilmCraft başlatılamadı. Açıksa kapatıp yeniden deneyin.",
+      filmCraftPanelFailed: "Kilnframe paneli açılamadı, günlüğe bakın.",
       updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
       quit: "Kilnframe'den Çık",
       busyTitle: "Bir animasyon hazırlanıyor.",
@@ -82,6 +106,11 @@ const text = turkish
       resolveFailed: "The Resolve panel could not be installed, see the log.",
       resolveNotStudio:
         "The Kilnframe panel needs DaVinci Resolve Studio; the free version loads no plugins.",
+      filmCraft: "Open FilmCraft",
+      filmCraftWithout:
+        "FilmCraft was opened without Kilnframe. Save your project and quit FilmCraft, then open it from here.",
+      filmCraftFailed: "FilmCraft could not be started. If it is open, quit it and try again.",
+      filmCraftPanelFailed: "The Kilnframe panel could not be opened, see the log.",
       updateReady: "Version {v} is ready. Update from the panel.",
       quit: "Quit Kilnframe",
       busyTitle: "An animation is being made.",
@@ -323,6 +352,57 @@ function resolvePanelInstallable(): boolean {
   return state === "install" || state === "up-to-date";
 }
 
+/** FilmCraft's program, when it is installed. */
+const filmCraftProgram = () => findFilmCraft(process.platform, process.env, existsSync, homedir());
+
+/**
+ * The panel beside FilmCraft (packages/panel/dist-filmcraft): next to the app's other resources when packaged,
+ * from the repository in development.
+ */
+function filmCraftPanelDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, "filmcraft-panel")
+    : join(here, "..", "..", "panel", "dist-filmcraft");
+}
+
+let filmCraftPanel: BrowserWindow | null = null;
+
+/** Brings the panel window forward, or opens it; closing it leaves the app and FilmCraft running. */
+function showFilmCraftPanel() {
+  if (filmCraftPanel && !filmCraftPanel.isDestroyed()) {
+    filmCraftPanel.show();
+  } else {
+    const panel = require(join(filmCraftPanelDir(), "panel.js")) as {
+      openFilmCraftPanel(endpoint: () => Endpoint | null): BrowserWindow;
+    };
+    filmCraftPanel = panel.openFilmCraftPanel(filmCraft.endpoint);
+  }
+  // a menu bar app is not brought forward with its window
+  app.focus({ steal: true });
+  filmCraftPanel.focus();
+}
+
+/** FilmCraft's port and token stay in this process's memory: not written to a file or the log. */
+const filmCraft = createFilmCraftOpener({
+  program: () => filmCraftProgram() ?? "",
+  running: () => filmCraftRunning(process.platform),
+  answers: (ep) => probeChannel(ep.port, ep.token),
+  launch: (program) => launchFilmCraft(program),
+  showPanel: showFilmCraftPanel,
+  openWithoutKilnframe: () => notify(text.filmCraftWithout),
+  failed: (err) => {
+    logLine(`filmcraft: ${err.message}`);
+    notify(text.filmCraftFailed);
+  },
+});
+
+function openFilmCraft() {
+  filmCraft.open().catch((err: unknown) => {
+    logLine(`filmcraft: the panel did not open: ${err instanceof Error ? err.message : err}`);
+    notify(text.filmCraftPanelFailed);
+  });
+}
+
 function refreshMenu() {
   if (!tray) return;
   const login = openAtLogin();
@@ -339,6 +419,7 @@ function refreshMenu() {
       ...(resolvePanelInstallable()
         ? [{ label: text.resolvePanel, click: () => ensureResolvePlugin(true) }]
         : []),
+      ...filmCraftMenuItems(filmCraftProgram(), text.filmCraft, openFilmCraft),
       {
         label: text.styles,
         click: () => {

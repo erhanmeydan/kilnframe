@@ -1,22 +1,24 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const panel = join(__dirname, "..");
 const out = join(panel, "dist-resolve");
+const filmcraft = join(panel, "dist-filmcraft");
 const version = JSON.parse(readFileSync(join(panel, "public", "manifest.json"), "utf8")).version;
 
-describe("resolve build", () => {
-  beforeAll(() => {
-    // pnpm is pnpm.cmd on Windows, which only a shell finds
-    execFileSync("pnpm", ["build"], {
-      cwd: panel,
-      stdio: "ignore",
-      shell: process.platform === "win32",
-    });
-  }, 120_000);
+beforeAll(() => {
+  // pnpm is pnpm.cmd on Windows, which only a shell finds
+  execFileSync("pnpm", ["build"], {
+    cwd: panel,
+    stdio: "ignore",
+    shell: process.platform === "win32",
+  });
+}, 120_000);
 
+describe("resolve build", () => {
   it("writes a Workflow Integration plugin folder", () => {
     for (const f of [
       "manifest.xml",
@@ -62,5 +64,40 @@ describe("resolve build", () => {
 
   it("loads WorkflowIntegration.node beside main.js, which the app copies from Resolve", () => {
     expect(readFileSync(join(out, "main.js"), "utf8")).toContain("./WorkflowIntegration.node");
+  });
+});
+
+describe("FilmCraft build", () => {
+  it("writes the panel window the Kilnframe app opens beside FilmCraft", () => {
+    for (const f of [
+      "panel.js",
+      "package.json",
+      "preload.js",
+      "index.html",
+      "index.js",
+      "manifest.xml",
+      "icons/mark@2x.png",
+      "icons/app.png",
+      "fonts/OpenSans-Variable.ttf",
+      "fonts/OFL.txt",
+    ])
+      expect(existsSync(join(filmcraft, f)), f).toBe(true);
+  });
+
+  it("makes panel.js a CommonJS library with openFilmCraftPanel", () => {
+    const js = readFileSync(join(filmcraft, "panel.js"), "utf8");
+    expect(js).toContain("openFilmCraftPanel");
+    expect(js).not.toMatch(/^\s*(import|export)\s/m);
+    // outside Electron, require("electron") is only the path to its binary; loading still works
+    const lib = createRequire(join(filmcraft, "panel.js"))("./panel.js") as Record<string, unknown>;
+    expect(typeof lib.openFilmCraftPanel).toBe("function");
+  });
+
+  it("serves the Resolve page and leaves Resolve's own entry and native module out", () => {
+    expect(readFileSync(join(filmcraft, "index.js"), "utf8")).toBe(
+      readFileSync(join(out, "index.js"), "utf8"),
+    );
+    expect(existsSync(join(filmcraft, "main.js"))).toBe(false);
+    expect(readFileSync(join(filmcraft, "panel.js"), "utf8")).not.toContain("WorkflowIntegration");
   });
 });
