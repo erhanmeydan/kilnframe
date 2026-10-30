@@ -79,28 +79,57 @@ function readWindowState(): WindowState {
   }
 }
 
-export function registerPanelIpc(o: PanelWindowOptions, win: () => BrowserWindow | null): void {
-  // pluginVersion reads manifest.xml from the folder the window was opened with
+interface Current {
+  o: PanelWindowOptions;
+  dir: string;
+  win: () => BrowserWindow | null;
+}
+// The Kilnframe app reopens the window in one long-running process, and ipcMain allows a channel only once:
+// the handlers are registered once and read whichever window and options are current.
+let current: Current | null = null;
+let registered = false;
+
+/** The window to talk to, or null when there is none or it is gone. */
+function liveWindow(): BrowserWindow | null {
+  const w = current?.win() ?? null;
+  return w && !w.isDestroyed() ? w : null;
+}
+
+function currentOptions(): PanelWindowOptions {
+  if (!current) throw new Error("The Kilnframe panel is not open.");
+  return current.o;
+}
+
+export function registerPanelIpc(
+  o: PanelWindowOptions,
+  dir: string,
+  win: () => BrowserWindow | null,
+): void {
+  current = { o, dir, win };
+  if (registered) return;
+  registered = true;
   ipcMain.on("kilnframe:info", (e) => {
     e.returnValue = {
       homedir: home,
       platform: process.platform === "win32" ? "win" : "mac",
       locale: app.getLocale(),
-      pluginVersion: pluginVersion(panelDir),
-      onTop: win()?.isAlwaysOnTop() ?? readWindowState().onTop,
-      editor: o.editor,
+      pluginVersion: current ? pluginVersion(current.dir) : "",
+      onTop: liveWindow()?.isAlwaysOnTop() ?? readWindowState().onTop,
+      editor: current?.o.editor,
     };
   });
   for (const m of BRIDGE_CALLS)
     ipcMain.handle(`kilnframe:${m}`, async (_e, ...args: unknown[]) => {
-      const b = await o.bridge();
+      const b = await currentOptions().bridge();
       return (b[m] as (...a: unknown[]) => Promise<unknown>)(...args);
     });
   ipcMain.handle("kilnframe:setOnTop", (_e, on: boolean) => {
-    win()?.setAlwaysOnTop(Boolean(on));
+    liveWindow()?.setAlwaysOnTop(Boolean(on));
   });
   ipcMain.handle("kilnframe:pickImages", async (_e, types: string[]) => {
-    const r = await dialog.showOpenDialog(win()!, {
+    const w = liveWindow();
+    if (!w) return [];
+    const r = await dialog.showOpenDialog(w, {
       properties: ["openFile", "multiSelections"],
       filters: [{ name: "Images", extensions: types }],
     });
@@ -109,7 +138,9 @@ export function registerPanelIpc(o: PanelWindowOptions, win: () => BrowserWindow
   // the caption SRT the companion wrote, copied to where the editor picks (the job folder is outside ~/.kilnframe)
   ipcMain.handle("kilnframe:saveFileCopy", (_e, source: string, suggestedName: string) =>
     saveCopy(source, suggestedName, home, async (name) => {
-      const r = await dialog.showSaveDialog(win()!, {
+      const w = liveWindow();
+      if (!w) return null;
+      const r = await dialog.showSaveDialog(w, {
         defaultPath: join(app.getPath("documents"), name),
         filters: [{ name: "SubRip", extensions: ["srt"] }],
       });
@@ -138,11 +169,8 @@ export function registerPanelIpc(o: PanelWindowOptions, win: () => BrowserWindow
   });
 }
 
-let panelDir = "";
-
 /** Opens the panel window from `dir` (index.html, preload.js, icons/, manifest.xml) and answers its calls. */
 export function openPanelWindow(o: PanelWindowOptions, dir: string): BrowserWindow {
-  panelDir = dir;
   const s = readWindowState();
   const win = new BrowserWindow({
     ...(s.x !== undefined && s.y !== undefined ? { x: s.x, y: s.y } : {}),
@@ -161,7 +189,7 @@ export function openPanelWindow(o: PanelWindowOptions, dir: string): BrowserWind
       sandbox: true,
     },
   });
-  registerPanelIpc(o, () => win);
+  registerPanelIpc(o, dir, () => win);
   win.setMenu(null);
   // the page is the panel and nothing else: no navigating away with the preload attached, no new windows
   win.webContents.on("will-navigate", (e) => e.preventDefault());
@@ -174,6 +202,9 @@ export function openPanelWindow(o: PanelWindowOptions, dir: string): BrowserWind
       // the window state is a convenience
     }
     o.onClosed();
+  });
+  win.on("closed", () => {
+    if (current?.win() === win) current = null;
   });
   void win.loadFile(join(dir, "index.html"));
   return win;

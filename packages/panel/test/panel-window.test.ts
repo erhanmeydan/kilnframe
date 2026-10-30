@@ -1,15 +1,60 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as PanelModule from "../src/electron/panel-window";
+type PanelWindowOptions = PanelModule.PanelWindowOptions;
 
-const { on, handle } = vi.hoisted(() => ({ on: vi.fn(), handle: vi.fn() }));
+type Handler = (...a: unknown[]) => unknown;
+const { listeners, handlers, windows } = vi.hoisted(() => ({
+  listeners: new Map<string, (...a: unknown[]) => unknown>(),
+  handlers: new Map<string, (...a: unknown[]) => unknown>(),
+  windows: [] as Array<{ emit: (ev: string) => void; destroyed: boolean }>,
+}));
 vi.mock("electron", () => ({
-  app: { getPath: () => "/tmp", getLocale: () => "en-US" },
-  BrowserWindow: class {},
+  app: { getPath: () => "/tmp/kilnframe-no-such-dir", getLocale: () => "en-US" },
+  BrowserWindow: class {
+    destroyed = false;
+    private on_ = new Map<string, Array<() => void>>();
+    webContents = { on: () => {}, setWindowOpenHandler: () => {} };
+    constructor() {
+      windows.push(this);
+    }
+    setMenu() {}
+    loadFile() {
+      return Promise.resolve();
+    }
+    on(ev: string, f: () => void) {
+      this.on_.set(ev, [...(this.on_.get(ev) ?? []), f]);
+    }
+    emit(ev: string) {
+      if (ev === "closed") this.destroyed = true;
+      for (const f of this.on_.get(ev) ?? []) f();
+    }
+    getBounds() {
+      return {};
+    }
+    isAlwaysOnTop() {
+      return true;
+    }
+    isDestroyed() {
+      return this.destroyed;
+    }
+    setAlwaysOnTop() {}
+  },
   dialog: {},
-  ipcMain: { on, handle },
+  ipcMain: {
+    on: (ch: string, f: Handler) => {
+      listeners.set(ch, f);
+    },
+    handle: (ch: string, f: Handler) => {
+      // like Electron: a channel may be handled once
+      if (handlers.has(ch)) throw new Error(`Attempted to register a second handler for '${ch}'`);
+      handlers.set(ch, f);
+    },
+  },
   shell: {},
 }));
-
-import { registerPanelIpc, type PanelWindowOptions } from "../src/electron/panel-window";
 
 const CALLS = [
   "currentSequence",
@@ -40,16 +85,25 @@ function options(over: Partial<PanelWindowOptions> = {}): PanelWindowOptions {
   };
 }
 
-describe("registerPanelIpc", () => {
-  beforeEach(() => {
-    on.mockClear();
-    handle.mockClear();
-  });
+function info() {
+  const e: { returnValue?: { editor: string; pluginVersion: string } } = {};
+  listeners.get("kilnframe:info")!(e);
+  return e.returnValue!;
+}
 
+let panel: typeof PanelModule;
+beforeEach(async () => {
+  listeners.clear();
+  handlers.clear();
+  windows.length = 0;
+  vi.resetModules();
+  panel = await import("../src/electron/panel-window");
+});
+
+describe("registerPanelIpc", () => {
   it("registers every bridge call and the file and window calls", () => {
-    registerPanelIpc(options(), () => null);
-    const names = handle.mock.calls.map((c) => c[0]);
-    for (const m of CALLS) expect(names).toContain(`kilnframe:${m}`);
+    panel.registerPanelIpc(options(), "/x", () => null);
+    for (const m of CALLS) expect(handlers.has(`kilnframe:${m}`), m).toBe(true);
     for (const m of [
       "setOnTop",
       "pickImages",
@@ -59,25 +113,62 @@ describe("registerPanelIpc", () => {
       "writeTextFile",
       "fileExists",
     ])
-      expect(names).toContain(`kilnframe:${m}`);
+      expect(handlers.has(`kilnframe:${m}`), m).toBe(true);
   });
 
   it("passes calls to the bridge and its errors through unchanged", async () => {
+    panel.registerPanelIpc(options(), "/x", () => null);
+    expect(await handlers.get("kilnframe:currentSequence")!({}, 1)).toBe(2);
     const boom = new Error("boom");
-    registerPanelIpc(options(), () => null);
-    const call = handle.mock.calls.find((c) => c[0] === "kilnframe:currentSequence")![1];
-    expect(await call({}, 1)).toBe(2);
-    handle.mockClear();
-    registerPanelIpc(options({ bridge: async () => Promise.reject(boom) }), () => null);
-    const failing = handle.mock.calls.find((c) => c[0] === "kilnframe:currentSequence")![1];
-    await expect(failing({})).rejects.toBe(boom);
+    panel.registerPanelIpc(options({ bridge: () => Promise.reject(boom) }), "/x", () => null);
+    await expect(handlers.get("kilnframe:currentSequence")!({})).rejects.toBe(boom);
   });
 
-  it("tells the page which editor it runs in", () => {
-    registerPanelIpc(options({ editor: "filmcraft" }), () => null);
-    const info = on.mock.calls.find((c) => c[0] === "kilnframe:info")![1];
-    const e: { returnValue?: { editor: string } } = {};
-    info(e);
-    expect(e.returnValue?.editor).toBe("filmcraft");
+  it("tells the page which editor it runs in and the version in <dir>/manifest.xml", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kf-panel-"));
+    writeFileSync(join(dir, "manifest.xml"), "<Plugin><Version>9.8.7</Version></Plugin>");
+    panel.registerPanelIpc(options({ editor: "filmcraft" }), dir, () => null);
+    expect(info()).toMatchObject({ editor: "filmcraft", pluginVersion: "9.8.7" });
+  });
+
+  it("can be registered twice: the second options and bridge are the ones used", async () => {
+    panel.registerPanelIpc(options({ editor: "resolve" }), "/a", () => null);
+    expect(() =>
+      panel.registerPanelIpc(
+        options({
+          editor: "filmcraft",
+          bridge: async () => ({ currentSequence: async () => "second" }) as never,
+        }),
+        "/b",
+        () => null,
+      ),
+    ).not.toThrow();
+    expect(info().editor).toBe("filmcraft");
+    expect(await handlers.get("kilnframe:currentSequence")!({})).toBe("second");
+  });
+});
+
+describe("openPanelWindow", () => {
+  it("can be opened again after it closed, with the new options", async () => {
+    const onClosed = vi.fn();
+    panel.openPanelWindow(options({ editor: "resolve", onClosed }), "/a");
+    expect(info().editor).toBe("resolve");
+    windows[0].emit("close");
+    windows[0].emit("closed");
+    expect(onClosed).toHaveBeenCalledTimes(1);
+    // closed: nothing to talk to
+    await expect(handlers.get("kilnframe:currentSequence")!({})).rejects.toThrow(/not open/);
+    expect(await handlers.get("kilnframe:pickImages")!({}, ["png"])).toEqual([]);
+
+    expect(() => panel.openPanelWindow(options({ editor: "filmcraft" }), "/b")).not.toThrow();
+    expect(info().editor).toBe("filmcraft");
+    expect(await handlers.get("kilnframe:currentSequence")!({}, 4)).toBe(5);
+  });
+
+  it("does not forget the new window when the old one closes late", () => {
+    panel.openPanelWindow(options({ editor: "resolve" }), "/a");
+    panel.openPanelWindow(options({ editor: "filmcraft" }), "/b");
+    windows[0].emit("closed");
+    expect(info().editor).toBe("filmcraft");
   });
 });
