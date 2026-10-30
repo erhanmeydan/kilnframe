@@ -8,6 +8,7 @@
 // - media.status gives an item's file path (null for generated media); timeline.setTrack {enabled} switches
 //   video and audio tracks off for exports.
 import {
+  EXPORTS_STOPPED,
   NO_SEQUENCE,
   NOT_RUNNING,
   PLACE_FAILED,
@@ -19,9 +20,11 @@ import {
 } from "../resolve/api";
 import { frameFor } from "../frame";
 import { isOurAnimation, isOurInsert } from "../our-files";
-import type { FilmCraftClient } from "./client";
+import { CONNECTION_LOST, TIMED_OUT, type FilmCraftClient } from "./client";
 
 export const TICKS = 254_016_000_000;
+/** The longest an export may take before the job gives up on it. */
+const EXPORT_LIMIT_MS = 30 * 60_000;
 
 interface Clip {
   clip: number;
@@ -58,6 +61,9 @@ interface ProjectNode {
 }
 
 const seconds = (ticks: number) => ticks / TICKS;
+/** The channel failed, not the command: said as it is, never as a missing sequence or a failed render. */
+const channelError = (err: unknown) =>
+  [NOT_RUNNING, CONNECTION_LOST, TIMED_OUT].includes((err as Error).message);
 /** True when two paths name the same file: Mac and Windows file systems ignore letter case. */
 const samePath = (a: string, b: string) => {
   const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase();
@@ -67,12 +73,15 @@ const samePath = (a: string, b: string) => {
 export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
   /** File paths of project items: an item's media does not change while it is in the project. */
   const paths = new Map<number, string | null>();
+  /** Counts the editor's stops: an export waiting when it changes ends. */
+  let stops = 0;
+  const stopWaits = new Set<() => void>();
 
   async function inspect(id?: string): Promise<Sequence> {
     try {
       return await fc.exec<Sequence>("sequence.inspect", id ? { item: Number(id) } : {});
     } catch (err) {
-      if ((err as Error).message === NOT_RUNNING) throw err;
+      if (channelError(err)) throw err;
       throw new Error(NO_SEQUENCE, { cause: err });
     }
   }
@@ -122,13 +131,31 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
     };
   }
 
+  /** An export FilmCraft finishes before replying; a stop ends the wait at once (EXPORTS_STOPPED). */
   async function exportMedia(params: Record<string, unknown>): Promise<boolean> {
+    const stopsBefore = stops;
+    let stopWait = () => undefined as void;
+    const stopped = new Promise<never>((_, fail) => {
+      stopWait = () => fail(new Error(EXPORTS_STOPPED));
+    });
+    stopWaits.add(stopWait);
     try {
-      await fc.exec("file.exportMedia", { range: "custom", wait: true, ...params });
+      await Promise.race([
+        fc.exec(
+          "file.exportMedia",
+          { range: "custom", wait: true, ...params },
+          { timeoutMs: EXPORT_LIMIT_MS },
+        ),
+        stopped,
+      ]);
+      if (stops !== stopsBefore) throw new Error(EXPORTS_STOPPED);
       return true;
     } catch (err) {
-      if ((err as Error).message === NOT_RUNNING) throw err;
+      if (stops !== stopsBefore) throw new Error(EXPORTS_STOPPED, { cause: err });
+      if (channelError(err)) throw err;
       throw new Error(RENDER_FAILED, { cause: err });
+    } finally {
+      stopWaits.delete(stopWait);
     }
   }
 
@@ -293,7 +320,12 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
     },
 
     async cancelExports() {
-      await fc.exec("export.queue.cancel", {}).catch(() => undefined);
+      stops++;
+      for (const stopWait of stopWaits) stopWait();
+      // on a connection of its own: the export holds the shared one until it ends
+      await fc
+        .exec("export.queue.cancel", {}, { alone: true, timeoutMs: 5_000 })
+        .catch(() => undefined);
     },
 
     async isRendering() {

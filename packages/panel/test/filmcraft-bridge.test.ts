@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFilmCraftBridge, TICKS } from "../src/filmcraft/bridge";
-import { NOT_RUNNING, PLACE_FAILED } from "../src/resolve/api";
+import { EXPORTS_STOPPED, NOT_RUNNING, PLACE_FAILED, RENDER_FAILED } from "../src/resolve/api";
 import { makeFakeFilmCraft, type FakeFilmCraft } from "./fake-filmcraft";
 
 const JOB = "/Users/ed/Movies/Kilnframe/job-1";
@@ -36,6 +36,47 @@ describe("filmcraft bridge", () => {
       outSeconds: 6,
       videoTracks: 1,
       audioTracks: 1,
+    });
+  });
+
+  it("stops a running export when the job is stopped, past the shared connection", async () => {
+    const f = makeFakeFilmCraft();
+    f.state.holdExports = "cancel";
+    const b = bridgeOf(f);
+    const seq = await b.currentSequence();
+    const exporting = b.exportRangeAudio(seq.id, 0, 2, "/x/a.wav");
+    await expect.poll(() => f.state.log.at(-1)?.command).toBe("file.exportMedia");
+    await b.cancelExports();
+    await expect(exporting).rejects.toThrow(EXPORTS_STOPPED);
+    expect(f.state.alone).toEqual(["export.queue.cancel"]);
+  });
+
+  it("ends the export's wait on a stop even when FilmCraft goes on exporting", async () => {
+    const f = makeFakeFilmCraft();
+    f.state.holdExports = "never";
+    const b = bridgeOf(f);
+    const seq = await b.currentSequence();
+    const exporting = b.exportRangePicture(seq.id, 0, 2, "/x/footage.mp4");
+    await expect.poll(() => f.state.log.at(-1)?.command).toBe("file.exportMedia");
+    await b.cancelExports();
+    await expect(exporting).rejects.toThrow(EXPORTS_STOPPED);
+  });
+
+  it("says RENDER_FAILED for an export FilmCraft refused, and a later export runs", async () => {
+    const f = makeFakeFilmCraft();
+    let refuse = true;
+    f.state.before = (command) => {
+      if (command === "file.exportMedia" && refuse) {
+        refuse = false;
+        throw new Error("no such format");
+      }
+    };
+    const b = bridgeOf(f);
+    const seq = await b.currentSequence();
+    await expect(b.exportRangeAudio(seq.id, 0, 2, "/x/a.wav")).rejects.toThrow(RENDER_FAILED);
+    await expect(b.exportRangeAudio(seq.id, 0, 2, "/x/a.wav")).resolves.toEqual({
+      ok: true,
+      offsetSeconds: 0,
     });
   });
 

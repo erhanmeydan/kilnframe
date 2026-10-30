@@ -1,6 +1,12 @@
 import { createServer, type Server, type Socket } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFilmCraftClient, NOT_RUNNING, type FilmCraftClient } from "../src/filmcraft/client";
+import {
+  CONNECTION_LOST,
+  createFilmCraftClient,
+  NOT_RUNNING,
+  TIMED_OUT,
+  type FilmCraftClient,
+} from "../src/filmcraft/client";
 
 const TOKEN = "ab".repeat(32);
 
@@ -15,8 +21,13 @@ interface Request {
 async function serve(answer: (req: Request, socket: Socket, n: number) => void) {
   const requests: Request[] = [];
   let connections = 0;
+  /** Resolves once a connection has closed at both ends (the client saw it go). */
+  let closed: () => void = () => undefined;
+  const sockets: Socket[] = [];
   const server: Server = createServer((socket) => {
     connections++;
+    sockets.push(socket);
+    socket.on("close", () => closed());
     socket.setEncoding("utf8");
     let buffer = "";
     socket.on("data", (chunk: string) => {
@@ -34,15 +45,25 @@ async function serve(answer: (req: Request, socket: Socket, n: number) => void) 
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
   const port = (server.address() as { port: number }).port;
   servers.push(server);
-  return { port, requests, connections: () => connections };
+  return {
+    port,
+    server,
+    requests,
+    connections: () => connections,
+    /** FilmCraft closes every connection it has. */
+    endAll: () => sockets.forEach((x) => x.end()),
+    nextClose: () => new Promise<void>((ok) => (closed = ok)),
+  };
 }
 
 const reply = (socket: Socket, body: object) => socket.write(JSON.stringify(body) + "\n");
 
 const servers: Server[] = [];
 const clients: FilmCraftClient[] = [];
-const client = (port: number | null) => {
-  const c = createFilmCraftClient(() => (port === null ? null : { port, token: TOKEN }));
+const client = (port: number | null, timeoutMs?: number) => {
+  const c = createFilmCraftClient(() => (port === null ? null : { port, token: TOKEN }), {
+    timeoutMs,
+  });
   clients.push(c);
   return c;
 };
@@ -50,7 +71,6 @@ const client = (port: number | null) => {
 afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
   for (const s of servers.splice(0)) {
-    s.closeAllConnections?.();
     await new Promise((ok) => s.close(ok));
   }
 });
@@ -92,20 +112,79 @@ describe("filmcraft client", () => {
     expect(fc.requests).toHaveLength(1);
   });
 
-  it("connects again once when FilmCraft dropped the connection", async () => {
+  it("connects again when FilmCraft closed the connection while it was idle", async () => {
+    const fc = await serve((req, socket) =>
+      reply(socket, { id: req.id, ok: true, result: req.id }),
+    );
+    const c = client(fc.port);
+    await expect(c.exec("sequence.inspect")).resolves.toEqual(expect.any(Number));
+    // FilmCraft drops connections idle for two minutes
+    const closed = fc.nextClose();
+    fc.endAll();
+    await closed;
+    await expect(c.exec("sequence.inspect")).resolves.toEqual(expect.any(Number));
+    expect(fc.connections()).toBe(2);
+    expect(fc.requests).toHaveLength(2);
+  });
+
+  it("never sends a request again once it went out, and says the connection was lost", async () => {
     const fc = await serve((req, socket, n) => {
-      // the first request finds the connection gone (FilmCraft closes idle ones)
-      if (n === 1) return socket.destroy();
-      reply(socket, { id: req.id, ok: true, result: n });
-      if (n === 2) socket.end();
+      if (n === 1) socket.destroy();
+      else reply(socket, { id: req.id, ok: true, result: n });
     });
     const c = client(fc.port);
+    await expect(c.exec("timeline.place")).rejects.toThrow(CONNECTION_LOST);
+    expect(fc.requests).toHaveLength(1);
+    // the next request goes on a new connection
     await expect(c.exec("sequence.inspect")).resolves.toBe(2);
+  });
+
+  it("says NOT_RUNNING when FilmCraft quit with a request out", async () => {
+    const fc = await serve((_req, socket) => {
+      fc.server.close();
+      socket.destroy();
+    });
+    await expect(client(fc.port).exec("timeline.place")).rejects.toThrow(NOT_RUNNING);
+    expect(fc.requests).toHaveLength(1);
+  });
+
+  it("gives up on a reply that does not come, and the requests after it still go", async () => {
+    const fc = await serve((req, socket, n) => {
+      if (n > 1) reply(socket, { id: req.id, ok: true, result: n });
+    });
+    const c = client(fc.port, 50);
+    const hung = c.exec("sequence.inspect");
+    const next = c.exec("project.inspect");
+    await expect(hung).rejects.toThrow(TIMED_OUT);
+    await expect(next).resolves.toBe(2);
     expect(fc.connections()).toBe(2);
-    // and a connection FilmCraft ended between requests is made again for the next one
-    await new Promise((ok) => setTimeout(ok, 20));
-    await expect(c.exec("sequence.inspect")).resolves.toBe(3);
-    expect(fc.connections()).toBe(3);
+  });
+
+  it("waits as long as a call allows", async () => {
+    const fc = await serve((req, socket) =>
+      setTimeout(() => reply(socket, { id: req.id, ok: true, result: "done" }), 80),
+    );
+    await expect(
+      client(fc.port, 20).exec("file.exportMedia", {}, { timeoutMs: null }),
+    ).resolves.toBe("done");
+  });
+
+  it("sends a call of its own past a request that holds the shared connection", async () => {
+    let release: () => void = () => undefined;
+    const fc = await serve((req, socket) => {
+      const answer = () => reply(socket, { id: req.id, ok: true, result: req.params.command });
+      if (req.params.command === "file.exportMedia") release = answer;
+      else answer();
+    });
+    const c = client(fc.port);
+    const exporting = c.exec("file.exportMedia", {}, { timeoutMs: null });
+    await expect.poll(() => fc.requests.length).toBe(1);
+    await expect(c.exec("export.queue.cancel", {}, { alone: true })).resolves.toBe(
+      "export.queue.cancel",
+    );
+    release();
+    await expect(exporting).resolves.toBe("file.exportMedia");
+    expect(fc.connections()).toBe(2);
   });
 
   it("says NOT_RUNNING when there is no endpoint or nothing listens on the port", async () => {

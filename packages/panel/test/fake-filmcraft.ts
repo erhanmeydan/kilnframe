@@ -1,6 +1,6 @@
 // An in-memory FilmCraft behind the client interface: the engine commands the bridge uses, with the shapes
 // FilmCraft 0.14.0 answers. Times are ticks from the sequence start; a placed clip starts on the frame asked.
-import { NOT_RUNNING, type FilmCraftClient } from "../src/filmcraft/client";
+import { NOT_RUNNING, type CallOptions, type FilmCraftClient } from "../src/filmcraft/client";
 import { TICKS } from "../src/filmcraft/bridge";
 
 export interface FakeClip {
@@ -91,6 +91,10 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
     before: (_command: string, _params: Record<string, unknown>) => undefined as void,
     /** timeline.place lands the clip this many frames off the frame asked. */
     placeOffBy: 0,
+    /** file.exportMedia runs until export.queue.cancel ("cancel") or for good ("never"). */
+    holdExports: null as "cancel" | "never" | null,
+    /** Commands sent on a connection of their own. */
+    alone: [] as string[],
     get active() {
       return active;
     },
@@ -204,26 +208,36 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
       return {};
     },
     "media.status": (p) => [{ item: p.item, path: media.get(Number(p.item)) ?? null }],
-    "file.exportMedia": () => ({ done: true }),
+    "file.exportMedia": () => {
+      if (!state.holdExports) return { done: true };
+      return new Promise((_, fail) => {
+        if (state.holdExports === "cancel") cancels.push(() => fail(new Error("export cancelled")));
+      });
+    },
     "file.exportFrame": () => ({ done: true }),
-    "export.queue.cancel": () => ({}),
+    "export.queue.cancel": () => {
+      for (const c of cancels.splice(0)) c();
+      return {};
+    },
   };
 
+  const cancels: (() => void)[] = [];
   let down = false;
   const client: FilmCraftClient = {
-    async call(method, params) {
+    async call(method, params, o) {
       if (method !== "engine.execute") throw new Error(`unknown method ${method}`);
       const { command, params: p } = params as { command: string; params: Record<string, unknown> };
-      return client.exec(command, p);
+      return client.exec(command, p, o);
     },
-    async exec<T>(command: string, params?: unknown) {
+    async exec<T>(command: string, params?: unknown, o?: CallOptions) {
       const p = (params ?? {}) as Record<string, unknown>;
       log.push({ command, params: p });
+      if (o?.alone) state.alone.push(command);
       if (down) throw new Error(NOT_RUNNING);
       state.before(command, p);
       const run = commands[command];
       if (!run) throw new Error(`unknown command ${command}`);
-      return run(p) as T;
+      return (await run(p)) as T;
     },
     close() {},
   };
