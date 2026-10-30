@@ -81,6 +81,9 @@ const text = turkish
       filmCraftReopen: "FilmCraft'ı Kapat ve Yeniden Aç",
       cancel: "Vazgeç",
       filmCraftStayedOpen: "FilmCraft açık kaldı.",
+      filmCraftStayedOpenDetail:
+        "FilmCraft kapanmadı, bu yüzden yeniden açılmadı. FilmCraft'ı kendiniz kapatıp menüden FilmCraft'ı Aç'ı seçin.",
+      ok: "Tamam",
       filmCraftFailed: "FilmCraft başlatılamadı. Açıksa kapatıp yeniden deneyin.",
       filmCraftPanelFailed: "Kilnframe paneli açılamadı, günlüğe bakın.",
       updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
@@ -118,6 +121,9 @@ const text = turkish
       filmCraftReopen: "Close FilmCraft and Reopen",
       cancel: "Cancel",
       filmCraftStayedOpen: "FilmCraft stayed open.",
+      filmCraftStayedOpenDetail:
+        "FilmCraft did not close, so it was not reopened. Close FilmCraft yourself, then choose Open FilmCraft from the menu.",
+      ok: "OK",
       filmCraftFailed: "FilmCraft could not be started. If it is open, quit it and try again.",
       filmCraftPanelFailed: "The Kilnframe panel could not be opened, see the log.",
       updateReady: "Version {v} is ready. Update from the panel.",
@@ -412,7 +418,16 @@ const filmCraft = createFilmCraftOpener({
     return response === 0;
   },
   quit: () => quitFilmCraft(process.platform),
-  stayedOpen: () => notify(text.filmCraftStayedOpen),
+  stayedOpen: async () => {
+    app.focus({ steal: true });
+    await dialog.showMessageBox({
+      type: "info",
+      message: text.filmCraftStayedOpen,
+      detail: text.filmCraftStayedOpenDetail,
+      buttons: [text.ok],
+      defaultId: 0,
+    });
+  },
   failed: (err) => {
     logLine(`filmcraft: ${err.message}`);
     notify(text.filmCraftFailed);

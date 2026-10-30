@@ -79,6 +79,11 @@ describe("Open FilmCraft", () => {
     reopen?: boolean;
     /** Whether FilmCraft quits when asked (false: the user cancelled its save prompt). */
     quits?: boolean;
+    /** The quit request itself failed (taskkill error, Apple events not allowed). */
+    quitRefused?: boolean;
+    /** How long FilmCraft takes to quit after the request (ms). */
+    quitAfterMs?: number;
+    closeLimitMs?: number;
   }) => {
     const calls: string[] = [];
     let running = o.running;
@@ -99,11 +104,13 @@ describe("Open FilmCraft", () => {
       },
       quit: async () => {
         calls.push("quit");
-        if (o.quits ?? true) setTimeout(() => (running = false), 5);
+        if (o.quitRefused) return "refused";
+        if (o.quits ?? true) setTimeout(() => (running = false), o.quitAfterMs ?? 5);
+        return "sent";
       },
       stayedOpen: () => calls.push("stayed open"),
       pollMs: 1,
-      closeLimitMs: 50,
+      closeLimitMs: o.closeLimitMs ?? 50,
       failed: (err) => calls.push(`failed ${err.message}`),
     });
     return { opener, calls };
@@ -157,6 +164,31 @@ describe("Open FilmCraft", () => {
     await opener.open();
     expect(calls).toEqual(["ask", "quit", "stayed open"]);
     expect(opener.endpoint()).toBeNull();
+  });
+
+  it("says at once that FilmCraft stayed open when the quit request fails", async () => {
+    const { opener, calls } = setup({
+      running: true,
+      reopen: true,
+      quitRefused: true,
+      closeLimitMs: 60_000,
+    });
+    const started = Date.now();
+    await opener.open();
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(calls).toEqual(["ask", "quit", "stayed open"]);
+  });
+
+  it("keeps waiting while FilmCraft's save prompt holds the quit", async () => {
+    // the request was sent (osascript ran into its time limit); FilmCraft quits later
+    const { opener, calls } = setup({ running: true, reopen: true, quitAfterMs: 30 });
+    await opener.open();
+    expect(calls).toEqual([
+      "ask",
+      "quit",
+      "launch /Applications/FilmCraft.app/Contents/MacOS/FilmCraft",
+      "panel",
+    ]);
   });
 
   it("asks once when the menu is clicked again during the question", async () => {
@@ -233,11 +265,22 @@ describe("quitFilmCraft", () => {
     expect(calls).toEqual([["taskkill", "/IM", "filmcraft.exe"]]);
   });
 
-  it("never throws: whether it quit is read from the process list", async () => {
-    await expect(
-      quitFilmCraft("darwin", async () => {
-        throw new Error("timed out");
-      }),
-    ).resolves.toBeUndefined();
+  it("says sent when the request went out, also when a save prompt outlasts osascript's time limit", async () => {
+    const { exec } = record();
+    expect(await quitFilmCraft("darwin", exec)).toBe("sent");
+    expect(await quitFilmCraft("win32", exec)).toBe("sent");
+    const timedOut = async () => {
+      // execFile's timeout kills the child and reports it as killed
+      throw Object.assign(new Error("Command failed"), { killed: true, signal: "SIGTERM" });
+    };
+    expect(await quitFilmCraft("darwin", timedOut)).toBe("sent");
+  });
+
+  it("says refused, without throwing, when the request itself fails", async () => {
+    const notAllowed = async () => {
+      throw Object.assign(new Error("Not authorized to send Apple events (-1743)"), { code: 1 });
+    };
+    expect(await quitFilmCraft("darwin", notAllowed)).toBe("refused");
+    expect(await quitFilmCraft("win32", notAllowed)).toBe("refused");
   });
 });

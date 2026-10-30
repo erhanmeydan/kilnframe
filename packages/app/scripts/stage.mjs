@@ -246,8 +246,12 @@ writeFileSync(
             : process.argv.includes("--dmg")
               ? ["dmg"]
               : ["dir"],
-        // a menu bar app: no Dock icon, no window
-        extendInfo: { LSUIElement: true },
+        // a menu bar app: no Dock icon, no window; macOS asks once before the app may ask FilmCraft to quit
+        extendInfo: {
+          LSUIElement: true,
+          NSAppleEventsUsageDescription:
+            "Kilnframe asks FilmCraft to quit so it can reopen it with the Kilnframe panel.",
+        },
         // signed with the Developer ID in the login keychain when there is one (--unsigned skips it);
         // notarized when APPLE_KEYCHAIN_PROFILE names a notarytool profile (xcrun notarytool store-credentials)
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",

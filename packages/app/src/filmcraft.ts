@@ -136,17 +136,24 @@ export function channelAnswer(port: number, token: string, limitMs = 2000): Prom
 }
 
 /**
- * Asks FilmCraft to quit the way its own menu would, so it can offer to save; never forced. Whether it quit is
- * read from the process list afterwards. Never throws.
+ * Asks FilmCraft to quit the way its own menu would, so it can offer to save; never forced. `sent` when the
+ * request went out (whether it quit is read from the process list afterwards), `refused` when the request itself
+ * failed. Never throws.
  */
-export async function quitFilmCraft(platform: NodeJS.Platform, exec: Exec = run): Promise<void> {
+export async function quitFilmCraft(
+  platform: NodeJS.Platform,
+  exec: Exec = run,
+): Promise<"sent" | "refused"> {
   try {
     if (platform === "win32")
       // without /F: a close request; image names match without regard to case (FilmCraft.exe, filmcraft.exe)
       await exec("taskkill", ["/IM", "filmcraft.exe"]);
     else await exec("osascript", ["-e", 'tell application "FilmCraft" to quit']);
-  } catch {
-    // a save prompt can outlast the call; the process list says what happened
+    return "sent";
+  } catch (err) {
+    // osascript waits for FilmCraft's answer, which a save prompt holds back until exec's time limit ends it:
+    // the request went out. Any other failure (Apple events not allowed, taskkill's error) means it did not.
+    return (err as { killed?: boolean }).killed ? "sent" : "refused";
   }
 }
 
@@ -245,9 +252,9 @@ export interface OpenerDeps {
    */
   askToReopen: () => Promise<boolean>;
   /** Asks FilmCraft to quit (quitFilmCraft). */
-  quit: () => Promise<void>;
-  /** FilmCraft was asked to quit and is still open, e.g. its save prompt was cancelled. */
-  stayedOpen: () => void;
+  quit: () => Promise<"sent" | "refused">;
+  /** FilmCraft was asked to quit and is still open: its save prompt was cancelled, or the request failed. */
+  stayedOpen: () => void | Promise<void>;
   failed: (err: Error) => void;
   /** Pause between checks while FilmCraft quits. */
   pollMs?: number;
@@ -268,14 +275,15 @@ export function createFilmCraftOpener(deps: OpenerDeps) {
   /** Closes a FilmCraft opened without Kilnframe when the user agrees; true once it has quit. */
   async function closeTheirs(): Promise<boolean> {
     if (!(await deps.askToReopen())) return false;
-    await deps.quit();
-    const deadline = Date.now() + closeLimitMs;
-    for (;;) {
-      if (!(await deps.running())) return true;
-      if (Date.now() >= deadline) break;
-      await new Promise((r) => setTimeout(r, pollMs));
+    if ((await deps.quit()) === "sent") {
+      const deadline = Date.now() + closeLimitMs;
+      for (;;) {
+        if (!(await deps.running())) return true;
+        if (Date.now() >= deadline) break;
+        await new Promise((r) => setTimeout(r, pollMs));
+      }
     }
-    deps.stayedOpen();
+    await deps.stayedOpen();
     return false;
   }
 

@@ -2,7 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Hardened runtime exceptions for Kilnframe Helper and everything it starts. Electron (V8) and the
      headless Chrome generate code at run time; Node loads native modules (ONNX Runtime, sharp) that
-     macOS would otherwise refuse under library validation. No camera, microphone or other access. -->
+     macOS would otherwise refuse under library validation. Apple events only to ask FilmCraft to quit
+     (so it can be reopened with the Kilnframe panel). No camera, microphone or other access. -->
 <plist version="1.0">
 <dict>
   <key>com.apple.security.cs.allow-jit</key>
@@ -10,6 +11,8 @@
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <true/>
   <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.automation.apple-events</key>
   <true/>
 </dict>
 </plist>
