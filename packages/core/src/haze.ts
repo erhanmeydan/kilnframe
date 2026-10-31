@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, rmSync } from "node:fs";
+import { closeSync, openSync, readdirSync, readSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { ffmpegPath } from "./config.js";
 import { snapshotProject, type CheckFinding } from "./hyperframes.js";
@@ -10,35 +10,65 @@ const FAINT_ALPHA = 20;
 /** Share of the frame that may be faint: shape edges stay well under it (about 2% measured). */
 const MAX_FAINT_SHARE = 0.03;
 
+/** The grid a still is averaged into before counting: enough for areas and quick. */
+const GRID_W = 480;
+const GRID_H = 270;
+
 /**
  * Share of a transparent still's pixels that are faintly covered (0 < alpha <= 8%). An overlay should leave
  * the frame either clear or visibly covered; a faint layer over a wide area reads as haze over the speaker.
- * Measured at 480x270, which is enough for areas and quick.
+ * FFmpeg only extracts the alpha at full size; the averaging is done here, because FFmpeg's Windows build
+ * read clear pixels as 1 whenever the size did not divide evenly (a portrait 2160x3840 overlay, 31 Oct 2026).
  */
 export function faintShare(png: string): number {
+  const size = pngSize(png);
+  if (!size) return 0;
   const r = spawnSync(
     ffmpegPath(),
-    [
-      "-v",
-      "error",
-      "-i",
-      png,
-      "-vf",
-      // area: a plain average. The default (bicubic) turns transparent pixels into 1 in the Windows build
-      // of FFmpeg, so a clean overlay read as a faint layer over the whole frame
-      "alphaextract,scale=480:270:flags=area",
-      "-f",
-      "rawvideo",
-      "-pix_fmt",
-      "gray",
-      "-",
-    ],
-    { maxBuffer: 1 << 24 },
+    ["-v", "error", "-i", png, "-vf", "alphaextract", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+    { maxBuffer: size.width * size.height + (1 << 16) },
   );
-  if (r.status !== 0 || !r.stdout.length) return 0; // no alpha channel: nothing to measure
+  if (r.status !== 0 || r.stdout.length !== size.width * size.height) return 0; // no alpha channel
+  return faintShareOf(r.stdout, size.width, size.height);
+}
+
+/** faintShare on a full-size alpha plane: each grid cell is the plain average of the pixels it covers. */
+export function faintShareOf(alpha: Uint8Array, width: number, height: number): number {
+  const sums = new Float64Array(GRID_W * GRID_H);
+  const counts = new Uint32Array(GRID_W * GRID_H);
+  const col = new Uint32Array(width);
+  for (let x = 0; x < width; x++) col[x] = Math.floor((x * GRID_W) / width);
+  for (let y = 0; y < height; y++) {
+    const row = Math.floor((y * GRID_H) / height) * GRID_W;
+    for (let x = 0; x < width; x++) {
+      const cell = row + (col[x] as number);
+      sums[cell] = (sums[cell] as number) + (alpha[y * width + x] as number);
+      counts[cell] = (counts[cell] as number) + 1;
+    }
+  }
   let faint = 0;
-  for (const a of r.stdout) if (a > 0 && a <= FAINT_ALPHA) faint++;
-  return faint / r.stdout.length;
+  let cells = 0;
+  for (let i = 0; i < sums.length; i++) {
+    const n = counts[i] as number;
+    if (!n) continue; // a still smaller than the grid leaves cells empty
+    cells++;
+    const a = Math.round((sums[i] as number) / n);
+    if (a > 0 && a <= FAINT_ALPHA) faint++;
+  }
+  return cells ? faint / cells : 0;
+}
+
+/** Width and height from a PNG's header, or null when the file is not a PNG. */
+function pngSize(png: string): { width: number; height: number } | null {
+  const head = Buffer.alloc(24);
+  const fd = openSync(png, "r");
+  try {
+    readSync(fd, head, 0, 24, 0);
+  } finally {
+    closeSync(fd);
+  }
+  if (head.readUInt32BE(12) !== 0x49484452) return null; // "IHDR"
+  return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) };
 }
 
 /**
