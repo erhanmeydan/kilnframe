@@ -130,6 +130,10 @@ export async function loadSpeechModel(
   try {
     const asr = await pipeline("automatic-speech-recognition", model, {
       dtype: dtype as never,
+      // lean on memory, for 8 GB computers: weights kept as they are in the file (not prepacked into a
+      // second copy) and no memory arena held between runs. large-v3-turbo q8 peaks at 2.9 GB instead of
+      // 4.6 GB, with the same words, about 7% slower
+      session_options: { enableCpuMemArena: false, enableMemPattern: false, extra: { session: { disable_prepacking: "1" } } } as never,
       progress_callback: downloadProgress((p) => onProgress?.(`Downloading speech model: ${p}%`)),
     });
     return asr as unknown as AsrPipeline;
