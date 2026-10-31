@@ -26,7 +26,7 @@ import {
   ensureOcrData,
   loadSpeechCatalog,
   narrate,
-  loadSpeechModel,
+  downloadSpeechModel,
   systemReport,
   speechModelCached,
   vendorDir,
@@ -235,7 +235,7 @@ async function main() {
     },
     prepareModels: async (onProgress) => {
       const defaults = loadDefaults();
-      await loadSpeechModel(defaults, onProgress);
+      await downloadSpeechModel(defaults, onProgress);
       await ensureOcrData(defaults.ocr, onProgress);
     },
   });

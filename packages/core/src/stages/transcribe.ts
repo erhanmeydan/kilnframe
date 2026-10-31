@@ -1,3 +1,5 @@
+import { fork } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import type { Defaults } from "../config.js";
 import { modelsDir } from "../config.js";
 import { WHISPER_SAMPLE_RATE, decodeAudio } from "../media/audio.js";
@@ -156,7 +158,81 @@ export interface TranscribeOptions {
   onProgress?: (message: string) => void;
 }
 
+/** What the speech process is asked to do (speech-worker.ts). */
+export type SpeechModelRequest =
+  | { kind: "transcribe"; audioPath: string; defaults: Defaults; language?: string | undefined }
+  | { kind: "download"; defaults: Defaults };
+
+export type SpeechModelReply =
+  | { type: "progress"; message: string }
+  | { type: "done"; transcript?: Transcript }
+  | { type: "failed"; name: string; message: string };
+
+const SPEECH_WORKER = fileURLToPath(new URL("./speech-worker.js", import.meta.url));
+
+/**
+ * Runs the speech model in a process of its own. The model takes about 4 GB while it works and the memory
+ * it leaves behind (over 1.5 GB) does not go back to the system until the process ends; in the job process
+ * that memory stayed taken while Chrome rendered, and on a computer with 8 GB that pushes Premiere into swap.
+ */
+export function runSpeechProcess(
+  request: SpeechModelRequest,
+  onProgress?: (message: string) => void,
+  workerPath = SPEECH_WORKER,
+): Promise<Transcript | undefined> {
+  return new Promise((resolve, reject) => {
+    // same process group as the caller, so stopping a job also ends this process
+    const child = fork(workerPath, [], { stdio: ["ignore", "inherit", "inherit", "ipc"] });
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+    child.on("message", (m: SpeechModelReply) => {
+      if (m.type === "progress") onProgress?.(m.message);
+      else if (m.type === "done") finish(() => resolve(m.transcript));
+      else
+        finish(() =>
+          reject(m.name === "NoSpeechError" ? new NoSpeechError() : new Error(m.message)),
+        );
+    });
+    // close, not exit: it comes after the IPC channel has delivered the last message
+    child.on("close", (code) =>
+      finish(() =>
+        reject(
+          new Error(
+            `The speech model stopped unexpectedly (exit ${code ?? "signal"}). If the computer is low on memory, close other programs and try again.`,
+          ),
+        ),
+      ),
+    );
+    child.on("error", (err) => finish(() => reject(err)));
+    child.send(request);
+  });
+}
+
+/** Downloads the speech model without keeping it in this process's memory (the companion runs all day). */
+export async function downloadSpeechModel(
+  defaults: Defaults,
+  onProgress?: (message: string) => void,
+): Promise<void> {
+  await runSpeechProcess({ kind: "download", defaults }, onProgress);
+}
+
+/** Transcribes in a process of its own (runSpeechProcess); the memory is free again when it returns. */
 export async function transcribe(options: TranscribeOptions): Promise<Transcript> {
+  const { audioPath, defaults, language, onProgress } = options;
+  const transcript = await runSpeechProcess(
+    { kind: "transcribe", audioPath, defaults, language },
+    onProgress,
+  );
+  if (!transcript) throw new Error("The speech model returned no transcript.");
+  return transcript;
+}
+
+/** Transcribes in this process; the speech process (speech-worker.ts) calls it. */
+export async function transcribeHere(options: TranscribeOptions): Promise<Transcript> {
   const { audioPath, defaults, language, onProgress } = options;
   const { model, chunkLengthS } = defaults.whisper;
 

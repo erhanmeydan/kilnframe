@@ -1,5 +1,16 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { TranscriptSchema, chunksToWords, downloadProgress, pickLanguage } from "../src/index.js";
+import {
+  NoSpeechError,
+  TranscriptSchema,
+  chunksToWords,
+  downloadProgress,
+  loadDefaults,
+  pickLanguage,
+  runSpeechProcess,
+} from "../src/index.js";
 
 describe("chunksToWords", () => {
   it("trims words, drops empty chunks and closes an open last word", () => {
@@ -128,5 +139,59 @@ describe("pickLanguage", () => {
     ]);
     expect(r.language).toBe("tr");
     expect(r.probability).toBeGreaterThan(0.99);
+  });
+});
+
+describe("runSpeechProcess", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kf-speech-"));
+  // a stand-in for speech-worker.js: answers the request the way the real worker does
+  const worker = (body: string) => {
+    const file = join(dir, `w${Math.random().toString(36).slice(2)}.mjs`);
+    writeFileSync(
+      file,
+      `process.once("message", async (req) => { const send = (m) => new Promise((r) => process.send(m, undefined, {}, r)); ${body} });`,
+    );
+    return file;
+  };
+  const defaults = loadDefaults();
+
+  it("passes progress through and returns the transcript", async () => {
+    const transcript = { version: 1, language: "tr", words: [] };
+    const file = worker(
+      `await send({ type: "progress", message: req.kind + " " + req.audioPath }); await send({ type: "done", transcript: ${JSON.stringify(transcript)} }); process.exit(0);`,
+    );
+    const seen: string[] = [];
+    const result = await runSpeechProcess(
+      { kind: "transcribe", audioPath: "a.wav", defaults },
+      (m) => seen.push(m),
+      file,
+    );
+    expect(seen).toEqual(["transcribe a.wav"]);
+    expect(result).toEqual(transcript);
+  });
+
+  it("turns a failure named NoSpeechError back into a NoSpeechError", async () => {
+    const file = worker(
+      `await send({ type: "failed", name: "NoSpeechError", message: "x" }); process.exit(0);`,
+    );
+    await expect(
+      runSpeechProcess({ kind: "transcribe", audioPath: "a.wav", defaults }, undefined, file),
+    ).rejects.toBeInstanceOf(NoSpeechError);
+  });
+
+  it("keeps the message of any other failure", async () => {
+    const file = worker(
+      `await send({ type: "failed", name: "Error", message: "Could not download the speech model" }); process.exit(0);`,
+    );
+    await expect(runSpeechProcess({ kind: "download", defaults }, undefined, file)).rejects.toThrow(
+      "Could not download the speech model",
+    );
+  });
+
+  it("explains a process that ends without an answer", async () => {
+    const file = worker(`process.exit(9);`);
+    await expect(runSpeechProcess({ kind: "download", defaults }, undefined, file)).rejects.toThrow(
+      /stopped unexpectedly \(exit 9\).*low on memory/,
+    );
   });
 });
