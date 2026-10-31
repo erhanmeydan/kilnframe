@@ -59,11 +59,12 @@ export function filmCraftState(
   return installed ? "closed" : "not-installed";
 }
 
-type Exec = (cmd: string, args: string[]) => Promise<string>;
+/** Runs a command; limitMs (10 s unless given) ends it, reported as `killed`. */
+type Exec = (cmd: string, args: string[], limitMs?: number) => Promise<string>;
 
-const run: Exec = (cmd, args) =>
+const run: Exec = (cmd, args, limitMs = 10_000) =>
   new Promise((ok, fail) =>
-    execFile(cmd, args, { timeout: 10_000, windowsHide: true }, (err, stdout) =>
+    execFile(cmd, args, { timeout: limitMs, windowsHide: true }, (err, stdout) =>
       err ? fail(err) : ok(stdout),
     ),
   );
@@ -135,6 +136,9 @@ export function channelAnswer(port: number, token: string, limitMs = 2000): Prom
   });
 }
 
+/** How long the quit request may wait for macOS's "Kilnframe wants to control FilmCraft" prompt. */
+const QUIT_PROMPT_LIMIT_MS = 120_000;
+
 /**
  * Asks FilmCraft to quit the way its own menu would, so it can offer to save; never forced. `sent` when the
  * request went out (whether it quit is read from the process list afterwards), `refused` when the request itself
@@ -148,12 +152,25 @@ export async function quitFilmCraft(
     if (platform === "win32")
       // without /F: a close request; image names match without regard to case (FilmCraft.exe, filmcraft.exe)
       await exec("taskkill", ["/IM", "filmcraft.exe"]);
-    else await exec("osascript", ["-e", 'tell application "FilmCraft" to quit']);
+    else
+      // not waiting for FilmCraft's answer, which a save prompt holds back; the first time, macOS asks the user
+      // whether Kilnframe may control FilmCraft and holds the request until they answer, so the limit is long
+      await exec(
+        "osascript",
+        [
+          "-e",
+          "ignoring application responses",
+          "-e",
+          'tell application "FilmCraft" to quit',
+          "-e",
+          "end ignoring",
+        ],
+        QUIT_PROMPT_LIMIT_MS,
+      );
     return "sent";
-  } catch (err) {
-    // osascript waits for FilmCraft's answer, which a save prompt holds back until exec's time limit ends it:
-    // the request went out. Any other failure (Apple events not allowed, taskkill's error) means it did not.
-    return (err as { killed?: boolean }).killed ? "sent" : "refused";
+  } catch {
+    // Apple events not allowed, the prompt left unanswered past the limit, or taskkill's error: nothing went out
+    return "refused";
   }
 }
 

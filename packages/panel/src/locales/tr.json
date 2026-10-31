@@ -491,6 +491,7 @@
   "mismatch.panel": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Eklentiyi Premiere'e Kur'u seçin, sonra Premiere'i yeniden başlatın.",
   "mismatch.panelResolve": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Paneli DaVinci Resolve'a Kur'u seçin, sonra paneli Workspace > Workflow Integrations'tan yeniden açın.",
   "mismatch.panelFilmcraft": "Bu panel Kilnframe uygulamasından eski. FilmCraft'ı kapatıp Kilnframe menüsünden yeniden açın.",
+  "filmcraft.exportFailed": "FilmCraft aralığı dışa aktaramadı. Yeniden deneyin; tekrar ederse FilmCraft'ı kapatıp Kilnframe menüsünden yeniden açın.",
   "filmcraft.notRunning": "FilmCraft Kilnframe için açık değil. FilmCraft'ı kapatıp Kilnframe menüsünden açın: FilmCraft'ı Aç.",
   "filmcraft.connectionLost": "FilmCraft ile bağlantı koptu. FilmCraft'ı kontrol edip yeniden deneyin.",
   "filmcraft.timedOut": "FilmCraft zamanında cevap vermedi. Meşgul olmadığını kontrol edip yeniden deneyin.",

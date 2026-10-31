@@ -244,43 +244,59 @@ describe("Open FilmCraft", () => {
 
 describe("quitFilmCraft", () => {
   const record = () => {
-    const calls: string[][] = [];
-    const exec = async (cmd: string, args: string[]) => {
-      calls.push([cmd, ...args]);
+    const calls: { cmd: string[]; limitMs: number | undefined }[] = [];
+    const exec = async (cmd: string, args: string[], limitMs?: number) => {
+      calls.push({ cmd: [cmd, ...args], limitMs });
       return "";
     };
     return { calls, exec };
   };
 
-  it("asks FilmCraft to quit on a Mac, so it can offer to save", async () => {
+  it("asks FilmCraft to quit on a Mac, so it can offer to save, without waiting for its answer", async () => {
     const { calls, exec } = record();
     await quitFilmCraft("darwin", exec);
-    expect(calls).toEqual([["osascript", "-e", 'tell application "FilmCraft" to quit']]);
+    expect(calls.map((c) => c.cmd)).toEqual([
+      [
+        "osascript",
+        "-e",
+        "ignoring application responses",
+        "-e",
+        'tell application "FilmCraft" to quit',
+        "-e",
+        "end ignoring",
+      ],
+    ]);
+  });
+
+  it("gives macOS's first Automation prompt time to be answered", async () => {
+    const { calls, exec } = record();
+    await quitFilmCraft("darwin", exec);
+    expect(calls[0]?.limitMs).toBeGreaterThanOrEqual(120_000);
   });
 
   it("closes it on Windows without forcing (no /F)", async () => {
     const { calls, exec } = record();
     await quitFilmCraft("win32", exec);
     // image names are matched without regard to case: FilmCraft.exe and filmcraft.exe alike
-    expect(calls).toEqual([["taskkill", "/IM", "filmcraft.exe"]]);
+    expect(calls.map((c) => c.cmd)).toEqual([["taskkill", "/IM", "filmcraft.exe"]]);
   });
 
-  it("says sent when the request went out, also when a save prompt outlasts osascript's time limit", async () => {
+  it("says sent when the request went out", async () => {
     const { exec } = record();
     expect(await quitFilmCraft("darwin", exec)).toBe("sent");
     expect(await quitFilmCraft("win32", exec)).toBe("sent");
-    const timedOut = async () => {
-      // execFile's timeout kills the child and reports it as killed
-      throw Object.assign(new Error("Command failed"), { killed: true, signal: "SIGTERM" });
-    };
-    expect(await quitFilmCraft("darwin", timedOut)).toBe("sent");
   });
 
-  it("says refused, without throwing, when the request itself fails", async () => {
+  it("says refused, without throwing, when the request itself fails or never goes out", async () => {
     const notAllowed = async () => {
       throw Object.assign(new Error("Not authorized to send Apple events (-1743)"), { code: 1 });
     };
     expect(await quitFilmCraft("darwin", notAllowed)).toBe("refused");
     expect(await quitFilmCraft("win32", notAllowed)).toBe("refused");
+    const promptLeftOpen = async () => {
+      // execFile's timeout kills the child and reports it as killed: the Automation prompt was never answered
+      throw Object.assign(new Error("Command failed"), { killed: true, signal: "SIGTERM" });
+    };
+    expect(await quitFilmCraft("darwin", promptLeftOpen)).toBe("refused");
   });
 });

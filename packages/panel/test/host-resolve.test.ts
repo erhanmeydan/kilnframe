@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { setLang } from "../src/i18n";
 import { createResolveHost } from "../src/host-resolve";
-import { CONNECTION_LOST, NOT_RUNNING, TIMED_OUT } from "../src/resolve/api";
+import { CONNECTION_LOST, NOT_RUNNING, RENDER_FAILED, TIMED_OUT } from "../src/resolve/api";
 import en from "../src/locales/en.json";
 import tr from "../src/locales/tr.json";
 import type { KilnframeResolveApi, ResolveSequence } from "../src/resolve/api";
@@ -244,5 +244,22 @@ describe("filmcraft host", () => {
       await expect(h.currentSequence()).rejects.toThrow((en as Record<string, string>)[key]);
       expect((tr as Record<string, string>)[key]).toBeTruthy();
     }
+  });
+
+  it("names FilmCraft, not Resolve, when an export fails", async () => {
+    setLang("en");
+    const failing = () =>
+      fakeApi({
+        currentSequence: vi.fn(async () => {
+          throw new Error(RENDER_FAILED);
+        }),
+      });
+    await expect(createResolveHost(failing(), "filmcraft").currentSequence()).rejects.toThrow(
+      en["filmcraft.exportFailed"],
+    );
+    await expect(createResolveHost(failing()).currentSequence()).rejects.toThrow(
+      en["resolve.renderFailed"],
+    );
+    expect(tr["filmcraft.exportFailed"]).toBeTruthy();
   });
 });

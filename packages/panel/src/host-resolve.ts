@@ -36,7 +36,13 @@ export function createResolveHost(
         throw new Error(t("filmcraft.connectionLost"), { cause: err });
       if (m.includes(TIMED_OUT)) throw new Error(t("filmcraft.timedOut"), { cause: err });
       if (m.includes(RENDER_BUSY)) throw new Error(t("resolve.renderBusy"), { cause: err });
-      if (m.includes(RENDER_FAILED)) throw new Error(t("resolve.renderFailed"), { cause: err });
+      if (m.includes(RENDER_FAILED))
+        throw new Error(
+          t(kind === "filmcraft" ? "filmcraft.exportFailed" : "resolve.renderFailed"),
+          {
+            cause: err,
+          },
+        );
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
       throw err;
     }

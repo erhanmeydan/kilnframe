@@ -491,6 +491,7 @@
   "mismatch.panel": "This panel is older than the Kilnframe app. In the Kilnframe menu in the menu bar choose Install the Plugin in Premiere, then restart Premiere.",
   "mismatch.panelResolve": "This panel is older than the Kilnframe app. In the Kilnframe menu in the menu bar choose Install the Panel in DaVinci Resolve, then reopen the panel from Workspace > Workflow Integrations.",
   "mismatch.panelFilmcraft": "This panel is older than the Kilnframe app. Close FilmCraft and open it again from the Kilnframe menu.",
+  "filmcraft.exportFailed": "FilmCraft could not export the range. Try again; if it keeps happening, close FilmCraft and open it again from the Kilnframe menu.",
   "filmcraft.notRunning": "FilmCraft is not open for Kilnframe. Close FilmCraft and open it from the Kilnframe menu: Open FilmCraft.",
   "filmcraft.connectionLost": "The connection to FilmCraft broke. Check FilmCraft, then try again.",
   "filmcraft.timedOut": "FilmCraft did not answer in time. Check that it is not busy, then try again.",
