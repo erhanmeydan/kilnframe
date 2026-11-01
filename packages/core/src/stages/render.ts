@@ -214,10 +214,18 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
   const master = join(projectDir, "renders", `master.${format}`);
   log("Rendering video");
   // non-standard sequence rates render at the nearest standard rate; delivery converts to the exact rate
+  // the frames captured so far, a percent at a time: rendering is the longest stage and would otherwise say nothing
+  let said = -1;
   const render = await renderProject(projectDir, {
     fps: formatFps(renderFps(parseFps(plan.fps))),
     output: master,
     format,
+    onFrames: (done, total) => {
+      const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+      if (pct === said) return;
+      said = pct;
+      log(`Rendering video (${done}/${total} frames)`);
+    },
   });
   timingsMs.render = render.ms;
 
