@@ -10,6 +10,7 @@ import {
   loadDefaults,
   pickLanguage,
   runSpeechProcess,
+  transcribeHere,
 } from "../src/index.js";
 
 describe("chunksToWords", () => {
@@ -193,5 +194,29 @@ describe("runSpeechProcess", () => {
     await expect(runSpeechProcess({ kind: "download", defaults }, undefined, file)).rejects.toThrow(
       /stopped unexpectedly \(exit 9\).*low on memory/,
     );
+  });
+});
+
+describe("transcribeHere", () => {
+  it("says no speech for an audio file without samples, before loading the model", async () => {
+    // a WAV header and nothing after it: what a cut past the end of the sound leaves
+    const header = Buffer.alloc(44);
+    header.write("RIFF", 0);
+    header.writeUInt32LE(36, 4);
+    header.write("WAVEfmt ", 8);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20);
+    header.writeUInt16LE(1, 22);
+    header.writeUInt32LE(48000, 24);
+    header.writeUInt32LE(96000, 28);
+    header.writeUInt16LE(2, 32);
+    header.writeUInt16LE(16, 34);
+    header.write("data", 36);
+    header.writeUInt32LE(0, 40);
+    const file = join(mkdtempSync(join(tmpdir(), "kf-empty-")), "range.wav");
+    writeFileSync(file, header);
+    await expect(
+      transcribeHere({ audioPath: file, defaults: loadDefaults() }),
+    ).rejects.toBeInstanceOf(NoSpeechError);
   });
 });

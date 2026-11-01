@@ -415,11 +415,28 @@ session.on((m) => {
 
 // Steps and errors also go to ~/.kilnframe/panel-log.txt, so problems inside the editor can be read outside it.
 
-/** A story sequence's own narration, when it is still on disk: cleaner to transcribe than the mix. */
-async function storyNarration(guid: string): Promise<string | null> {
+/**
+ * A story sequence's own narration, when it is still on disk and holds the range: cleaner to transcribe than
+ * the mix. A range past the narration's end (the editor went on past it) is read from the sequence like any
+ * other: cut from the narration it was an empty file (1 Nov 2026, Resolve, 75 to 88 s of a 50 s narration).
+ */
+async function storyNarration(guid: string, endS: number): Promise<string | null> {
   const file = stored(`narration:${guid}`);
-  if (!file) return null;
-  return (await host().fileExists(file)) ? file : null;
+  if (!file || !(await host().fileExists(file))) return null;
+  try {
+    const info = JSON.parse(
+      await host().readTextFile(file.replace(/narration\.wav$/, "narration.json")),
+    ) as { durationS?: number };
+    if (typeof info.durationS === "number" && endS > info.durationS + 0.5) {
+      trace(
+        `job: the range ends after the story narration (${info.durationS} s), reading the sequence`,
+      );
+      return null;
+    }
+  } catch {
+    // no narration.json: the narration is taken as it is
+  }
+  return file;
 }
 const logLines: string[] = [];
 function trace(line: string) {
@@ -2710,7 +2727,7 @@ async function generate() {
     );
     const jobDir = String(prepared.jobDir);
     // a story sequence holds its narration from 0 on A1; under it is music, so read the voice alone
-    const narration = await storyNarration(target.id);
+    const narration = await storyNarration(target.id, range.endS);
     // a story sequence has no speaker under the animation, so there is nothing to sit beside: fullscreen
     const mode = narration ? "fullscreen" : state.mode;
     const audioPath = narration ?? `${jobDir}/sequence.wav`;

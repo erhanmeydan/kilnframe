@@ -239,7 +239,8 @@ export async function transcribeHere(options: TranscribeOptions): Promise<Transc
   onProgress?.("Decoding audio");
   const audio = await decodeAudio(audioPath);
   const durationS = audio.length / WHISPER_SAMPLE_RATE;
-  if (durationS < 0.1) throw new Error(`The audio file "${audioPath}" is empty.`);
+  // nothing to hear in the range (a range past the end of the sound): said as no speech, not as a file error
+  if (durationS < 0.1) throw new NoSpeechError();
 
   onProgress?.(`Loading speech model ${model}`);
   const asr = await loadSpeechModel(defaults, onProgress);
