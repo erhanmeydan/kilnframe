@@ -73,7 +73,9 @@ describe("filmcraft bridge", () => {
     };
     const b = bridgeOf(f);
     const seq = await b.currentSequence();
-    await expect(b.exportRangeAudio(seq.id, 0, 2, "/x/a.wav")).rejects.toThrow(RENDER_FAILED);
+    await expect(b.exportRangeAudio(seq.id, 0, 2, "/x/a.wav")).rejects.toThrow(
+      `${RENDER_FAILED}: no such format`,
+    );
     await expect(b.exportRangeAudio(seq.id, 0, 2, "/x/a.wav")).resolves.toEqual({
       ok: true,
       offsetSeconds: 0,

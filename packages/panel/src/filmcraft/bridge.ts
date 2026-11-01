@@ -155,7 +155,10 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
     } catch (err) {
       if (stops !== stopsBefore) throw new Error(EXPORTS_STOPPED, { cause: err });
       if (channelError(err)) throw err;
-      throw new Error(RENDER_FAILED, { cause: err });
+      // FilmCraft's own reason in the message: a cause does not cross from the app to the panel window, and
+      // without it a report said only that the export failed (1 Nov 2026, Windows)
+      const why = err instanceof Error ? err.message : String(err);
+      throw new Error(`${RENDER_FAILED}: ${why}`, { cause: err });
     } finally {
       stopWaits.delete(stopWait);
     }

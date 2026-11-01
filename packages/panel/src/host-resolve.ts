@@ -36,13 +36,15 @@ export function createResolveHost(
         throw new Error(t("filmcraft.connectionLost"), { cause: err });
       if (m.includes(TIMED_OUT)) throw new Error(t("filmcraft.timedOut"), { cause: err });
       if (m.includes(RENDER_BUSY)) throw new Error(t("resolve.renderBusy"), { cause: err });
-      if (m.includes(RENDER_FAILED))
+      if (m.includes(RENDER_FAILED)) {
+        // the editor's own reason, when the bridge passed it on, goes into the report and the log
+        const why = m.split(`${RENDER_FAILED}: `)[1]?.trim().slice(0, 300);
+        const editor = kind === "filmcraft" ? "FilmCraft" : "DaVinci Resolve";
         throw new Error(
-          t(kind === "filmcraft" ? "filmcraft.exportFailed" : "resolve.renderFailed"),
-          {
-            cause: err,
-          },
+          `${t(kind === "filmcraft" ? "filmcraft.exportFailed" : "resolve.renderFailed")}${why ? ` (${editor}: ${why})` : ""}`,
+          { cause: err },
         );
+      }
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
       throw err;
     }

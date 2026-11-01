@@ -262,4 +262,18 @@ describe("filmcraft host", () => {
     );
     expect(tr["filmcraft.exportFailed"]).toBeTruthy();
   });
+
+  it("keeps FilmCraft's own reason for a failed export, for the report and the log", async () => {
+    setLang("en");
+    const api = fakeApi({
+      currentSequence: vi.fn(async () => {
+        throw new Error(
+          `${RENDER_FAILED}: file.exportMedia: cannot create C:/Users/Ömer/Kilnframe/j/sequence.wav`,
+        );
+      }),
+    });
+    await expect(createResolveHost(api, "filmcraft").currentSequence()).rejects.toThrow(
+      `${en["filmcraft.exportFailed"]} (FilmCraft: file.exportMedia: cannot create C:/Users/Ömer/Kilnframe/j/sequence.wav)`,
+    );
+  });
 });
