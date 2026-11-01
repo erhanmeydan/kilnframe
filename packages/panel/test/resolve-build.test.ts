@@ -91,7 +91,8 @@ describe("FilmCraft build", () => {
     // outside Electron, require("electron") is only the path to its binary; loading still works
     const lib = createRequire(join(filmcraft, "panel.js"))("./panel.js") as Record<string, unknown>;
     expect(typeof lib.openFilmCraftPanel).toBe("function");
-  });
+    // loading it pulls in the electron package, which took over 5 s on Windows CI and under a full local run
+  }, 60_000);
 
   it("serves the Resolve page and leaves Resolve's own entry and native module out", () => {
     expect(readFileSync(join(filmcraft, "index.js"), "utf8")).toBe(
