@@ -33,6 +33,7 @@ import {
 } from "./plugin.js";
 import { LOGIN_FLAG, announceText, startedAtLogin } from "./announce.js";
 import { markBusy, onQuitRequest } from "./quit.js";
+import { gpuSandboxMarker, gpuSandboxOff, markGpuSandboxOff, onChildGone } from "./gpu-sandbox.js";
 import {
   bundledResolvePanel,
   installResolvePanel,
@@ -501,8 +502,30 @@ function refreshMenu() {
   );
 }
 
+// a computer where the GPU process crashed starts it without its sandbox (gpu-sandbox.ts)
+const gpuUnsandboxed = gpuSandboxOff(process.platform, home);
+if (gpuUnsandboxed) app.commandLine.appendSwitch("disable-gpu-sandbox");
+
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  app.on("child-process-gone", (_event, d) => {
+    const step = onChildGone({
+      platform: process.platform,
+      type: d.type,
+      reason: d.reason,
+      marked: gpuUnsandboxed || existsSync(gpuSandboxMarker(home)),
+      busy,
+    });
+    if (step === "none") return;
+    logLine(
+      `gpu process ${d.reason} (exit ${d.exitCode}): starting without its sandbox from now on`,
+    );
+    markGpuSandboxOff(home, `${d.reason} ${d.exitCode}`);
+    if (step === "relaunch") {
+      app.relaunch();
+      app.quit();
+    }
+  });
   // opened again while it runs: Windows starts a second copy (it quits at once), macOS sends activate
   app.on("second-instance", () => announce(true));
   // macOS also sends activate as the app starts and when the quit question takes focus: not a reopen
