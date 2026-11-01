@@ -391,6 +391,8 @@ const state = {
   updateBusy: false,
   /** Which side is out of date when the panel and the companion speak different protocols. */
   mismatch: null as null | "app" | "panel",
+  /** Create Animation was pressed with no AI set up (aiMissing); the box shows until it is. */
+  aiBlocked: false,
   /** The companion's version from its "ready", for the version line in the settings. */
   appVersion: null as string | null,
 };
@@ -909,6 +911,7 @@ function rangeHome(done: JobView["placed"]): string {
   <div class="lbl">${t("home.note")}</div>
   <textarea id="note" rows="2" placeholder="${t("home.notePlaceholder")}">${esc(state.note)}</textarea>
   ${imagesBox("img")}
+  ${aiMissingBox()}
   ${slowNote()}
   ${
     state.conn === "ok" && state.system && !wavPresetOk()
@@ -1488,6 +1491,38 @@ function providerLabel(): string {
         ? plan
         : providerName(id);
   return model ? `${who} · ${modelLabel(model)}` : who;
+}
+
+/**
+ * Why the chosen AI cannot make an animation, or null when it can or the panel does not know yet (the list
+ * has not come). Started anyway, the job only stopped at its first model call, with the core's English
+ * advice for the terminal (1 Nov 2026, Resolve, Automatic with neither Claude Code nor a key).
+ */
+function aiMissing(): string | null {
+  const id = state.settings.provider;
+  if (!setup.list.length) return null;
+  const entry = (p: string) => setup.list.find((e) => e.id === p);
+  if (id === "auto") {
+    const cc = setup.claudeCode;
+    const key = entry("anthropic");
+    if (!cc || !key) return null;
+    return (cc.installed && cc.loggedIn) || key.keySet ? null : t("home.aiNone");
+  }
+  if (id === "claude-code" || id === "codex" || id === "grok") {
+    const a = agentState(id);
+    if (!a) return null;
+    return a.installed && a.loggedIn ? null : t("home.aiSignIn", { name: providerName(id) });
+  }
+  const e = entry(id);
+  return e?.needsKey && !e.keySet ? t("home.aiNoKey", { name: e.displayName }) : null;
+}
+
+/** The AI is not set up: said above the button, with the way to the settings. */
+function aiMissingBox(): string {
+  const why = state.aiBlocked ? aiMissing() : null;
+  return why
+    ? `<div class="box warn">${esc(why)}<div class="btn2 mt" data-act="settings">${t("home.openSettings")}</div></div>`
+    : "";
 }
 
 /** A note above the button when the chosen model was slow in the comparison. */
@@ -2643,6 +2678,10 @@ async function readSequence(): Promise<HostSequence | null> {
 }
 
 async function generate() {
+  // a sign-in or key added since the panel last looked counts: ask again before saying it is missing
+  if (aiMissing()) await refreshProviders();
+  state.aiBlocked = Boolean(aiMissing());
+  if (state.aiBlocked) return render();
   const target = await readSequence();
   if (!target || !state.seq || !wavPresetOk()) return render();
   const range = state.seq.range;

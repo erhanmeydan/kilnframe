@@ -145,4 +145,13 @@ describe("job errors in the panel's language", () => {
     });
     for (const k of r!.reasons) expect(tr).toHaveProperty(k);
   });
+
+  it("says no AI is connected instead of the core's terminal advice", () => {
+    expect(
+      readableJobError(
+        "No Claude API key found. Set it in this terminal with export ANTHROPIC_API_KEY=... (or store it in the companion app), then run again.",
+      ),
+    ).toEqual({ key: "job.noAi", vars: {}, reasons: [] });
+    expect(tr["job.noAi"]).not.toMatch(/terminal|export/);
+  });
 });

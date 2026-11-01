@@ -43,7 +43,7 @@ export type ReadableError =
   | { key: "job.geminiFreeTier"; vars: { limit: number; hours: number }; reasons: [] }
   | { key: "job.geminiFreeTierNoWait"; vars: { limit: number }; reasons: [] }
   | {
-      key: "job.lyriaFreeTier" | "job.ollamaContextUnknown" | "music.noKey";
+      key: "job.lyriaFreeTier" | "job.ollamaContextUnknown" | "music.noKey" | "job.noAi";
       vars: Record<string, never>;
       reasons: [];
     };
@@ -57,6 +57,9 @@ export type ReadableError =
 export function readableJobError(message: string): ReadableError | null {
   if (message.includes("could not read the context Ollama runs the model with"))
     return { key: "job.ollamaContextUnknown", vars: {}, reasons: [] };
+  // the core's advice is for its command line ("export ANTHROPIC_API_KEY in this terminal")
+  if (message.startsWith("No Claude API key found."))
+    return { key: "job.noAi", vars: {}, reasons: [] };
   if (message.includes("Music needs a Google Gemini key"))
     return { key: "music.noKey", vars: {}, reasons: [] };
   // an account out of credits, or a key over its spending limit (OpenRouter's 402)
