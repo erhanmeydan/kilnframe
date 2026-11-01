@@ -13,6 +13,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve as resolvePath, sep } from "node:path";
 import {
   ASSET_EXTENSIONS,
+  FAILURE_PICTURE,
   ffmpegPath,
   listStyles,
   loadStyle,
@@ -538,6 +539,33 @@ export function loadCaptionsState(jobDir: string): Record<string, unknown> | nul
     return read && typeof read === "object" && !Array.isArray(read)
       ? (read as Record<string, unknown>)
       : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The frame a failed check points at, marked (core failure-picture.ts), as a data URL for the panel's error;
+ * only for the check failure that made it, so a picture left from an earlier attempt is never shown.
+ */
+export function failurePictureFor(
+  outDir: string | undefined,
+  message: string,
+): { picture: string; pictureWidth: number; pictureHeight: number } | null {
+  if (!outDir || !message.includes("still fails validation")) return null;
+  const file = join(outDir, FAILURE_PICTURE);
+  if (!existsSync(file)) return null;
+  try {
+    // the frame's shape, so the panel can make room for it before the image loads
+    const plan = JSON.parse(readFileSync(join(outDir, "plan.json"), "utf8")) as {
+      width: number;
+      height: number;
+    };
+    return {
+      picture: `data:image/jpeg;base64,${readFileSync(file).toString("base64")}`,
+      pictureWidth: plan.width,
+      pictureHeight: plan.height,
+    };
   } catch {
     return null;
   }

@@ -23,6 +23,7 @@ import { planInsert, type PlanJob } from "./plan.js";
 import { extractHtml } from "../prompts.js";
 import { renderPlan, stillTimes, type RenderPlanResult } from "./render.js";
 import { emptySceneFindings } from "../empty.js";
+import { failurePicture } from "../failure-picture.js";
 import { overlayHazeFindings } from "../haze.js";
 import { transcribe } from "./transcribe.js";
 import { type Price, loadModelCatalog, usageCost } from "../models.js";
@@ -163,6 +164,8 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
     if (!errors.length) break;
     if (round >= maxRounds) {
       const list = errors.map((e) => `${e.code ?? "check"}: ${e.message}`).join("\n- ");
+      // the panel shows where it went wrong (checks/failed.jpg), so the error reads as a check, not a crash
+      await failurePicture(projectDir, errors, outDir, plan);
       a.onGiveUp?.();
       throw new Error(
         `The composition still fails validation after ${maxRounds} repair rounds:\n- ${list}`,

@@ -423,7 +423,16 @@ export type ServerMessage =
   | { type: "captions.loaded"; jobDir: string; state: unknown; ref?: string }
   | { type: "job.progress"; jobId: string; message: string }
   | { type: "job.done"; jobId: string; result: unknown }
-  | { type: "job.error"; jobId: string; message: string; kind?: string | undefined }
+  | {
+      type: "job.error";
+      jobId: string;
+      message: string;
+      kind?: string | undefined;
+      /** The failed check's frame with the place marked, as a JPEG data URL (failurePictureFor). */
+      picture?: string | undefined;
+      pictureWidth?: number | undefined;
+      pictureHeight?: number | undefined;
+    }
   | { type: "job.cancelled"; jobId: string }
   | { type: "job.state"; jobId: string; state: JobState | "unknown" }
   | { type: "assets"; assets: unknown[] }

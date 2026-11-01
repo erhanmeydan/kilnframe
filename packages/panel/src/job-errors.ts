@@ -1,8 +1,19 @@
 import { t, type MessageKey } from "./i18n";
 
 /** Checks whose reason the panel can say in the editor's language; the rest are covered by the sentence. */
-const KNOWN = ["overlay_faint_layer", "scene_shows_nothing"] as const;
-export type CheckKey = `check.${(typeof KNOWN)[number]}`;
+/** What the panel says for a check the composition failed, by the check's code (several codes, one text). */
+const CHECK_TEXT = {
+  overlay_faint_layer: "check.overlay_faint_layer",
+  scene_shows_nothing: "check.scene_shows_nothing",
+  content_overlap: "check.content_overlap",
+  text_occluded: "check.text_occluded",
+  canvas_overflow: "check.canvas_overflow",
+  text_box_overflow: "check.text_overflow",
+  container_overflow: "check.text_overflow",
+  clipped_text: "check.text_overflow",
+  sweep_static: "check.sweep_static",
+} as const;
+export type CheckKey = (typeof CHECK_TEXT)[keyof typeof CHECK_TEXT];
 
 /** The names editors know, for the provider ids the core puts in its messages. */
 const PROVIDER_NAMES: Record<string, string> = {
@@ -96,9 +107,13 @@ export function readableJobError(message: string): ReadableError | null {
   }
   const m = /still fails validation after (\d+) repair rounds/.exec(message);
   if (!m) return null;
-  const reasons = KNOWN.filter((code) => message.includes(`${code}:`)).map(
-    (code) => `check.${code}` as CheckKey,
-  );
+  const reasons = [
+    ...new Set(
+      Object.entries(CHECK_TEXT)
+        .filter(([code]) => message.includes(`${code}:`))
+        .map(([, key]) => key),
+    ),
+  ];
   return { key: "job.checksFailed", vars: { n: Number(m[1]) }, reasons };
 }
 

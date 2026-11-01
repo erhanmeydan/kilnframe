@@ -133,4 +133,16 @@ describe("job errors in the panel's language", () => {
     expect(readableJobError("openrouter error 502: Provider returned error")).toBeNull();
     expect(tr["job.providerBusy"]).toContain("{provider}");
   });
+
+  it("names a check the animation failed, one text for codes that mean the same", () => {
+    const r = readableJobError(
+      "The composition still fails validation after 3 repair rounds:\n- content_overlap: Two text blocks overlap and may render unreadable.\n- clipped_text: x\n- text_box_overflow: y",
+    );
+    expect(r).toEqual({
+      key: "job.checksFailed",
+      vars: { n: 3 },
+      reasons: ["check.content_overlap", "check.text_overflow"],
+    });
+    for (const k of r!.reasons) expect(tr).toHaveProperty(k);
+  });
 });

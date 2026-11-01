@@ -54,6 +54,8 @@ export interface CheckFinding {
   selector?: string;
   sourceFile?: string;
   time?: number;
+  /** Where on the frame, in the composition's pixels (layout findings). */
+  rect?: { left: number; top: number; width: number; height: number };
   fixHint?: string;
   /** Which check pass reported it: lint, runtime, layout, motion or contrast. */
   section?: string;

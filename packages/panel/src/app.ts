@@ -55,7 +55,7 @@ import {
   type PlannedScene,
 } from "./steps";
 import { formatMismatch } from "./format-check";
-import { readableJobText } from "./job-errors";
+import { readableJobError, readableJobText } from "./job-errors";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
@@ -280,6 +280,10 @@ interface JobView {
   partsPlaced?: number;
   /** The editor pressed Stop and is asked to confirm. */
   confirmStop?: boolean;
+  /** The animation failed its checks: offer to create it again. */
+  retry?: boolean;
+  /** The failed check's frame with the place marked (a data URL) and the frame's size. */
+  picture?: { src: string; width: number; height: number } | null;
 }
 
 /**
@@ -788,6 +792,32 @@ function rangeBar(): string {
   }</div></div>`;
 }
 
+/** Most of the picture's box height; a portrait frame is shown smaller rather than filling the panel. */
+const PICTURE_MAX_H = 360;
+
+/**
+ * A failed job. When the animation failed its checks, the box says so as a check, not a crash: what was
+ * wrong, the frame with the place marked, and a button to create it again.
+ */
+function jobErrorBox(job: JobView): string {
+  const error = job.error ?? "";
+  let picture = "";
+  if (job.picture) {
+    const room = contentWidth() - 26;
+    let w = room;
+    let h = Math.round((w * job.picture.height) / job.picture.width);
+    if (h > PICTURE_MAX_H) {
+      h = PICTURE_MAX_H;
+      w = Math.round((h * job.picture.width) / job.picture.height);
+    }
+    picture = `<div class="small mt">${t("job.checksPicture")}</div><div class="mt">${imgSlot(`failed:${job.id ?? ""}`, job.picture.src, w, h)}</div>`;
+  }
+  const retry = job.retry
+    ? `<div class="small mt">${t("job.checksRetry")}</div><div class="btn2 mt" data-act="generate">${t("job.retry")}</div>`
+    : "";
+  return `<div class="box warn">${esc(error)}${picture}${retry}${job.reportable ? reportLink(error) : ""}</div>`;
+}
+
 function home(): string {
   // three per row, in a fixed order: choosing a style only marks it
   const done = state.job?.placed ?? null;
@@ -852,7 +882,7 @@ function rangeHome(done: JobView["placed"]): string {
   const many = state.job?.partsPlaced;
   return `${done ? `<div class="box ok">${many ? t("home.placedParts", { n: many, v: done.videoTrack + 1, a: done.audioTrack + 1 }) : t("home.placed", { v: done.videoTrack + 1, a: done.audioTrack + 1 })}</div>` : ""}
   ${done && state.job?.cost ? `<div class="small muted">${esc(costLine(state.job.cost))}</div>` : ""}
-  ${state.job?.error ? `<div class="box warn">${esc(state.job.error)}${state.job.reportable ? reportLink(state.job.error) : ""}</div>` : ""}
+  ${state.job?.error ? jobErrorBox(state.job) : ""}
   ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   ${seriesBox()}
   ${rangeBox()}
@@ -3214,6 +3244,21 @@ function onJobMessage(
     off();
     store("pending", "");
     failJob(new Error(jobErrorText(m)));
+    if (state.job) {
+      state.job.retry = readableJobError(String(m.message))?.key === "job.checksFailed";
+      const p = m as { picture?: unknown; pictureWidth?: unknown; pictureHeight?: unknown };
+      if (
+        typeof p.picture === "string" &&
+        Number(p.pictureWidth) > 0 &&
+        Number(p.pictureHeight) > 0
+      )
+        state.job.picture = {
+          src: p.picture,
+          width: Number(p.pictureWidth),
+          height: Number(p.pictureHeight),
+        };
+      render();
+    }
   } else if (m.type === "job.cancelled") {
     off();
     store("pending", "");
@@ -3354,6 +3399,8 @@ function failJob(err: unknown) {
       placed: null,
     };
   state.job.confirmStop = false;
+  state.job.retry = false;
+  state.job.picture = null;
   state.job.reportable = !(err instanceof JobStopped);
   state.job.error =
     series && !(err instanceof JobStopped)

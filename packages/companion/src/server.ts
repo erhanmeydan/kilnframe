@@ -11,6 +11,7 @@ import {
   type AppUpdateState,
   type ServerMessage,
 } from "./protocol.js";
+import { failurePictureFor } from "./panel-support.js";
 import { JobQueue, type JobRunner } from "./queue.js";
 
 export interface CompanionOptions {
@@ -137,6 +138,13 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     if (p.action === "render") pendingReviews.delete(p.outDir);
     else if (done && (p.stillsOnly || p.action === "recompose")) pendingReviews.add(p.outDir);
   };
+  const pictureOf = (jobId: string, message: string) => {
+    const picture = failurePictureFor(
+      (queue.paramsOf(jobId) as { outDir?: string } | undefined)?.outDir,
+      message,
+    );
+    return picture ?? {};
+  };
   const queue = new JobQueue(
     o.runner,
     {
@@ -148,7 +156,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       },
       failed: (jobId, message, kind) => {
         reviewAfter(jobId, false);
-        broadcast({ type: "job.error", jobId, message, kind });
+        broadcast({ type: "job.error", jobId, message, kind, ...pictureOf(jobId, message) });
       },
       cancelled: (jobId) => {
         reviewAfter(jobId, false);
@@ -340,6 +348,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
                 jobId: msg.jobId,
                 message: job.error ?? "",
                 kind: job.errorKind,
+                ...pictureOf(msg.jobId, job.error ?? ""),
               });
             else if (job?.state === "cancelled") send({ type: "job.cancelled", jobId: msg.jobId });
             else send({ type: "job.state", jobId: msg.jobId, state: job?.state ?? "unknown" });
