@@ -216,4 +216,31 @@ describe("filmcraft client", () => {
     expect(all).toEqual(["a", "b", "c"]);
     expect(fc.connections()).toBe(1);
   });
+
+  it("answers shared reads that wait in the queue with one request, and asks again once it went out", async () => {
+    let release: () => void = () => undefined;
+    const fc = await serve((req, socket, n) => {
+      const send = () => reply(socket, { id: req.id, ok: true, result: n });
+      // FilmCraft hangs on the first request until released
+      if (n === 1) release = send;
+      else send();
+    });
+    const c = client(fc.port);
+    const busy = c.exec("timeline.place");
+    const asks = [1, 2, 3].map(() => c.exec("sequence.inspect", {}, { shared: true }));
+    const other = c.exec("sequence.inspect", { item: 3 }, { shared: true });
+    await new Promise((r) => setTimeout(r, 20));
+    release();
+    await busy;
+    expect(await Promise.all(asks)).toEqual([2, 2, 2]);
+    expect(await other).toBe(3);
+    // a later ask is not answered from the earlier reply
+    await expect(c.exec("sequence.inspect", {}, { shared: true })).resolves.toBe(4);
+    expect(fc.requests.map((r) => r.params.command)).toEqual([
+      "timeline.place",
+      "sequence.inspect",
+      "sequence.inspect",
+      "sequence.inspect",
+    ]);
+  });
 });

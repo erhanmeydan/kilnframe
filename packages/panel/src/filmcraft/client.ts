@@ -25,6 +25,12 @@ export interface CallOptions {
    * reach FilmCraft while an export holds the shared connection.
    */
   alone?: boolean;
+  /**
+   * A read that changes nothing: while the same request still waits in the queue, the caller gets that one's
+   * answer instead of adding another. The home screen asks for the range every half second; while FilmCraft
+   * hangs (a dialog, its own export) those asks queued faster than they drained.
+   */
+  shared?: boolean;
 }
 
 export interface FilmCraftClient {
@@ -129,6 +135,8 @@ export function createFilmCraftClient(
   let socketPort = 0;
   let waiting: { take: (line: string) => void; fail: (err: Error) => void } | null = null;
   let chain: Promise<unknown> = Promise.resolve();
+  /** Shared reads still waiting in the queue, by method and parameters. */
+  const sharedQueued = new Map<string, Promise<unknown>>();
   let nextId = 1;
 
   function drop(err: Error) {
@@ -221,7 +229,15 @@ export function createFilmCraftClient(
     call(method, params, o = {}) {
       const limit = o.timeoutMs === undefined ? defaultLimit : o.timeoutMs;
       if (o.alone) return sendAlone(method, params, limit);
-      const run = chain.then(() => send(method, params, limit));
+      const key = o.shared ? JSON.stringify([method, params]) : null;
+      const queued = key === null ? undefined : sharedQueued.get(key);
+      if (queued) return queued;
+      const run = chain.then(() => {
+        // once it is sent, a new ask waits for a fresh answer
+        if (key !== null) sharedQueued.delete(key);
+        return send(method, params, limit);
+      });
+      if (key !== null) sharedQueued.set(key, run);
       chain = run.catch(() => undefined);
       return run;
     },

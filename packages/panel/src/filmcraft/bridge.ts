@@ -79,7 +79,9 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
 
   async function inspect(id?: string): Promise<Sequence> {
     try {
-      return await fc.exec<Sequence>("sequence.inspect", id ? { item: Number(id) } : {});
+      return await fc.exec<Sequence>("sequence.inspect", id ? { item: Number(id) } : {}, {
+        shared: true,
+      });
     } catch (err) {
       if (channelError(err)) throw err;
       throw new Error(NO_SEQUENCE, { cause: err });
@@ -537,6 +539,8 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
         name,
         width: size.width,
         height: size.height,
+        // FilmCraft snaps a rate within 0.005 of a standard one to that exact rational (29.97002997 is
+        // 30000/1001: FrameRate::from_f64, crates/time), so the story sequence keeps the template's grid
         fps: fpsOf(template),
         sampleRate: 48000,
         video: 1,
