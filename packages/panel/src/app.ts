@@ -56,6 +56,7 @@ import {
 } from "./steps";
 import { formatMismatch } from "./format-check";
 import { readableJobError, readableJobText } from "./job-errors";
+import { olderVersion } from "./versions";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
@@ -559,6 +560,11 @@ function updateBox(): string {
     return `<div class="box warn"><div>${t("mismatch.app")}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
   if (state.mismatch === "panel")
     return `<div class="box warn">${t(editorText({ premiere: "mismatch.panel", resolve: "mismatch.panelResolve", filmcraft: "mismatch.panelFilmcraft" }))}</div>`;
+  // the app was updated but the editor still runs the old panel: said on the home screen, not only in the
+  // settings (1 Nov 2026: Premiere kept loading 0.4.1 next to an installed 0.4.2 until it was reinstalled)
+  const app = state.appVersion;
+  if (app && olderVersion(panelVersion(), app))
+    return `<div class="box warn">${t("home.panelOlder", { panel: esc(panelVersion()), app: esc(app) })} ${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`;
   if (!u || !offered) return "";
   const v = esc(u.version ?? "");
   // the site's changelog, in the editor's language: GitHub's release page made people download by hand

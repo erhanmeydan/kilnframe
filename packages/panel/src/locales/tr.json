@@ -147,6 +147,7 @@
   "export.cancelled": "Dışa aktarma Premiere'de iptal edildi. Yeniden deneyebilirsiniz.",
   "feedback.send": "Geri Bildirim Gönder",
   "feedback.report": "Bu Hatayı Bildir",
+  "home.panelOlder": "Panel {panel}, Kilnframe {app}.",
   "settings.versionsDiffer": "Panel ile uygulama farklı sürümde. Kilnframe simgesinden (menü çubuğunda ya da sistem tepsisinde) Eklentiyi Premiere'e Kur'u seçin, sonra Premiere'i yeniden başlatın.",
   "settings.window": "Panel Penceresi",
   "settings.onTopOn": "Her Zaman Üstte",

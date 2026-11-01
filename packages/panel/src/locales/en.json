@@ -147,6 +147,7 @@
   "export.cancelled": "The export was cancelled in Premiere. You can try again.",
   "feedback.send": "Send Feedback",
   "feedback.report": "Report This Error",
+  "home.panelOlder": "The panel is {panel}, Kilnframe is {app}.",
   "settings.versionsDiffer": "The panel and the app are different versions. Choose Install the Plugin in Premiere from the Kilnframe icon (menu bar or system tray), then restart Premiere.",
   "settings.window": "Panel Window",
   "settings.onTopOn": "Always on Top",
