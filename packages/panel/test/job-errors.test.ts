@@ -123,4 +123,14 @@ describe("job errors in the panel's language", () => {
     ).toEqual({ key: "job.noCredits", vars: { provider: "OpenRouter" }, reasons: [] });
     expect(tr).toHaveProperty("job.noCredits");
   });
+
+  it("says a provider too busy for the model, in the panel's language", () => {
+    expect(
+      readableJobError(
+        "gemini error 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      ),
+    ).toEqual({ key: "job.providerBusy", vars: { provider: "Google Gemini" }, reasons: [] });
+    expect(readableJobError("openrouter error 502: Provider returned error")).toBeNull();
+    expect(tr["job.providerBusy"]).toContain("{provider}");
+  });
 });

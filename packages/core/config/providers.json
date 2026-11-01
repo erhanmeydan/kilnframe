@@ -173,7 +173,7 @@
         "structuredOutput": false,
         "contextWindow": 32000
       },
-      "tier": "works",
+      "tier": "experimental",
       "slowModels": ["*"],
       "verified": "lmstudio.ai/docs/developer/openai-compat, core/authentication, rest/endpoints (GET /api/v0/models reports type \"vlm\" for vision models)",
       "notes": [
@@ -193,7 +193,7 @@
         "structuredOutput": false,
         "contextWindow": 32000
       },
-      "tier": "works",
+      "tier": "experimental",
       "slowModels": ["*"],
       "verified": "docs.ollama.com/api (tags, ps with context_length), docs.ollama.com/api/openai-compatibility (base URL, base64 image_url parts, reasoning_effort none), github.com/ollama/ollama/blob/main/docs/api.md (show: capabilities, model_info <arch>.context_length), checked 2026-10-29",
       "notes": [

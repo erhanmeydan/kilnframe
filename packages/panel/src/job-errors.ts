@@ -20,7 +20,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 export type ReadableError =
   | { key: "job.checksFailed"; vars: { n: number }; reasons: CheckKey[] }
   | {
-      key: "job.keyExpired" | "job.keyRejected" | "job.noCredits";
+      key: "job.keyExpired" | "job.keyRejected" | "job.noCredits" | "job.providerBusy";
       vars: { provider: string };
       reasons: [];
     }
@@ -56,6 +56,13 @@ export function readableJobError(message: string): ReadableError | null {
       vars: { provider: PROVIDER_NAMES[credits[1]!] ?? credits[1]! },
       reasons: [],
     };
+  // the provider is too busy for the model right now (Gemini's 503 "high demand"); the core has already
+  // asked again a few times
+  const busy = /^(\S+) error (503|529):/.exec(message);
+  if (busy || /^(\S+) error \d+: .*(high demand|overloaded)/i.test(message)) {
+    const id = /^(\S+)/.exec(message)![1]!;
+    return { key: "job.providerBusy", vars: { provider: PROVIDER_NAMES[id] ?? id }, reasons: [] };
+  }
   // a free tier Gemini key gets no music at all (Lyria's limit there is 0)
   if (/Lyria failed \(429\)/.test(message) && /free[ _]tier|limit: 0\b/i.test(message))
     return { key: "job.lyriaFreeTier", vars: {}, reasons: [] };

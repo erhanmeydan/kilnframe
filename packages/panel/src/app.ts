@@ -1613,7 +1613,7 @@ async function loadServed(id: string) {
 }
 
 function tierTag(tier: ProviderEntry["tier"] | null): string {
-  // "works" is the normal case and needs no label; only Recommended (and Experimental, if ever) shows
+  // "works" is the normal case and needs no label; only Recommended and Experimental show
   if (!tier || tier === "works") return `<span class="ptag none"></span>`;
   const label = tier === "recommended" ? t("tier.recommended") : t("tier.experimental");
   return `<span class="ptag ${tier}">${label}</span>`;
@@ -1663,7 +1663,7 @@ function testLine(id: string): string {
   if (r.ok && r.vision)
     return `<div class="ptest ok-text">✓ ${t("prov.testOk", { s: (r.ms / 1000).toFixed(1).replace(".", lang() === "tr" ? "," : ".") })}</div>`;
   if (r.ok) return `<div class="ptest warn-text">${t("prov.testNoVision")}</div>`;
-  return `<div class="ptest warn-text">${esc(r.message ?? t("prov.testFailed"))}</div>`;
+  return `<div class="ptest warn-text">${esc((r.message && readableJobText(r.message)) ?? r.message ?? t("prov.testFailed"))}</div>`;
 }
 
 /** The key part of a provider's details: the stored key, or a field to enter one. */
@@ -1869,8 +1869,9 @@ function modelList(): string {
         `<div class="mrow${m === current ? " on" : ""}" data-act="pmodel" data-val="${esc(m)}"><span class="mname">${m === current ? "✓ " : ""}${esc(modelLabel(m))}</span><span class="small muted">${esc(info)}</span></div>`,
     )
     .join("");
+  // local providers say it in their own note (prov.localLimits)
   const experimental =
-    entry?.tier === "experimental" || id === "codex"
+    (entry?.tier === "experimental" && id !== "lmstudio" && id !== "ollama") || id === "codex"
       ? `<div class="note muted">${t("prov.experimentalNote")}</div>`
       : "";
   return `<div class="lbl">${t("settings.model")}</div><div class="mlist">${rows}</div>${note}${experimental}`;
