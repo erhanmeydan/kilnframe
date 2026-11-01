@@ -20,6 +20,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundledTools } from "./bundle.js";
 import { companionPath } from "./shell-path.js";
+import type { AppUpdateState } from "@kilnframe/companion";
+import { updateMenuLine } from "./update-menu.js";
 import { startUpdates, type Updates } from "./updates.js";
 import {
   bundledPlugin,
@@ -86,7 +88,10 @@ const text = turkish
       ok: "Tamam",
       filmCraftFailed: "FilmCraft başlatılamadı. Açıksa kapatıp yeniden deneyin.",
       filmCraftPanelFailed: "Kilnframe paneli açılamadı, günlüğe bakın.",
-      updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
+      updateNow: "Şimdi Güncelle ({v})",
+      updateBusy: "Yeni sürüm hazır: {v}. Animasyon bitince güncelleyin.",
+      updateDownloading: "Güncelleme indiriliyor… %{p}",
+      updateRestarting: "Kuruluyor. Kilnframe birazdan yeniden açılacak…",
       quit: "Kilnframe'den Çık",
       busyTitle: "Bir animasyon hazırlanıyor.",
       busyDetail:
@@ -126,7 +131,10 @@ const text = turkish
       ok: "OK",
       filmCraftFailed: "FilmCraft could not be started. If it is open, quit it and try again.",
       filmCraftPanelFailed: "The Kilnframe panel could not be opened, see the log.",
-      updateReady: "Version {v} is ready. Update from the panel.",
+      updateNow: "Update Now ({v})",
+      updateBusy: "Version {v} is ready. Update when the animation is done.",
+      updateDownloading: "Downloading the update… {p}%",
+      updateRestarting: "Installing. Kilnframe will reopen in a moment…",
       quit: "Quit Kilnframe",
       busyTitle: "An animation is being made.",
       busyDetail:
@@ -158,7 +166,8 @@ let pluginNote = "";
 /** A Resolve panel problem worth showing in the menu (developer files missing, copy failed). */
 let resolveNote = "";
 /** "New version ready", shown in the menu; the panel offers the button. */
-let updateNote = "";
+/** The last update state, for the menu's update line (update-menu.ts). */
+let updateState: AppUpdateState | null = null;
 
 /** ~/.kilnframe/app.json: when the app first started and which plugin it installed. */
 interface AppState {
@@ -441,6 +450,17 @@ function openFilmCraft() {
   });
 }
 
+/** The update line: Update Now starts the update, as the panel's Update button does. */
+function updateMenuItems() {
+  const line = updateMenuLine(updateState, busy, text);
+  if (!line) return [];
+  return [
+    line.install
+      ? { label: line.label, click: () => (busy ? refreshMenu() : updates?.install()) }
+      : { label: line.label, enabled: false },
+  ];
+}
+
 function refreshMenu() {
   if (!tray) return;
   const login = openAtLogin();
@@ -450,7 +470,7 @@ function refreshMenu() {
       { label: quitWhenDone ? text.closingWhenDone : status, enabled: false },
       ...(pluginNote ? [{ label: pluginNote, enabled: false }] : []),
       ...(resolveNote ? [{ label: resolveNote, enabled: false }] : []),
-      ...(updateNote ? [{ label: updateNote, enabled: false }] : []),
+      ...updateMenuItems(),
       { type: "separator" },
       { label: text.log, click: () => void shell.openPath(logFile) },
       ...(bundledPlugin() ? [{ label: text.plugin, click: () => void ensurePlugin(true) }] : []),
@@ -544,11 +564,7 @@ else {
         feedUrl: process.env.KILNFRAME_UPDATE_URL,
         onState: (state) => {
           if (companion?.connected) companion.send({ type: "update.state", state });
-          // installing is the panel's button: only the companion knows whether a job is running
-          updateNote =
-            state.status === "available" || state.status === "ready"
-              ? text.updateReady.replace("{v}", state.version ?? "")
-              : "";
+          updateState = state;
           refreshMenu();
         },
       });

@@ -522,22 +522,28 @@ const editorText = <T>(by: Record<Host["kind"], T>): T => by[host().kind];
 
 const DOWNLOAD_URL = "https://github.com/erhanmeydan/kilnframe/releases/latest";
 
+/** The site's list of what changed in each version, in the panel's language. */
+const changelogUrl = () =>
+  lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
+
 /** The app's update, or the side to update when the panel and the app do not match. */
 function updateBox(): string {
   if (state.conn !== "ok") return "";
-  if (state.mismatch === "app")
+  const u = state.update;
+  const offered = Boolean(u && u.status !== "none" && u.status !== "checking");
+  // an app older than the panel that can update itself gets the Update button, not the download page
+  if (state.mismatch === "app" && !offered)
     return `<div class="box warn"><div>${t("mismatch.app")}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
   if (state.mismatch === "panel")
     return `<div class="box warn">${t(editorText({ premiere: "mismatch.panel", resolve: "mismatch.panelResolve", filmcraft: "mismatch.panelFilmcraft" }))}</div>`;
-  const u = state.update;
-  if (!u || u.status === "none" || u.status === "checking") return "";
+  if (!u || !offered) return "";
   const v = esc(u.version ?? "");
-  // the release page carries the notes of what changed
-  const notes = `https://github.com/erhanmeydan/kilnframe/releases/tag/v${encodeURIComponent(u.version ?? "")}`;
+  // the site's changelog, in the editor's language: GitHub's release page made people download by hand
+  const notes = changelogUrl();
   if (u.status === "available")
     return `<div class="box update"><div>${t("update.ready", { v })}</div>${
       state.updateBusy ? `<div class="small muted mt">${t("update.busy")}</div>` : ""
-    }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div><div class="btn2 mt" data-act="open-url" data-val="${notes}">${t("update.whatsNew")} ↗</div></div>`;
+    }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div><div class="small mt"><span class="link" data-act="open-url" data-val="${notes}">${t("update.whatsNew")} ↗</span></div></div>`;
   if (u.status === "downloading")
     return `<div class="box update">${t("update.downloading", { p: u.percent ?? 0 })}</div>`;
   if (u.status === "ready") return `<div class="box update">${t("update.restarting")}</div>`;
@@ -2174,8 +2180,7 @@ function versionLine(): string {
   const panel = panelVersion();
   const app = state.appVersion;
   const differ = Boolean(app && app !== panel);
-  const notes =
-    lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
+  const notes = changelogUrl();
   return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackPage({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
     differ
       ? `<div class="small warn-text">${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`
