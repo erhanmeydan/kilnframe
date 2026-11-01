@@ -353,7 +353,7 @@
     {
       "id": "electron",
       "group": "app",
-      "current": "44.7.0",
+      "current": "44.10.1",
       "source": {
         "type": "npm",
         "package": "electron"
