@@ -8,7 +8,7 @@ import type {
   TrackItemSelection,
   premierepro,
 } from "@adobe/premierepro";
-import { frameFor } from "./frame";
+import { frameFor, insertScale } from "./frame";
 import { formatRational, rationalFps } from "./fps";
 import { withoutLongPathPrefix } from "./home";
 import type { Host, HostSequence, PlaceResult } from "./host";
@@ -61,6 +61,19 @@ interface Clip {
   getStartTime(): Promise<{ seconds: number }>;
   getEndTime(): Promise<{ seconds: number }>;
   getProjectItem(): Promise<ProjectItem>;
+}
+
+/** A clip's effects, as far as scaling it reads them (VideoClipTrackItem.getComponentChain). */
+interface Effects {
+  getComponentCount(): number;
+  getComponentAtIndex(i: number): {
+    getMatchName(): Promise<string>;
+    getParam(i: number): {
+      displayName?: string;
+      createKeyframe(value: number): unknown;
+      createSetValueAction(keyframe: unknown, safeForPlayback: boolean): unknown;
+    };
+  };
 }
 
 /** A track that can be switched off for an export (video and audio tracks both can). */
@@ -125,6 +138,15 @@ export function createPremiereHost(
     const found = (await project.getSequences()).find((s) => s.guid.toString() === seq.id);
     if (!found) throw new Error(t("seq.noSequence"));
     return { project, sequence: found };
+  }
+
+  /** The sequence's frame size. */
+  async function sequenceRect(sequence: Sequence): Promise<{ width: number; height: number }> {
+    const settings = await sequence.getSettings();
+    return premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRect>>>(
+      settings,
+      "getVideoFrameRect",
+    );
   }
 
   async function sequenceInfo(sequence: Sequence): Promise<SequenceInfo> {
@@ -350,6 +372,60 @@ export function createPremiereHost(
   }
 
   /**
+   * Scales the clip of `mediaPath` that starts at `atS` on the 0-based video track up by `scale` (frame.ts
+   * insertScale: a 4K clip on a 6K or 8K sequence), through its Motion effect's Scale, as one undoable step.
+   * Adobe's premiere-api sample sets a value the same way (keyframe.ts: component 1, param 1, createKeyframe
+   * and createSetValueAction). False when the clip or its Scale could not be found or set: the caller says so.
+   */
+  async function scaleClip(
+    project: Project,
+    sequence: Sequence,
+    videoTrack: number,
+    atS: number,
+    mediaPath: string,
+    scale: number,
+  ): Promise<boolean> {
+    if (scale <= 1) return true;
+    try {
+      let clip: Clip | null = null;
+      for (const c of (await videoClips(sequence))[videoTrack] ?? []) {
+        const path = await pathOf(c);
+        if (
+          path &&
+          same(path, mediaPath) &&
+          Math.abs((await c.getStartTime()).seconds - atS) < 0.05
+        )
+          clip = c;
+      }
+      if (!clip) return false;
+      const chain = await (
+        clip as unknown as { getComponentChain(): Promise<Effects> }
+      ).getComponentChain();
+      let motion: ReturnType<Effects["getComponentAtIndex"]> | null = null;
+      for (let i = 0; i < chain.getComponentCount() && !motion; i++) {
+        const c = chain.getComponentAtIndex(i);
+        if ((await c.getMatchName()) === "AE.ADBE Motion") motion = c;
+      }
+      if (!motion) return false;
+      // Motion's parameters: 0 Position, 1 Scale (Premiere's own order, the sample's param 1)
+      const param = motion.getParam(1);
+      let ok = false;
+      project.lockedAccess(() => {
+        ok = project.executeTransaction(
+          (compound) =>
+            compound.addAction(
+              param.createSetValueAction(param.createKeyframe(scale * 100), true) as never,
+            ),
+          t("premiere.undoScale"),
+        );
+      });
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * The first track above everything in use: an empty video track just over the highest one holding a clip
    * (so the insert stays on top), and an empty audio track after the last used one. The track count, which
    * makes Premiere add a new track, when there is no empty one there.
@@ -406,13 +482,16 @@ export function createPremiereHost(
     trim(video);
     if (!placeItem(project, sequence, video, at, videoTrack, audioTrack))
       throw new Error(t("premiere.placeFailed"));
+    const rect = await sequenceRect(sequence);
+    const scale = insertScale(rect.width, rect.height);
+    const scaled = await scaleClip(project, sequence, videoTrack, at, files.video, scale);
     if (files.sfx) {
       const sfx = await importToBin(project, files.sfx);
       trim(sfx);
       if (!placeItem(project, sequence, sfx, at, videoTrack, audioTrack))
         throw new Error(t("premiere.sfxFailed"));
     }
-    return { videoTrack, audioTrack };
+    return { videoTrack, audioTrack, ...(scaled ? {} : { scaleByHand: Math.round(scale * 100) }) };
   }
 
   /**
@@ -606,6 +685,15 @@ export function createPremiereHost(
         replace(selection);
       });
       if (!ok) throw new Error(t("premiere.placeFailed"));
+      const rect = await sequenceRect(sequence);
+      await scaleClip(
+        project,
+        sequence,
+        videoTrack,
+        atS,
+        file,
+        insertScale(rect.width, rect.height),
+      );
       return true;
     },
     async createStorySequence(template, name, narration, music, format) {

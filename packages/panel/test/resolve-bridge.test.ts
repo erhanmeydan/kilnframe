@@ -271,6 +271,49 @@ describe("resolve bridge", () => {
     expect(f.project.timeline.playhead).toBe("01:00:07:00");
   });
 
+  it("fits a 4K insert to a larger timeline with its Scaling, and leaves a 4K timeline alone", async () => {
+    const insert = { video: "/m/Kilnframe/j/insert.mov", sfx: null };
+    const big = makeFakeResolve();
+    Object.assign(big.project.timeline.settings, {
+      timelineResolutionWidth: "7680",
+      timelineResolutionHeight: "4320",
+    });
+    const b = bridge(big);
+    expect(await b.placeInsert((await b.currentSequence()).id, insert, 2, 0.8, 7)).toEqual({
+      videoTrack: 1,
+      audioTrack: 1,
+    });
+    // SCALE_FIT: the clip fills the frame whatever the project's mismatch setting is
+    expect(big.project.timeline.tracks.video[1]!.items[0]!.props).toEqual({ Scaling: 2 });
+
+    const uhd = makeFakeResolve();
+    Object.assign(uhd.project.timeline.settings, {
+      timelineResolutionWidth: "3840",
+      timelineResolutionHeight: "2160",
+    });
+    const u = bridge(uhd);
+    await u.placeInsert((await u.currentSequence()).id, insert, 2, 0.8, 7);
+    expect(uhd.project.timeline.tracks.video[1]!.items[0]!.props).toBeUndefined();
+  });
+
+  it("says the percent to set by hand when Resolve refuses the Scaling", async () => {
+    const f = makeFakeResolve({ refuseProperties: true });
+    Object.assign(f.project.timeline.settings, {
+      timelineResolutionWidth: "6144",
+      timelineResolutionHeight: "3240",
+    });
+    const b = bridge(f);
+    const placed = await b.placeInsert(
+      (await b.currentSequence()).id,
+      { video: "/m/Kilnframe/j/insert.mov", sfx: null },
+      2,
+      0.8,
+      7,
+    );
+    // 3240 / 2160
+    expect(placed.scaleByHand).toBe(150);
+  });
+
   it("reports PLACE_FAILED and takes the clip away when the track was locked", async () => {
     const f = makeFakeResolve({ lockTopVideoTrackOnAdd: true });
     const b = bridge(f);

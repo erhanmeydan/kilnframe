@@ -8,6 +8,8 @@ export interface FakeItem {
   sourceIn: number;
   sourceOut: number;
   path: string;
+  /** What TimelineItem.SetProperty set (Scaling for a 4K clip on a larger timeline). */
+  props?: Record<string, unknown>;
 }
 export interface FakeTrack {
   items: FakeItem[];
@@ -26,6 +28,8 @@ export interface FakeTimeline {
 }
 
 export interface FakeOptions {
+  /** TimelineItem.SetProperty answers false, as for a property this Resolve does not know. */
+  refuseProperties?: boolean;
   /** SaveAsNewRenderPreset or LoadRenderPreset answers false: the editor's render settings cannot come back. */
   presetFails?: "save" | "load";
   markIn?: number;
@@ -148,6 +152,11 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     GetSourceEndFrame: async () => it.sourceOut,
     GetTrackTypeAndIndex: async () => [type, idx],
     GetMediaPoolItem: async () => mpi(it.path),
+    SetProperty: async (k: string, v: unknown) => {
+      if (o.refuseProperties) return false;
+      it.props = { ...it.props, [k]: v };
+      return true;
+    },
     tl,
   });
   const folderApi = (f: { name: string; subs: unknown[] }) => ({

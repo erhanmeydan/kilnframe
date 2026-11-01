@@ -18,7 +18,7 @@ import {
   type ResolveBridge,
   type ResolveSequence,
 } from "../resolve/api";
-import { frameFor } from "../frame";
+import { frameFor, insertScale } from "../frame";
 import { isOurAnimation, isOurInsert } from "../our-files";
 import { CONNECTION_LOST, TIMED_OUT, type FilmCraftClient } from "./client";
 
@@ -233,6 +233,22 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
     return r.clips[0]!;
   }
 
+  /**
+   * A clip rendered at 4K for a sequence larger than that (frame.ts insertScale) is fitted to the frame with
+   * clip.fitToFrame, which sets its Motion scale and does not toggle (clip.scaleToFrameSize would). False when
+   * FilmCraft refused it (an older FilmCraft without the command): the caller says how to do it by hand.
+   */
+  async function fitToFrame(s: Sequence, clip: number): Promise<boolean> {
+    if (insertScale(s.settings.width, s.settings.height) <= 1) return true;
+    try {
+      await fc.exec("clip.fitToFrame", { clips: [clip] });
+      return true;
+    } catch (err) {
+      if (channelError(err)) throw err;
+      return false;
+    }
+  }
+
   async function deleteTracks(ids: number[]) {
     for (const id of ids)
       await fc.exec("sequence.deleteTrack", { track: id }).catch(() => undefined);
@@ -424,10 +440,16 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
                 frames,
               }),
             );
+          const fitted = await fitToFrame(s, placed[0]!);
           const after = await inspect(id);
           return {
             videoTrack: after.video.findIndex((t) => t.id === v.id),
             audioTrack: after.audio.findIndex((t) => t.id === a.id),
+            ...(fitted
+              ? {}
+              : {
+                  scaleByHand: Math.round(insertScale(s.settings.width, s.settings.height) * 100),
+                }),
           } satisfies PlacedTracks;
         } catch (err) {
           // nothing half made stays behind, also when FilmCraft went away (each undo then fails fast)
@@ -504,7 +526,7 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
         const from = frame(s, atS);
         const to = frame(s, atS + durationS);
         try {
-          await place(s, {
+          const clip = await place(s, {
             item: item!,
             track: track.id,
             kind: "video",
@@ -512,6 +534,7 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
             sourceIn: 0,
             frames: to - from,
           });
+          await fitToFrame(s, clip);
         } catch (err) {
           // the old clips back where they lay
           for (const c of old)

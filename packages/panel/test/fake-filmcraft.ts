@@ -37,6 +37,10 @@ export interface FakeFilmCraftOptions {
   outS?: number;
   /** The editor's footage on V1/A1, as a clip of this file. */
   footage?: string | null;
+  /** The sequence's frame (1920x1080 when missing). */
+  size?: { width: number; height: number };
+  /** A FilmCraft without clip.fitToFrame. */
+  noFitToFrame?: boolean;
 }
 
 export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
@@ -74,7 +78,11 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
     duration: ticksOf(length),
     in: opts.inS === undefined ? null : Math.round(opts.inS * TICKS),
     out: opts.outS === undefined ? null : Math.round(opts.outS * TICKS),
-    settings: { frame_rate: rate, width: 1920, height: 1080 },
+    settings: {
+      frame_rate: rate,
+      width: opts.size?.width ?? 1920,
+      height: opts.size?.height ?? 1080,
+    },
     video: [track("V1", [clipOf(footageItem, 0, length)])],
     audio: [track("A1", [clipOf(footageItem, 0, length)])],
   };
@@ -189,6 +197,7 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
       t.items.push(clip);
       return { clips: [clip.clip] };
     },
+    ...(opts.noFitToFrame ? {} : { "clip.fitToFrame": () => null }),
     "edit.clear": (p) => {
       const gone = p.clips as number[];
       for (const t of state.tracks(seqOf(undefined)))

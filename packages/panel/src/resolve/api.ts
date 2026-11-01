@@ -32,6 +32,8 @@ export interface HiddenTrack {
 export interface PlacedTracks {
   videoTrack: number;
   audioTrack: number;
+  /** The clip could not be fitted to a timeline larger than 4K: the percent to set by hand. */
+  scaleByHand?: number;
 }
 
 export interface ResolveBridge {

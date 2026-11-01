@@ -25,6 +25,11 @@ export interface HostSequence {
 export interface PlaceResult {
   videoTrack: number;
   audioTrack: number;
+  /**
+   * The clip, rendered at 4K for a larger sequence, could not be scaled up to fill it: the percent the editor
+   * sets by hand (Scale to Frame Size does the same).
+   */
+  scaleByHand?: number;
 }
 
 export interface Host {

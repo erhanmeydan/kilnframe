@@ -16,8 +16,20 @@ interface FakeClip {
  * sequence's tracks hold `video` and `audio` clips; the editor's actions change them when the transaction runs:
  * an overwrite cuts away what lies under the new clip, a remove takes the selected clips off.
  */
-function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeClip[][] } = {}) {
+function fakePremiere(
+  opts: {
+    win?: boolean;
+    video?: FakeClip[][];
+    audio?: FakeClip[][];
+    /** The sequences' frame; 1920x1080 when missing. */
+    size?: { width: number; height: number };
+    /** Clips without a Motion effect, so their Scale cannot be set. */
+    noMotion?: boolean;
+  } = {},
+) {
   const seqs = new Map<string, ReturnType<typeof makeSeq>>();
+  /** Motion > Scale values set on clips, by clip file. */
+  const scales: { path: string; value: number }[] = [];
   const overwrites: { path: string; at: number; videoTrack: number; audioTrack: number }[] = [];
   const binItems: { name: string; path: string }[] = [];
   /** A file's length in seconds once imported; 10 when the test does not say. */
@@ -30,6 +42,22 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
     getStartTime: async () => tick(c.start),
     getEndTime: async () => tick(c.end),
     getProjectItem: async () => ({ path: c.path }),
+    // Premiere's chain: Opacity, then Motion, whose param 1 is Scale
+    getComponentChain: async () => {
+      const motion = {
+        getMatchName: async () => "AE.ADBE Motion",
+        getParam: (i: number) => ({
+          displayName: i === 1 ? "Scale" : "Position",
+          createKeyframe: (value: number) => ({ value }),
+          createSetValueAction: (k: { value: number }) => ({
+            apply: () => scales.push({ path: c.path, value: k.value }),
+          }),
+        }),
+      };
+      const opacity = { getMatchName: async () => "AE.ADBE Opacity", getParam: motion.getParam };
+      const list = opts.noMotion ? [opacity] : [opacity, motion];
+      return { getComponentCount: () => list.length, getComponentAtIndex: (i: number) => list[i] };
+    },
   });
   const trackApi = (clips: FakeClip[]) => ({
     isMuted: async () => false,
@@ -42,7 +70,7 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
       name,
       getSettings: async () => ({
         getVideoFrameRate: async () => ({ ticksPerFrame: TICKS_PER_SECOND / 25, value: 25 }),
-        getVideoFrameRect: async () => ({ width: 1920, height: 1080 }),
+        getVideoFrameRect: async () => opts.size ?? { width: 1920, height: 1080 },
         getVideoPixelAspectRatio: async () => "1",
         setVideoFrameRect: async () => true,
         setPreviewFrameRect: async () => true,
@@ -209,6 +237,7 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
     os,
     project,
     overwrites,
+    scales,
     video,
     lengths,
     files,
@@ -327,6 +356,45 @@ describe("premiere host", () => {
     const [a, b] = f.overwrites;
     expect([b?.videoTrack, b?.audioTrack]).toEqual([a?.videoTrack, a?.audioTrack]);
     expect(b?.at).toBe(7);
+  });
+
+  it("scales a 4K insert up to fill an 8K sequence, and not one on a 4K sequence", async () => {
+    const big = fakePremiere({ size: { width: 7680, height: 4320 } });
+    const h = big.make();
+    const placed = await h.placeInsert(
+      await h.currentSequence(),
+      { video: "/j/1/insert.mov", sfx: null },
+      2,
+      0.8,
+      5,
+    );
+    expect(placed.scaleByHand).toBeUndefined();
+    expect(big.scales).toEqual([{ path: "/j/1/insert.mov", value: 200 }]);
+
+    const uhd = fakePremiere({ size: { width: 3840, height: 2160 } });
+    const u = uhd.make();
+    await u.placeInsert(
+      await u.currentSequence(),
+      { video: "/j/1/insert.mov", sfx: null },
+      2,
+      0.8,
+      5,
+    );
+    expect(uhd.scales).toEqual([]);
+  });
+
+  it("places the insert and says the percent to set by hand when its Scale cannot be found", async () => {
+    const f = fakePremiere({ size: { width: 6144, height: 3240 }, noMotion: true });
+    const h = f.make();
+    const placed = await h.placeInsert(
+      await h.currentSequence(),
+      { video: "/j/1/insert.mov", sfx: null },
+      2,
+      0.8,
+      5,
+    );
+    expect(placed.scaleByHand).toBe(150);
+    expect(f.overwrites).toHaveLength(1);
   });
 
   it("makes the story sequence the active one, so the next read returns its id", async () => {

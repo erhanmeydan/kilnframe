@@ -17,7 +17,7 @@ import {
   type ResolveBridge,
   type ResolveSequence,
 } from "./api";
-import { frameFor } from "../frame";
+import { frameFor, insertScale } from "../frame";
 import { isOurAnimation, isOurInsert } from "../our-files";
 import { framesToTimecode, parseRate, rateString, type Rate } from "./timecode";
 
@@ -263,6 +263,34 @@ export function createResolveBridge(
     return items;
   }
 
+  /**
+   * A clip rendered at 4K for a larger timeline (frame.ts insertScale) fills it with its own Scaling set to
+   * Fit, whatever the project's mismatched resolution setting is: TimelineItem.SetProperty("Scaling", 2),
+   * SCALE_FIT among SCALE_USE_PROJECT 0, CROP 1, FIT 2, FILL 3, STRETCH 4 (resolvedevdoc API_timeline_items).
+   * False when Resolve refused it: the caller says how to do it by hand.
+   */
+  async function fitToTimeline(tl: R, item: R): Promise<boolean> {
+    const s = (await tl.GetSetting()) as Record<string, string>;
+    const scale = insertScale(
+      Number(s.timelineResolutionWidth),
+      Number(s.timelineResolutionHeight),
+    );
+    if (scale <= 1) return true;
+    try {
+      return Boolean(await item.SetProperty("Scaling", 2));
+    } catch {
+      return false;
+    }
+  }
+
+  /** The percent a 4K clip needs on this timeline, said when it could not be fitted (PlaceResult.scaleByHand). */
+  async function scalePercent(tl: R): Promise<number> {
+    const s = (await tl.GetSetting()) as Record<string, string>;
+    return Math.round(
+      insertScale(Number(s.timelineResolutionWidth), Number(s.timelineResolutionHeight)) * 100,
+    );
+  }
+
   /** Appends and checks each clip landed where asked; removes them all and throws otherwise. */
   async function append(
     tl: R,
@@ -275,7 +303,7 @@ export function createResolveBridge(
       trackIndex: number;
       recordFrame: number;
     }[],
-  ): Promise<void> {
+  ): Promise<R[]> {
     const pool = await p.GetMediaPool();
     const placed = ((await pool.AppendToTimeline(infos)) ?? []) as R[];
     let good = placed.length === infos.length;
@@ -297,6 +325,7 @@ export function createResolveBridge(
       if (placed.length) await tl.DeleteClips(placed, false);
       throw new Error(PLACE_FAILED);
     }
+    return placed;
   }
 
   /**
@@ -515,13 +544,23 @@ export function createResolveBridge(
             trackIndex,
             recordFrame,
           });
+          let placed: R[];
           try {
-            await append(tl, p, sfx ? [clip(video, 1, v), clip(sfx, 2, a)] : [clip(video, 1, v)]);
+            placed = await append(
+              tl,
+              p,
+              sfx ? [clip(video, 1, v), clip(sfx, 2, a)] : [clip(video, 1, v)],
+            );
           } catch (err) {
             for (const t of added.reverse()) await tl.DeleteTrack(t.type, t.index);
             throw err;
           }
-          return { videoTrack: v - 1, audioTrack: a - 1 } satisfies PlacedTracks;
+          const fitted = await fitToTimeline(tl, placed[0]);
+          return {
+            videoTrack: v - 1,
+            audioTrack: a - 1,
+            ...(fitted ? {} : { scaleByHand: await scalePercent(tl) }),
+          } satisfies PlacedTracks;
         } finally {
           // Resolve 21.1.1 takes an In alone; an Out alone it cannot set (it clears both), so that one is lost
           if (mark.in !== undefined && mark.out !== undefined)
@@ -647,8 +686,9 @@ export function createResolveBridge(
           if (!(await tl.DeleteClips(old, false))) throw new Error(PLACE_FAILED);
           const from = Math.round(atS * rate.fps);
           const to = Math.round((atS + durationS) * rate.fps);
+          let placed: R[];
           try {
-            await append(tl, p, [
+            placed = await append(tl, p, [
               {
                 mediaPoolItem: item,
                 startFrame: 0,
@@ -662,6 +702,7 @@ export function createResolveBridge(
             await append(tl, p, before).catch(() => undefined);
             throw err;
           }
+          await fitToTimeline(tl, placed[0]);
           return true;
         }),
       );

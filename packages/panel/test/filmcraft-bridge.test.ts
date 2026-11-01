@@ -110,6 +110,30 @@ describe("filmcraft bridge", () => {
     }
   });
 
+  it("fits a 4K insert to an 8K sequence and leaves a 4K one alone", async () => {
+    const fitted = (f: ReturnType<typeof makeFakeFilmCraft>) =>
+      f.state.log.filter((l) => l.command === "clip.fitToFrame").map((l) => l.params);
+    const big = makeFakeFilmCraft({ size: { width: 7680, height: 4320 } });
+    const b = bridgeOf(big);
+    const placed = await b.placeInsert((await b.currentSequence()).id, files, 2, 0.5, 4);
+    expect(placed.scaleByHand).toBeUndefined();
+    expect(fitted(big)).toEqual([{ clips: [big.sequence.video[1]!.items[0]!.clip] }]);
+
+    const uhd = makeFakeFilmCraft({ size: { width: 3840, height: 2160 } });
+    const u = bridgeOf(uhd);
+    await u.placeInsert((await u.currentSequence()).id, files, 2, 0.5, 4);
+    expect(fitted(uhd)).toEqual([]);
+  });
+
+  it("says the percent to set by hand on a FilmCraft without Fit to frame", async () => {
+    const f = makeFakeFilmCraft({ size: { width: 7680, height: 4320 }, noFitToFrame: true });
+    const b = bridgeOf(f);
+    const placed = await b.placeInsert((await b.currentSequence()).id, files, 2, 0.5, 4);
+    expect(placed.scaleByHand).toBe(200);
+    // the clip stays where it was placed
+    expect(f.sequence.video[1]!.items).toHaveLength(1);
+  });
+
   it("refuses a locked track and takes the tracks it added off again", async () => {
     const f = makeFakeFilmCraft();
     lockAddedVideoTrack(f);

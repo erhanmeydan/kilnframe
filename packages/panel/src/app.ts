@@ -3026,6 +3026,15 @@ async function placePart(i: number, r: JobResult, target: HostSequence) {
     series.tracks ?? undefined,
   );
   trace(`series: part ${i + 1} placed on V${placed.videoTrack + 1} and A${placed.audioTrack + 1}`);
+  if (placed.scaleByHand && state.job)
+    state.job.note = t(
+      editorText({
+        premiere: "place.scaleByHand",
+        resolve: "place.scaleByHandResolve",
+        filmcraft: "place.scaleByHandFilmcraft",
+      }),
+      { pct: placed.scaleByHand },
+    );
   series.tracks ??= placed;
   part.state = "placed";
   series.cost = addCosts(series.cost ?? null, r.cost);
@@ -3272,6 +3281,15 @@ function onJobMessage(
       .then((placed) => {
         trace(`job: placed on V${placed.videoTrack + 1} and A${placed.audioTrack + 1}`);
         job.placed = placed;
+        if (placed.scaleByHand)
+          job.note = t(
+            editorText({
+              premiere: "place.scaleByHand",
+              resolve: "place.scaleByHandResolve",
+              filmcraft: "place.scaleByHandFilmcraft",
+            }),
+            { pct: placed.scaleByHand },
+          );
         job.cost = r.cost ?? null;
         job.step = 7;
         state.review = null;
