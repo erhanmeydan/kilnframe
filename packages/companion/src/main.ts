@@ -42,6 +42,7 @@ import {
   saveCaptionsState,
   findPreviewPreset,
   findWavPreset,
+  runningPremiereDirs,
   inspectImages,
   playSound,
   stopSound,
@@ -106,11 +107,12 @@ async function main() {
       // the speech model is looked at each time
       const defaults = loadDefaults();
       const report = await hardware();
+      const premiere = runningPremiereDirs();
       return {
         ...report,
         speechModel: { name: defaults.whisper.model, cached: speechModelCached(defaults) },
-        wavPreset: findWavPreset(),
-        previewPreset: findPreviewPreset(),
+        wavPreset: findWavPreset(process.platform, premiere),
+        previewPreset: findPreviewPreset(process.platform, premiere),
       };
     },
     listStyles: async () =>
