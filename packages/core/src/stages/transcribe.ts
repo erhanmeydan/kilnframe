@@ -136,18 +136,27 @@ export async function loadSpeechModel(
     });
     return asr as unknown as AsrPipeline;
   } catch (err) {
-    // the first use downloads the model; Node's own "fetch failed" says nothing an editor can act on
-    const cause = (err as { cause?: { code?: string } }).cause?.code;
-    if (
-      err instanceof Error &&
-      /fetch failed|ENOTFOUND|ECONNRESET|ETIMEDOUT/i.test(`${err.message} ${cause ?? ""}`)
-    )
-      throw new Error(
-        `Could not download the speech model (${cause ?? err.message}). Check the internet connection and try again.`,
-        { cause: err },
-      );
-    throw err;
+    throw downloadError(err);
   }
+}
+
+/**
+ * The first use downloads the model; Node's own "fetch failed", or "terminated" when the connection drops
+ * halfway through a file, says nothing an editor can act on. Other errors come back as they are.
+ */
+export function downloadError(err: unknown): unknown {
+  const cause = (err as { cause?: { code?: string } } | undefined)?.cause?.code;
+  if (
+    err instanceof Error &&
+    /fetch failed|terminated|ENOTFOUND|ECONNRESET|ETIMEDOUT|UND_ERR_SOCKET/i.test(
+      `${err.message} ${cause ?? ""}`,
+    )
+  )
+    return new Error(
+      `Could not download the speech model (${cause ?? err.message}). Check the internet connection and try again.`,
+      { cause: err },
+    );
+  return err;
 }
 
 export interface TranscribeOptions {

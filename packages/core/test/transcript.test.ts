@@ -6,6 +6,7 @@ import {
   NoSpeechError,
   TranscriptSchema,
   chunksToWords,
+  downloadError,
   downloadProgress,
   loadDefaults,
   pickLanguage,
@@ -128,6 +129,27 @@ describe("downloadProgress", () => {
     on({ status: "progress", file: "a", loaded: 100, total: 100 });
     on({ status: "progress", file: "b", loaded: 100, total: 100 });
     expect(seen).toEqual([10, 50, 100]);
+  });
+});
+
+describe("downloadError", () => {
+  it("says the download failed when the connection drops halfway through a file", () => {
+    const err = Object.assign(new TypeError("terminated"), { cause: { code: "UND_ERR_SOCKET" } });
+    const out = downloadError(err) as Error;
+    expect(out.message).toBe(
+      "Could not download the speech model (UND_ERR_SOCKET). Check the internet connection and try again.",
+    );
+    expect(out.cause).toBe(err);
+  });
+
+  it("says the download failed when there is no connection", () => {
+    const out = downloadError(new TypeError("fetch failed")) as Error;
+    expect(out.message).toMatch(/^Could not download the speech model \(fetch failed\)/);
+  });
+
+  it("keeps other errors as they are", () => {
+    const err = new Error("The speech model has no language tokens.");
+    expect(downloadError(err)).toBe(err);
   });
 });
 
