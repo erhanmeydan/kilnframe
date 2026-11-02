@@ -272,7 +272,19 @@ writeFileSync(
         artifactName: "Kilnframe-mac.pkg",
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",
       },
-      win: { target: ["nsis"], icon: join(app, "assets", "icon.png") },
+      // --appx: a Microsoft Store (MSIX) package instead of the installer, for a test of how the app runs packaged;
+      // APPX_PUBLISHER is the subject of the certificate it is signed with
+      win: {
+        target: [process.argv.includes("--appx") ? "appx" : "nsis"],
+        icon: join(app, "assets", "icon.png"),
+      },
+      appx: {
+        identityName: "ErhanMeydan.Kilnframe",
+        displayName: "Kilnframe",
+        publisherDisplayName: "Erhan Meydan",
+        publisher: process.env.APPX_PUBLISHER ?? "CN=Kilnframe Test",
+        artifactName: "Kilnframe-Windows.appx",
+      },
       // the installer asks to wait while an animation is being made (build/installer.nsh)
       nsis: { artifactName: "Kilnframe-Windows.exe", include: join(app, "build", "installer.nsh") },
     },

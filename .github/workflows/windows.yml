@@ -11,6 +11,10 @@ on:
         description: "Plugin id (kilnframe, or kilnframe-test beside a development plugin)"
         default: "kilnframe"
         required: true
+      appx:
+        description: "Test build: a Microsoft Store (MSIX) package signed with a throwaway certificate, no tests"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -52,14 +56,42 @@ jobs:
 
       # a failing test stops the build: the installer is made only from code that passes on Windows
       - run: pnpm test
+        if: ${{ !inputs.appx }}
 
       - name: Build the installer
+        if: ${{ !inputs.appx }}
         run: node packages/app/scripts/stage.mjs --plugin-id ${{ inputs.plugin_id }}
         env:
           # no code signing certificate yet
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
+      # a certificate made for this run only: the tester trusts its .cer once (Trusted People) to install the package
+      - name: Build the MSIX package
+        if: ${{ inputs.appx }}
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=Kilnframe Test" -KeyUsage DigitalSignature `
+            -CertStoreLocation Cert:\CurrentUser\My `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+          $pw = ConvertTo-SecureString -String "kilnframe-test" -Force -AsPlainText
+          Export-PfxCertificate -Cert $cert -FilePath "$env:RUNNER_TEMP\test.pfx" -Password $pw | Out-Null
+          New-Item -ItemType Directory -Force out\app-build | Out-Null
+          Export-Certificate -Cert $cert -FilePath out\app-build\Kilnframe-Test.cer | Out-Null
+          $env:CSC_LINK = "$env:RUNNER_TEMP\test.pfx"
+          $env:CSC_KEY_PASSWORD = "kilnframe-test"
+          node packages/app/scripts/stage.mjs --plugin-id ${{ inputs.plugin_id }} --appx
+
       - uses: actions/upload-artifact@v4
+        if: ${{ inputs.appx }}
+        with:
+          name: Kilnframe-Windows-MSIX
+          path: |
+            out/app-build/Kilnframe-Windows.appx
+            out/app-build/Kilnframe-Test.cer
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.appx }}
         with:
           name: Kilnframe-Windows
           path: |
