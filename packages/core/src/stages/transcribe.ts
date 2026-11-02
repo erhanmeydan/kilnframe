@@ -128,14 +128,20 @@ export async function loadSpeechModel(
   const { env, pipeline } = await import("@huggingface/transformers");
   env.cacheDir = modelsDir();
   try {
-    const asr = await pipeline("automatic-speech-recognition", model, {
-      dtype: dtype as never,
-      // lean on memory, for 8 GB computers: weights kept as they are in the file (not prepacked into a
-      // second copy) and no memory arena held between runs. large-v3-turbo q8 peaks at 2.9 GB instead of
-      // 4.6 GB, with the same words, about 7% slower
-      session_options: { enableCpuMemArena: false, enableMemPattern: false, extra: { session: { disable_prepacking: "1" } } } as never,
-      progress_callback: downloadProgress((p) => onProgress?.(`Downloading speech model: ${p}%`)),
-    });
+    // KILNFRAME_ONNX_DEVICE: an app may run the model on the graphics card ("dml", DirectML on Windows);
+    // one that will not load there is loaded on the CPU
+    const device = process.env.KILNFRAME_ONNX_DEVICE || undefined;
+    const load = (on?: string) =>
+      pipeline("automatic-speech-recognition", model, {
+        ...(on ? { device: on as never } : {}),
+        dtype: dtype as never,
+        // lean on memory, for 8 GB computers: weights kept as they are in the file (not prepacked into a
+        // second copy) and no memory arena held between runs. large-v3-turbo q8 peaks at 2.9 GB instead of
+        // 4.6 GB, with the same words, about 7% slower
+        session_options: { enableCpuMemArena: false, enableMemPattern: false, extra: { session: { disable_prepacking: "1" } } } as never,
+        progress_callback: downloadProgress((p) => onProgress?.(`Downloading speech model: ${p}%`)),
+      });
+    const asr = device ? await load(device).catch(() => load()) : await load();
     return asr as unknown as AsrPipeline;
   } catch (err) {
     // the first use downloads the model; Node's own "fetch failed" says nothing an editor can act on
