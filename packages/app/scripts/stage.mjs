@@ -273,7 +273,6 @@ writeFileSync(
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",
       },
       // --appx: a Microsoft Store (MSIX) package instead of the installer, for a test of how the app runs packaged;
-      // APPX_PUBLISHER is the subject of the certificate it is signed with
       win: {
         target: [process.argv.includes("--appx") ? "appx" : "nsis"],
         icon: join(app, "assets", "icon.png"),
@@ -282,7 +281,7 @@ writeFileSync(
         identityName: "ErhanMeydan.Kilnframe",
         displayName: "Kilnframe",
         publisherDisplayName: "Erhan Meydan",
-        publisher: process.env.APPX_PUBLISHER ?? "CN=Kilnframe Test",
+        publisher: "CN=Kilnframe Test",
         artifactName: "Kilnframe-Windows.appx",
       },
       // the installer asks to wait while an animation is being made (build/installer.nsh)
