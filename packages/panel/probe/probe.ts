@@ -122,4 +122,86 @@ button("btn-place", async () => {
   });
 });
 
+// 6. The Motion > Scale question (4K inserts on 8K sequences): what a placed clip's effects are, then setting
+// param 1 of Motion to 200 the way the panel does (host-premiere.ts scaleClip)
+button("btn-scale", async () => {
+  const ppro = require("premierepro") as premierepro;
+  const project = await ppro.Project.getActiveProject();
+  const sequence = await project.getActiveSequence();
+  const count = await sequence.getVideoTrackCount();
+  let clip: unknown = null;
+  let at = -1;
+  for (let i = count - 1; i >= 0 && !clip; i--) {
+    const items = (await sequence.getVideoTrack(i)).getTrackItems(
+      ppro.Constants.TrackItemType.CLIP,
+      false,
+    );
+    if (items.length) {
+      clip = items[0];
+      at = i;
+    }
+  }
+  if (!clip) throw new Error("Sekansta video klip yok.");
+  const item = clip as {
+    getName(): Promise<string>;
+    getComponentChain(): Promise<{
+      getComponentCount(): number;
+      getComponentAtIndex(i: number): {
+        getMatchName(): Promise<string>;
+        getDisplayName(): Promise<string>;
+        getParamCount(): number;
+        getParam(i: number): {
+          displayName?: string;
+          getStartValue(): Promise<unknown>;
+          isTimeVarying(): boolean;
+          createKeyframe(v: number): unknown;
+          createSetValueAction(k: unknown, safe: boolean): unknown;
+        };
+      };
+    }>;
+  };
+  const chain = await item.getComponentChain();
+  const components: unknown[] = [];
+  let motion: ReturnType<typeof chain.getComponentAtIndex> | null = null;
+  for (let c = 0; c < chain.getComponentCount(); c++) {
+    const comp = chain.getComponentAtIndex(c);
+    const matchName = await comp.getMatchName();
+    if (matchName === "AE.ADBE Motion") motion = comp;
+    const params: unknown[] = [];
+    for (let i = 0; i < comp.getParamCount(); i++) {
+      const param = comp.getParam(i);
+      let start: unknown;
+      try {
+        start = await param.getStartValue();
+      } catch (err) {
+        start = `HATA ${String(err)}`;
+      }
+      params.push({ i, name: param.displayName, start, timeVarying: param.isTimeVarying() });
+    }
+    components.push({ c, matchName, name: await comp.getDisplayName(), params });
+  }
+  log(`6a. V${at + 1} klibi: ${await item.getName()}`, components);
+  if (!motion) throw new Error("Motion bileşeni bulunamadı (AE.ADBE Motion).");
+  const param = motion.getParam(1);
+  let ok: unknown = null;
+  let error: string | null = null;
+  try {
+    project.lockedAccess(() => {
+      ok = project.executeTransaction(
+        (compound) =>
+          compound.addAction(param.createSetValueAction(param.createKeyframe(200), true) as never),
+        "probe: Scale 200",
+      );
+    });
+  } catch (err) {
+    error = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
+  }
+  log("6b. Motion param 1'e 200 yazıldı mı", {
+    param: param.displayName,
+    ok,
+    error,
+    after: await param.getStartValue().catch((e: unknown) => `HATA ${String(e)}`),
+  });
+});
+
 log("Hazır. Bir sekans aç, in/out işaretle ve butonları sırayla dene.");
