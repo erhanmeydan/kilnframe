@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve as resolvePath, sep } from "node:path";
+import { basename, dirname, extname, join, resolve as resolvePath, sep, win32 } from "node:path";
 import {
   ASSET_EXTENSIONS,
   FAILURE_PICTURE,
@@ -166,16 +166,55 @@ const PRESET = join(
 );
 
 /**
- * Premiere ships a 48 kHz WAV export preset (checked in 26.5.2, docs/premiere-uxp.md). Looks for it in the
- * installed Premiere versions, newest first.
+ * Where a running Premiere keeps its files (on macOS the .app's Contents folder, on Windows the folder of the
+ * .exe), from the process list: `ps -axo comm=` on macOS, the paths PowerShell gives on Windows. Premiere can
+ * be installed anywhere, e.g. in the Documents folder, where the usual places miss it (2 Nov 2026).
  */
-/** A preset that ships inside Premiere (MediaIO/systempresets/...), newest Premiere first. */
-function findPremierePreset(preset: string, platform: NodeJS.Platform): string | null {
+export function premiereDirsFrom(list: string, platform: NodeJS.Platform): string[] {
+  const dirs: string[] = [];
+  for (const line of list.split(/\r?\n/).map((l) => l.trim())) {
+    if (platform === "win32") {
+      if (/[\\/]Adobe Premiere Pro[^\\/]*\.exe$/i.test(line)) dirs.push(win32.dirname(line));
+    } else {
+      const at = line.indexOf(".app/Contents/MacOS/");
+      if (at > 0 && /\/Adobe Premiere Pro[^/]*\.app$/.test(line.slice(0, at + 4)))
+        dirs.push(line.slice(0, at + ".app/Contents".length));
+    }
+  }
+  return [...new Set(dirs)];
+}
+
+/** The running Premieres' folders (premiereDirsFrom); none when Premiere is not running or the list fails. */
+export function runningPremiereDirs(platform = process.platform): string[] {
+  const r =
+    platform === "win32"
+      ? spawnSync(
+          "powershell",
+          [
+            "-NoProfile",
+            "-Command",
+            "(Get-Process -Name 'Adobe Premiere Pro*' -ErrorAction SilentlyContinue).Path",
+          ],
+          { encoding: "utf8", windowsHide: true, timeout: 10_000 },
+        )
+      : spawnSync("ps", ["-axo", "comm="], { encoding: "utf8", timeout: 10_000 });
+  return r.status === 0 ? premiereDirsFrom(r.stdout, platform) : [];
+}
+
+/**
+ * A preset that ships inside Premiere (MediaIO/systempresets/...): first in the running Premiere, then in
+ * the installed Premiere versions in the usual places, newest first.
+ */
+function findPremierePreset(
+  preset: string,
+  platform: NodeJS.Platform,
+  running: string[],
+): string | null {
+  const candidates = running.map((dir) => join(dir, preset));
   const roots =
     platform === "win32"
       ? [join(process.env.ProgramFiles ?? "C:\\Program Files", "Adobe")]
       : ["/Applications"];
-  const candidates: string[] = [];
   for (const root of roots) {
     if (!existsSync(root)) continue;
     for (const name of readdirSync(root)
@@ -197,8 +236,12 @@ function findPremierePreset(preset: string, platform: NodeJS.Platform): string |
   return candidates.find((c) => existsSync(c)) ?? null;
 }
 
-export function findWavPreset(platform = process.platform): string | null {
-  return findPremierePreset(PRESET, platform);
+/** Premiere's 48 kHz WAV export preset (checked in 26.5.2). */
+export function findWavPreset(
+  platform = process.platform,
+  running: string[] = runningPremiereDirs(platform),
+): string | null {
+  return findPremierePreset(PRESET, platform, running);
 }
 
 /**
@@ -212,8 +255,11 @@ const PREVIEW_PRESET = join(
   "02 - Match Source - Low bitrate.epr",
 );
 
-export function findPreviewPreset(platform = process.platform): string | null {
-  return findPremierePreset(PREVIEW_PRESET, platform);
+export function findPreviewPreset(
+  platform = process.platform,
+  running: string[] = runningPremiereDirs(platform),
+): string | null {
+  return findPremierePreset(PREVIEW_PRESET, platform, running);
 }
 
 /** The review screen's stills as small JPEG data URLs, one per scene in plan order. */

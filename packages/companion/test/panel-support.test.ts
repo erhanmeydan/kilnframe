@@ -10,6 +10,7 @@ import {
   deleteUserStyle,
   findWavPreset,
   inspectImages,
+  premiereDirsFrom,
   prepareJobDir,
   withoutLongPathPrefix,
   safeName,
@@ -102,10 +103,39 @@ describe("panel support", () => {
     const saved = process.env.ProgramFiles;
     process.env.ProgramFiles = root;
     try {
-      expect(findWavPreset("win32")).toBe(join(preset, "Waveform Audio 48kHz 16-bit.epr"));
+      expect(findWavPreset("win32", [])).toBe(join(preset, "Waveform Audio 48kHz 16-bit.epr"));
     } finally {
       process.env.ProgramFiles = saved;
     }
+  });
+
+  it("finds the running Premiere's folder in the process list", () => {
+    const mac = [
+      "/Applications/Utilities/Adobe Sync/CoreSync/Core Sync.app/Contents/MacOS/Core Sync",
+      "/Users/kirmizi/Documents/Adobe Premiere Pro 2026/Adobe Premiere Pro 2026.app/Contents/MacOS/Adobe Premiere Pro 2026",
+      "/Users/kirmizi/Documents/Adobe Premiere Pro 2026/Adobe Premiere Pro 2026.app/Contents/Frameworks/Helper.app/Contents/MacOS/Helper",
+      "/Applications/Adobe Premiere Pro (Beta)/Adobe Premiere Pro (Beta).app/Contents/MacOS/Adobe Premiere Pro (Beta)",
+    ].join("\n");
+    expect(premiereDirsFrom(mac, "darwin")).toEqual([
+      "/Users/kirmizi/Documents/Adobe Premiere Pro 2026/Adobe Premiere Pro 2026.app/Contents",
+      "/Applications/Adobe Premiere Pro (Beta)/Adobe Premiere Pro (Beta).app/Contents",
+    ]);
+    const win =
+      "D:\\Apps\\Adobe Premiere Pro 2026\\Adobe Premiere Pro.exe\r\nC:\\Windows\\explorer.exe\r\n";
+    expect(premiereDirsFrom(win, "win32")).toEqual(["D:\\Apps\\Adobe Premiere Pro 2026"]);
+    expect(premiereDirsFrom("", "darwin")).toEqual([]);
+  });
+
+  it("finds the WAV preset in a running Premiere installed outside the usual places", () => {
+    const contents = join(
+      mkdtempSync(join(tmpdir(), "mi-docs-")),
+      "Adobe Premiere Pro 2026.app",
+      "Contents",
+    );
+    const dir = join(contents, "MediaIO", "systempresets", "3F3F3F3F_57415645");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "Waveform Audio 48kHz 16-bit.epr"), "");
+    expect(findWavPreset("darwin", [contents])).toBe(join(dir, "Waveform Audio 48kHz 16-bit.epr"));
   });
 
   it("inspects the editor's images and says why one cannot be used", () => {
