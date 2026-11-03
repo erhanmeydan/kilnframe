@@ -26,6 +26,24 @@ export const GSAP_PLUGINS = [
   "CustomEase",
 ] as const;
 
+/**
+ * Run after SplitText loads. Split into letters, a line could break between any two of them ("OKUYABİLİY /
+ * ORUZ", 3 Nov 2026), and words split around them broke inside too. Letters now always sit in words that do
+ * not break (.kf-word), so a word too long for its line overflows like plain text and the overflow checks
+ * catch it.
+ */
+export const SPLIT_WORDS = `(() => {
+      const create = SplitText.create.bind(SplitText);
+      SplitText.create = (target, vars = {}) => {
+        const type = String(vars.type ?? "chars,words,lines");
+        return create(target, {
+          ...vars,
+          type: /chars/.test(type) && !/words/.test(type) ? type + ",words" : type,
+          wordsClass: [vars.wordsClass, "kf-word"].filter(Boolean).join(" "),
+        });
+      };
+    })();`;
+
 /** The root composition: one host per scene, played back to back, plus shared runtime scripts. */
 export function rootHtml(plan: Plan): string {
   const { width, height, fps } = plan;
@@ -45,6 +63,9 @@ export function rootHtml(plan: Plan): string {
     <script src="vendor/gsap/gsap.min.js"></script>
 ${GSAP_PLUGINS.map((p) => `    <script src="vendor/gsap/${p}.min.js"></script>`).join("\n")}
     <script>gsap.registerPlugin(${GSAP_PLUGINS.join(", ")});</script>
+    <script>
+    ${SPLIT_WORDS}
+    </script>
     <script src="vendor/d3/d3.min.js"></script>
     <script src="vendor/icons/lucide.js"></script>
     <script type="importmap">
@@ -57,6 +78,7 @@ ${GSAP_PLUGINS.map((p) => `    <script src="vendor/gsap/${p}.min.js"></script>`)
          was still drawn into every frame: a faint haze over the footage. Only scene hosts, as HyperFrames'
          check asks; the src rule alone missed them in snapshots and renders, the file rule caught them */
       [data-composition-src][style*="visibility: hidden"], [data-composition-file][style*="visibility: hidden"] { opacity: 0 !important; }
+      .kf-word { white-space: nowrap; }
     </style>
   </head>
   <body>
