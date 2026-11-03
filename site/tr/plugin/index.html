@@ -1,0 +1,1457 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kilnframe: Premiere Pro, DaVinci Resolve ve FilmCraft için animasyon ve müzik</title>
+    <meta
+      name="description"
+      content="Premiere Pro, DaVinci Resolve Studio ve FilmCraft için ücretsiz ve açık kaynak eklenti. Bir aralık seçin, bir stil seçin: Kilnframe söylediğiniz için bir animasyon yazar, sizin bilgisayarınızda render alır ve ses efektleriyle timeline'ınıza yerleştirir."
+    />
+    <link rel="icon" href="../../assets/favicon.png" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/plugin/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/plugin/" />
+    <meta
+      property="og:title"
+      content="Kilnframe: Premiere Pro, DaVinci Resolve ve FilmCraft için animasyon ve müzik"
+    />
+    <meta
+      property="og:description"
+      content="Bir aralık seçin, bir stil seçin. Animasyon timeline'ınıza gelsin."
+    />
+    <link rel="canonical" href="https://kilnframe.com/tr/plugin/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/plugin/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/tr/plugin/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:image" content="https://kilnframe.com/assets/share.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Kilnframe: sözleriniz, animasyon olarak. Premiere timeline&#x27;ında bir animasyon insert&#x27;i."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://kilnframe.com/plugin/#app",
+            "name": "Kilnframe",
+            "url": "https://kilnframe.com/tr/plugin/",
+            "description": "Premiere Pro, DaVinci Resolve Studio ve FilmCraft için ücretsiz ve açık kaynak eklenti. Bir aralık seçin, bir stil seçin: Kilnframe söylediğiniz için bir animasyon yazar, sizin bilgisayarınızda render alır ve ses efektleriyle timeline'ınıza yerleştirir.",
+            "applicationCategory": "MultimediaApplication",
+            "applicationSubCategory": "Video editing plugin",
+            "operatingSystem": "macOS (Apple silicon), Windows 10, Windows 11",
+            "softwareRequirements": "Adobe Premiere Pro 2026 (26.2 or later), DaVinci Resolve Studio 21.1 or later or FilmCraft 0.14.0 or later",
+            "downloadUrl": [
+              "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg",
+              "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+            ],
+            "license": "https://www.apache.org/licenses/LICENSE-2.0",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "featureList": [
+              "Söylediğinizden kodla yazılan animasyonlar",
+              "Tam ekran insert ya da konuşanın yanında üst katman",
+              "11 stil, ya da referans görselden sizin stiliniz",
+              "Render'dan önce her sahnenin bir karesi",
+              "Ayrı izde ses efektleri",
+              "Hikaye modu: bir konudan seslendirilmiş video",
+              "Müzik sekmesi: her konuya müzik, sesin altında",
+              "Altyazı sekmesi: dokuz tasarlanmış görünüm, yapay zekanızla düzeltilen yazım ve SRT dosyası",
+              "Yerel yazıya dökme ve yerel render"
+            ],
+            "image": "https://kilnframe.com/assets/share.jpg",
+            "screenshot": "https://kilnframe.com/assets/video/rain-still.jpg",
+            "inLanguage": ["en", "tr"],
+            "author": {
+              "@id": "https://kilnframe.com/#erhan"
+            },
+            "sameAs": [
+              "https://github.com/erhanmeydan/kilnframe",
+              "https://x.com/kilnframe",
+              "https://www.youtube.com/@Kilnframe"
+            ]
+          },
+          {
+            "@type": "Person",
+            "@id": "https://kilnframe.com/#erhan",
+            "name": "Erhan Meydan",
+            "url": "https://github.com/erhanmeydan",
+            "jobTitle": "Graphic designer and video creator"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://kilnframe.com/#site",
+            "url": "https://kilnframe.com/plugin/",
+            "name": "Kilnframe",
+            "inLanguage": "tr",
+            "publisher": {
+              "@id": "https://kilnframe.com/#erhan"
+            }
+          },
+          {
+            "@type": "VideoObject",
+            "name": "Kilnframe: Premiere Pro ve DaVinci Resolve için animasyon ve müzik",
+            "description": "Kilnframe'in 90 saniyelik tanıtımı: bir aralık seçin, bir stil seçin, her sahneyi görün; animasyon sesiyle birlikte timeline'ınıza gelir. Hikaye modu ve Müzik sekmesi de içinde.",
+            "thumbnailUrl": "https://kilnframe.com/assets/share.jpg",
+            "uploadDate": "2026-10-19T17:30:00+03:00",
+            "duration": "PT1M30S",
+            "contentUrl": "https://kilnframe.com/assets/video/promo-tr.mp4",
+            "inLanguage": "tr"
+          },
+          {
+            "@type": "FAQPage",
+            "inLanguage": "tr",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Premiere Pro'da bir videoya yapay zekayla animasyon nasıl eklenir?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Kilnframe'i kurun ve panelini Premiere Pro'da açın. Anlatmak istediğiniz yerin üstüne bir in/out aralığı seçin ve bir stil seçin. Kilnframe aralığı yazıya döker, sahneleri planlar ve animasyonu kodla yazar. Her sahnenin bir karesini gösterir; onayınızdan sonra klibi sizin bilgisayarınızda render alır ve aralığın üstündeki ize yerleştirir. Ses efektleri ayrı bir ses izine gelir."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Hangi yapay zeka modelleriyle çalışır?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla; Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da LM Studio veya Ollama'daki yerel bir modelle. Sadece görsel okuyabilen modeller sunulur. Yukarıdaki benchmark on yedi modeli aynı klip üzerinde karşılaştırıyor."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Görüntülerim bilgisayarımdan çıkar mı?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Hayır. Konuşma Whisper ile bilgisayarınızda yazıya dökülür, animasyon da bilgisayarınızda render alınır. Seçtiğiniz yapay zekaya sadece metin, yani konuşmanın yazısı ve sahne planı, ve birkaç kare gider."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Çalıştırmak için ne gerekiyor?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Premiere Pro 2026 (26.2 ve sonrası), DaVinci Resolve Studio 21.1 ve sonrası ya da FilmCraft 0.14.0 ve sonrası, Apple silicon bir Mac ya da Windows 10 veya 11, bir ekran kartı ve yaklaşık 2 GB disk alanı."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Gerçekten ücretsiz mi?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Evet. Kilnframe Apache 2.0 lisansıyla ücretsiz ve açık kaynak. Tek maliyet yapay zeka: zaten ödediğiniz Claude, ChatGPT ya da Grok planı, kullandıkça ödenen bir API anahtarı ya da yerel bir modelle hiçbir şey."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "DaVinci Resolve'da çalışır mı?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Evet, Mac ve Windows'ta DaVinci Resolve Studio 21.1 ve sonrasında. Kurulum paneli Resolve'a da kurar; Workspace, Workflow Integrations, Kilnframe menüsünden açılır. Resolve'un ücretsiz sürümü eklenti yüklemez."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "FilmCraft ile çalışır mı?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Evet, Mac ve Windows'ta FilmCraft 0.14.0 ve sonrasında. FilmCraft'ın eklenti sistemi olmadığı için Kilnframe'den açılır: menü çubuğundaki ya da sistem tepsisindeki Kilnframe simgesine basıp FilmCraft'ı Aç'ı seçin. Kilnframe FilmCraft'ı başlatır ve panelini yanında ayrı bir pencerede açar. FilmCraft zaten açıksa Kilnframe onu kapatıp yeniden açmayı önerir (FilmCraft çalışmanızı kaydetmenizi ister)."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Hesap açmam gerekiyor mu?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Hayır. İndirin, kurun, paneli açın. Kilnframe hesabı ya da giriş yok."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Bir animasyon ne kadar sürer?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "On saniyelik bir aralık için genellikle beş ile on dakika. Çoğu, yapay zekanın her sahneyi yazmasıdır; render'ın kendisi bir dakika kadar sürer."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Animasyonları ticari işlerde kullanabilir miyim?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Evet, sizindir. Kilnframe'in kodu Apache 2.0; animasyonlar GreenSock'un ücretsiz lisansıyla GSAP'i ve açık lisanslı fontları kullanır."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Animasyonu sonradan değiştirebilir miyim?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Render'dan önce herhangi bir sahneyi notla yeniden yaptırabilirsiniz. Sonrasında klip diğerleri gibi kırpılır; planı ve HTML'i projede kalır, değiştirip yeniden render alabilirsiniz."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Windows kurulumda neden uyarı veriyor?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Windows kurulum dosyası henüz kod imzalı değil, bu yüzden SmartScreen soruyor. Ek bilgi'ye, sonra Yine de çalıştır'a basın. Mac kurulumu Apple tarafından imzalı ve onaylı."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Intel işlemcili Mac?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Henüz değil. Mac sürümü Apple silicon (M1 ve sonrası) üzerinde çalışır."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <link rel="stylesheet" href="../../assets/studio.css" />
+    <!-- visit counts without cookies (goatcounter.com); downloads are counted as clicks -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="./"><img src="../../assets/icon.png" alt="" />Kilnframe</a>
+        <nav>
+          <a href="#icinde">Nasıl düşünür</a>
+          <a href="#stiller">Stiller</a>
+          <a href="#hikaye">Hikaye modu</a>
+          <a href="#foy">Teknik föy</a>
+          <a href="#benchmark">Benchmark</a>
+          <a href="https://github.com/erhanmeydan/kilnframe">GitHub</a>
+        </nav>
+        <div class="lang">
+          <a href="../../plugin/" hreflang="en">EN</a><a href="./" aria-current="page">TR</a>
+        </div>
+        <a class="btn solid" href="#indir">İndir</a>
+      </div>
+    </header>
+
+    <main>
+      <div class="hero" id="indir">
+        <div class="wrap">
+          <div class="hero-head">
+            <div>
+              <span class="tc">IN 00:00:01:00 · OUT 00:00:07:00</span>
+              <h1>Siz söyleyin.<br />O <span class="clay">animasyona</span> dönüşsün.</h1>
+            </div>
+            <div>
+              <p class="lead">
+                Premiere Pro ve DaVinci Resolve Studio için ücretsiz bir eklenti. Timeline'da bir
+                aralık seçin, bir stil seçin: Kilnframe söylediğiniz için bir animasyon yazar, kendi
+                bilgisayarınızda render alır ve ses efektleriyle birlikte aralığın tam üstüne
+                yerleştirir.
+              </p>
+              <div class="downloads">
+                <a
+                  data-goatcounter-click="download-mac"
+                  class="btn solid"
+                  data-os="mac"
+                  href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg"
+                  >Mac için indir <small>Apple silicon</small></a
+                >
+                <a
+                  data-goatcounter-click="download-windows"
+                  class="btn"
+                  data-os="windows"
+                  href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+                  >Windows <small>10 / 11</small></a
+                >
+                <button class="btn play" data-play="../../assets/video/promo-tr.mp4">
+                  ▶ Tanıtım filmini izle
+                </button>
+              </div>
+              <div class="meta tc">
+                <span data-version></span><span>Hesap yok</span
+                ><span>Premiere Pro 2026 · Resolve Studio 21.1 · ekran kartı</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="desk" aria-label="Timeline'daki bir aralığın animasyona dönüşmesi">
+            <div class="monitor">
+              <video
+                src="../../assets/video/desk.mp4"
+                poster="../../assets/video/desk.jpg"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+            </div>
+            <div class="monitor-bar">
+              <span>PROGRAM · röportaj</span><span>25 fps · 1920 × 1080</span>
+            </div>
+            <div class="timeline">
+              <div class="ruler">
+                <span>00:00</span><span>00:02</span><span>00:04</span><span>00:06</span
+                ><span>00:08</span><span>00:10</span>
+              </div>
+              <div class="inout"></div>
+              <div class="track">
+                <b>V2</b>
+                <div class="bar insert drop">Kilnframe · Kil Lacivert</div>
+              </div>
+              <div class="track">
+                <b>V1</b>
+                <div class="bar v1"></div>
+              </div>
+              <div class="track">
+                <b>A1</b>
+                <div class="bar a1"></div>
+              </div>
+              <div class="track">
+                <b>A2</b>
+                <div class="bar sfx drop late"></div>
+              </div>
+              <div class="playhead"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section id="icinde">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">01 · NASIL DÜŞÜNÜR</span>
+            <div>
+              <h2>Altı saniyelik konuşma, gerçek bir üretim.</h2>
+              <p>
+                Yukarıdaki klip için Kilnframe'in içinde olanlar: hangi kelimeyi ne zaman duyduğu,
+                yapay zekanın bunlardan planladığı sahne ve ortaya çıkan sonuç.
+              </p>
+            </div>
+          </div>
+          <div class="anatomy">
+            <div class="panelbox">
+              <h3>Ne duydu</h3>
+              <div class="words">
+                <span class="word">her<i>0.58</i></span
+                ><span class="word">gün<i>0.74</i></span
+                ><span class="word">yeni<i>0.96</i></span
+                ><span class="word">bir<i>1.08</i></span
+                ><span class="word key">haber<i>1.32</i></span
+                ><span class="word">çıkıyor.<i>1.56</i></span
+                ><span class="word">Üzerimize<i>2.18</i></span
+                ><span class="word">üzerimize<i>2.78</i></span
+                ><span class="word key">yağıyor<i>3.24</i></span
+                ><span class="word">bilgiler.<i>3.54</i></span
+                ><span class="word">Bu<i>4.14</i></span
+                ><span class="word key">sağanak<i>4.52</i></span
+                ><span class="word key">bilgi<i>4.98</i></span
+                ><span class="word key">yağışı<i>5.24</i></span
+                ><span class="word">altında<i>5.72</i></span>
+              </div>
+              <p class="note">
+                Konuşma sizin bilgisayarınızda, kelime kelime zamanıyla yazıya döküldü.
+              </p>
+            </div>
+            <div class="panelbox plan">
+              <h3>Ne planladı</h3>
+              <dl>
+                <dt>konu</dt>
+                <dd><b>Bilgi sağanağı</b></dd>
+                <dt>teknik</dt>
+                <dd>3D metafor, tam ekran</dd>
+                <dt>1,32 sn</dt>
+                <dd>"haber": küçük bir figürün yanına kilden bir gazete kartı düşer</dd>
+                <dt>3,24 sn</dt>
+                <dd>"yağıyor": düşüş yağmura döner, parçalar birikir</dd>
+                <dt>4,52 sn</dt>
+                <dd>"sağanak": sağanak başlar, figür şemsiyesini açar</dd>
+                <dt>yazı</dt>
+                <dd>BİLGİ SAĞANAĞI, kelime kelime</dd>
+                <dt>kamera</dt>
+                <dd>yavaşça yaklaşır, sağanakta hafifçe yukarı bakar</dd>
+                <dt>ses</dt>
+                <dd class="sfx">
+                  <span>tok 1,32</span><span>kağıt 2,20</span><span>hışırtı 3,24</span
+                  ><span>tok 4,52</span><span>pop 5,24</span>
+                </dd>
+              </dl>
+            </div>
+            <div class="panelbox frame">
+              <h3>Ne yaptı</h3>
+              <video
+                src="../../assets/video/rain.mp4"
+                poster="../../assets/video/rain-still.jpg"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+              <p>
+                Kil Lacivert stili, kodla yazıldı ve bir MacBook Pro'da yaklaşık bir dakikada render
+                alındı. Yazılar konuştuğunuz dili izler.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">02 · PANELDE</span>
+            <div>
+              <h2>Siz onaylamadan timeline'a hiçbir şey gelmez.</h2>
+              <p>
+                Kilnframe, Premiere'in ya da Resolve'un içinde bir panel ve menü çubuğunda küçük bir
+                yardımcı. Dört adım; tek bir kare render alınmadan önce her sahneyi siz
+                onaylarsınız.
+              </p>
+            </div>
+          </div>
+          <div class="markers">
+            <div class="marker">
+              <span class="tc">IN / OUT</span><b>Aralık seçin</b
+              ><span>En iyisi on ile kırk saniye; uzun aralıklar cümle sonlarından bölünür.</span>
+            </div>
+            <div class="marker">
+              <span class="tc">STİL</span><b>Stil seçin</b
+              ><span
+                >Her videoya bir kez. Sekansla birlikte saklanır, bütün insertler birbirini
+                tutar.</span
+              >
+            </div>
+            <div class="marker">
+              <span class="tc">ONAY</span><b>Kareleri onaylayın</b
+              ><span
+                >Her sahneden bir kare, görüntünüzün üstünde. Bir sahneyi notla yeniden
+                yaptırın.</span
+              >
+            </div>
+            <div class="marker">
+              <span class="tc">V2 · A2</span><b>Timeline'ınızda</b
+              ><span>Görüntünüzün üstündeki ilk boş ize, ses ayrı ize, baş ve son paylarıyla.</span>
+            </div>
+          </div>
+          <div class="shots">
+            <figure>
+              <img
+                src="../../assets/panel/tr-home.jpg"
+                alt="Stili seçilmiş Kilnframe paneli"
+                loading="lazy"
+              />
+              <figcaption>Aralık ve videonun stili.</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/panel/tr-progress.jpg"
+                alt="Sahneler yazılırken panel"
+                loading="lazy"
+              />
+              <figcaption>Her sahne kodla yazılır.</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/panel/tr-review.jpg"
+                alt="Render öncesi her sahnenin karesi"
+                loading="lazy"
+              />
+              <figcaption>Render'dan önce her sahnenin karesi.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">03 · ÇEKİMLER</span>
+            <div>
+              <h2>Sayıya grafik. Fikre çizim.</h2>
+              <p>
+                Plan her sahne için bir teknik seçer. Otomatik modda okunacak bir şey tam ekran
+                gelir, bir isim ya da anahtar kelime yanınıza gelir. Yüzünüz asla kapanmaz.
+              </p>
+            </div>
+          </div>
+          <div class="reel">
+            <figure class="take">
+              <video
+                src="../../assets/video/whiteboard-auto.mp4"
+                poster="../../assets/video/whiteboard-auto.jpg"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+              <figcaption class="slate">
+                <b>Beyaz Tahta · Otomatik</b><span>önce yanınızda, sonra tam ekran</span>
+              </figcaption>
+            </figure>
+            <div class="side">
+              <figure class="take">
+                <video
+                  src="../../assets/video/kinetic-type.mp4"
+                  poster="../../assets/video/kinetic-type.jpg"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                ></video>
+                <figcaption class="slate">
+                  <b>Kinetik Tipografi</b><span>kelime kelime</span>
+                </figcaption>
+              </figure>
+              <figure class="take">
+                <video
+                  src="../../assets/video/whiteboard-astra.mp4"
+                  poster="../../assets/video/whiteboard-astra.jpg"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                ></video>
+                <figcaption class="slate">
+                  <b>Beyaz Tahta · başka model</b><span>aynı klip</span>
+                </figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="stiller">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">04 · STİLLER</span>
+            <div>
+              <h2>On bir görünüm, bir de sizin tarif ettiğiniz.</h2>
+              <p>
+                Stil; grafiklerin, diyagramların, yazıların ve geçişlerin nasıl görüneceğine ve
+                nasıl sesleneceğine karar verir. Renkler kısık tutulur, renk düzeltmesi yapılmış
+                görüntünün yanında sırıtmaz.
+              </p>
+            </div>
+          </div>
+          <div class="sheet">
+            <figure>
+              <img
+                src="../../assets/styles/kil-lacivert.jpg"
+                alt="Kil Lacivert stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Kil Lacivert<i>01</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/flat-infografik.jpg"
+                alt="Flat İnfografik stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Flat İnfografik<i>02</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/izometrik.jpg"
+                alt="İzometrik stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>İzometrik<i>03</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/kinetik-tipografi.jpg"
+                alt="Kinetik Tipografi stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Kinetik Tipografi<i>04</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/beyaz-tahta.jpg"
+                alt="Beyaz Tahta stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Beyaz Tahta<i>05</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/kagit-kesik.jpg"
+                alt="Kağıt Kesik stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Kağıt Kesik<i>06</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/kolaj-halftone.jpg"
+                alt="Kolaj Halftone stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Kolaj Halftone<i>07</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/retro-risograf.jpg"
+                alt="Retro Risograf stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Retro Risograf<i>08</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/cam-arayuz.jpg"
+                alt="Cam Arayüz stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Cam Arayüz<i>09</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/teknik-cizim.jpg"
+                alt="Teknik Çizim stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Teknik Çizim<i>10</i></figcaption>
+            </figure>
+            <figure>
+              <img
+                src="../../assets/styles/gazete-editoryal.jpg"
+                alt="Gazete Editoryal stili, örnek kare"
+                loading="lazy"
+              />
+              <figcaption>Gazete Editoryal<i>11</i></figcaption>
+            </figure>
+            <div class="own">
+              <b>Kendi Stilin</b
+              ><span
+                >Bir cümleyle tarif edin ya da referans görsel gösterin. Kilnframe stili kurar ve üç
+                önizleme gösterir.</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="hikaye">
+        <div class="wrap story">
+          <div>
+            <span class="tc">05 · HİKAYE MODU</span>
+            <h2 style="margin-top: 12px">Kaydınız yok mu? Bir konuyla başlayın.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              Hikayenin ne hakkında olduğunu yazın. Kilnframe hikayeyi yazar, seslendirir ve altına
+              müzik koyar; animasyona hazır yeni bir sekansta.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Konuyu yazın,</b> süreyi, dili ve tonu seçin ya da kendi metninizi
+                  yapıştırın.</span
+                >
+              </li>
+              <li>
+                <span><b>Metni düzenleyin</b> ya da bir notla yeniden yazdırın.</span>
+              </li>
+              <li>
+                <span><b>Bir ses seçin,</b> önce dinleyin.</span>
+              </li>
+              <li>
+                <span
+                  ><b>Yeni bir sekans açılır:</b> seslendirme A1'de, müzik A2'de, konuşurken
+                  kısılarak.</span
+                >
+              </li>
+            </ol>
+          </div>
+          <div class="pair">
+            <img src="../../assets/panel/tr-story-1.jpg" alt="Hikaye modu: konu" loading="lazy" />
+            <img
+              src="../../assets/panel/tr-story-2.jpg"
+              alt="Hikaye modu: yazılan metin ve sesler"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="music">
+        <div class="wrap story">
+          <div>
+            <span class="tc">06 · MÜZİK</span>
+            <h2 style="margin-top: 12px">Söylediğinizi izleyen müzik.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              Müzik sekmesi timeline'ın tamamını ya da bir aralığı Google Lyria ile konulara göre
+              bölüm bölüm müzikler ve ayrı bir ize yerleştirir.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Müziği planlayın:</b> konulara göre bölümler, her birinin havası ve
+                  temposu.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>İstediğinizi değiştirin:</b> bir bölümün yönü, iki bölümü birleştirmek ya da
+                  müziksiz bırakmak.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Üstünde sesinizle dinleyin,</b> istediğiniz bölümü yeniden ürettirin.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Yerleştirin:</b> her bölüm bir klip, sesinizin altında kısık, son karede
+                  gerçek bir kapanış.</span
+                >
+              </li>
+            </ol>
+            <p style="color: var(--ink-2); font-size: 14px">
+              Google Gemini anahtarı gerekir, bölüm başına yaklaşık 0,08 dolar. Lyria müzikleri
+              Google'ın duyulmayan SynthID filigranını taşır.
+            </p>
+          </div>
+          <div>
+            <svg
+              viewBox="0 0 520 220"
+              role="img"
+              aria-label="Müzik seviyesi: siz konuşurken yaklaşık -21 dB, boşlukta -15 dB, sona doğru yükselir"
+              style="width: 100%; height: auto"
+            >
+              <g font-family="var(--mono)" font-size="11" fill="var(--ink-2)">
+                <text x="0" y="16">MÜZİK</text>
+                <text x="0" y="214">KONUŞMA</text>
+                <text x="404" y="16">FİNAL</text>
+              </g>
+              <g fill="var(--line)">
+                <rect x="20" y="176" width="120" height="18" rx="4" />
+                <rect x="170" y="176" width="150" height="18" rx="4" />
+                <rect x="350" y="176" width="110" height="18" rx="4" />
+              </g>
+              <path
+                d="M20 110 H140 L146 66 H164 L170 110 H320 L326 66 H344 L350 110 C410 104 440 88 470 76 L500 160"
+                fill="none"
+                stroke="var(--clay)"
+                stroke-width="3"
+                stroke-linejoin="round"
+              />
+              <g font-family="var(--mono)" font-size="11" fill="var(--clay)">
+                <text x="40" y="102">-21 dB</text>
+                <text x="140" y="58">-15 dB</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <section id="altyazi">
+        <div class="wrap story">
+          <div>
+            <span class="tc">07 · ALTYAZI</span>
+            <h2 style="margin-top: 12px">Kendi sözlerinizle altyazı.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              Altyazı sekmesi sekansın tamamını ya da bir aralığı bilgisayarınızda yazıya döker,
+              yapay zekanıza zamanlamaya dokunmadan yazımı düzelttirir ve tasarlanmış altyazıyı bir
+              ize yerleştirir.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Bir görünüm seçin,</b> renklerini ve doğru yazılması gereken adları
+                  girin.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Metni kontrol edin:</b> kelimeyi düzeltin, satırları bölün ya da birleştirin,
+                  önizleyin.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Render alın ve yerleştirin:</b> görüntünüzün üstünde şeffaf tek bir
+                  klip.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>SRT kaydedin:</b> aynı satırlar platformlar için altyazı dosyası olarak.</span
+                >
+              </li>
+            </ol>
+          </div>
+          <div>
+            <div class="spec">
+              <dl>
+                <dt>Dokuz görünüm</dt>
+                <dd>
+                  <div class="tags">
+                    <span>Kil Lacivert</span>
+                    <span>Loud</span>
+                    <span>Dinamik</span>
+                    <span>Hap</span>
+                    <span>Karaoke</span>
+                    <span>Daktilo</span>
+                    <span>Sakin</span>
+                    <span>Bant</span>
+                    <span>Editoryal</span>
+                  </div>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="foy">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">08 · TEKNİK FÖY</span>
+            <div>
+              <h2>Neler yapar.</h2>
+              <p>Ne ürettiği, size nasıl teslim ettiği ve neyle çalıştığı.</p>
+            </div>
+          </div>
+          <div class="spec">
+            <dl>
+              <dt>Teknikler</dt>
+              <dd>
+                <div class="tags">
+                  <span>3D metafor</span><span>kinetik yazı</span><span>grafik</span
+                  ><span>diyagram</span><span>çizim</span><span>arayüz</span><span>kod</span
+                  ><span>parçacık</span><span>hareketli grafik</span>
+                </div>
+              </dd>
+              <dt>Yerleşim</dt>
+              <dd>
+                <b>Otomatik</b>, tam ekran ya da görüntünüzün üstünde. Otomatik her sahne için ayrı
+                karar verir, yüzünüzden uzak durur.
+              </dd>
+              <dt>Format</dt>
+              <dd>
+                Sekansınızın kendi formatı ya da 16:9, 9:16 ve 1:1; her biri kendi kadrajına göre
+                kurulur, kırpılmaz.
+              </dd>
+              <dt>Video</dt>
+              <dd>
+                Tam ekranda H.264 <b>.mp4</b>; görüntünün üstünde şeffaf ProRes 4444 <b>.mov</b>.
+                Sekansınızın birebir kare hızı.
+              </dd>
+              <dt>Ses</dt>
+              <dd>Kodla üretilen efektler ayrı izde: bir miks ve her efekt ayrı 48 kHz .wav.</dd>
+              <dt>Paylar</dt>
+              <dd>Başta ve sonda fazladan kareler, kırpıp kaydırabilmeniz için.</dd>
+              <dt>Uzun aralık</dt>
+              <dd>
+                Cümle sonlarından yaklaşık 30 saniyelik parçalara bölünür, tek tek onaylanır, arka
+                arkaya yerleşir.
+              </dd>
+              <dt>Görselleriniz</dt>
+              <dd>
+                Logo, ürün görseli ve ekran görüntüleri animasyona girer; üstlerindeki yazılar
+                okunur, doğru kullanılır.
+              </dd>
+              <dt>Onay</dt>
+              <dd>
+                Gerçek görüntünüzün üstünde her sahneden bir kare; tek sahneyi notla yeniden
+                yaptırma.
+              </dd>
+              <dt>Hikaye modu</dt>
+              <dd>Bir konu; metne, seslendirmeye ve altında müziğe dönüşür, yeni bir sekansta.</dd>
+              <dt>Diller</dt>
+              <dd>Panel İngilizce ya da Türkçe. Animasyondaki yazılar konuştuğunuz dili izler.</dd>
+              <dt>Yapay zeka</dt>
+              <dd>
+                Claude planı <span class="rec">önerilen</span> · ChatGPT planı
+                <span class="rec">önerilen</span> · Grok planı · Claude, OpenAI, Gemini, xAI,
+                MiniMax, OpenRouter anahtarı · bilgisayarınızda LM Studio ya da Ollama. Sadece
+                görsel okuyabilen modeller.
+              </dd>
+              <dt>Gereken</dt>
+              <dd>
+                Premiere Pro 2026 (26.2 ve sonrası), DaVinci Resolve Studio 21.1 ve sonrası
+                (ücretsiz Resolve eklenti yüklemez) ya da FilmCraft 0.14 ve sonrası. Apple silicon
+                işlemcili Mac, Windows 10 ve 11, ekran kartı. Yaklaşık 2 GB disk.
+              </dd>
+              <dt>Güncelleme</dt>
+              <dd>
+                Yeni sürüm çıkınca panel Güncelle düğmesini gösterir; kendiliğinden ve bir iş
+                sürerken asla.
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section id="benchmark">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">09 · BENCHMARK</span>
+            <div>
+              <h2>On yedi model, tek klip.</h2>
+              <p>
+                Aynı 11 saniyelik aralık ve üç kare, Beyaz Tahta stili, Otomatik mod. Her model
+                planladı, tam ekran ya da üst katman kararını verdi, kodu yazdı ve render aldı.
+                Hepsi tamamladı. Oynatmak için çekimin üstüne gelin.
+              </p>
+            </div>
+          </div>
+          <div class="bench-filter" role="group" aria-label="Modelleri süz">
+            <button type="button" data-filter="all" aria-pressed="true">Hepsi</button
+            ><button type="button" data-filter="plan" aria-pressed="false">
+              Claude ya da ChatGPT planınla</button
+            ><button type="button" data-filter="key" aria-pressed="false">API anahtarıyla</button
+            ><button type="button" data-filter="local" aria-pressed="false">Bilgisayarında</button
+            ><button type="button" data-filter="cheap" aria-pressed="false">
+              10 sent ya da daha az
+            </button>
+          </div>
+          <div class="bench">
+            <figure data-via="plan">
+              <video
+                src="../../assets/bench/opus-5-5.mp4"
+                poster="../../assets/bench/opus-5-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>
+                <span>Claude Opus 5.5<b class="pick">Önerilen</b></span
+                ><i>7,8 dk</i>
+              </figcaption>
+            </figure>
+            <figure data-via="plan">
+              <video
+                src="../../assets/bench/fable-5-1.mp4"
+                poster="../../assets/bench/fable-5-1.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Claude Fable 5.1<i>7,0 dk</i></figcaption>
+            </figure>
+            <figure data-via="plan">
+              <video
+                src="../../assets/bench/sonnet-5-5.mp4"
+                poster="../../assets/bench/sonnet-5-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Claude Sonnet 5.5<i>5,2 dk</i></figcaption>
+            </figure>
+            <figure data-via="plan" data-cheap>
+              <video
+                src="../../assets/bench/haiku-5-5.mp4"
+                poster="../../assets/bench/haiku-5-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Claude Haiku 5.5<i>6,1 dk</i></figcaption>
+            </figure>
+            <figure data-via="key">
+              <video
+                src="../../assets/bench/gemini-4-argon.mp4"
+                poster="../../assets/bench/gemini-4-argon.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>
+                <span>Gemini 4 Argon<b class="pick">Önerilen</b></span
+                ><i>3,6 dk</i>
+              </figcaption>
+            </figure>
+            <figure data-via="key">
+              <video
+                src="../../assets/bench/gemini-3-8-flash.mp4"
+                poster="../../assets/bench/gemini-3-8-flash.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Gemini 3.8 Flash<i>4,6 dk</i></figcaption>
+            </figure>
+            <figure data-via="key" data-cheap>
+              <video
+                src="../../assets/bench/glm-5-3-flash.mp4"
+                poster="../../assets/bench/glm-5-3-flash.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>GLM 5.3 Flash<i>2,3 dk</i></figcaption>
+            </figure>
+            <figure data-via="plan">
+              <video
+                src="../../assets/bench/gpt-6-1-sol.mp4"
+                poster="../../assets/bench/gpt-6-1-sol.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>
+                <span>GPT 6.1 Sol<b class="pick">Önerilen</b></span
+                ><i>5,0 dk</i>
+              </figcaption>
+            </figure>
+            <figure data-via="plan">
+              <video
+                src="../../assets/bench/gpt-6-1-terra.mp4"
+                poster="../../assets/bench/gpt-6-1-terra.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>GPT 6.1 Terra<i>2,5 dk</i></figcaption>
+            </figure>
+            <figure data-via="plan">
+              <video
+                src="../../assets/bench/gpt-6-astra.mp4"
+                poster="../../assets/bench/gpt-6-astra.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>GPT 6 Astra<i>4,8 dk</i></figcaption>
+            </figure>
+            <figure data-via="plan" data-cheap>
+              <video
+                src="../../assets/bench/gpt-6-luna.mp4"
+                poster="../../assets/bench/gpt-6-luna.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>GPT 6 Luna<i>2,5 dk</i></figcaption>
+            </figure>
+            <figure data-via="key">
+              <video
+                src="../../assets/bench/grok-4-5.mp4"
+                poster="../../assets/bench/grok-4-5.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Grok 4.5<i>4,7 dk</i></figcaption>
+            </figure>
+            <figure data-via="key">
+              <video
+                src="../../assets/bench/grok-4-7.mp4"
+                poster="../../assets/bench/grok-4-7.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Grok 4.7<i>18,8 dk</i></figcaption>
+            </figure>
+            <figure data-via="key">
+              <video
+                src="../../assets/bench/kimi-k3-1-pro.mp4"
+                poster="../../assets/bench/kimi-k3-1-pro.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Kimi K3.1 Pro<i>12,5 dk</i></figcaption>
+            </figure>
+            <figure data-via="key">
+              <video
+                src="../../assets/bench/muse-wonder.mp4"
+                poster="../../assets/bench/muse-wonder.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Meta Muse Wonder<i>2,4 dk</i></figcaption>
+            </figure>
+            <figure data-via="key" data-cheap>
+              <video
+                src="../../assets/bench/minimax-m3-1-flash.mp4"
+                poster="../../assets/bench/minimax-m3-1-flash.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>MiniMax M3.1 Flash<i>14,6 dk</i></figcaption>
+            </figure>
+            <figure data-via="local" data-cheap>
+              <video
+                src="../../assets/bench/qwen-3-8-27b-local.mp4"
+                poster="../../assets/bench/qwen-3-8-27b-local.jpg"
+                muted
+                loop
+                playsinline
+                preload="none"
+              ></video>
+              <figcaption>Qwen 3.8 27B, yerel<i>121,5 dk</i></figcaption>
+            </figure>
+          </div>
+          <div class="scroll">
+            <table class="runs">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Bağlantı</th>
+                  <th><button type="button" data-sort-col="2">Süre</button></th>
+                  <th>
+                    <button type="button" data-sort-col="3">Çalıştırmanın liste fiyatı</button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-via="plan">
+                  <td>Claude Opus 5.5<b class="pick">Önerilen</b></td>
+                  <td>Claude planı</td>
+                  <td class="n" data-sort="7.8">7,8 dk</td>
+                  <td class="n" data-sort="2.26">2,26 $</td>
+                </tr>
+                <tr data-via="plan">
+                  <td>Claude Fable 5.1</td>
+                  <td>Claude planı</td>
+                  <td class="n" data-sort="7.0">7,0 dk</td>
+                  <td class="n" data-sort="2.75">2,75 $</td>
+                </tr>
+                <tr data-via="plan">
+                  <td>Claude Sonnet 5.5</td>
+                  <td>Claude planı</td>
+                  <td class="n" data-sort="5.2">5,2 dk</td>
+                  <td class="n" data-sort="0.68">0,68 $</td>
+                </tr>
+                <tr data-via="plan" data-cheap>
+                  <td>Claude Haiku 5.5</td>
+                  <td>Claude planı</td>
+                  <td class="n" data-sort="6.1">6,1 dk</td>
+                  <td class="n" data-sort="0.08">0,08 $</td>
+                </tr>
+                <tr data-via="key">
+                  <td>Gemini 4 Argon<b class="pick">Önerilen</b></td>
+                  <td>OpenRouter</td>
+                  <td class="n" data-sort="3.6">3,6 dk</td>
+                  <td class="n" data-sort="0.43">0,43 $</td>
+                </tr>
+                <tr data-via="key">
+                  <td>Gemini 3.8 Flash</td>
+                  <td>API anahtarı</td>
+                  <td class="n" data-sort="4.6">4,6 dk</td>
+                  <td class="n" data-sort="0.25">0,25 $</td>
+                </tr>
+                <tr data-via="key" data-cheap>
+                  <td>GLM 5.3 Flash</td>
+                  <td>OpenRouter, deneysel</td>
+                  <td class="n" data-sort="2.3">2,3 dk</td>
+                  <td class="n" data-sort="0.01">0,01 $</td>
+                </tr>
+                <tr data-via="plan">
+                  <td>GPT 6.1 Sol<b class="pick">Önerilen</b></td>
+                  <td>ChatGPT planı</td>
+                  <td class="n" data-sort="5.0">5,0 dk</td>
+                  <td class="n" data-sort="0.29">0,29 $</td>
+                </tr>
+                <tr data-via="plan">
+                  <td>GPT 6.1 Terra</td>
+                  <td>ChatGPT planı</td>
+                  <td class="n" data-sort="2.5">2,5 dk</td>
+                  <td class="n" data-sort="0.06">0,06 $</td>
+                </tr>
+                <tr data-via="plan">
+                  <td>GPT 6 Astra</td>
+                  <td>ChatGPT planı</td>
+                  <td class="n" data-sort="4.8">4,8 dk</td>
+                  <td class="n" data-sort="1.01">1,01 $</td>
+                </tr>
+                <tr data-via="plan" data-cheap>
+                  <td>GPT 6 Luna</td>
+                  <td>ChatGPT planı</td>
+                  <td class="n" data-sort="2.5">2,5 dk</td>
+                  <td class="n" data-sort="0.01">0,01 $</td>
+                </tr>
+                <tr data-via="key">
+                  <td>Grok 4.5</td>
+                  <td>API anahtarı</td>
+                  <td class="n" data-sort="4.7">4,7 dk</td>
+                  <td class="n" data-sort="0.33">0,33 $</td>
+                </tr>
+                <tr data-via="key">
+                  <td>Grok 4.7</td>
+                  <td>API anahtarı</td>
+                  <td class="n" data-sort="18.8">18,8 dk</td>
+                  <td class="n" data-sort="1.49">1,49 $</td>
+                </tr>
+                <tr data-via="key">
+                  <td>Kimi K3.1 Pro</td>
+                  <td>OpenRouter</td>
+                  <td class="n" data-sort="12.5">12,5 dk</td>
+                  <td class="n" data-sort="1.21">1,21 $</td>
+                </tr>
+                <tr data-via="key">
+                  <td>Meta Muse Wonder</td>
+                  <td>OpenRouter</td>
+                  <td class="n" data-sort="2.4">2,4 dk</td>
+                  <td class="n" data-sort="0.55">0,55 $</td>
+                </tr>
+                <tr data-via="key" data-cheap>
+                  <td>MiniMax M3.1 Flash</td>
+                  <td>OpenRouter</td>
+                  <td class="n" data-sort="14.6">14,6 dk</td>
+                  <td class="n" data-sort="0.0">ücretsiz</td>
+                </tr>
+                <tr data-via="local" data-cheap>
+                  <td>Qwen 3.8 27B</td>
+                  <td>LM Studio, yerel</td>
+                  <td class="n" data-sort="121.5">121,5 dk</td>
+                  <td class="n" data-sort="0.0">ücretsiz</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">
+            Tek klip, her modelle tek deneme, bir MacBook Pro'da: yön gösterir, hüküm değildir.
+            Liste fiyatı, çalıştırmanın API üzerinden tutacağı ücrettir; Claude ya da ChatGPT
+            planıyla aboneliğinizden düşer. GLM 5.3 Flash, 11 Ekim'de daha düşük bir düşünme
+            ayarıyla eklendi, bu onu hızlı ve ucuz yaptı. Ayrıntıları daha zayıf olduğu için
+            deneysel olarak işaretli: etiket kenarında kesilen yazı, koyu görüntü üstünde ince
+            çizgiler. Meta Muse Wonder 13 Ekim'de OpenRouter üzerinden eklendi; OpenRouter bu modeli
+            çalıştırmadan önce ayarlarında 18 yaş onayı istiyor. Gemini 4 Argon 14 Ekim'de eklendi;
+            son sahnesindeki bir çizim sol kenardan taşıyor. MiniMax M3.1 Flash 19 Ekim'de eklendi,
+            çıkışında OpenRouter'da ücretsiz; iki sahneyi de tam ekran çizdi, aralarında kadraj bir
+            an neredeyse boş kalıyor. Kimi K3.1 Pro 23 Ekim'de OpenRouter üzerinden eklendi, onarıma
+            gerek kalmadı. GPT 6.1 Terra 29 Ekim'de ChatGPT planıyla eklendi, onarıma gerek kalmadı.
+          </p>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">10 · GÖRÜNTÜNÜZ</span>
+            <div>
+              <h2>Bilgisayarınızda kalır.</h2>
+              <p>
+                Render, konuşma tanıma ve ses efektleri sizin bilgisayarınızda çalışır. Seçtiğiniz
+                yapay zekaya sadece metin ve üç küçük kare gider, başka bir şey değil.
+              </p>
+            </div>
+          </div>
+          <div class="facts">
+            <div><b>Hiçbir şey yüklenmez</b><span>Ses ve videonuz makineden çıkmaz.</span></div>
+            <div>
+              <b>Anahtarlar anahtar zincirinde</b
+              ><span
+                >macOS Anahtar Zinciri ya da Windows Kimlik Bilgisi Yöneticisi. Claude, ChatGPT ya
+                da Grok girişiniz kendi uygulamalarında kalır.</span
+              >
+            </div>
+            <div>
+              <b>Açık kaynak</b
+              ><span>Apache 2.0, Mac'te Apple imzalı ve onaylı. Hesap yok, takip yok.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sss">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">11 · SORULAR</span>
+            <div><h2>Kurmadan önce.</h2></div>
+          </div>
+          <div class="faq">
+            <details>
+              <summary>Premiere Pro'da bir videoya yapay zekayla animasyon nasıl eklenir?</summary>
+              <p>
+                Kilnframe'i kurun ve panelini Premiere Pro'da açın. Anlatmak istediğiniz yerin
+                üstüne bir in/out aralığı seçin ve bir stil seçin. Kilnframe aralığı yazıya döker,
+                sahneleri planlar ve animasyonu kodla yazar. Her sahnenin bir karesini gösterir;
+                onayınızdan sonra klibi sizin bilgisayarınızda render alır ve aralığın üstündeki ize
+                yerleştirir. Ses efektleri ayrı bir ses izine gelir.
+              </p>
+            </details>
+            <details>
+              <summary>Hangi yapay zeka modelleriyle çalışır?</summary>
+              <p>
+                Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla;
+                Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da
+                LM Studio ya da Ollama'daki yerel bir modelle. Sadece görsel okuyabilen modeller
+                sunulur. Yukarıdaki benchmark on yedi modeli aynı klip üzerinde karşılaştırıyor.
+              </p>
+            </details>
+            <details>
+              <summary>Görüntülerim bilgisayarımdan çıkar mı?</summary>
+              <p>
+                Hayır. Konuşma Whisper ile bilgisayarınızda yazıya dökülür, animasyon da
+                bilgisayarınızda render alınır. Seçtiğiniz yapay zekaya sadece metin, yani
+                konuşmanın yazısı ve sahne planı, ve birkaç kare gider.
+              </p>
+            </details>
+            <details>
+              <summary>Çalıştırmak için ne gerekiyor?</summary>
+              <p>
+                Premiere Pro 2026 (26.2 ve sonrası), DaVinci Resolve Studio 21.1 ve sonrası ya da
+                FilmCraft 0.14.0 ve sonrası, Apple silicon bir Mac ya da Windows 10 veya 11, bir
+                ekran kartı ve yaklaşık 2 GB disk alanı.
+              </p>
+            </details>
+            <details>
+              <summary>Gerçekten ücretsiz mi?</summary>
+              <p>
+                Evet. Kilnframe Apache 2.0 lisansıyla ücretsiz ve açık kaynak. Tek maliyet yapay
+                zeka: zaten ödediğiniz Claude, ChatGPT ya da Grok planı, kullandıkça ödenen bir API
+                anahtarı ya da yerel bir modelle hiçbir şey.
+              </p>
+            </details>
+            <details>
+              <summary>DaVinci Resolve'da çalışır mı?</summary>
+              <p>
+                Evet, Mac ve Windows'ta DaVinci Resolve Studio 21.1 ve sonrasında. Kurulum paneli
+                Resolve'a da kurar; Workspace, Workflow Integrations, Kilnframe menüsünden açılır.
+                Resolve'un ücretsiz sürümü eklenti yüklemez.
+              </p>
+            </details>
+            <details>
+              <summary>FilmCraft ile çalışır mı?</summary>
+              <p>
+                Evet, Mac ve Windows'ta FilmCraft 0.14.0 ve sonrasında. FilmCraft'ın eklenti sistemi
+                olmadığı için Kilnframe'den açılır: menü çubuğundaki ya da sistem tepsisindeki
+                Kilnframe simgesine basıp FilmCraft'ı Aç'ı seçin. Kilnframe FilmCraft'ı başlatır ve
+                panelini yanında ayrı bir pencerede açar. FilmCraft zaten açıksa Kilnframe onu
+                kapatıp yeniden açmayı önerir (FilmCraft çalışmanızı kaydetmenizi ister).
+              </p>
+            </details>
+            <details>
+              <summary>Hesap açmam gerekiyor mu?</summary>
+              <p>Hayır. İndirin, kurun, paneli açın. Kilnframe hesabı ya da giriş yok.</p>
+            </details>
+            <details>
+              <summary>Bir animasyon ne kadar sürer?</summary>
+              <p>
+                On saniyelik bir aralık için genellikle beş ile on dakika. Çoğu, yapay zekanın her
+                sahneyi yazmasıdır; render'ın kendisi bir dakika kadar sürer.
+              </p>
+            </details>
+            <details>
+              <summary>Animasyonları ticari işlerde kullanabilir miyim?</summary>
+              <p>
+                Evet, sizindir. Kilnframe'in kodu Apache 2.0; animasyonlar GreenSock'un ücretsiz
+                lisansıyla GSAP'i ve açık lisanslı fontları kullanır.
+              </p>
+            </details>
+            <details>
+              <summary>Animasyonu sonradan değiştirebilir miyim?</summary>
+              <p>
+                Render'dan önce herhangi bir sahneyi notla yeniden yaptırabilirsiniz. Sonrasında
+                klip diğerleri gibi kırpılır; planı ve HTML'i projede kalır, değiştirip yeniden
+                render alabilirsiniz.
+              </p>
+            </details>
+            <details>
+              <summary>Windows kurulumda neden uyarı veriyor?</summary>
+              <p>
+                Windows kurulum dosyası henüz kod imzalı değil, bu yüzden SmartScreen soruyor. Ek
+                bilgi'ye, sonra Yine de çalıştır'a basın. Mac kurulumu Apple tarafından imzalı ve
+                onaylı.
+              </p>
+            </details>
+            <details>
+              <summary>Intel işlemcili Mac?</summary>
+              <p>Henüz değil. Mac sürümü Apple silicon (M1 ve sonrası) üzerinde çalışır.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing">
+        <div class="wrap">
+          <span class="tc">KARARMA</span>
+          <h2 style="margin-top: 12px">İlk aralığınızı bugün seçin.</h2>
+          <p>
+            Ücretsiz, açık kaynak, kendi bilgisayarınızda. Kurun, Premiere'de ya da Resolve'da
+            paneli açın, bir aralık seçin.
+          </p>
+          <div class="downloads">
+            <a
+              data-goatcounter-click="download-mac"
+              class="btn solid"
+              href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg"
+              >Mac için indir</a
+            >
+            <a
+              data-goatcounter-click="download-windows"
+              class="btn"
+              href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+              >Windows için indir</a
+            >
+          </div>
+          <!-- the list lives at Kit; without the script the form still posts there and Kit shows its own page -->
+          <form
+            class="list"
+            action="https://app.kit.com/forms/10029605/subscriptions"
+            method="post"
+          >
+            <input
+              type="email"
+              name="email_address"
+              placeholder="Yeni stilleri ve sürümleri bana yazın"
+              aria-label="E-posta"
+              autocomplete="email"
+              required
+            />
+            <button class="btn">Abone Ol</button>
+            <p class="list-status" role="status"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <dialog class="player">
+      <button class="btn" data-close>Kapat</button><video controls playsinline></video>
+    </dialog>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe, Erhan Meydan · Apache 2.0</span>
+        <span
+          ><a href="https://github.com/erhanmeydan/kilnframe">GitHub</a> ·
+          <a href="https://github.com/erhanmeydan/kilnframe/blob/main/NOTICE">Lisanslar</a> ·
+          <a href="../changelog/">Sürüm notları</a> · <a href="../../privacy/">Gizlilik</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../assets/site.js"></script>
+  </body>
+</html>

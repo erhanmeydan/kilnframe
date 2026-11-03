@@ -1396,3 +1396,249 @@ footer .wrap {
     gap: 12px;
   }
 }
+
+/* legal pages (Desktop privacy and terms): the notes' reading width and a table of where data goes */
+.notes.legal {
+  max-width: 78ch;
+}
+
+.notes.legal p {
+  margin: 0 0 14px;
+}
+
+.notes .table {
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+
+.notes table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.notes th,
+.notes td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.notes th {
+  font: 600 13px var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  border-top: none;
+}
+
+.notes td:first-child {
+  color: var(--ink);
+  font-weight: 500;
+  min-width: 150px;
+}
+
+/* on a phone each row reads top to bottom: where, then when, then what */
+@media (max-width: 640px) {
+  .notes table,
+  .notes tbody,
+  .notes tr,
+  .notes td {
+    display: block;
+  }
+  .notes thead {
+    display: none;
+  }
+  .notes tr {
+    border-top: 1px solid var(--line);
+    padding: 12px 0;
+  }
+  .notes td {
+    border-top: none;
+    padding: 2px 0;
+  }
+  .notes td:nth-child(2) {
+    color: var(--ink-3);
+    font-style: italic;
+  }
+}
+
+/* Kilnframe Desktop home: the app's own screens beside one line each, a film to play, one price */
+
+.screen {
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--navy);
+  box-shadow: 0 24px 60px -28px rgba(28, 37, 55, 0.55);
+}
+
+.screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.film {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.film .cue {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: #fff;
+  font: 600 16px var(--body);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.film:hover .cue,
+.film:focus-visible .cue {
+  transform: translateY(-3px);
+}
+
+.film:focus-visible {
+  outline: 3px solid var(--clay);
+  outline-offset: 4px;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 88px;
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: 0.9fr 1.35fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.feature:nth-child(even) {
+  grid-template-columns: 1.35fr 0.9fr;
+}
+
+.feature:nth-child(even) .copy {
+  order: 2;
+}
+
+.feature h3 {
+  font: 600 clamp(24px, 2.6vw, 32px) / 1.1 var(--heading);
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+  text-wrap: balance;
+}
+
+.feature p {
+  color: var(--ink-2);
+  font-size: 17px;
+  margin: 0 0 10px;
+  max-width: 46ch;
+  text-wrap: pretty;
+}
+
+.feature .also {
+  font: 500 13px var(--mono);
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+
+.price {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.plan {
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 26px;
+  background: var(--card);
+}
+
+.plan.best {
+  border-color: var(--clay);
+}
+
+.plan b {
+  display: block;
+  font: 600 44px / 1 var(--heading);
+  letter-spacing: -0.04em;
+}
+
+.plan b small {
+  font: 500 16px var(--body);
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+
+.plan span {
+  display: block;
+  margin-top: 10px;
+  color: var(--ink-2);
+}
+
+.price ul {
+  margin: 0;
+  padding: 4px 0 0 20px;
+  color: var(--ink-2);
+}
+
+.price li + li {
+  margin-top: 8px;
+}
+
+.plugin-note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+}
+
+.plugin-note p {
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 60ch;
+}
+
+@media (max-width: 860px) {
+  .feature,
+  .feature:nth-child(even) {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .feature:nth-child(even) .copy {
+    order: 0;
+  }
+  .features {
+    gap: 64px;
+  }
+  .price {
+    grid-template-columns: 1fr;
+  }
+  .plugin-note {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .film .cue {
+    transition: none;
+  }
+}
