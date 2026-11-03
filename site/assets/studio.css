@@ -1642,3 +1642,8 @@ footer .wrap {
     transition: none;
   }
 }
+
+/* keep the coloured end of a hero heading on one line ("videoyu al.") */
+.hero h1 .clay {
+  white-space: nowrap;
+}
