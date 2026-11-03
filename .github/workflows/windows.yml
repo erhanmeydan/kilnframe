@@ -1,7 +1,8 @@
-# Builds the Windows installer (Kilnframe-Windows.exe) on GitHub's Windows machine. The Mac installer is
-# built, signed and notarized on the maintainer's Mac (packages/app/scripts/stage.mjs --pkg).
-# Run by hand (Actions > Windows > Run workflow); the installer is attached to the run as an artifact.
-# Unsigned for now: Windows shows SmartScreen's "More info, Run anyway".
+# Builds the Windows installer (Kilnframe-Windows.exe) and the Microsoft Store package (Kilnframe-Windows.appx)
+# on GitHub's Windows machine. The Mac installer is built, signed and notarized on the maintainer's Mac
+# (packages/app/scripts/stage.mjs --pkg). Run by hand (Actions > Windows > Run workflow); both are attached to
+# the run as artifacts. The installer is unsigned for now (SmartScreen's "More info, Run anyway"); the Store
+# signs its package when it is submitted in Partner Center.
 name: Windows
 
 on:
@@ -11,10 +12,10 @@ on:
         description: "Plugin id (kilnframe, or kilnframe-test beside a development plugin)"
         default: "kilnframe"
         required: true
-      appx:
-        description: "Test build: a Microsoft Store (MSIX) package unsigned, no tests"
+      tests:
+        description: "Run the tests first (off only for a quick test build)"
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -56,36 +57,25 @@ jobs:
 
       # a failing test stops the build: the installer is made only from code that passes on Windows
       - run: pnpm test
-        if: ${{ !inputs.appx }}
+        if: ${{ inputs.tests }}
 
       - name: Build the installer
-        if: ${{ !inputs.appx }}
-        run: node packages/app/scripts/stage.mjs --plugin-id ${{ inputs.plugin_id }}
+        run: node packages/app/scripts/stage.mjs --plugin-id ${{ inputs.plugin_id }} --appx
         env:
           # no code signing certificate yet
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      # unsigned: installed on a test machine in Developer Mode (Add-AppxPackage -Register on the unpacked package)
-      - name: Build the MSIX package
-        if: ${{ inputs.appx }}
-        run: node packages/app/scripts/stage.mjs --plugin-id ${{ inputs.plugin_id }} --appx
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
       - uses: actions/upload-artifact@v4
-        if: ${{ inputs.appx }}
-        with:
-          name: Kilnframe-Windows-MSIX
-          path: |
-            out/app-build/Kilnframe-Windows.appx
-          if-no-files-found: error
-
-      - uses: actions/upload-artifact@v4
-        if: ${{ !inputs.appx }}
         with:
           name: Kilnframe-Windows
           path: |
             out/app-build/Kilnframe-Windows.exe
             out/app-build/Kilnframe-Windows.exe.blockmap
             out/app-build/latest.yml
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kilnframe-Windows-Store
+          path: out/app-build/Kilnframe-Windows.appx
           if-no-files-found: error

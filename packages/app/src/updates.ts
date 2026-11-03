@@ -109,3 +109,12 @@ export function startUpdates(o: {
     },
   };
 }
+
+/**
+ * The Microsoft Store build: the Store installs its updates, so nothing is checked here; the panel's Update
+ * (an app older than the panel) opens the Store's list of updates.
+ */
+export function storeUpdates(current: string, openStore: () => void): Updates {
+  const state: AppUpdateState = { status: "none", current, store: true };
+  return { state: () => state, install: openStore };
+}

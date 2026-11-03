@@ -385,6 +385,8 @@ const state = {
     version?: string;
     percent?: number;
     error?: string;
+    /** Installed from the Microsoft Store, which updates it. */
+    store?: boolean;
   },
   /** The voice whose sample is playing (story mode), so its row offers Stop. */
   voicePlaying: "",
@@ -555,6 +557,9 @@ function updateBox(): string {
   if (state.conn !== "ok") return "";
   const u = state.update;
   const offered = Boolean(u && u.status !== "none" && u.status !== "checking");
+  // an app from the Microsoft Store is updated there: the button asks the app to open the Store
+  if (state.mismatch === "app" && u?.store)
+    return `<div class="box warn"><div>${t("mismatch.appStore")}</div><div class="btn2 mt" data-act="app-update">${t("mismatch.openStore")}</div></div>`;
   // an app older than the panel that can update itself gets the Update button, not the download page
   if (state.mismatch === "app" && !offered)
     return `<div class="box warn"><div>${t("mismatch.app")}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;

@@ -507,6 +507,8 @@
   "update.failed": "Güncelleme indirilemedi.",
   "mismatch.app": "Kilnframe uygulaması bu panelden eski. Yeni sürümü indirip kurun.",
   "mismatch.download": "İndir",
+  "mismatch.appStore": "Kilnframe uygulaması bu panelden eski. Microsoft Store'dan güncelleyin.",
+  "mismatch.openStore": "Microsoft Store'u Aç",
   "mismatch.panel": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Eklentiyi Premiere'e Kur'u seçin, sonra Premiere'i yeniden başlatın.",
   "mismatch.panelResolve": "Bu panel Kilnframe uygulamasından eski. Menü çubuğundaki Kilnframe menüsünden Paneli DaVinci Resolve'a Kur'u seçin, sonra paneli Workspace > Workflow Integrations'tan yeniden açın.",
   "mismatch.panelFilmcraft": "Bu panel Kilnframe uygulamasından eski. FilmCraft'ı kapatıp Kilnframe menüsünden yeniden açın.",

@@ -272,16 +272,25 @@ writeFileSync(
         artifactName: "Kilnframe-mac.pkg",
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",
       },
-      // --appx: a Microsoft Store (MSIX) package instead of the installer, for a test of how the app runs packaged;
+      // --appx: the Microsoft Store package (MSIX) as well as the installer. The Store signs it; the identity
+      // is the one Partner Center gave the app (Product identity)
       win: {
-        target: [process.argv.includes("--appx") ? "appx" : "nsis"],
+        target: process.argv.includes("--appx") ? ["nsis", "appx"] : ["nsis"],
         icon: join(app, "assets", "icon.png"),
       },
       appx: {
-        identityName: "ErhanMeydan.Kilnframe",
+        identityName: "Kilnframe.kilnframe",
+        publisher: "CN=6C655E7B-9484-4CB3-96CA-1E8EFF1ED9BA",
+        publisherDisplayName: "Kilnframe",
         displayName: "Kilnframe",
-        publisherDisplayName: "Erhan Meydan",
-        publisher: "CN=Kilnframe Test",
+        applicationId: "Kilnframe",
+        backgroundColor: "#1F2739",
+        // Windows 10 1809, the oldest Electron supports
+        minVersion: "10.0.17763.0",
+        maxVersionTested: "10.0.26100.0",
+        languages: ["en-US", "tr-TR"],
+        // the package starts the app at login; a login item the app writes lands in the package's own registry
+        addAutoLaunchExtension: true,
         artifactName: "Kilnframe-Windows.appx",
       },
       // the installer asks to wait while an animation is being made (build/installer.nsh)
@@ -291,6 +300,9 @@ writeFileSync(
     2,
   ),
 );
+// the Store package's tile logos: electron-builder takes them from build/appx in the folder it runs in
+if (process.argv.includes("--appx"))
+  cpSync(join(app, "build", "appx"), join(stage, "build", "appx"), { recursive: true });
 // extended attributes on the installer scripts would go into the .pkg as ._ files beside them
 if (platform === "mac") execFileSync("xattr", ["-cr", join(app, "build", "pkg-scripts")]);
 run(
