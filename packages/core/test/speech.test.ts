@@ -3,12 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ElevenLabsSpeechProvider,
   GeminiSpeechProvider,
+  listElevenLabsVoices,
   loadSpeechCatalog,
   narrate,
   pcmWav,
   SpeechError,
   speechChunks,
+  speechPriceUsd,
   wavPcm,
   type SpeechProvider,
 } from "../src/speech/index.js";
@@ -166,5 +169,126 @@ describe("speech", () => {
     expect(storyProblems({ ...story, paragraphs: ["bir — iki üç dört beş"] }, 6).join(" ")).toMatch(
       /dashes/,
     );
+  });
+});
+
+describe("ElevenLabs speech", () => {
+  function eleven(model: string, handler: (url: string, body: unknown) => Response) {
+    const calls: { url: string; body: unknown; headers: Record<string, string> }[] = [];
+    const provider = new ElevenLabsSpeechProvider({
+      apiKey: "test-key",
+      model,
+      endpoint: "https://example.invalid/",
+      fetch: (async (url: string, init: { body: string; headers: Record<string, string> }) => {
+        const body = JSON.parse(init.body) as unknown;
+        calls.push({ url, body, headers: init.headers });
+        return handler(url, body);
+      }) as unknown as typeof fetch,
+    });
+    return { provider, calls };
+  }
+
+  it("is in the catalog with prices by the character", () => {
+    const entry = loadSpeechCatalog().find((p) => p.id === "elevenlabs");
+    expect(entry?.keyName).toBe("elevenlabs");
+    expect(entry?.models.map((m) => m.id)).toContain("eleven_v4");
+    expect(
+      speechPriceUsd("elevenlabs", "eleven_v4", {
+        audioTokens: 0,
+        inputTokens: 0,
+        characters: 1000,
+      }),
+    ).toBeCloseTo(0.08);
+  });
+
+  it("sends the voice id, a style tag, the language and the neighbours, and keeps the PCM", async () => {
+    const pcm = tone(0.2);
+    const { provider, calls } = eleven("eleven_v4", () => new Response(pcm));
+    const r = await provider.synthesize({
+      text: "Merhaba.",
+      voice: "abc123",
+      style: "calm [warm] narrator",
+      language: "tr-TR",
+      previousText: "Önce.",
+    });
+    expect(calls[0]?.url).toBe(
+      "https://example.invalid/v1/text-to-speech/abc123?output_format=pcm_24000",
+    );
+    expect(calls[0]?.headers["xi-api-key"]).toBe("test-key");
+    expect(calls[0]?.body).toEqual({
+      text: "[calm warm narrator] Merhaba.",
+      model_id: "eleven_v4",
+      language_code: "tr",
+      previous_text: "Önce.",
+    });
+    expect(r.sampleRate).toBe(24000);
+    expect(r.pcm.equals(pcm)).toBe(true);
+    expect(r.characters).toBe("[calm warm narrator] Merhaba.".length);
+  });
+
+  it("leaves the style out for a model that would read the tag aloud", async () => {
+    const { provider, calls } = eleven("eleven_flash_v2_5", () => new Response(tone(0.1)));
+    await provider.synthesize({ text: "Hi.", voice: "v", style: "calm" });
+    expect((calls[0]?.body as { text: string }).text).toBe("Hi.");
+  });
+
+  it("explains a refused key and out of credits, and retries a rate limit", async () => {
+    const json = (status: number, detail: unknown) =>
+      new Response(JSON.stringify({ detail }), { status });
+    await expect(
+      eleven("eleven_v4", () =>
+        json(401, { status: "invalid_api_key", message: "Invalid API key" }),
+      ).provider.synthesize({ text: "a", voice: "v" }),
+    ).rejects.toThrow(/key was refused/);
+    await expect(
+      eleven("eleven_v4", () =>
+        json(401, { status: "quota_exceeded", message: "No credits" }),
+      ).provider.synthesize({ text: "a", voice: "v" }),
+    ).rejects.toThrow(/out of credits/);
+    await expect(
+      eleven("eleven_v4", () =>
+        json(401, { status: "missing_permissions", message: "missing text_to_speech" }),
+      ).provider.synthesize({ text: "a", voice: "v" }),
+    ).rejects.toThrow(/allow Text to Speech and Voices/);
+    const limited = await eleven("eleven_v4", () =>
+      json(429, { status: "too_many_concurrent_requests", message: "busy" }),
+    )
+      .provider.synthesize({ text: "a", voice: "v" })
+      .catch((e: unknown) => e);
+    expect(limited).toBeInstanceOf(SpeechError);
+    expect((limited as SpeechError).retryable).toBe(true);
+    expect((limited as SpeechError).retryAfterS).toBeGreaterThan(0);
+  });
+
+  it("lists the account's own voices first, then the default ones", async () => {
+    const urls: string[] = [];
+    const voices = await listElevenLabsVoices({
+      apiKey: "k",
+      endpoint: "https://example.invalid",
+      fetch: (async (url: string) => {
+        urls.push(url);
+        const own = url.includes("voice_type=non-default");
+        return new Response(
+          JSON.stringify({
+            voices: own
+              ? [{ voice_id: "me1", name: "Erhan", category: "cloned", labels: {} }]
+              : [
+                  {
+                    voice_id: "d1",
+                    name: "George - Warm storyteller",
+                    category: "premade",
+                    labels: { descriptive: "warm", gender: "male", accent: "british" },
+                  },
+                  { voice_id: "me1", name: "Erhan", category: "cloned" },
+                ],
+          }),
+        );
+      }) as unknown as typeof fetch,
+    });
+    expect(urls).toHaveLength(2);
+    expect(voices).toEqual([
+      { name: "me1", label: "Erhan", character: "cloned", own: true },
+      { name: "d1", label: "George", character: "warm, male, british", own: false },
+    ]);
   });
 });

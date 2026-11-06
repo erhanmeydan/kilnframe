@@ -401,7 +401,7 @@
   "prov.experimentalNote": "Deneysel: bu sağlayıcı henüz test setimizden geçmedi, sahneler daha sade çıkabilir.",
   "prov.speech": "Seslendirme ve Müzik",
   "prov.speechSame": "Yapay zeka için girilen Gemini anahtarı kullanılıyor.",
-  "prov.speechNote": "Hikaye modunda seslendirme ve müzik Google Gemini ile yapılır. Yapay zeka sağlayıcısı başka olsa da bu anahtar kullanılır.",
+  "prov.speechNote": "Hikaye modunda müzik Google Gemini ile yapılır, seslendirme Gemini ya da ElevenLabs ile. Yapay zeka sağlayıcısı başka olsa da bu anahtar kullanılır.",
   "prov.keyEmpty": "Önce anahtarı yapıştırın.",
   "settings.opusNote": "önerilen",
   "settings.fableNote": "en güçlü, daha pahalı ve yavaş",
@@ -609,5 +609,12 @@
   "captions.saveSrt": "SRT Dosyasını Kaydet",
   "captions.srtSaved": "SRT kaydedildi: {path}",
   "captions.srtFailed": "SRT dosyası kaydedilemedi: {message}",
-  "captions.noLines": "Bütün satırlar boş, render alınacak bir şey yok."
+  "captions.noLines": "Bütün satırlar boş, render alınacak bir şey yok.",
+  "prov.addKey": "Anahtar Ekle",
+  "prov.elevenNote": "İsteğe bağlı. ElevenLabs anahtarıyla hikaye modu, ElevenLabs hesabınızdaki seslerle, kendi klonladığınız sesiniz dahil, seslendirme yapabilir. Ücret ElevenLabs planınızdan düşer.",
+  "story.noKeyEleven": "ElevenLabs ile seslendirme için ElevenLabs anahtarı gerekiyor. Ayarlar'da Seslendirme ve Müzik bölümünden ekleyin.",
+  "story.voicesFailed": "ElevenLabs sesleri alınamadı: {message}",
+  "story.elevenNote": "Kendi sesleriniz en üstte. elevenlabs.io'da klonladığınız bir ses burada görünür.",
+  "voice.cloned": "Klonlanmış ses",
+  "voice.generated": "Tasarlanmış ses"
 }

@@ -401,7 +401,7 @@
   "prov.experimentalNote": "Experimental: this provider has not passed our test set yet; scenes may come out simpler.",
   "prov.speech": "Narration and Music",
   "prov.speechSame": "The Gemini key entered for the AI is used.",
-  "prov.speechNote": "Story mode reads aloud and makes music with Google Gemini. This key is used even when another provider writes the text.",
+  "prov.speechNote": "Story mode makes music with Google Gemini and reads aloud with Gemini or ElevenLabs. This key is used even when another provider writes the text.",
   "prov.keyEmpty": "Paste the key first.",
   "settings.opusNote": "recommended",
   "settings.fableNote": "most capable, costs more and is slower",
@@ -609,5 +609,12 @@
   "captions.saveSrt": "Save the SRT File",
   "captions.srtSaved": "SRT saved: {path}",
   "captions.srtFailed": "The SRT file could not be saved: {message}",
-  "captions.noLines": "Every line is empty: there is nothing to render."
+  "captions.noLines": "Every line is empty: there is nothing to render.",
+  "prov.addKey": "Add Key",
+  "prov.elevenNote": "Optional. With an ElevenLabs key, story mode can read the narration with the voices in your ElevenLabs account, your own cloned voice included. It is billed to your ElevenLabs plan.",
+  "story.noKeyEleven": "ElevenLabs narration needs an ElevenLabs key. Add it in the settings under Narration and Music.",
+  "story.voicesFailed": "The ElevenLabs voices could not be listed: {message}",
+  "story.elevenNote": "Your own voices are at the top. A voice you clone on elevenlabs.io shows up here.",
+  "voice.cloned": "Cloned voice",
+  "voice.generated": "Designed voice"
 }

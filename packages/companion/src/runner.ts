@@ -22,6 +22,7 @@ import {
   writeMusicPlan,
   type Transcript,
   loadSpeechCatalog,
+  speechPriceUsd,
   narrate,
   planParts,
   readTranscript,
@@ -331,9 +332,11 @@ async function storyVoiceJob(
   progress: (message: string) => void,
 ) {
   const defaults = loadDefaults();
+  const id = params.speechProvider ?? defaults.speech.provider;
   const speech = createSpeechProvider(defaults, {
+    provider: id,
     model: params.speechModel,
-    apiKey: await keys.get(defaults.speech.provider),
+    apiKey: await keys.get(loadSpeechCatalog().find((p) => p.id === id)?.keyName ?? id),
   });
   mkdirSync(params.outDir, { recursive: true });
   writeFileSync(join(params.outDir, "story.txt"), `${params.text}\n`);
@@ -342,16 +345,14 @@ async function storyVoiceJob(
     text: params.text,
     voice: params.voice,
     style: params.style,
+    language: params.language,
     outFile: join(params.outDir, "narration.wav"),
     onProgress: progress,
   });
   writeFileSync(
     join(params.outDir, "narration.json"),
-    `${JSON.stringify({ title: params.title, voice: params.voice, model: speech.model, ...result }, null, 2)}\n`,
+    `${JSON.stringify({ title: params.title, voice: params.voice, provider: speech.id, model: speech.model, ...result }, null, 2)}\n`,
   );
-  const price = loadSpeechCatalog()
-    .find((p) => p.id === speech.id)
-    ?.models.find((m) => m.id === speech.model)?.price;
   let music: { file: string; priceUsd: number } | null = null;
   let musicError: string | null = null;
   if (params.music) {
@@ -381,9 +382,7 @@ async function storyVoiceJob(
     file: result.file,
     durationS: result.durationS,
     chunks: result.chunks,
-    listPriceUsd: price
-      ? (result.audioTokens * price.outputAudio + result.inputTokens * price.input) / 1e6
-      : 0,
+    listPriceUsd: speechPriceUsd(speech.id, speech.model, result),
   };
 }
 

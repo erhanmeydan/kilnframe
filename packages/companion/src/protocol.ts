@@ -98,6 +98,9 @@ const ProviderChoice = {
   thinking: z.enum(["off", "on"]).optional(),
 };
 
+/** A speech provider of config/speech.json. */
+export const SpeechProviderId = z.enum(["gemini", "elevenlabs"]);
+
 /** Story mode, step one: write the narration from a brief, or revise it with a note. */
 export const StoryWriteJobParamsSchema = z.object({
   kind: z.literal("story-write"),
@@ -126,7 +129,10 @@ export const StoryVoiceJobParamsSchema = z.object({
   voice: z.string().min(1),
   style: z.string().max(300).optional(),
   outDir: z.string().min(1),
+  speechProvider: SpeechProviderId.optional(),
   speechModel: z.string().optional(),
+  /** The narration's language, for providers that take it. */
+  language: z.string().max(10).optional(),
   /** A Lyria music bed under the narration, in the chosen style's mood when there is one. */
   music: z
     .object({
@@ -342,12 +348,16 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
   z.object({ type: z.literal("job.get"), jobId: z.string() }),
   z.object({ type: z.literal("styles.delete"), name: z.string().min(1) }),
-  z.object({ type: z.literal("speech.voices") }),
+  /** The voices of a speech provider (config/speech.json); the defaults' provider when none is named. */
+  z.object({ type: z.literal("speech.voices"), provider: SpeechProviderId.optional() }),
   z.object({
     type: z.literal("speech.preview"),
-    // part of a cache file name, so a plain voice name only
+    // part of a cache file name, so a plain voice name (or an ElevenLabs voice id) only
     voice: z.string().regex(/^[A-Za-z0-9_.-]{1,60}$/),
     language: z.string().regex(/^[A-Za-z-]{2,10}$/),
+    provider: SpeechProviderId.optional(),
+    /** The name the sample says, when the voice is an id. */
+    label: z.string().max(60).optional(),
   }),
   z.object({ type: z.literal("speech.stop") }),
   /** Plays a music clip or its preview from a job folder; speech.stop stops it. */
@@ -437,7 +447,17 @@ export type ServerMessage =
   | { type: "job.state"; jobId: string; state: JobState | "unknown" }
   | { type: "assets"; assets: unknown[] }
   | { type: "styles.deleted"; name: string }
-  | { type: "voices"; provider: string; model: string; voices: unknown[]; keySet: boolean }
+  | {
+      type: "voices";
+      provider: string;
+      model: string;
+      voices: unknown[];
+      keySet: boolean;
+      /** Music is always made with Gemini, whatever reads the narration. */
+      musicKeySet: boolean;
+      /** Why the voices could not be listed (a refused key, no connection). */
+      error?: string;
+    }
   | { type: "speech.played"; voice: string }
   /** The sample stopped: it finished, Stop was pressed, or another one started. */
   | { type: "speech.ended"; voice: string }

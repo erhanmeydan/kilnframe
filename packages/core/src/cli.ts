@@ -15,7 +15,7 @@ import { listStyles, loadStyle } from "./styles.js";
 import { suggestStyles } from "./stages/suggest.js";
 import { createStyle, previewStyle } from "./stages/style-create.js";
 import { storyText, writeStory, type Story } from "./stages/story.js";
-import { createSpeechProvider, loadSpeechCatalog, narrate } from "./speech/index.js";
+import { createSpeechProvider, narrate, speechPriceUsd } from "./speech/index.js";
 import {
   CAPTION_LOOKS,
   correctCaptionWords,
@@ -124,13 +124,17 @@ async function main(argv: string[]): Promise<number> {
     writeFileSync(join(outDir, "story.json"), `${JSON.stringify(story, null, 2)}\n`);
     process.stdout.write(`${storyText(story)}\n`);
     if (args.noVoice) return 0;
-    const speech = createSpeechProvider(defaults, { model: args.speechModel });
+    const speech = createSpeechProvider(defaults, {
+      provider: args.speechProvider,
+      model: args.speechModel,
+    });
     const voice = args.voice ?? defaults.speech.voice;
     const result = await narrate({
       provider: speech,
       text: storyText(story),
       voice,
       style: story.voice_style,
+      language: args.language,
       outFile: join(outDir, "narration.wav"),
       onProgress: log,
     });
@@ -138,12 +142,7 @@ async function main(argv: string[]): Promise<number> {
       join(outDir, "narration.json"),
       `${JSON.stringify({ voice, model: speech.model, ...result }, null, 2)}\n`,
     );
-    const price = loadSpeechCatalog()
-      .find((p) => p.id === speech.id)
-      ?.models.find((m) => m.id === speech.model)?.price;
-    const cost = price
-      ? (result.audioTokens * price.outputAudio + result.inputTokens * price.input) / 1e6
-      : 0;
+    const cost = speechPriceUsd(speech.id, speech.model, result);
     log(
       `Narration: ${result.durationS.toFixed(1)} s, ${voice}${cost ? `, about $${cost.toFixed(4)} at API prices` : ""}`,
     );

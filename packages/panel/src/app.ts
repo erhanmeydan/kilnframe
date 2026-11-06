@@ -128,10 +128,17 @@ interface StoryState {
   music: "on" | "off";
   /** The new sequence's frame; "orijinal" keeps the open sequence's. */
   format: Format;
-  voices: { name: string; character: string }[];
+  /** Who reads the narration (config/speech.json). */
+  speechProvider: SpeechProvider;
+  /** `name` is what the provider reads with: a Gemini voice name or an ElevenLabs voice id. */
+  voices: { name: string; character: string; label?: string; own?: boolean }[];
+  /** Why the voices could not be listed (a refused ElevenLabs key, no connection). */
+  voicesError: string | null;
   /** The whole voice list is open. */
   allVoices: boolean;
   keySet: boolean;
+  /** Music is always made with Gemini, whatever reads the narration. */
+  musicKeySet: boolean;
   jobId: string | null;
   last: string;
   error: string | null;
@@ -154,14 +161,17 @@ function newStory(): StoryState {
     voiceStyle: "",
     script: "",
     note: "",
-    voice: stored("story-voice") ?? "Kore",
+    voice: storedVoice(storedSpeechProvider()),
     music: stored("story-music") === "off" ? "off" : "on",
     format:
       (["landscape", "portrait", "square"] as const).find((f) => f === stored("story-format")) ??
       "orijinal",
+    speechProvider: storedSpeechProvider(),
     voices: [],
+    voicesError: null,
     allVoices: false,
     keySet: true,
+    musicKeySet: true,
     jobId: null,
     last: "",
     error: null,
@@ -169,6 +179,21 @@ function newStory(): StoryState {
     source: stored("story-source") === "own" ? "own" : "write",
     own: "",
   };
+}
+
+type SpeechProvider = "gemini" | "elevenlabs";
+
+function storedSpeechProvider(): SpeechProvider {
+  return stored("story-speech") === "elevenlabs" ? "elevenlabs" : "gemini";
+}
+
+/** Each provider keeps its own last voice: a Gemini name means nothing to ElevenLabs. */
+function voiceKey(provider: SpeechProvider): string {
+  return provider === "gemini" ? "story-voice" : `story-voice-${provider}`;
+}
+
+function storedVoice(provider: SpeechProvider): string {
+  return stored(voiceKey(provider)) ?? (provider === "gemini" ? "Kore" : "");
 }
 
 /** Voices that suit a narration, shown first (panel design, 8 Oct 2026). */
@@ -1146,14 +1171,25 @@ function storyBox(): string {
   ${st.done.musicNote ? `<div class="box mt">${esc(st.done.musicNote)}</div>` : ""}
   <div class="btn2 mt" data-act="story-new">${t("story.restart")}</div>`;
   if (st.stage === "script") {
-    // the narration voices first and the chosen one always; the rest behind All Voices
+    // the narration voices (Gemini) or the editor's own (ElevenLabs) first, and the chosen one always;
+    // the rest behind All Voices
+    const firstDefaults = new Set(
+      st.voices
+        .filter((v) => !v.own)
+        .slice(0, 4)
+        .map((v) => v.name),
+    );
     const shown = st.allVoices
       ? st.voices
-      : st.voices.filter((v) => NARRATION_VOICES.includes(v.name) || v.name === st.voice);
+      : st.voices.filter((v) =>
+          st.speechProvider === "gemini"
+            ? NARRATION_VOICES.includes(v.name) || v.name === st.voice
+            : v.own || firstDefaults.has(v.name) || v.name === st.voice,
+        );
     const voices = shown
       .map(
         (v) =>
-          `<div class="vrow${v.name === st.voice ? " on" : ""}"><div class="vname" data-act="story-voice" data-val="${esc(v.name)}">${v.name === st.voice ? "✓ " : ""}${esc(v.name)} <span class="small muted">${esc(voiceCharacter(v.character))}</span></div>${
+          `<div class="vrow${v.name === st.voice ? " on" : ""}"><div class="vname" data-act="story-voice" data-val="${esc(v.name)}">${v.name === st.voice ? "✓ " : ""}${esc(v.label ?? v.name)} <span class="small muted">${esc(voiceCharacter(v.character))}</span></div>${
             state.voicePlaying === v.name
               ? `<div class="link" data-act="story-stop">■ ${t("story.stopShort")}</div>`
               : `<div class="link" data-act="story-listen" data-val="${esc(v.name)}">▶ ${t("story.listenShort")}</div>`
@@ -1173,9 +1209,15 @@ function storyBox(): string {
   <div class="btn2 mt" data-act="story-rewrite">${t("story.rewrite")}</div>`
   }
   <div class="lbl">${t("story.voice")}</div>
-  ${st.keySet ? "" : `<div class="box warn">${t("story.noKey")}</div>`}
+  ${seg("story-speech", st.speechProvider, [
+    ["gemini", "Gemini"],
+    ["elevenlabs", "ElevenLabs"],
+  ])}
+  ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}</div>`}
+  ${st.voicesError ? `<div class="box warn">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
+  ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
-  <div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>
+  ${shown.length < st.voices.length || st.allVoices ? `<div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>` : ""}
   <div class="lbl">${t("home.format")}</div>
   ${seg("story-format", st.format, [
     ["orijinal", t("format.original")],
@@ -1292,9 +1334,22 @@ async function storyJob(
 }
 
 async function loadVoices() {
-  const reply = await session.request<ServerMessage>({ type: "speech.voices" }, "voices");
-  state.story.voices = reply.voices as StoryState["voices"];
-  state.story.keySet = Boolean(reply.keySet);
+  const st = state.story;
+  const provider = st.speechProvider;
+  const reply = await session.request<ServerMessage>(
+    { type: "speech.voices", provider },
+    "voices",
+    30_000,
+  );
+  // the editor switched provider while this list was on its way
+  if (st.speechProvider !== provider) return;
+  st.voices = reply.voices as StoryState["voices"];
+  st.keySet = Boolean(reply.keySet);
+  st.musicKeySet = Boolean(reply.musicKeySet ?? reply.keySet);
+  st.voicesError = reply.error ? String(reply.error) : null;
+  // an ElevenLabs voice deleted from the account, or none chosen yet: the first of the list
+  if (st.voices.length && !st.voices.some((v) => v.name === st.voice))
+    st.voice = st.voices[0]?.name ?? "";
 }
 
 function writeStoryJob(revise: boolean) {
@@ -1368,6 +1423,8 @@ async function makeStorySequence() {
         voice: st.voice,
         style: st.voiceStyle || undefined,
         outDir: String(prepared.jobDir),
+        speechProvider: st.speechProvider,
+        language: st.language,
         ...(st.music === "on"
           ? {
               music: {
@@ -1678,6 +1735,11 @@ async function refreshProviders() {
       "keys.has",
     );
     customKey = Boolean(custom.present);
+    const eleven = await session.request<ServerMessage>(
+      { type: "keys.has", provider: "elevenlabs" },
+      "keys.has",
+    );
+    elevenKey = Boolean(eleven.present);
   } catch (err) {
     // not connected: the settings show the app's own box instead (its text follows the panel language)
     if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
@@ -1738,6 +1800,9 @@ function agentState(id: string): { installed: boolean; loggedIn: boolean } | nul
 
 /** Whether a key is saved for the custom endpoint; it is not one of the presets. */
 let customKey = false;
+/** An ElevenLabs key is in the keychain (story narration only). */
+let elevenKey = false;
+const ELEVEN_KEY_URL = "https://elevenlabs.io/app/settings/api-keys";
 function customKeySet(): boolean {
   return customKey;
 }
@@ -1973,8 +2038,17 @@ function speechKeys(): string {
     body = `<div class="small">${t("prov.speechSame")}</div>`;
   else if (gemini?.keySet && setup.editingKey !== "gemini-speech")
     body = `<div class="small">Google Gemini <span class="pkey set">● ${t("prov.keySaved")}</span></div>`;
+  else if (setup.editingKey === "elevenlabs")
+    body = `<div class="small">Google Gemini <span class="pkey">${t("prov.noKey")}</span></div>`;
   else body = keyBlock("gemini", gemini, false);
-  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div>`;
+  // ElevenLabs reads the narration only, never the music. One key field at a time on the screen
+  // (they share the draft), so its field opens with Add Key.
+  const elevenEntry = { keySet: elevenKey, keyUrl: ELEVEN_KEY_URL } as ProviderEntry;
+  const eleven =
+    elevenKey || setup.editingKey === "elevenlabs"
+      ? keyBlock("elevenlabs", elevenEntry, false)
+      : `<div class="pbtns"><div class="pbtn" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
+  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div>`;
 }
 
 /** The first-run guide: companion, computer, speech model, AI, narration and a first try. */
@@ -2577,7 +2651,7 @@ const musicCtx: MusicCtx = {
   render: () => render(),
   trace: (line) => trace(line),
   connected: () => state.conn === "ok" && wavPresetOk(),
-  keySet: () => state.story.keySet,
+  keySet: () => state.story.musicKeySet,
   inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
   readSequence: () => readSequence(),
   request: (message, reply, timeoutMs) =>
@@ -3605,7 +3679,8 @@ async function saveKey(id: string) {
     setup.editingKey = null;
     setup.keyDraft = "";
     if (id === "custom") customKey = true;
-    if (id === "gemini") void loadVoices().catch(() => undefined);
+    if (id === "elevenlabs") elevenKey = true;
+    if (id === "gemini" || id === "elevenlabs") void loadVoices().catch(() => undefined);
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }
@@ -3618,6 +3693,7 @@ async function deleteKey(id: string) {
     await session.request<ServerMessage>({ type: "keys.delete", provider: id }, "keys.deleted");
     trace(`settings: key deleted for ${id}`);
     if (id === "custom") customKey = false;
+    if (id === "elevenlabs") elevenKey = false;
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }
@@ -3867,7 +3943,25 @@ function runAction(el: HTMLElement) {
     store("story-music", state.story.music);
   } else if (act === "story-voice") {
     state.story.voice = val;
-    store("story-voice", val);
+    store(voiceKey(state.story.speechProvider), val);
+  } else if (act === "story-speech") {
+    const st = state.story;
+    const provider: SpeechProvider = val === "elevenlabs" ? "elevenlabs" : "gemini";
+    if (provider !== st.speechProvider) {
+      st.speechProvider = provider;
+      store("story-speech", provider);
+      st.voice = storedVoice(provider);
+      st.voices = [];
+      st.voicesError = null;
+      st.allVoices = false;
+      if (state.voicePlaying) {
+        state.voicePlaying = "";
+        session.send({ type: "speech.stop" });
+      }
+      void loadVoices()
+        .then(render)
+        .catch((e: unknown) => trace(`voices threw: ${String(e)}`));
+    }
   } else if (act === "story-voices-all") state.story.allVoices = !state.story.allVoices;
   else if (act === "story-stop") {
     state.voicePlaying = "";
@@ -3882,7 +3976,13 @@ function runAction(el: HTMLElement) {
     render();
     void session
       .request<ServerMessage>(
-        { type: "speech.preview", voice: val || state.story.voice, language: state.story.language },
+        {
+          type: "speech.preview",
+          voice: val || state.story.voice,
+          language: state.story.language,
+          provider: state.story.speechProvider,
+          label: state.story.voices.find((v) => v.name === (val || state.story.voice))?.label,
+        },
         "speech.played",
         60_000,
       )
