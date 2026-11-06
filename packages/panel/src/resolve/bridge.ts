@@ -18,7 +18,7 @@ import {
   type ResolveSequence,
 } from "./api";
 import { frameFor, insertScale } from "../frame";
-import { isOurAnimation, isOurInsert } from "../our-files";
+import { isOurAnimation, isOurInsert, isVoiceFixTake } from "../our-files";
 import { framesToTimecode, parseRate, rateString, type Rate } from "./timecode";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Resolve's promise objects are untyped */
@@ -87,7 +87,7 @@ export function createResolveBridge(
     });
   }
 
-  /** Switches off every enabled audio track but the 1-based `keep`; off the Deliver page. */
+  /** Switches off every enabled audio track but the 1-based `keep`; off the Deliver page. All or none. */
   function soloOn(id: string, keep: number): Promise<HiddenTrack[]> {
     return onTimeline(id, async (tl) => {
       await leaveDeliver();
@@ -96,7 +96,9 @@ export function createResolveBridge(
         const count = (await tl.GetTrackCount("audio")) as number;
         for (let i = 1; i <= count; i++) {
           if (i === keep || !(await tl.GetIsTrackEnabled("audio", i))) continue;
-          if (await tl.SetTrackEnable("audio", i, false)) hidden.push({ type: "audio", index: i });
+          // a refused switch would leave that track in the export: the switch fails as a whole
+          if (!(await tl.SetTrackEnable("audio", i, false))) throw new Error(PLACE_FAILED);
+          hidden.push({ type: "audio", index: i });
         }
       } catch (err) {
         // the caller never learns which tracks went off: they go back on here
@@ -515,16 +517,18 @@ export function createResolveBridge(
         const to = start + Math.round(endS * rate.fps);
         const found: number[] = [];
         const count = (await tl.GetTrackCount("audio")) as number;
-        for (let i = 1; i <= count; i++)
+        for (let i = 1; i <= count; i++) {
+          if (!(await tl.GetIsTrackEnabled("audio", i))) continue;
           for (const item of ((await tl.GetItemListInTrack("audio", i)) ?? []) as R[]) {
             if ((await item.GetEnd()) <= from || (await item.GetStart()) >= to) continue;
             const path = await pathOf(item);
             // a compound clip or one without a file is the editor's own
-            if (!path || !isOurInsert(path)) {
+            if (!path || !(isOurInsert(path) || isVoiceFixTake(path))) {
               found.push(i - 1);
               break;
             }
           }
+        }
         return found;
       });
     },

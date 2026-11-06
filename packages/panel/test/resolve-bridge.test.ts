@@ -649,8 +649,8 @@ describe("resolve bridge", () => {
   });
   describe("speech track", () => {
     /** A1 the footage, A2 a lav, A3 our music, A4 a clip after the range. */
-    function withAudio() {
-      const f = makeFakeResolve();
+    function withAudio(o: Parameters<typeof makeFakeResolve>[0] = {}) {
+      const f = makeFakeResolve(o);
       const clip = (path: string, start: number, end: number) => ({
         enabled: true,
         locked: false,
@@ -711,6 +711,35 @@ describe("resolve bridge", () => {
       await b.showTracks(seq.id, hidden);
       expect(f.project.timeline.tracks.audio.every((t) => t.enabled)).toBe(true);
       expect(f.log.pages.at(-1)).toBe("deliver");
+    });
+    it("leaves out earlier voice fix takes and disabled tracks", async () => {
+      const f = withAudio();
+      f.project.timeline.tracks.audio[1]!.items[0]!.path = "/m/Kilnframe/Probe-1/voice-fix/fix.wav";
+      f.project.timeline.tracks.audio.push({
+        enabled: true,
+        locked: false,
+        items: [
+          {
+            start: 90000,
+            end: 90100,
+            sourceIn: 0,
+            sourceOut: 99,
+            path: "C:\\Kilnframe\\Probe-2\\voice-fix\\fix.wav",
+          },
+        ],
+      });
+      f.project.timeline.tracks.audio[0]!.enabled = false;
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      expect(await b.speechTracks(seq.id, 0, 5)).toEqual([]);
+    });
+
+    it("fails and switches the tracks back on when Resolve refuses to switch one off", async () => {
+      const f = withAudio({ refuseDisable: [3] });
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      await expect(b.soloAudioTrack(seq.id, 1)).rejects.toThrow();
+      expect(f.project.timeline.tracks.audio.every((t) => t.enabled)).toBe(true);
     });
   });
 });

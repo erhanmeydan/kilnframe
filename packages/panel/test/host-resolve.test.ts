@@ -337,5 +337,33 @@ describe("filmcraft host", () => {
       });
       expect(api.showTracks).not.toHaveBeenCalled();
     });
+    it("says so when the tracks cannot be switched back on after the export", async () => {
+      setLang("en");
+      const api = fakeApi({
+        showTracks: vi.fn(async () => {
+          throw new Error("FILMCRAFT_CONNECTION_LOST");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(h.withOnlyAudioTrack(s, 1, async () => 1)).rejects.toThrow(
+        en["filmcraft.connectionLost"],
+      );
+    });
+
+    it("keeps the export's error when the tracks cannot be switched back on either", async () => {
+      const api = fakeApi({
+        showTracks: vi.fn(async () => {
+          throw new Error("tracks");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(s, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+    });
   });
 });

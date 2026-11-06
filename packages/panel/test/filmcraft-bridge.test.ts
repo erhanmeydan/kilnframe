@@ -299,5 +299,14 @@ describe("filmcraft bridge", () => {
       await expect(b.soloAudioTrack(seq.id, 1)).rejects.toThrow();
       expect(f.sequence.audio.every((t) => t.enabled)).toBe(true);
     });
+    it("leaves out earlier voice fix takes and disabled tracks", async () => {
+      const f = withAudio();
+      f.state.addClip("audio", `${JOB}/voice-fix/fix.wav`, 2, 6);
+      f.state.addClip("audio", "C:\\Users\\Ed\\Kilnframe\\job-2\\voice-fix\\fix.wav", 2, 6);
+      f.sequence.audio[1]!.enabled = false;
+      const b = bridgeOf(f);
+      const seq = await b.currentSequence();
+      expect(await b.speechTracks(seq.id, 2, 9)).toEqual([0]);
+    });
   });
 });

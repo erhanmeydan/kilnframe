@@ -19,7 +19,7 @@ import {
   type ResolveSequence,
 } from "../resolve/api";
 import { frameFor, insertScale } from "../frame";
-import { isOurAnimation, isOurInsert } from "../our-files";
+import { isOurAnimation, isOurInsert, isVoiceFixTake } from "../our-files";
 import { CONNECTION_LOST, TIMED_OUT, type FilmCraftClient } from "./client";
 
 export const TICKS = 254_016_000_000;
@@ -390,16 +390,18 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
         const from = startS * TICKS;
         const to = endS * TICKS;
         const found: number[] = [];
-        for (const [i, t] of s.audio.entries())
+        for (const [i, t] of s.audio.entries()) {
+          if (!t.enabled) continue;
           for (const c of t.items) {
             if (c.end <= from || c.start >= to) continue;
             const path = await pathOf(c.item);
             // generated media has no file and is the editor's own
-            if (!path || !isOurInsert(path)) {
+            if (!path || !(isOurInsert(path) || isVoiceFixTake(path))) {
               found.push(i);
               break;
             }
           }
+        }
         return found;
       });
     },

@@ -115,13 +115,18 @@ export function createResolveHost(
         // the tracks could not be switched: the export hears them all, and the panel says so
         hidden = null;
       }
+      if (!hidden) return { result: await fn(), isolated: false };
+      let result: Awaited<ReturnType<typeof fn>>;
       try {
-        return { result: await fn(), isolated: hidden !== null };
-      } finally {
-        // also with none switched off: Resolve gets the editor's page back. The export's own error is the
-        // one the editor needs; one from the tracks would hide it
-        if (hidden) await api.showTracks(seq.id, hidden).catch(() => undefined);
+        result = await fn();
+      } catch (err) {
+        // the export's own error is the one the editor needs; a second one from the tracks would hide it
+        await api.showTracks(seq.id, hidden).catch(() => undefined);
+        throw err;
       }
+      // also with none switched off: Resolve gets the editor's page back
+      await words(api.showTracks(seq.id, hidden));
+      return { result, isolated: true };
     },
     placeInsert: (seq, files, atS, handlesS, durationS, tracks) =>
       words(api.placeInsert(seq.id, files, atS, handlesS, durationS, tracks)),

@@ -61,9 +61,16 @@ function fakePremiere(
   });
   /** Which tracks are muted, by their clip list; a track not in it is on. */
   const muted = new Map<FakeClip[], boolean>();
+  /** Decides a setMute call before it lands: false refuses it, a throw fails it. */
+  const muteRule = { fn: (_clips: FakeClip[], _mute: boolean): boolean | void => undefined };
   const trackApi = (clips: FakeClip[]) => ({
     isMuted: async () => muted.get(clips) ?? false,
-    setMute: async (mute: boolean) => (muted.set(clips, mute), true),
+    setMute: async (mute: boolean) => {
+      // the rule may refuse (false) or throw, as Premiere can
+      if (muteRule.fn(clips, mute) === false) return false;
+      muted.set(clips, mute);
+      return true;
+    },
     getTrackItems: () => clips.map(trackItem),
   });
   function makeSeq(guid: string, name: string) {
@@ -243,6 +250,7 @@ function fakePremiere(
     video,
     audio,
     muted,
+    muteRule,
     lengths,
     files,
     make,
@@ -515,6 +523,70 @@ describe("premiere host", () => {
         }),
       ).rejects.toThrow("boom");
       expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+    it("leaves out earlier voice fix takes and muted tracks", async () => {
+      const f = fakePremiere({
+        audio: [
+          [footage],
+          [{ path: "/Edits/Kilnframe/Main-20261107/voice-fix/fix.wav", start: 2, end: 6 }],
+          [{ path: "C:\\Edits\\Kilnframe\\Main-1\\voice-fix\\fix.wav", start: 2, end: 6 }],
+          [lav],
+        ],
+      });
+      f.muted.set(f.audio[3]!, true);
+      const h = f.make();
+      expect(await h.speechTracksAt(await h.currentSequence(), 2, 9)).toEqual([0]);
+    });
+
+    it("is not isolated when Premiere refuses to mute a track, and unmutes the others", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => (mute && clips === f.audio[2] ? false : undefined);
+      const h = f.make();
+      const seq = await h.currentSequence();
+      let during: boolean[] = [];
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => {
+        during = f.audio.map((t) => f.muted.get(t) ?? false);
+        return 1;
+      });
+      expect(out).toEqual({ result: 1, isolated: false });
+      expect(during).toEqual([true, false, false, true]);
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
+    it("is not isolated when muting a track throws, and unmutes the others", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => {
+        if (mute && clips === f.audio[0]) throw new Error("mute");
+      };
+      const h = f.make();
+      const seq = await h.currentSequence();
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => 1);
+      expect(out).toEqual({ result: 1, isolated: false });
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
+    it("tries every track and then says so when one cannot be unmuted after the export", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => (!mute && clips === f.audio[0] ? false : undefined);
+      const h = f.make();
+      const seq = await h.currentSequence();
+      await expect(h.withOnlyAudioTrack(seq, 1, async () => 1)).rejects.toThrow();
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([true, false, false, false]);
+    });
+
+    it("lets the export's error through when unmuting also fails", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => {
+        if (!mute && clips === f.audio[0]) throw new Error("unmute");
+      };
+      const h = f.make();
+      const seq = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(seq, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([true, false, false, false]);
     });
   });
 });
