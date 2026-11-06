@@ -223,6 +223,20 @@ describe("buildCaptionProject", () => {
       expect(readFileSync(join(dir, "gsap.min.js")).length).toBeGreaterThan(1000);
     },
   );
+
+  it("takes a font of the user's own by its absolute path", () => {
+    // another look's font, so the copy shows the absolute path was read and not the look's own file
+    const own = join(vendorFonts, CAPTION_LOOKS.loud.font);
+    const saved = CAPTION_LOOKS.sakin;
+    CAPTION_LOOKS.sakin = { ...saved, font: own };
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "kf-caption-project-"));
+      buildCaptionProject(sample, "sakin", saved.colors, dir);
+      expect(readFileSync(join(dir, "font.ttf"))).toEqual(readFileSync(own));
+    } finally {
+      CAPTION_LOOKS.sakin = saved;
+    }
+  });
 });
 
 describe("nextCaptionNumber", () => {

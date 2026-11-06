@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import * as fontkit from "fontkit";
 import { formatOf } from "../format.js";
 import { framesToSeconds, parseFps } from "../fps.js";
@@ -207,8 +207,9 @@ function rowWidthEm(font: Font, text: string, parts: LookParts): number {
   return advance + parts.letterSpacingEm * [...text].length + parts.wordSpacingEm * spaces;
 }
 
+/** A look's font file: under vendor/fonts, or a font of the user's own given by its absolute path. */
 function fontFile(look: CaptionLook): string {
-  return join(vendorDir(), "fonts", look.font);
+  return isAbsolute(look.font) ? look.font : join(vendorDir(), "fonts", look.font);
 }
 
 function seconds(s: number): string {

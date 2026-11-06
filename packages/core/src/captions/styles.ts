@@ -5,7 +5,7 @@ export type { CaptionColors, CaptionStyleId } from "./types.js";
 export interface CaptionLook {
   id: CaptionStyleId;
   name: { en: string; tr: string };
-  /** Font file path relative to vendor/fonts. */
+  /** Font file path relative to vendor/fonts, or an absolute path to a font of the user's own. */
   font: string;
   /** Italic file used for the active word, when the look has one. */
   fontActive?: string;
