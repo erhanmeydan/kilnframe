@@ -76,6 +76,21 @@ export interface Host {
     endS: number,
     fn: () => Promise<T>,
   ): Promise<T>;
+  /**
+   * 0-based audio tracks with a clip over [startS, endS) that is not one of Kilnframe's own (inserts, sound
+   * effects, music): where the editor's speech can be.
+   */
+  speechTracksAt(seq: HostSequence, startS: number, endS: number): Promise<number[]>;
+  /**
+   * Runs `fn` with every other audio track switched off, so an export hears the 0-based `track` alone, then
+   * switches them back on, also when `fn` throws. `isolated` is false when the editor could not switch the
+   * tracks and `fn` ran with everything playing.
+   */
+  withOnlyAudioTrack<T>(
+    seq: HostSequence,
+    track: number,
+    fn: () => Promise<T>,
+  ): Promise<{ result: T; isolated: boolean }>;
   placeInsert(
     seq: HostSequence,
     files: { video: string; sfx: string | null },

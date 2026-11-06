@@ -385,6 +385,46 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
       });
     },
 
+    speechTracks(id, startS, endS) {
+      return onSequence(id, async (s) => {
+        const from = startS * TICKS;
+        const to = endS * TICKS;
+        const found: number[] = [];
+        for (const [i, t] of s.audio.entries())
+          for (const c of t.items) {
+            if (c.end <= from || c.start >= to) continue;
+            const path = await pathOf(c.item);
+            // generated media has no file and is the editor's own
+            if (!path || !isOurInsert(path)) {
+              found.push(i);
+              break;
+            }
+          }
+        return found;
+      });
+    },
+
+    soloAudioTrack(id, track) {
+      return onSequence(id, async (s) => {
+        const hidden: HiddenTrack[] = [];
+        const off: number[] = [];
+        try {
+          for (const [i, t] of s.audio.entries()) {
+            if (i === track || !t.enabled) continue;
+            await fc.exec("timeline.setTrack", { track: t.id, enabled: false });
+            off.push(t.id);
+            hidden.push({ type: "audio", index: i + 1 });
+          }
+        } catch (err) {
+          // the caller never learns which tracks went off: they go back on here
+          for (const t of off)
+            await fc.exec("timeline.setTrack", { track: t, enabled: true }).catch(() => undefined);
+          throw err;
+        }
+        return hidden;
+      });
+    },
+
     showTracks(id, tracks) {
       return onSequence(id, async (s) => {
         for (const t of tracks) {

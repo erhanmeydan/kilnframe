@@ -53,6 +53,13 @@ export interface ResolveBridge {
   exportRangePicture(id: string, startS: number, endS: number, file: string): Promise<boolean>;
   hideOurInserts(id: string, startS: number, endS: number): Promise<HiddenTrack[]>;
   showTracks(id: string, tracks: HiddenTrack[]): Promise<void>;
+  /** 0-based audio tracks with a clip of the editor's own (not one of our inserts) over [startS, endS). */
+  speechTracks(id: string, startS: number, endS: number): Promise<number[]>;
+  /**
+   * Switches off every enabled audio track but the 0-based `track`, so an export hears that one alone; the
+   * tracks switched off, for showTracks to switch back on.
+   */
+  soloAudioTrack(id: string, track: number): Promise<HiddenTrack[]>;
   placeInsert(
     id: string,
     files: { video: string; sfx: string | null },

@@ -11,6 +11,7 @@ import {
   PLACE_FAILED,
   RENDER_BUSY,
   RENDER_FAILED,
+  type HiddenTrack,
   type KilnframeResolveApi,
 } from "./resolve/api";
 
@@ -104,6 +105,23 @@ export function createResolveHost(
       }
       await words(api.showTracks(seq.id, hidden));
       return result;
+    },
+    speechTracksAt: (seq, startS, endS) => words(api.speechTracks(seq.id, startS, endS)),
+    async withOnlyAudioTrack(seq, track, fn) {
+      let hidden: HiddenTrack[] | null;
+      try {
+        hidden = await api.soloAudioTrack(seq.id, track);
+      } catch {
+        // the tracks could not be switched: the export hears them all, and the panel says so
+        hidden = null;
+      }
+      try {
+        return { result: await fn(), isolated: hidden !== null };
+      } finally {
+        // also with none switched off: Resolve gets the editor's page back. The export's own error is the
+        // one the editor needs; one from the tracks would hide it
+        if (hidden) await api.showTracks(seq.id, hidden).catch(() => undefined);
+      }
     },
     placeInsert: (seq, files, atS, handlesS, durationS, tracks) =>
       words(api.placeInsert(seq.id, files, atS, handlesS, durationS, tracks)),

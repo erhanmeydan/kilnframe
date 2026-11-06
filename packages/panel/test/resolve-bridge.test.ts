@@ -647,4 +647,70 @@ describe("resolve bridge", () => {
     expect(await b.replaceCaptionClip(seq.id, old, next, 5, 10, 1)).toBe(false);
     expect(v2.items.map((i) => [i.start, i.end, i.path])).toEqual([[90000, 90750, captions]]);
   });
+  describe("speech track", () => {
+    /** A1 the footage, A2 a lav, A3 our music, A4 a clip after the range. */
+    function withAudio() {
+      const f = makeFakeResolve();
+      const clip = (path: string, start: number, end: number) => ({
+        enabled: true,
+        locked: false,
+        items: [{ start, end, sourceIn: 0, sourceOut: end - start - 1, path }],
+      });
+      f.project.timeline.tracks.audio.push(
+        clip("/lav.wav", 90000, 90271),
+        clip("/m/Kilnframe/Probe-Music-1/music/s1.wav", 90000, 90200),
+        clip("/room.wav", 90250, 90271),
+      );
+      return f;
+    }
+
+    it("finds the audio tracks with the editor's own clips under the range", async () => {
+      const f = withAudio();
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      expect(await b.speechTracks(seq.id, 0, 5)).toEqual([0, 1]);
+    });
+
+    it("switches off every other enabled audio track and the same ones back on", async () => {
+      const f = withAudio();
+      f.project.timeline.tracks.audio[3]!.enabled = false;
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, 1);
+      expect(hidden).toEqual([
+        { type: "audio", index: 1 },
+        { type: "audio", index: 3 },
+      ]);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        false,
+        true,
+        false,
+        false,
+      ]);
+      await b.showTracks(seq.id, hidden);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        true,
+        true,
+        true,
+        false,
+      ]);
+    });
+
+    it("leaves the Deliver page to switch the tracks, where Resolve ignores it", async () => {
+      const f = withAudio();
+      const b = bridge(f);
+      await f.resolve.OpenPage("deliver");
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, 0);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        true,
+        false,
+        false,
+        false,
+      ]);
+      await b.showTracks(seq.id, hidden);
+      expect(f.project.timeline.tracks.audio.every((t) => t.enabled)).toBe(true);
+      expect(f.log.pages.at(-1)).toBe("deliver");
+    });
+  });
 });

@@ -273,6 +273,55 @@ export function createPremiereHost(
     }
   }
 
+  /** 0-based audio tracks with a clip over [startS, endS) whose file is not one Kilnframe delivered. */
+  async function speechTracksAt(sequence: Sequence, startS: number, endS: number) {
+    const found: number[] = [];
+    for (let i = 0; i < (await sequence.getAudioTrackCount()); i++) {
+      const track = (await sequence.getAudioTrack(i)) as unknown as Mutable;
+      for (const item of track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false)) {
+        const start = (await item.getStartTime()).seconds;
+        const end = (await item.getEndTime()).seconds;
+        if (end <= startS || start >= endS) continue;
+        const path = await pathOf(item);
+        // a clip without a media file (a nested sequence) is the editor's own
+        if (!path || !isOurInsert(path)) {
+          found.push(i);
+          break;
+        }
+      }
+    }
+    return found;
+  }
+
+  /**
+   * Runs `fn` with every audio track but `index` muted, then unmutes them whatever happens. Tracks already muted
+   * stay muted. Not isolated when Premiere refused or failed to mute one: `fn` still runs.
+   */
+  async function withOnlyAudioTrack<T>(
+    sequence: Sequence,
+    index: number,
+    fn: () => Promise<T>,
+  ): Promise<{ result: T; isolated: boolean }> {
+    const hidden: Mutable[] = [];
+    let isolated = true;
+    try {
+      for (let i = 0; i < (await sequence.getAudioTrackCount()); i++) {
+        if (i === index) continue;
+        try {
+          const track = (await sequence.getAudioTrack(i)) as unknown as Mutable;
+          if (await track.isMuted()) continue;
+          if (await track.setMute(true)) hidden.push(track);
+          else isolated = false;
+        } catch {
+          isolated = false;
+        }
+      }
+      return { result: await fn(), isolated };
+    } finally {
+      for (const track of hidden) await track.setMute(false).catch(() => false);
+    }
+  }
+
   /**
    * The range's picture as a small H.264 file, so the preview shows the insert over the real footage. Only
    * the range is encoded: the work area is set to it for the export and put back afterwards, whatever
@@ -609,6 +658,14 @@ export function createPremiereHost(
     async withoutOurInserts(seq, startS, endS, fn) {
       const { sequence } = await sequenceOf(seq);
       return withoutOurInserts(sequence, startS, endS, fn);
+    },
+    async speechTracksAt(seq, startS, endS) {
+      const { sequence } = await sequenceOf(seq);
+      return speechTracksAt(sequence, startS, endS);
+    },
+    async withOnlyAudioTrack(seq, track, fn) {
+      const { sequence } = await sequenceOf(seq);
+      return withOnlyAudioTrack(sequence, track, fn);
     },
     async placeInsert(seq, files, atS, handlesS, durationS, tracks) {
       const { project, sequence } = await sequenceOf(seq);

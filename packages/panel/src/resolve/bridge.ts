@@ -87,6 +87,26 @@ export function createResolveBridge(
     });
   }
 
+  /** Switches off every enabled audio track but the 1-based `keep`; off the Deliver page. */
+  function soloOn(id: string, keep: number): Promise<HiddenTrack[]> {
+    return onTimeline(id, async (tl) => {
+      await leaveDeliver();
+      const hidden: HiddenTrack[] = [];
+      try {
+        const count = (await tl.GetTrackCount("audio")) as number;
+        for (let i = 1; i <= count; i++) {
+          if (i === keep || !(await tl.GetIsTrackEnabled("audio", i))) continue;
+          if (await tl.SetTrackEnable("audio", i, false)) hidden.push({ type: "audio", index: i });
+        }
+      } catch (err) {
+        // the caller never learns which tracks went off: they go back on here
+        for (const t of hidden) await tl.SetTrackEnable(t.type, t.index, true).catch(() => false);
+        throw err;
+      }
+      return hidden;
+    });
+  }
+
   async function project(): Promise<R> {
     const p = await (await resolve.GetProjectManager()).GetCurrentProject();
     if (!p) throw new Error(NO_SEQUENCE);
@@ -483,6 +503,36 @@ export function createResolveBridge(
         return await hideOn(id, startS, endS);
       } catch (err) {
         // no showTracks follows a failed hide: the page it left comes back now, not at a later job's end
+        await restorePage();
+        throw err;
+      }
+    },
+    speechTracks(id, startS, endS) {
+      return onTimeline(id, async (tl) => {
+        const rate = await rateOf(tl);
+        const start = (await tl.GetStartFrame()) as number;
+        const from = start + Math.round(startS * rate.fps);
+        const to = start + Math.round(endS * rate.fps);
+        const found: number[] = [];
+        const count = (await tl.GetTrackCount("audio")) as number;
+        for (let i = 1; i <= count; i++)
+          for (const item of ((await tl.GetItemListInTrack("audio", i)) ?? []) as R[]) {
+            if ((await item.GetEnd()) <= from || (await item.GetStart()) >= to) continue;
+            const path = await pathOf(item);
+            // a compound clip or one without a file is the editor's own
+            if (!path || !isOurInsert(path)) {
+              found.push(i - 1);
+              break;
+            }
+          }
+        return found;
+      });
+    },
+    async soloAudioTrack(id, track) {
+      try {
+        return await soloOn(id, track + 1);
+      } catch (err) {
+        // no showTracks follows a failed switch: the page it left comes back now
         await restorePage();
         throw err;
       }

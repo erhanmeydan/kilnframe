@@ -59,9 +59,11 @@ function fakePremiere(
       return { getComponentCount: () => list.length, getComponentAtIndex: (i: number) => list[i] };
     },
   });
+  /** Which tracks are muted, by their clip list; a track not in it is on. */
+  const muted = new Map<FakeClip[], boolean>();
   const trackApi = (clips: FakeClip[]) => ({
-    isMuted: async () => false,
-    setMute: async () => true,
+    isMuted: async () => muted.get(clips) ?? false,
+    setMute: async (mute: boolean) => (muted.set(clips, mute), true),
     getTrackItems: () => clips.map(trackItem),
   });
   function makeSeq(guid: string, name: string) {
@@ -239,6 +241,8 @@ function fakePremiere(
     overwrites,
     scales,
     video,
+    audio,
+    muted,
     lengths,
     files,
     make,
@@ -473,5 +477,44 @@ describe("premiere host", () => {
     const old = { path: captions, atS: 5, durationS: 10 };
     expect(await h.replaceCaptionClip(seq, old, next, 5, 10, 1)).toBe(false);
     expect(f.video[1]).toEqual([{ path: captions, start: 0, end: 30 }]);
+  });
+  describe("speech track", () => {
+    const music = "/Edits/Kilnframe/Main-Music-20261024/music/s1.wav";
+    const lav = { path: "/Footage/lav.wav", start: 0, end: 30 };
+    const later = { path: "/Footage/room.wav", start: 12, end: 30 };
+    const audio = () => [[footage], [lav], [{ path: music, start: 0, end: 20 }], [later]];
+
+    it("finds the audio tracks with the editor's own clips under the range, not ours or empty ones", async () => {
+      const f = fakePremiere({ audio: audio() });
+      const h = f.make();
+      expect(await h.speechTracksAt(await h.currentSequence(), 2, 9)).toEqual([0, 1]);
+    });
+
+    it("mutes every other audio track for the export and puts them back, leaving a muted one muted", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muted.set(f.audio[3]!, true);
+      const h = f.make();
+      const seq = await h.currentSequence();
+      let during: boolean[] = [];
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => {
+        during = f.audio.map((t) => f.muted.get(t) ?? false);
+        return "wav";
+      });
+      expect(out).toEqual({ result: "wav", isolated: true });
+      expect(during).toEqual([true, false, true, true]);
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, true]);
+    });
+
+    it("puts the tracks back when the export throws", async () => {
+      const f = fakePremiere({ audio: audio() });
+      const h = f.make();
+      const seq = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(seq, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
   });
 });
