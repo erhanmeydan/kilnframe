@@ -29,6 +29,16 @@ import {
   newCaptions,
   type CaptionsCtx,
 } from "./captions";
+import {
+  newVoiceFix,
+  voiceFixAct,
+  voiceFixBox,
+  voiceFixOpened,
+  voiceFixReadFields,
+  voiceFixWatches,
+  voiceFixWriteFields,
+  type VoiceFixCtx,
+} from "./voice-fix";
 import { NOT_REPORTED, feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
@@ -245,7 +255,7 @@ interface Lightbox {
   index: number;
 }
 
-type Tab = "range" | "story" | "music" | "captions";
+type Tab = "range" | "story" | "music" | "captions" | "voice";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
@@ -412,6 +422,7 @@ const state = {
   story: newStory(),
   music: newMusic(),
   captions: newCaptions(),
+  voiceFix: newVoiceFix(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -446,6 +457,7 @@ session.on((m) => {
   } else if (m.type === "speech.ended" || m.type === "audio.ended") {
     state.voicePlaying = "";
     state.music.playing = null;
+    state.voiceFix.playing = null;
     render();
   } else if (m.type === "app.update.busy") {
     state.updateBusy = true;
@@ -507,6 +519,13 @@ function wavPresetOk(): boolean {
 function store(key: string, value: string) {
   try {
     localStorage.setItem(`kilnframe:${key}`, value);
+  } catch {
+    // ignore
+  }
+}
+function unstore(key: string) {
+  try {
+    localStorage.removeItem(`kilnframe:${key}`);
   } catch {
     // ignore
   }
@@ -892,6 +911,7 @@ function home(): string {
     ["story", t("tab.story")],
     ["music", t("tab.music")],
     ["captions", t("tab.captions")],
+    ["voice", t("tab.voice")],
   ])}
   ${
     state.tab === "story"
@@ -900,7 +920,9 @@ function home(): string {
         ? musicBox(state.music, musicCtx)
         : state.tab === "captions"
           ? captionsBox(state.captions, captionsCtx)
-          : rangeHome(done)
+          : state.tab === "voice"
+            ? voiceFixBox(state.voiceFix, voiceFixCtx)
+            : rangeHome(done)
   }`;
 }
 
@@ -2592,6 +2614,7 @@ function render() {
   }
   musicReadFields(state.music);
   captionsReadFields(state.captions);
+  voiceFixReadFields(state.voiceFix);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
   const baseField = document.getElementById("base-input") as HTMLInputElement | null;
@@ -2659,6 +2682,7 @@ function render() {
   }
   musicWriteFields(state.music);
   captionsWriteFields(state.captions);
+  voiceFixWriteFields(state.voiceFix);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
   if (state.own) {
@@ -2798,6 +2822,33 @@ const musicCtx: MusicCtx = {
   slider: () => state.settings.musicLevel ?? -21,
   pricePerSong: () => LYRIA_PRICE_USD,
   openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
+};
+
+/** What the Voice Fix tab (voice-fix.ts) uses from the rest of the panel. */
+const voiceFixCtx: VoiceFixCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: () => musicRangeLine("range"),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  speechTracksAt: (target, startS, endS) => host().speechTracksAt(target, startS, endS),
+  withOnlyAudioTrack: (target, track, fn) => host().withOnlyAudioTrack(target, track, fn),
+  exportAudio: (target, startS, endS, file) =>
+    host().exportRangeAudio(target, startS, endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  renderSettingsLost: async () => (await host().renderSettingsLost?.()) ?? false,
+  placeClips: (target, clips) => host().placeAudioClips(target, clips),
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  forget: (key) => unstore(key),
 };
 
 /** What the Captions tab (captions.ts) uses from the rest of the panel. */
@@ -3994,6 +4045,10 @@ function runAction(el: HTMLElement) {
       void loadVoices()
         .then(render)
         .catch(() => undefined);
+    // the Voice Fix tab reads with ElevenLabs: whether its key is saved
+    if (state.tab === "voice") void voiceFixOpened(state.voiceFix, voiceFixCtx);
+  } else if (act && voiceFixAct(state.voiceFix, voiceFixCtx, act, val)) {
+    /* handled by the Voice Fix tab */
   } else if (act && musicAct(state.music, musicCtx, act, val)) {
     /* handled by the Music tab */
   } else if (act && captionsAct(state.captions, captionsCtx, act, val)) {
@@ -4397,7 +4452,10 @@ setInterval(() => {
   watchTick++;
   if (
     state.screen !== "home" ||
-    !watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
+    !(
+      watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
+      (state.tab === "voice" && voiceFixWatches(state.voiceFix))
+    ) ||
     state.lightbox ||
     pressed
   )
