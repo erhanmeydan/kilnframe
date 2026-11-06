@@ -616,5 +616,20 @@
   "story.voicesFailed": "ElevenLabs sesleri alınamadı: {message}",
   "story.elevenNote": "Kendi sesleriniz en üstte. elevenlabs.io'da klonladığınız bir ses burada görünür.",
   "voice.cloned": "Klonlanmış ses",
-  "voice.generated": "Tasarlanmış ses"
+  "voice.generated": "Tasarlanmış ses",
+  "clone.open": "Aralıktan Ses Klonla",
+  "clone.title": "Ses Klonla",
+  "clone.hint": "Timeline'da bir ile iki dakikalık temiz konuşmayı In ve Out ile işaretleyin: müzik ve yankı olmasın. Ses ElevenLabs hesabınıza eklenir ve listede görünür.",
+  "clone.needRange": "Önce timeline'da konuşmayı In ve Out ile işaretleyin.",
+  "clone.short": "Bu aralık {duration}. İyi bir klon için en az 30 saniye gerekir, en iyisi bir ile iki dakika.",
+  "clone.long": "Sadece ilk 3 dakika kullanılır. Daha uzun kayıt klona bir şey katmaz.",
+  "clone.name": "Sesin Adı",
+  "clone.namePlaceholder": "Benim sesim",
+  "clone.noise": "Arka plan gürültüsünü temizle (sadece gürültü varsa: temiz kaydı bozabilir)",
+  "clone.consent": "Bu ses benim ya da klonlamak için hakkım ve iznim var.",
+  "clone.needConsent": "Sesin size ait olduğunu ya da klonlama izniniz olduğunu onaylayın.",
+  "clone.go": "Klonla",
+  "clone.running": "Aralık dışa aktarılıyor ve ses ElevenLabs'ta klonlanıyor…",
+  "clone.done": "“{name}” ElevenLabs seslerinize eklendi ve seçildi.",
+  "clone.failed": "Ses klonlanamadı: {message}"
 }

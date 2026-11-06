@@ -360,6 +360,19 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     label: z.string().max(60).optional(),
   }),
   z.object({ type: z.literal("speech.stop") }),
+  /**
+   * Clones the editor's voice in their ElevenLabs account from a range exported to a job folder. The
+   * panel only sends it after the editor confirmed the voice is theirs or that they may clone it.
+   */
+  z.object({
+    type: z.literal("speech.clone"),
+    audioPath: z.string().regex(/\.wav$/i),
+    rangeStartS: z.number().min(0),
+    rangeEndS: z.number().positive(),
+    name: z.string().trim().min(1).max(60),
+    removeNoise: z.boolean().default(false),
+    consent: z.literal(true),
+  }),
   /** Plays a music clip or its preview from a job folder; speech.stop stops it. */
   z.object({ type: z.literal("audio.play"), file: z.string().min(1) }),
   z.object({ type: z.literal("assets.inspect"), paths: z.array(z.string().min(1)).max(12) }),
@@ -459,6 +472,13 @@ export type ServerMessage =
       error?: string;
     }
   | { type: "speech.played"; voice: string }
+  | {
+      type: "speech.cloned";
+      voice: string;
+      name: string;
+      durationS: number;
+      requiresVerification: boolean;
+    }
   /** The sample stopped: it finished, Stop was pressed, or another one started. */
   | { type: "speech.ended"; voice: string }
   | { type: "audio.played" }

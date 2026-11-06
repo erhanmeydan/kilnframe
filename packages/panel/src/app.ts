@@ -139,6 +139,18 @@ interface StoryState {
   keySet: boolean;
   /** Music is always made with Gemini, whatever reads the narration. */
   musicKeySet: boolean;
+  /** Cloning the editor's voice from the timeline's In/Out range into their ElevenLabs account. */
+  clone: {
+    open: boolean;
+    noise: boolean;
+    /** The editor confirmed the voice is theirs or that they may clone it. */
+    consent: boolean;
+    running: boolean;
+    error: string | null;
+    /** The name of the voice just made. */
+    done: string | null;
+  };
+  cloneName: string;
   jobId: string | null;
   last: string;
   error: string | null;
@@ -172,6 +184,8 @@ function newStory(): StoryState {
     allVoices: false,
     keySet: true,
     musicKeySet: true,
+    clone: { open: false, noise: false, consent: false, running: false, error: null, done: null },
+    cloneName: "",
     jobId: null,
     last: "",
     error: null,
@@ -1217,6 +1231,7 @@ function storyBox(): string {
   ${st.voicesError ? `<div class="box warn">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
   ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
+  ${st.speechProvider === "elevenlabs" && st.keySet ? cloneBox() : ""}
   ${shown.length < st.voices.length || st.allVoices ? `<div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>` : ""}
   <div class="lbl">${t("home.format")}</div>
   ${seg("story-format", st.format, [
@@ -1329,6 +1344,109 @@ async function storyJob(
     off();
     st.stage = st.script ? "script" : "brief";
     st.error = t("story.failed", { message: err instanceof Error ? err.message : String(err) });
+    render();
+  }
+}
+
+/** The longest sample a clone is made from (core VOICE_SAMPLE_MAX_S); a shorter range than this works too. */
+const CLONE_MAX_S = 180;
+const CLONE_MIN_S = 30;
+
+/** Clone a voice from the In/Out range: the range, a name, noise removal and the editor's consent. */
+function cloneBox(): string {
+  const c = state.story.clone;
+  const done = c.done ? `<div class="box ok mt">${t("clone.done", { name: c.done })}</div>` : "";
+  if (!c.open)
+    return `${done}<div class="link more" data-act="clone-open">+ ${t("clone.open")}</div>`;
+  if (c.running) return `<div class="box mt">${t("clone.running")}</div>`;
+  const range = state.seq?.range.source === "inout" ? state.seq.range : null;
+  const length = !range
+    ? `<div class="box warn">${t("clone.needRange")}</div>`
+    : range.durationS < CLONE_MIN_S
+      ? `<div class="box warn">${t("clone.short", { duration: formatDuration(range.durationS) })}</div>`
+      : range.durationS > CLONE_MAX_S
+        ? `<div class="note muted">${t("clone.long")}</div>`
+        : "";
+  const check = (act: string, on: boolean, text: string) =>
+    `<div class="check mt" data-act="${act}"><span class="box-mark${on ? " on" : ""}">${on ? "✓" : ""}</span><span>${text}</span></div>`;
+  return `<div class="box mt">
+  <div class="lbl">${t("clone.title")}</div>
+  <div class="note muted">${t("clone.hint")}</div>
+  ${musicRangeLine("range")}
+  ${length}
+  <div class="lbl">${t("clone.name")}</div>
+  <input class="img-note" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}">
+  ${check("clone-noise", c.noise, t("clone.noise"))}
+  ${check("clone-consent", c.consent, t("clone.consent"))}
+  ${c.error ? `<div class="box warn mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
+  <div class="pbtns mt"><div class="pbtn primary" data-act="clone-go">${t("clone.go")}</div><div class="pbtn" data-act="clone-close">${t("prov.cancel")}</div></div>
+</div>`;
+}
+
+/** Exports the In/Out range, has the companion cut a sample and clone it, then picks the new voice. */
+async function cloneVoice() {
+  const st = state.story;
+  const c = st.clone;
+  if (c.running) return;
+  const range = state.seq?.range.source === "inout" ? state.seq.range : null;
+  if (!range) {
+    c.error = t("clone.needRange");
+    return render();
+  }
+  if (!c.consent) {
+    c.error = t("clone.needConsent");
+    return render();
+  }
+  const name = st.cloneName.trim() || t("clone.namePlaceholder");
+  c.running = true;
+  c.error = null;
+  c.done = null;
+  render();
+  try {
+    const target = await readSequence();
+    if (!target) throw new Error(t("clone.needRange"));
+    const prepared = await session.request<ServerMessage>(
+      {
+        type: "job.prepare",
+        projectPath: target.projectPath,
+        sequenceName: "Voice",
+        ...(target.jobRoot ? { jobRoot: target.jobRoot } : {}),
+      },
+      "job.prepared",
+    );
+    const audioPath = `${String(prepared.jobDir)}/range.wav`;
+    // the editor's own speech: earlier Kilnframe inserts over the range are switched off for the export
+    const audio = await host().withoutOurInserts(target, range.startS, range.endS, () =>
+      host().exportRangeAudio(target, range.startS, range.endS, audioPath, {
+        wavPreset: state.system?.wavPreset ?? "",
+      }),
+    );
+    if (!audio.ok) throw new Error(t("job.exportFailed"));
+    const reply = await session.request<ServerMessage>(
+      {
+        type: "speech.clone",
+        audioPath,
+        rangeStartS: Math.max(0, range.startS - audio.offsetSeconds),
+        rangeEndS: range.endS - audio.offsetSeconds,
+        name,
+        removeNoise: c.noise,
+        consent: true,
+      },
+      "speech.cloned",
+      180_000,
+    );
+    trace(`clone: made ${String(reply.voice)} from ${String(reply.durationS)} s`);
+    st.voice = String(reply.voice);
+    store(voiceKey("elevenlabs"), st.voice);
+    c.open = false;
+    c.consent = false;
+    c.done = name;
+    st.cloneName = "";
+    await loadVoices();
+  } catch (err) {
+    c.error = t("clone.failed", { message: err instanceof Error ? err.message : String(err) });
+  } finally {
+    c.running = false;
     render();
   }
 }
@@ -2456,13 +2574,17 @@ function render() {
       const input = document.getElementById(`${kind}-note-${i}`) as HTMLInputElement | null;
       if (input) img.note = input.value ?? "";
     });
-  const storyFields: [string, "brief" | "script" | "note" | "tone" | "customLength" | "own"][] = [
+  const storyFields: [
+    string,
+    "brief" | "script" | "note" | "tone" | "customLength" | "own" | "cloneName",
+  ][] = [
     ["story-own", "own"],
     ["story-length-input", "customLength"],
     ["story-brief", "brief"],
     ["story-script", "script"],
     ["story-note", "note"],
     ["story-tone", "tone"],
+    ["story-clone-name", "cloneName"],
   ];
   for (const [id, key] of storyFields) {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
@@ -2530,6 +2652,7 @@ function render() {
     ["story-script", "script"],
     ["story-note", "note"],
     ["story-tone", "tone"],
+    ["story-clone-name", "cloneName"],
   ] as const) {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     if (el) el.value = state.story[key];
@@ -3944,6 +4067,15 @@ function runAction(el: HTMLElement) {
   } else if (act === "story-voice") {
     state.story.voice = val;
     store(voiceKey(state.story.speechProvider), val);
+  } else if (act === "clone-open") {
+    state.story.clone = { ...state.story.clone, open: true, error: null, done: null };
+  } else if (act === "clone-close") {
+    state.story.clone = { ...state.story.clone, open: false, error: null, consent: false };
+  } else if (act === "clone-noise") state.story.clone.noise = !state.story.clone.noise;
+  else if (act === "clone-consent") state.story.clone.consent = !state.story.clone.consent;
+  else if (act === "clone-go") {
+    render();
+    return void cloneVoice();
   } else if (act === "story-speech") {
     const st = state.story;
     const provider: SpeechProvider = val === "elevenlabs" ? "elevenlabs" : "gemini";

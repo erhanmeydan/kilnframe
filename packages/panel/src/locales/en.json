@@ -616,5 +616,20 @@
   "story.voicesFailed": "The ElevenLabs voices could not be listed: {message}",
   "story.elevenNote": "Your own voices are at the top. A voice you clone on elevenlabs.io shows up here.",
   "voice.cloned": "Cloned voice",
-  "voice.generated": "Designed voice"
+  "voice.generated": "Designed voice",
+  "clone.open": "Clone a Voice from the Range",
+  "clone.title": "Clone a Voice",
+  "clone.hint": "Mark one to two minutes of clean speech on the timeline with In and Out: no music, no echo. The voice goes to your ElevenLabs account and appears in the list.",
+  "clone.needRange": "Mark the speech on the timeline with In and Out first.",
+  "clone.short": "This range is {duration}. At least 30 seconds is needed for a good clone, one to two minutes is best.",
+  "clone.long": "Only the first 3 minutes are used. Longer recordings add nothing to the clone.",
+  "clone.name": "Voice Name",
+  "clone.namePlaceholder": "My voice",
+  "clone.noise": "Remove background noise (only when there is some: it can lower a clean recording)",
+  "clone.consent": "This is my voice, or I have the right and consent to clone it.",
+  "clone.needConsent": "Confirm that the voice is yours or that you may clone it.",
+  "clone.go": "Clone",
+  "clone.running": "Exporting the range and cloning the voice in ElevenLabs…",
+  "clone.done": "“{name}” was added to your ElevenLabs voices and chosen.",
+  "clone.failed": "The voice could not be cloned: {message}"
 }

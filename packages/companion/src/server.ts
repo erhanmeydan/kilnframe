@@ -72,6 +72,14 @@ export interface CompanionOptions {
     onEnd: () => void,
     o?: { provider?: string | undefined; label?: string | undefined },
   ) => Promise<void>;
+  /** Clones a voice in the editor's ElevenLabs account from an exported range. */
+  cloneVoice?: (o: {
+    audioPath: string;
+    rangeStartS: number;
+    rangeEndS: number;
+    name: string;
+    removeNoise: boolean;
+  }) => Promise<{ voice: string; name: string; durationS: number; requiresVerification: boolean }>;
   /** Stops the sample that is playing. */
   stopVoice?: () => void;
   /** Plays a sound file (a music clip or preview); the server checks the file is one. */
@@ -332,6 +340,20 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             o.playAudio(msg.file, () => broadcast({ type: "audio.ended" }));
             send({ type: "audio.played" });
             break;
+          case "speech.clone": {
+            if (!o.cloneVoice) throw new Error("voice cloning is not supported");
+            send({
+              type: "speech.cloned",
+              ...(await o.cloneVoice({
+                audioPath: msg.audioPath,
+                rangeStartS: msg.rangeStartS,
+                rangeEndS: msg.rangeEndS,
+                name: msg.name,
+                removeNoise: msg.removeNoise,
+              })),
+            });
+            break;
+          }
           case "speech.stop":
             o.stopVoice?.();
             broadcast({ type: "speech.ended", voice: "" });

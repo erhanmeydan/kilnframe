@@ -102,10 +102,15 @@ async function elevenLabsError(res: Response): Promise<SpeechError> {
   // a key made with restricted permissions: say which switch to turn on in the key's settings
   if (/missing_permissions/.test(status))
     return new SpeechError(
-      `The ElevenLabs key is missing a permission. On elevenlabs.io under API keys, edit the key and allow Text to Speech and Voices (read). ${detail}`,
+      `The ElevenLabs key is missing a permission. On elevenlabs.io under API keys, edit the key and allow Text to Speech and Voices (read; write to clone a voice). ${detail}`,
     );
   if (res.status === 401 || /invalid_api_key/.test(status))
     return new SpeechError(`The ElevenLabs key was refused: ${detail}`);
+  // instant cloning is not in every plan
+  if (/can_not_use_instant_voice_cloning|subscription|upgrade/i.test(status))
+    return new SpeechError(`Your ElevenLabs plan does not include voice cloning: ${detail}`);
+  if (/voice_limit_reached/.test(status))
+    return new SpeechError(`Your ElevenLabs account has no room for another voice: ${detail}`);
   if (res.status === 404 || /voice_not_found/.test(status))
     return new SpeechError(`ElevenLabs could not find this voice: ${detail}`);
   const wait = Number(res.headers.get("retry-after"));
@@ -179,4 +184,47 @@ export async function listElevenLabsVoices(o: {
     }
   }
   return out;
+}
+
+/**
+ * Makes an instant voice clone in the editor's account from a sample of their speech
+ * (elevenlabs.io/docs/api-reference/voices/ivc/create, checked 2026-11-06): POST /v1/voices/add as
+ * multipart with the name and the recording. The key needs the Voices write permission. The editor
+ * confirms in the panel that the voice is theirs or that they may clone it, as ElevenLabs asks.
+ */
+export async function cloneElevenLabsVoice(o: {
+  apiKey: string;
+  endpoint: string;
+  name: string;
+  /** A WAV of the speech, about one to two minutes is best. */
+  audio: Buffer;
+  removeBackgroundNoise?: boolean;
+  fetch?: typeof fetch;
+}): Promise<{ voiceId: string; requiresVerification: boolean }> {
+  const doFetch = o.fetch ?? fetch;
+  const form = new FormData();
+  form.append("name", o.name);
+  form.append("files", new Blob([new Uint8Array(o.audio)], { type: "audio/wav" }), "sample.wav");
+  form.append("remove_background_noise", o.removeBackgroundNoise ? "true" : "false");
+  form.append("description", "Cloned from a timeline range with Kilnframe");
+  let res: Response;
+  try {
+    res = await doFetch(`${o.endpoint.replace(/\/$/, "")}/v1/voices/add`, {
+      method: "POST",
+      headers: { "xi-api-key": o.apiKey },
+      body: form,
+    });
+  } catch (err) {
+    throw new SpeechError(
+      `Could not reach ElevenLabs: ${err instanceof Error ? err.message : String(err)}`,
+      true,
+    );
+  }
+  if (!res.ok) throw await elevenLabsError(res);
+  const json = (await res.json().catch(() => null)) as {
+    voice_id?: string;
+    requires_verification?: boolean;
+  } | null;
+  if (!json?.voice_id) throw new SpeechError("ElevenLabs did not return the new voice.");
+  return { voiceId: json.voice_id, requiresVerification: Boolean(json.requires_verification) };
 }

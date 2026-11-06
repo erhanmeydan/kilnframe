@@ -98,6 +98,47 @@ export function createSpeechProvider(
   throw new SpeechError(`Speech provider "${id}" is not available yet.`);
 }
 
+/** The longest sample a clone is made from: ElevenLabs says more than about 3 minutes adds nothing. */
+export const VOICE_SAMPLE_MAX_S = 180;
+
+/**
+ * Cuts a voice sample for cloning out of an exported range: mono 44.1 kHz, at most three minutes,
+ * levelled to about -20 LUFS with peaks under -3 dB (ElevenLabs asks for -23 to -18 dB RMS).
+ */
+export function cutVoiceSample(o: {
+  input: string;
+  startS: number;
+  endS: number;
+  outFile: string;
+}): { file: string; durationS: number } {
+  const durationS = Math.min(VOICE_SAMPLE_MAX_S, Math.max(0, o.endS - o.startS));
+  if (durationS < 1) throw new SpeechError("The range is too short to clone a voice from.");
+  mkdirSync(dirname(o.outFile), { recursive: true });
+  const r = spawnSync(ffmpegPath(), [
+    "-v",
+    "error",
+    "-y",
+    "-ss",
+    String(Math.max(0, o.startS)),
+    "-t",
+    String(durationS),
+    "-i",
+    o.input,
+    "-af",
+    "loudnorm=I=-20:TP=-3:LRA=11",
+    "-ar",
+    "44100",
+    "-ac",
+    "1",
+    "-c:a",
+    "pcm_s16le",
+    o.outFile,
+  ]);
+  if (r.status !== 0)
+    throw new SpeechError(`Could not cut the voice sample: ${String(r.stderr).trim()}`);
+  return { file: o.outFile, durationS };
+}
+
 /**
  * Splits narration into requests: paragraphs (blank lines), and paragraphs longer than `max` characters at
  * sentence ends, so no request grows too long and a failure only repeats one piece.

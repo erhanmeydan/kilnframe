@@ -1,8 +1,10 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  cloneElevenLabsVoice,
+  cutVoiceSample,
   ElevenLabsSpeechProvider,
   GeminiSpeechProvider,
   listElevenLabsVoices,
@@ -290,5 +292,43 @@ describe("ElevenLabs speech", () => {
       { name: "me1", label: "Erhan", character: "cloned", own: true },
       { name: "d1", label: "George", character: "warm, male, british", own: false },
     ]);
+  });
+});
+
+describe("voice cloning", () => {
+  it("cuts at most three levelled mono minutes out of the range", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kf-clone-"));
+    const input = join(dir, "range.wav");
+    writeFileSync(input, pcmWav(tone(3), 24000));
+    const out = cutVoiceSample({ input, startS: 1, endS: 2.5, outFile: join(dir, "sample.wav") });
+    expect(out.durationS).toBe(1.5);
+    const back = wavPcm(readFileSync(out.file));
+    expect(back).toMatchObject({ sampleRate: 44100, channels: 1 });
+    expect(back.pcm.length / 2 / 44100).toBeCloseTo(1.5, 1);
+    expect(() =>
+      cutVoiceSample({ input, startS: 1, endS: 1.2, outFile: join(dir, "x.wav") }),
+    ).toThrow(/too short/);
+  });
+
+  it("sends the name and the sample, and returns the new voice", async () => {
+    let sent: FormData | undefined;
+    let url = "";
+    const r = await cloneElevenLabsVoice({
+      apiKey: "k",
+      endpoint: "https://example.invalid/",
+      name: "Benim sesim",
+      audio: pcmWav(tone(0.1), 24000),
+      removeBackgroundNoise: true,
+      fetch: (async (u: string, init: { body: FormData }) => {
+        url = u;
+        sent = init.body;
+        return new Response(JSON.stringify({ voice_id: "new1", requires_verification: false }));
+      }) as unknown as typeof fetch,
+    });
+    expect(url).toBe("https://example.invalid/v1/voices/add");
+    expect(sent?.get("name")).toBe("Benim sesim");
+    expect(sent?.get("remove_background_noise")).toBe("true");
+    expect(sent?.get("files")).toBeInstanceOf(Blob);
+    expect(r).toEqual({ voiceId: "new1", requiresVerification: false });
   });
 });

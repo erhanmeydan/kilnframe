@@ -3,9 +3,9 @@ import { keepWhen } from "./probe-memo.js";
 import "./system-certs.js";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   spawnAgentSync,
   withFreshPath,
@@ -27,6 +27,8 @@ import {
   loadSpeechCatalog,
   loadMusicCatalog,
   listElevenLabsVoices,
+  cloneElevenLabsVoice,
+  cutVoiceSample,
   speechModelFor,
   narrate,
   downloadSpeechModel,
@@ -180,6 +182,32 @@ async function main() {
         });
       }
       playSound(file, onEnd);
+    },
+    cloneVoice: async (o) => {
+      const entry = loadSpeechCatalog().find((p) => p.id === "elevenlabs");
+      const key = await keys.get(entry?.keyName ?? "elevenlabs");
+      if (!entry || !key)
+        throw new Error("Voice cloning needs an ElevenLabs key. Add it in the settings.");
+      // the sample sits next to the exported range, in the same job folder
+      const sample = cutVoiceSample({
+        input: o.audioPath,
+        startS: o.rangeStartS,
+        endS: o.rangeEndS,
+        outFile: join(dirname(o.audioPath), "voice-sample.wav"),
+      });
+      const made = await cloneElevenLabsVoice({
+        apiKey: key,
+        endpoint: entry.endpoint,
+        name: o.name,
+        audio: readFileSync(sample.file),
+        removeBackgroundNoise: o.removeNoise,
+      });
+      return {
+        voice: made.voiceId,
+        name: o.name,
+        durationS: sample.durationS,
+        requiresVerification: made.requiresVerification,
+      };
     },
     stopVoice: () => stopSound(),
     playAudio: (file, onEnd) => playSound(file, onEnd),
