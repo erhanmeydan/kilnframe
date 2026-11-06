@@ -13,6 +13,42 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/" />
   </url>
   <url>
+    <loc>https://kilnframe.com/plugin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/plugin/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/plugin/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/plugin/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/plugin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/plugin/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/plugin/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/plugin/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/desktop/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/desktop/privacy/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/desktop/privacy/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/desktop/privacy/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/desktop/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/desktop/privacy/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/desktop/privacy/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/desktop/privacy/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/desktop/terms/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/desktop/terms/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/desktop/terms/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/desktop/terms/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/desktop/terms/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/desktop/terms/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/desktop/terms/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/desktop/terms/" />
+  </url>
+  <url>
     <loc>https://kilnframe.com/changelog/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/changelog/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/changelog/" />
