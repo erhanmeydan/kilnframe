@@ -650,6 +650,7 @@
   "fix.oneSpeaker": "The clone learns from your speech: there should be only your voice in it, no one else speaking.",
   "fix.clean": "Clean speech makes a better clone: no music, no echo. The voice goes to your ElevenLabs account.",
   "fix.notIsolated": "The other audio tracks could not be switched off, so music or other sound may be in the sample. Listen to it first.",
+  "fix.sampleFrom": "Voice Sample",
   "fix.around": "Take from Around",
   "fix.other": "Take from Another Part",
   "fix.otherHint": "Move In and Out to a part where only you speak, 30 seconds to 3 minutes.",

@@ -417,10 +417,22 @@ async function voiceFixReadJob(
       endS: params.fixEndS - params.windowStartS,
     };
   }
+  // Whisper guesses the language from the window's first seconds, which may be music, an intro in
+  // another language or silence (a Turkish narration came back as English): guess it from the part
+  // being fixed, which is the editor's own speech, and read the window in that language
+  let language: string | undefined;
+  const fixPath = join(params.outDir, "fix.wav");
+  try {
+    await cutAudio(audioPath, fixPath, range.startS, range.endS);
+    language = (await transcribe({ audioPath: fixPath, defaults })).language ?? undefined;
+  } catch {
+    // no speech in the part, or too short to say: the window's own guess is used
+  }
   // a window without speech surfaces as the job's error (NoSpeechError)
   const transcript = await transcribe({
     audioPath,
     defaults,
+    language,
     onProgress: progress,
   });
   writeFileSync(join(params.outDir, "transcript.json"), JSON.stringify(transcript, null, 2));

@@ -650,6 +650,7 @@
   "fix.oneSpeaker": "Klon konuşmanızdan öğrenir: içinde sadece sizin sesiniz olmalı, başka konuşan olmamalı.",
   "fix.clean": "Temiz konuşma daha iyi klon verir: müzik ve yankı olmasın. Ses ElevenLabs hesabınıza eklenir.",
   "fix.notIsolated": "Diğer ses izleri kapatılamadı, örnekte müzik ya da başka ses olabilir. Önce dinleyin.",
+  "fix.sampleFrom": "Ses Örneği",
   "fix.around": "Çevreden Al",
   "fix.other": "Başka Bir Kısımdan Al",
   "fix.otherHint": "In ve Out noktalarını sadece sizin konuştuğunuz bir kısma taşıyın, 30 saniye ile 3 dakika arası.",

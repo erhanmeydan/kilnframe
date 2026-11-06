@@ -273,7 +273,8 @@ function consentScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
       : `<div class="box warn">${t("fix.notIsolated")}</div>`
   }
   ${short}
-  <div class="pbtns mt"><div class="pbtn${st.source === "around" ? " primary" : ""}" data-act="fix-source" data-val="around">${t("fix.around")}</div><div class="pbtn${st.source === "other" ? " primary" : ""}" data-act="fix-source" data-val="other">${t("fix.other")}</div></div>
+  <div class="lbl">${t("fix.sampleFrom")}</div>
+  <div class="seg"><div class="opt${st.source === "around" ? " on" : ""}" data-act="fix-source" data-val="around">${t("fix.around")}</div><div class="opt${st.source === "other" ? " on" : ""}" data-act="fix-source" data-val="other">${t("fix.other")}</div></div>
   ${other}
   ${sample}
   ${check("fix-consent", st.consent, t("clone.consent"))}
@@ -707,7 +708,11 @@ async function place(st: VoiceFixState, ctx: VoiceFixCtx): Promise<void> {
     ]);
     st.placedTrack = placed.audioTrack;
     st.stage = "placed";
+    ctx.trace(
+      `voice fix: placed ${st.result.durationS} s at ${st.fixStartS} s on audio track ${placed.audioTrack + 1}`,
+    );
   } catch (err) {
+    ctx.trace(`voice fix: place failed ${message(err)}`);
     st.error = message(err);
   } finally {
     st.placing = false;

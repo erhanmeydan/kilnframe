@@ -171,6 +171,32 @@ describe("voice-fix-read", () => {
     expect(r).not.toHaveProperty("windowPath");
   });
 
+  it("reads the window in the language of the part being fixed", async () => {
+    const job = dir();
+    const audioPath = join(job, "export.wav");
+    writeFileSync(audioPath, pcmWav(Buffer.alloc(20 * 8000 * 2), 8000));
+    vi.mocked(transcribe)
+      .mockResolvedValueOnce({ language: "tr", duration_s: 3, words: [] } as never)
+      .mockResolvedValueOnce({
+        language: "tr",
+        duration_s: 20,
+        words: [{ text: "Yanlış.", start: 5, end: 6 }],
+      } as never);
+    await pipelineRunner(new MemoryKeyStore())(
+      JobParamsSchema.parse({
+        kind: "voice-fix-read",
+        audioPath,
+        fixStartS: 5,
+        fixEndS: 8,
+        outDir: join(job, "voice-fix"),
+      }),
+      events,
+    );
+    const calls = vi.mocked(transcribe).mock.calls;
+    expect(calls[0]?.[0].audioPath).toBe(join(job, "voice-fix", "fix.wav"));
+    expect(calls[1]?.[0]).toMatchObject({ audioPath, language: "tr" });
+  });
+
   it("cuts the window out of a longer export, reads only it, and counts times from its start", async () => {
     const job = dir();
     const exportFile = join(job, "export.wav");
@@ -200,7 +226,14 @@ describe("voice-fix-read", () => {
     const windowPath = join(outDir, "window.wav");
     expect(r.windowPath).toBe(windowPath);
     expect(existsSync(windowPath)).toBe(true);
-    expect(vi.mocked(transcribe).mock.calls[0]![0]).toMatchObject({ audioPath: windowPath });
+    // the first read is the fixed part alone (its language), the second the whole window
+    expect(vi.mocked(transcribe).mock.calls[0]![0]).toMatchObject({
+      audioPath: join(outDir, "fix.wav"),
+    });
+    expect(vi.mocked(transcribe).mock.calls[1]![0]).toMatchObject({
+      audioPath: windowPath,
+      language: "tr",
+    });
     // the fix 15 to 18 s in the export is 5 to 8 s in the window
     expect(r.text).toBe("Yanlış kelime.");
     expect(r.sample.spans).toEqual([
