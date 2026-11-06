@@ -162,6 +162,31 @@ describe("speech", () => {
     expect(written.pcm.length / 2 / 48000).toBeCloseTo(2.5, 2);
   });
 
+  it("hands a single read the text before and after it as context", async () => {
+    const seen: { previousText?: string | undefined; nextText?: string | undefined }[] = [];
+    const fake: SpeechProvider = {
+      id: "fake",
+      model: "fake",
+      synthesize: async (req) => {
+        seen.push({ previousText: req.previousText, nextText: req.nextText });
+        return { pcm: tone(1), sampleRate: 24000, audioTokens: 0, inputTokens: 0 };
+      },
+    };
+    const out = join(mkdtempSync(join(tmpdir(), "mi-narr-")), "fix.wav");
+    await narrate({
+      provider: fake,
+      text: "Bir.\n\nİki.",
+      voice: "v",
+      outFile: out,
+      before: "Önce.",
+      after: "Sonra.",
+    });
+    expect(seen).toEqual([
+      { previousText: "Önce.", nextText: "İki." },
+      { previousText: "Bir.", nextText: "Sonra." },
+    ]);
+  });
+
   it("checks the story's length and dashes", () => {
     expect(wordsPerSecond("tr")).toBe(1.5);
     expect(wordsPerSecond("en")).toBe(2.2);

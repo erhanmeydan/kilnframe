@@ -6,6 +6,9 @@ import {
   previewCaptionStill,
   renderCaptions,
   createSpeechProvider,
+  fixContext,
+  speechModelFor,
+  voiceSampleSpans,
   createStyle,
   loadPalette,
   makeMusic,
@@ -58,6 +61,8 @@ import type {
   MusicMakeJobParams,
   StoryVoiceJobParams,
   StyleJobParams,
+  VoiceFixReadJobParams,
+  VoiceFixSayJobParams,
 } from "./protocol.js";
 import type { JobRunner } from "./queue.js";
 
@@ -92,6 +97,9 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       return captionsRenderJob(params, events.progress, events.signal);
     if (params.kind === "captions-preview") return captionsPreviewJob(params, events.signal);
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
+    if (params.kind === "voice-fix-read") return voiceFixReadJob(params, defaults, events.progress);
+    if (params.kind === "voice-fix-say")
+      return voiceFixSayJob(params, keys, defaults, events.progress);
     if (params.kind === "music-make")
       return musicMakeJob(params, keys, events.progress, events.signal);
     if (params.kind === "parts") {
@@ -383,6 +391,67 @@ async function storyVoiceJob(
     durationS: result.durationS,
     chunks: result.chunks,
     listPriceUsd: speechPriceUsd(speech.id, speech.model, result),
+  };
+}
+
+/**
+ * Voice Fix, step one: transcribes the whole exported window once, then picks the text of the fixed range,
+ * the sentences around it, and the stretches of the window a voice clone can learn from.
+ */
+async function voiceFixReadJob(
+  params: VoiceFixReadJobParams,
+  defaults: Defaults,
+  progress: (message: string) => void,
+) {
+  mkdirSync(params.outDir, { recursive: true });
+  // a window without speech surfaces as the job's error (NoSpeechError)
+  const transcript = await transcribe({
+    audioPath: params.audioPath,
+    defaults,
+    onProgress: progress,
+  });
+  writeFileSync(join(params.outDir, "transcript.json"), JSON.stringify(transcript, null, 2));
+  const range = { startS: params.fixStartS, endS: params.fixEndS };
+  const { text, before, after } = fixContext(transcript.words, range);
+  return {
+    kind: "voice-fix-read" as const,
+    text,
+    before,
+    after,
+    language: transcript.language ?? "",
+    sample: voiceSampleSpans(transcript.words, range),
+  };
+}
+
+/** Voice Fix, step two: reads the edited text exactly as typed in the editor's clone; no style, no rewrite. */
+async function voiceFixSayJob(
+  params: VoiceFixSayJobParams,
+  keys: KeyStore,
+  defaults: Defaults,
+  progress: (message: string) => void,
+) {
+  const speech = createSpeechProvider(defaults, {
+    provider: "elevenlabs",
+    model: speechModelFor(defaults, "elevenlabs"),
+    apiKey: await keys.get(
+      loadSpeechCatalog().find((p) => p.id === "elevenlabs")?.keyName ?? "elevenlabs",
+    ),
+  });
+  const result = await narrate({
+    provider: speech,
+    text: params.text,
+    voice: params.voice,
+    language: params.language,
+    before: params.before,
+    after: params.after,
+    outFile: join(params.outDir, `take-${params.take}.wav`),
+    onProgress: progress,
+  });
+  return {
+    kind: "voice-fix-say" as const,
+    file: result.file,
+    durationS: result.durationS,
+    priceUsd: speechPriceUsd(speech.id, speech.model, result),
   };
 }
 

@@ -196,6 +196,9 @@ export async function narrate(o: {
   /** ISO 639-1 code of the text, for providers that take it. */
   language?: string | undefined;
   outFile: string;
+  /** Text spoken just before and after the whole text (a fix inside a recording), as context only. */
+  before?: string | undefined;
+  after?: string | undefined;
   pauseS?: number;
   onProgress?: (message: string) => void;
 }): Promise<NarrationResult> {
@@ -218,8 +221,8 @@ export async function narrate(o: {
           voice: o.voice,
           style: o.style,
           language: o.language,
-          previousText: pieces[i - 1],
-          nextText: pieces[i + 1],
+          previousText: i === 0 ? o.before : pieces[i - 1],
+          nextText: i === pieces.length - 1 ? o.after : pieces[i + 1],
         });
         break;
       } catch (err) {

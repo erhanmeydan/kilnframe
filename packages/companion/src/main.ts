@@ -186,15 +186,24 @@ async function main() {
     cloneVoice: async (o) => {
       const entry = loadSpeechCatalog().find((p) => p.id === "elevenlabs");
       const key = await keys.get(entry?.keyName ?? "elevenlabs");
-      if (!entry || !key)
+      // a dry run only cuts the sample, so it needs no key
+      if (!o.dryRun && (!entry || !key))
         throw new Error("Voice cloning needs an ElevenLabs key. Add it in the settings.");
       // the sample sits next to the exported range, in the same job folder
       const sample = cutVoiceSample({
         input: o.audioPath,
-        startS: o.rangeStartS,
-        endS: o.rangeEndS,
+        ...(o.spans ? { spans: o.spans } : { startS: o.rangeStartS ?? 0, endS: o.rangeEndS ?? 0 }),
         outFile: join(dirname(o.audioPath), "voice-sample.wav"),
       });
+      if (o.dryRun)
+        return {
+          voice: "",
+          name: o.name,
+          durationS: sample.durationS,
+          requiresVerification: false,
+          sample: sample.file,
+        };
+      if (!entry || !key) throw new Error("Voice cloning needs an ElevenLabs key.");
       const made = await cloneElevenLabsVoice({
         apiKey: key,
         endpoint: entry.endpoint,

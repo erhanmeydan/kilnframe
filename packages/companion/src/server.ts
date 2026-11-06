@@ -75,11 +75,19 @@ export interface CompanionOptions {
   /** Clones a voice in the editor's ElevenLabs account from an exported range. */
   cloneVoice?: (o: {
     audioPath: string;
-    rangeStartS: number;
-    rangeEndS: number;
+    rangeStartS?: number;
+    rangeEndS?: number;
+    spans?: { startS: number; endS: number }[];
     name: string;
     removeNoise: boolean;
-  }) => Promise<{ voice: string; name: string; durationS: number; requiresVerification: boolean }>;
+    dryRun?: boolean;
+  }) => Promise<{
+    voice: string;
+    name: string;
+    durationS: number;
+    requiresVerification: boolean;
+    sample?: string;
+  }>;
   /** Stops the sample that is playing. */
   stopVoice?: () => void;
   /** Plays a sound file (a music clip or preview); the server checks the file is one. */
@@ -333,9 +341,12 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             send({ type: "speech.played", voice: msg.voice });
             break;
           case "audio.play":
-            // only the Music tab's own clips: never any file a page names
-            if (!/[\\/]music[\\/](preview[\\/])?s\d+(-\d+)?\.wav$/.test(msg.file))
-              throw new Error("Only music clips can be played.");
+            // only the Music tab's clips and Voice Fix's takes and sample: never any file a page names
+            if (
+              !/[\\/]music[\\/](preview[\\/])?s\d+(-\d+)?\.wav$/.test(msg.file) &&
+              !/[\\/]voice-fix[\\/](take-\d+|voice-sample)\.wav$/.test(msg.file)
+            )
+              throw new Error("Only music clips and voice fix takes can be played.");
             if (!o.playAudio) throw new Error("playing music is not supported");
             o.playAudio(msg.file, () => broadcast({ type: "audio.ended" }));
             send({ type: "audio.played" });
@@ -346,10 +357,12 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               type: "speech.cloned",
               ...(await o.cloneVoice({
                 audioPath: msg.audioPath,
-                rangeStartS: msg.rangeStartS,
-                rangeEndS: msg.rangeEndS,
+                ...(msg.spans
+                  ? { spans: msg.spans }
+                  : { rangeStartS: msg.rangeStartS!, rangeEndS: msg.rangeEndS! }),
                 name: msg.name,
                 removeNoise: msg.removeNoise,
+                ...(msg.dryRun ? { dryRun: true } : {}),
               })),
             });
             break;
