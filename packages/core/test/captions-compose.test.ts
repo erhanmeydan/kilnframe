@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as fontkit from "fontkit";
@@ -224,18 +224,20 @@ describe("buildCaptionProject", () => {
     },
   );
 
-  it("takes a font of the user's own by its absolute path", () => {
-    // another look's font, so the copy shows the absolute path was read and not the look's own file
-    const own = join(vendorFonts, CAPTION_LOOKS.loud.font);
-    const saved = CAPTION_LOOKS.sakin;
-    CAPTION_LOOKS.sakin = { ...saved, font: own };
-    try {
-      const dir = mkdtempSync(join(tmpdir(), "kf-caption-project-"));
-      buildCaptionProject(sample, "sakin", saved.colors, dir);
-      expect(readFileSync(join(dir, "font.ttf"))).toEqual(readFileSync(own));
-    } finally {
-      CAPTION_LOOKS.sakin = saved;
-    }
+  it("sets every word in a font of the user's own when given one, with the format its kind needs", () => {
+    // another look's font, copied as an OpenType file, so the copy shows the given file was read
+    const src = join(vendorFonts, CAPTION_LOOKS.loud.font);
+    const own = join(mkdtempSync(join(tmpdir(), "kf-own-font-")), "Own Font.otf");
+    copyFileSync(src, own);
+    const dir = mkdtempSync(join(tmpdir(), "kf-caption-project-"));
+    buildCaptionProject(sample, "editoryal", CAPTION_LOOKS.editoryal.colors, dir, undefined, own);
+    const html = readFileSync(join(dir, "index.html"), "utf8");
+    expect(readFileSync(join(dir, "font.otf"))).toEqual(readFileSync(src));
+    expect(existsSync(join(dir, "font.ttf"))).toBe(false);
+    // the look's italic for the active word gives way to the user's font
+    expect(existsSync(join(dir, "font-active.ttf"))).toBe(false);
+    expect(html.match(/src:url\("font\.otf"\) format\("opentype"\)/g)).toHaveLength(2);
+    expect(CAPTION_LOOKS.editoryal.font).not.toBe(own);
   });
 });
 

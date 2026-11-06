@@ -45,6 +45,8 @@ export interface RenderCaptionsOptions {
   /** Length of the pieces a long doc renders in (CAPTION_SEGMENT_S unless given). */
   segmentS?: number;
   onProgress?: (message: string) => void;
+  /** A font file of the user's own (an absolute path) to set every word in, in place of the look's fonts. */
+  font?: string;
 }
 
 function joinPieces(pieces: string[], output: string, listFile: string): Promise<void> {
@@ -104,7 +106,7 @@ export async function renderCaptions(
       const part = segments.length > 1 ? ` (part ${k + 1} of ${segments.length})` : "";
       const dir = segments.length > 1 ? join(projectDir, `part-${k + 1}`) : projectDir;
       log(`Building the caption composition${part}`);
-      buildCaptionProject(o.doc, o.look, o.colors, dir, segment);
+      buildCaptionProject(o.doc, o.look, o.colors, dir, segment, o.font);
       log(`Rendering captions${part}`);
       const master = join(dir, "renders", "master.mov");
       // a long piece takes minutes: its share of frames tells the editor it is moving

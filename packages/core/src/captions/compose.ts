@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { extname, join } from "node:path";
 import * as fontkit from "fontkit";
 import { formatOf } from "../format.js";
 import { framesToSeconds, parseFps } from "../fps.js";
@@ -207,9 +207,18 @@ function rowWidthEm(font: Font, text: string, parts: LookParts): number {
   return advance + parts.letterSpacingEm * [...text].length + parts.wordSpacingEm * spaces;
 }
 
-/** A look's font file: under vendor/fonts, or a font of the user's own given by its absolute path. */
-function fontFile(look: CaptionLook): string {
-  return isAbsolute(look.font) ? look.font : join(vendorDir(), "fonts", look.font);
+/** The text's font file: a font of the user's own when given (an absolute path), else the look's own under vendor/fonts. */
+function fontFile(look: CaptionLook, font?: string): string {
+  return font ?? join(vendorDir(), "fonts", look.font);
+}
+
+/** The CSS format() hint for a font file, by its kind. */
+const FONT_FORMATS: Record<string, string> = { ".ttf": "truetype", ".otf": "opentype", ".woff2": "woff2" };
+
+/** The name the font is copied under beside index.html, and the format() hint the page gives for it. */
+function fontCopy(file: string): { name: string; format: string } {
+  const ext = extname(file).toLowerCase();
+  return { name: `font${FONT_FORMATS[ext] ? ext : ".ttf"}`, format: FONT_FORMATS[ext] ?? "truetype" };
 }
 
 function seconds(s: number): string {
@@ -218,18 +227,20 @@ function seconds(s: number): string {
 
 /**
  * The caption composition: one block per line on a transparent page, one paused GSAP timeline. Given a
- * segment (captionSegments) it holds only that segment's lines, timed from the segment's start.
+ * segment (captionSegments) it holds only that segment's lines, timed from the segment's start. Given a font
+ * file of the user's own, every word is set in it, the active word too, in place of the look's fonts.
  */
 export function captionHtml(
   doc: CaptionDoc,
   lookId: CaptionStyleId,
   colors: CaptionColors,
   segment: CaptionSegment = captionSegments(doc, Infinity)[0] as CaptionSegment,
+  ownFont?: string,
 ): string {
   const style = CAPTION_LOOKS[lookId];
   const { width, height } = doc;
   const format = formatOf({ width, height });
-  const font = openFont(fontFile(style), style.weight);
+  const font = openFont(fontFile(style, ownFont), style.weight);
   const measureEm = (text: string) =>
     font.layout(text).positions.reduce((sum, p) => sum + p.xAdvance, 0) / font.unitsPerEm;
   const parts = LOOK_MODULES[lookId]({ colors, width, height, format, measureEm });
@@ -288,8 +299,15 @@ export function captionHtml(
     format === "portrait"
       ? `top:${Math.round(height * PORTRAIT_CENTRE)}px;align-items:center`
       : `bottom:${safe.bottom}px;align-items:flex-end`;
-  const active = style.fontActive
-    ? `\n@font-face{font-family:"${CAPTION_FONT_ACTIVE}";src:url("font-active.ttf") format("truetype");font-weight:${style.weightActive ?? style.weight}}`
+  const copy = fontCopy(fontFile(style, ownFont));
+  // a look that names its active word's family gets the user's font there too
+  const activeSrc = ownFont
+    ? `url("${copy.name}") format("${copy.format}")`
+    : style.fontActive
+      ? `url("font-active.ttf") format("truetype")`
+      : "";
+  const active = activeSrc
+    ? `\n@font-face{font-family:"${CAPTION_FONT_ACTIVE}";src:${activeSrc};font-weight:${style.weightActive ?? style.weight}}`
     : "";
   const duration = seconds(segment.endS - segment.startS);
   return `<!doctype html>
@@ -299,7 +317,7 @@ export function captionHtml(
 <meta name="viewport" content="width=${width}, height=${height}">
 <script src="gsap.min.js"></script>
 <style>
-@font-face{font-family:"${CAPTION_FONT}";src:url("font.ttf") format("truetype");font-weight:${style.weight}}${active}
+@font-face{font-family:"${CAPTION_FONT}";src:url("${copy.name}") format("${copy.format}");font-weight:${style.weight}}${active}
 html,body{margin:0;background:transparent}
 #root{position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent}
 #captions{position:absolute;inset:0}
@@ -324,19 +342,24 @@ ${script}window.__timelines["captions"] = tl;
 `;
 }
 
-/** Writes a renderable caption project into dir: index.html with the look's font and GSAP beside it. */
+/**
+ * Writes a renderable caption project into dir: index.html with the font and GSAP beside it. The font is the
+ * look's own, or a font file of the user's own (an absolute path) for every word.
+ */
 export function buildCaptionProject(
   doc: CaptionDoc,
   look: CaptionStyleId,
   colors: CaptionColors,
   dir: string,
   segment?: CaptionSegment,
+  font?: string,
 ): void {
   const style = CAPTION_LOOKS[look];
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "index.html"), captionHtml(doc, look, colors, segment));
+  writeFileSync(join(dir, "index.html"), captionHtml(doc, look, colors, segment, font));
   copyFileSync(join(vendorDir(), "gsap", "gsap.min.js"), join(dir, "gsap.min.js"));
-  copyFileSync(fontFile(style), join(dir, "font.ttf"));
-  if (style.fontActive)
+  const file = fontFile(style, font);
+  copyFileSync(file, join(dir, fontCopy(file).name));
+  if (style.fontActive && !font)
     copyFileSync(join(vendorDir(), "fonts", style.fontActive), join(dir, "font-active.ttf"));
 }
