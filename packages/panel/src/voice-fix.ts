@@ -550,11 +550,13 @@ async function cloneSource(
   ctx: VoiceFixCtx,
 ): Promise<Record<string, unknown> | null> {
   if (st.source === "around") {
-    if (!st.windowFile || !st.sample?.spans.length) {
-      st.error = t("fix.sampleShort", { n: 0 });
+    // too little speech around the part makes a poor clone: never sent, however often chosen
+    const speechS = st.sample?.spans.length ? st.sample.speechS : 0;
+    if (!st.windowFile || speechS < CLONE_MIN_S) {
+      st.error = t("fix.sampleShort", { n: Math.round(speechS) });
       return null;
     }
-    return { audioPath: st.windowFile, spans: st.sample.spans };
+    return { audioPath: st.windowFile, spans: st.sample!.spans };
   }
   const range = ctx.inOut();
   if (!range) {

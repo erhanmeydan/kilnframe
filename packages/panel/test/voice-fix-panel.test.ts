@@ -263,6 +263,23 @@ describe("voice fix panel", () => {
     expect(voiceFixBox(st, ctx)).toMatch(/20 s/);
   });
 
+  it("refuses to clone or cut a sample from too little speech around, also when chosen again", async () => {
+    const { ctx, sent } = fakeCtx();
+    const st = atStage("edit", { sample: { spans: [{ startS: 0, endS: 20 }], speechS: 20 } });
+    voiceFixAct(st, ctx, "fix-say", "");
+    expect(st.source).toBe("other");
+    voiceFixAct(st, ctx, "fix-source", "around");
+    voiceFixAct(st, ctx, "fix-sample", "");
+    await tick();
+    expect(st.error).toMatch(/Only 20 s of your speech/);
+    voiceFixAct(st, ctx, "fix-consent", "");
+    voiceFixAct(st, ctx, "fix-clone", "");
+    await tick();
+    expect(st.stage).toBe("consent");
+    expect(st.error).toMatch(/Only 20 s of your speech/);
+    expect(sent).toEqual([]);
+  });
+
   it("clones from another part the editor marked, exported fresh from the same track", async () => {
     const { ctx, sent, exports } = fakeCtx();
     (ctx as unknown as { inOut: () => unknown }).inOut = () => ({
