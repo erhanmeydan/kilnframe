@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ffmpegPath, type Defaults } from "../config.js";
 import { ElevenLabsSpeechProvider } from "./elevenlabs.js";
-import { VOICE_SAMPLE_MAX_S } from "./fix.js";
+import { VOICE_SAMPLE_MAX_S, type Span } from "./fix.js";
 import { GeminiSpeechProvider } from "./gemini.js";
 import { pcmWav, SpeechError, type SpeechProvider } from "./types.js";
 
@@ -104,27 +104,36 @@ export function createSpeechProvider(
  * Cuts a voice sample for cloning out of an exported range: mono 44.1 kHz, at most three minutes,
  * levelled to about -20 LUFS with peaks under -3 dB (ElevenLabs asks for -23 to -18 dB RMS).
  */
-export function cutVoiceSample(o: {
-  input: string;
-  startS: number;
-  endS: number;
-  outFile: string;
-}): { file: string; durationS: number } {
-  const durationS = Math.min(VOICE_SAMPLE_MAX_S, Math.max(0, o.endS - o.startS));
+export function cutVoiceSample(
+  o: { input: string; outFile: string } & ({ startS: number; endS: number } | { spans: Span[] }),
+): { file: string; durationS: number } {
+  const wanted: Span[] = "spans" in o ? o.spans : [{ startS: o.startS, endS: o.endS }];
+  // Keep the usable spans in order and stop once the total reaches the cap.
+  const spans: Span[] = [];
+  let durationS = 0;
+  for (const sp of wanted) {
+    const start = Math.max(0, sp.startS);
+    const len = Math.min(sp.endS - start, VOICE_SAMPLE_MAX_S - durationS);
+    if (!(sp.endS > sp.startS) || len <= 0) continue;
+    spans.push({ startS: start, endS: start + len });
+    durationS += len;
+  }
   if (durationS < 1) throw new SpeechError("The range is too short to clone a voice from.");
   mkdirSync(dirname(o.outFile), { recursive: true });
+  const parts = spans.map(
+    (sp, i) => `[0:a]atrim=start=${sp.startS}:end=${sp.endS},asetpts=PTS-STARTPTS[a${i}]`,
+  );
+  const filter = `${parts.join(";")};${spans.map((_, i) => `[a${i}]`).join("")}concat=n=${spans.length}:v=0:a=1,loudnorm=I=-20:TP=-3:LRA=11[out]`;
   const r = spawnSync(ffmpegPath(), [
     "-v",
     "error",
     "-y",
-    "-ss",
-    String(Math.max(0, o.startS)),
-    "-t",
-    String(durationS),
     "-i",
     o.input,
-    "-af",
-    "loudnorm=I=-20:TP=-3:LRA=11",
+    "-filter_complex",
+    filter,
+    "-map",
+    "[out]",
     "-ar",
     "44100",
     "-ac",

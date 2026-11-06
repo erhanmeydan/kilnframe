@@ -310,6 +310,25 @@ describe("voice cloning", () => {
     ).toThrow(/too short/);
   });
 
+  it("joins several spans into one sample", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kf-clone-"));
+    const input = join(dir, "range.wav");
+    writeFileSync(input, pcmWav(tone(10), 24000));
+    const spans = [
+      { startS: 1, endS: 2 },
+      { startS: 5, endS: 6.5 },
+      { startS: 8, endS: 8 },
+    ];
+    const out = cutVoiceSample({ input, spans, outFile: join(dir, "sample.wav") });
+    expect(out.durationS).toBeCloseTo(2.5, 2);
+    const back = wavPcm(readFileSync(out.file));
+    expect(back).toMatchObject({ sampleRate: 44100, channels: 1 });
+    expect(Math.abs(back.pcm.length / 2 / 44100 - 2.5)).toBeLessThan(0.05);
+    expect(() =>
+      cutVoiceSample({ input, spans: [{ startS: 3, endS: 3 }], outFile: join(dir, "x.wav") }),
+    ).toThrow(/too short/);
+  });
+
   it("sends the name and the sample, and returns the new voice", async () => {
     let sent: FormData | undefined;
     let url = "";
