@@ -4,10 +4,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ffmpegPath, type Defaults } from "../config.js";
 import { ElevenLabsSpeechProvider } from "./elevenlabs.js";
+import { VOICE_SAMPLE_MAX_S } from "./fix.js";
 import { GeminiSpeechProvider } from "./gemini.js";
 import { pcmWav, SpeechError, type SpeechProvider } from "./types.js";
 
 export * from "./elevenlabs.js";
+export * from "./fix.js";
 export * from "./gemini.js";
 export * from "./types.js";
 
@@ -97,9 +99,6 @@ export function createSpeechProvider(
     });
   throw new SpeechError(`Speech provider "${id}" is not available yet.`);
 }
-
-/** The longest sample a clone is made from: ElevenLabs says more than about 3 minutes adds nothing. */
-export const VOICE_SAMPLE_MAX_S = 180;
 
 /**
  * Cuts a voice sample for cloning out of an exported range: mono 44.1 kHz, at most three minutes,
