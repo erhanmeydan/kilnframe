@@ -323,13 +323,16 @@ export function createPremiereHost(
     try {
       for (let i = 0; i < (await sequence.getAudioTrackCount()); i++) {
         if (i === index) continue;
+        let track: Mutable | undefined;
         try {
-          const track = (await sequence.getAudioTrack(i)) as unknown as Mutable;
+          track = (await sequence.getAudioTrack(i)) as unknown as Mutable;
           if (await track.isMuted()) continue;
           if (await track.setMute(true)) hidden.push(track);
           else isolated = false;
         } catch {
           isolated = false;
+          // the mute may have applied before the call threw: unmute it afterwards too
+          if (track && (await track.isMuted().catch(() => false))) hidden.push(track);
         }
       }
       result = await fn();

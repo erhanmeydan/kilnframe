@@ -198,6 +198,9 @@ function recloneLink(st: VoiceFixState, ctx: VoiceFixCtx): string {
     : "";
 }
 
+/** Gives up the fix in progress and returns to the first screen. */
+const startOver = () => `<div class="link mt" data-act="fix-new">${t("fix.startOver")}</div>`;
+
 export function voiceFixBox(st: VoiceFixState, ctx: VoiceFixCtx): string {
   const err =
     (st.error
@@ -214,7 +217,8 @@ export function voiceFixBox(st: VoiceFixState, ctx: VoiceFixCtx): string {
       return `${err}<div class="note">${t("fix.pickTrack")}</div>
   <div class="pbtns mt">${st.tracks
     .map((n) => `<div class="pbtn" data-act="fix-track" data-val="${n}">A${n + 1}</div>`)
-    .join("")}</div>`;
+    .join("")}</div>
+  ${startOver()}`;
     case "edit":
       return err + editScreen(st, ctx);
     case "consent":
@@ -232,7 +236,7 @@ function idleScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   const ready = ctx.connected() && st.keySet !== false && range !== null;
   return `${ctx.rangeLine()}
   <div class="note muted">${t("fix.hint")}</div>
-  ${st.keySet === false ? `<div class="box warn">${t("story.noKeyEleven")}</div>` : ""}
+  ${st.keySet === false ? `<div class="box warn">${t("fix.noKey")}</div>` : ""}
   ${range ? "" : `<div class="box warn">${t("clone.needRange")}</div>`}
   <div class="btn mt${ready ? "" : " off"}" data-act="fix-go">${t("fix.go")}</div>`;
 }
@@ -243,7 +247,8 @@ function editScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   <div class="note muted">${t("fix.exact")}</div>
   ${st.hasVideo ? `<div class="note muted">${t("fix.onCamera")}</div>` : ""}
   <div class="btn mt" data-act="fix-say">${t("fix.read")}</div>
-  ${recloneLink(st, ctx)}`;
+  ${recloneLink(st, ctx)}
+  ${startOver()}`;
 }
 
 function consentScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
@@ -273,7 +278,8 @@ function consentScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   ${sample}
   ${check("fix-consent", st.consent, t("clone.consent"))}
   <div class="btn mt" data-act="fix-clone">${t("fix.clone")}</div>
-  <div class="link mt" data-act="fix-back">${t("fix.back")}</div>`;
+  <div class="link mt" data-act="fix-back">${t("fix.back")}</div>
+  ${startOver()}`;
 }
 
 /** "0.4 s longer than the original", or as long. */
@@ -296,7 +302,8 @@ function listenScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   ${recloneLink(st, ctx)}`;
   return `${head}
   <div class="pbtns mt"><div class="pbtn" data-act="fix-again">${t("fix.again")}</div><div class="pbtn primary${st.placing ? " off" : ""}" data-act="fix-place">${t("fix.place")}</div></div>
-  ${recloneLink(st, ctx)}`;
+  ${recloneLink(st, ctx)}
+  ${startOver()}`;
 }
 
 // ---------- actions ----------
@@ -361,7 +368,7 @@ async function start(st: VoiceFixState, ctx: VoiceFixCtx): Promise<void> {
     return ctx.render();
   }
   if (st.keySet === false) {
-    st.error = t("story.noKeyEleven");
+    st.error = t("fix.noKey");
     return ctx.render();
   }
   const keySet = st.keySet;
@@ -770,6 +777,7 @@ export function voiceFixAct(
     st.error = null;
   } else if (act === "fix-place") void place(st, ctx);
   else if (act === "fix-new") {
+    if (st.playing) ctx.send({ type: "speech.stop" });
     Object.assign(st, newVoiceFix(), { keySet: st.keySet });
   } else if (act === "fix-reclone" && st.seqId !== null && st.track !== null) {
     ctx.forget(cloneKey(st));

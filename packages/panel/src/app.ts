@@ -1419,6 +1419,10 @@ async function cloneVoice() {
     c.error = t("clone.needConsent");
     return render();
   }
+  if (range.durationS < CLONE_MIN_S) {
+    c.error = t("clone.short", { duration: formatDuration(range.durationS) });
+    return render();
+  }
   const name = st.cloneName.trim() || t("clone.namePlaceholder");
   c.running = true;
   c.error = null;
@@ -3853,7 +3857,10 @@ async function saveKey(id: string) {
     setup.editingKey = null;
     setup.keyDraft = "";
     if (id === "custom") customKey = true;
-    if (id === "elevenlabs") elevenKey = true;
+    if (id === "elevenlabs") {
+      elevenKey = true;
+      state.voiceFix.keySet = true;
+    }
     if (id === "gemini" || id === "elevenlabs") void loadVoices().catch(() => undefined);
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
@@ -3867,7 +3874,10 @@ async function deleteKey(id: string) {
     await session.request<ServerMessage>({ type: "keys.delete", provider: id }, "keys.deleted");
     trace(`settings: key deleted for ${id}`);
     if (id === "custom") customKey = false;
-    if (id === "elevenlabs") elevenKey = false;
+    if (id === "elevenlabs") {
+      elevenKey = false;
+      state.voiceFix.keySet = false;
+    }
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }

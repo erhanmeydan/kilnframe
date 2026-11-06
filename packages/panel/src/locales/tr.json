@@ -635,6 +635,8 @@
   "clone.failed": "Ses klonlanamadı: {message}",
   "tab.voice": "Ses Düzelt",
   "fix.hint": "Düzeltilecek kısmı In ve Out ile işaretleyin. Yeni okuma yeni bir ses izine gelir, kaydınız olduğu gibi kalır.",
+  "fix.startOver": "Baştan Başla",
+  "fix.noKey": "Ses Düzelt için ElevenLabs anahtarı gerekiyor. Ayarlar'da Seslendirme ve Müzik bölümünden ekleyin.",
   "fix.go": "Bu Kısmı Düzelt",
   "fix.noTrack": "Bu aralığın altında sesi olan bir ses izi yok.",
   "fix.pickTrack": "Burada birden fazla ses izinde ses var. Sesiniz hangisinde?",

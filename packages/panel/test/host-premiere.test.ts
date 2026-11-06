@@ -565,6 +565,21 @@ describe("premiere host", () => {
       expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
     });
 
+    it("unmutes a track whose mute applied and then threw", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => {
+        if (mute && clips === f.audio[0]) {
+          f.muted.set(clips, true);
+          throw new Error("late");
+        }
+      };
+      const h = f.make();
+      const seq = await h.currentSequence();
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => 1);
+      expect(out).toEqual({ result: 1, isolated: false });
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
     it("tries every track and then says so when one cannot be unmuted after the export", async () => {
       const f = fakePremiere({ audio: audio() });
       f.muteRule.fn = (clips, mute) => (!mute && clips === f.audio[0] ? false : undefined);

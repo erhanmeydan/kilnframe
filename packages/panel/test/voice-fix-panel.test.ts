@@ -102,11 +102,34 @@ function atStage(stage: VoiceFixState["stage"], extra: Partial<VoiceFixState> = 
 const jobs = (sent: Msg[]) => sent.filter((m) => m.type === "job.start").map((m) => m.params!);
 
 describe("voice fix panel", () => {
+  it("Start Over from the edit screen goes back to idle and the next Fix This Part reads afresh", async () => {
+    const { ctx, sent } = fakeCtx();
+    const st = atStage("edit", { playing: "take" });
+    expect(voiceFixBox(st, ctx)).toContain('data-act="fix-new"');
+    expect(voiceFixBox(st, ctx)).toContain("Start Over");
+    for (const stage of ["track", "consent", "listen"] as const)
+      expect(
+        voiceFixBox(
+          atStage(stage, {
+            tracks: [0, 1],
+            result: { file: "/j/voice-fix/take-1.wav", durationS: 3.4, priceUsd: 0.01 },
+          }),
+          ctx,
+        ),
+      ).toContain('data-act="fix-new"');
+    expect(voiceFixAct(st, ctx, "fix-new", "")).toBe(true);
+    expect(st.stage).toBe("idle");
+    expect(sent).toContainEqual({ type: "speech.stop" });
+    voiceFixAct(st, ctx, "fix-go", "");
+    await tick();
+    expect(st.stage).not.toBe("idle");
+  });
+
   it("asks for consent with the one-speaker note and a way to hear the sample first", () => {
     const { ctx } = fakeCtx();
     const html = voiceFixBox(atStage("consent"), ctx);
     expect(html).toContain("only your voice");
-    expect(html).toContain("Listen To Sample");
+    expect(html).toContain("Listen to Sample");
     expect(html).toContain('data-act="fix-sample"');
     expect(html).toContain("This is my voice, or I have the right and consent to clone it.");
   });
