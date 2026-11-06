@@ -5,6 +5,8 @@ export const HOST_MEMBERS = [
   "exportRangeAudio",
   "exportRangePicture",
   "withoutOurInserts",
+  "speechTracksAt",
+  "withOnlyAudioTrack",
   "placeInsert",
   "placeAudioClips",
   "ourInsertSpans",

@@ -120,6 +120,17 @@ export function styleCards(cacheDir: string, dir?: string): StyleCard[] {
   });
 }
 
+/**
+ * Where speech.clone writes its sample: next to the audio in a `voice-fix` folder, else in a `voice-fix`
+ * folder beside it, so audio.play may play it.
+ */
+export function voiceSampleFile(audioPath: string): string {
+  const dir = dirname(audioPath);
+  return basename(dir) === "voice-fix"
+    ? join(dir, "voice-sample.wav")
+    : join(dir, "voice-fix", "voice-sample.wav");
+}
+
 /** Folder-safe text: keeps letters (Turkish too), digits, dash and underscore. */
 export function safeName(text: string): string {
   return (

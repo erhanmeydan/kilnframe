@@ -112,6 +112,7 @@ export interface StoryArgs {
   tone: string | undefined;
   voice: string | undefined;
   speechModel: string | undefined;
+  speechProvider: string | undefined;
   /** Write the story only, do not read it aloud. */
   noVoice: boolean;
   out: string;
@@ -167,7 +168,7 @@ export const USAGE = `Usage:
                         [--revise <style> --note <text>] [--no-preview] [--provider ...] [--model <id>]
   kilnframe style-preview --style <name> --out <dir> [--provider ...] [--model <id>]
   kilnframe story (--brief <text> | --script <file>) --out <dir> [--duration <s>] [--language <code>]
-                        [--tone <text>] [--voice <name>] [--speech-model <id>] [--no-voice] [--provider ...]
+                        [--tone <text>] [--voice <name>] [--speech-provider gemini|elevenlabs] [--speech-model <id>] [--no-voice] [--provider ...]
   kilnframe captions --audio <file> --style <look> --fps <rate> --size <WxH> --out <dir>
                         [--glossary <name,name,...>] [--spoken] [--language <code>] [--provider ...] [--model <id>]
 
@@ -236,6 +237,7 @@ export function parseCliArgs(argv: string[], knownStyles: string[]): CliArgs {
         tone: { type: "string" },
         voice: { type: "string" },
         "speech-model": { type: "string" },
+        "speech-provider": { type: "string" },
         "no-voice": { type: "boolean" },
         glossary: { type: "string" },
         spoken: { type: "boolean" },
@@ -331,6 +333,7 @@ export function parseCliArgs(argv: string[], knownStyles: string[]): CliArgs {
       tone: values.tone,
       voice: values.voice,
       speechModel: values["speech-model"],
+      speechProvider: values["speech-provider"],
       noVoice: values["no-voice"] ?? false,
       out: required(values.out, "out"),
       provider: values.provider,

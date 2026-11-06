@@ -1,14 +1,19 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  cloneElevenLabsVoice,
+  cutVoiceSample,
+  ElevenLabsSpeechProvider,
   GeminiSpeechProvider,
+  listElevenLabsVoices,
   loadSpeechCatalog,
   narrate,
   pcmWav,
   SpeechError,
   speechChunks,
+  speechPriceUsd,
   wavPcm,
   type SpeechProvider,
 } from "../src/speech/index.js";
@@ -157,6 +162,31 @@ describe("speech", () => {
     expect(written.pcm.length / 2 / 48000).toBeCloseTo(2.5, 2);
   });
 
+  it("hands a single read the text before and after it as context", async () => {
+    const seen: { previousText?: string | undefined; nextText?: string | undefined }[] = [];
+    const fake: SpeechProvider = {
+      id: "fake",
+      model: "fake",
+      synthesize: async (req) => {
+        seen.push({ previousText: req.previousText, nextText: req.nextText });
+        return { pcm: tone(1), sampleRate: 24000, audioTokens: 0, inputTokens: 0 };
+      },
+    };
+    const out = join(mkdtempSync(join(tmpdir(), "mi-narr-")), "fix.wav");
+    await narrate({
+      provider: fake,
+      text: "Bir.\n\nİki.",
+      voice: "v",
+      outFile: out,
+      before: "Önce.",
+      after: "Sonra.",
+    });
+    expect(seen).toEqual([
+      { previousText: "Önce.", nextText: "İki." },
+      { previousText: "Bir.", nextText: "Sonra." },
+    ]);
+  });
+
   it("checks the story's length and dashes", () => {
     expect(wordsPerSecond("tr")).toBe(1.5);
     expect(wordsPerSecond("en")).toBe(2.2);
@@ -166,5 +196,183 @@ describe("speech", () => {
     expect(storyProblems({ ...story, paragraphs: ["bir — iki üç dört beş"] }, 6).join(" ")).toMatch(
       /dashes/,
     );
+  });
+});
+
+describe("ElevenLabs speech", () => {
+  function eleven(model: string, handler: (url: string, body: unknown) => Response) {
+    const calls: { url: string; body: unknown; headers: Record<string, string> }[] = [];
+    const provider = new ElevenLabsSpeechProvider({
+      apiKey: "test-key",
+      model,
+      endpoint: "https://example.invalid/",
+      fetch: (async (url: string, init: { body: string; headers: Record<string, string> }) => {
+        const body = JSON.parse(init.body) as unknown;
+        calls.push({ url, body, headers: init.headers });
+        return handler(url, body);
+      }) as unknown as typeof fetch,
+    });
+    return { provider, calls };
+  }
+
+  it("is in the catalog with prices by the character", () => {
+    const entry = loadSpeechCatalog().find((p) => p.id === "elevenlabs");
+    expect(entry?.keyName).toBe("elevenlabs");
+    expect(entry?.models.map((m) => m.id)).toContain("eleven_v4");
+    expect(
+      speechPriceUsd("elevenlabs", "eleven_v4", {
+        audioTokens: 0,
+        inputTokens: 0,
+        characters: 1000,
+      }),
+    ).toBeCloseTo(0.08);
+  });
+
+  it("sends the voice id, a style tag, the language and the neighbours, and keeps the PCM", async () => {
+    const pcm = tone(0.2);
+    const { provider, calls } = eleven("eleven_v4", () => new Response(pcm));
+    const r = await provider.synthesize({
+      text: "Merhaba.",
+      voice: "abc123",
+      style: "calm [warm] narrator",
+      language: "tr-TR",
+      previousText: "Önce.",
+    });
+    expect(calls[0]?.url).toBe(
+      "https://example.invalid/v1/text-to-speech/abc123?output_format=pcm_24000",
+    );
+    expect(calls[0]?.headers["xi-api-key"]).toBe("test-key");
+    expect(calls[0]?.body).toEqual({
+      text: "[calm warm narrator] Merhaba.",
+      model_id: "eleven_v4",
+      language_code: "tr",
+      previous_text: "Önce.",
+    });
+    expect(r.sampleRate).toBe(24000);
+    expect(r.pcm.equals(pcm)).toBe(true);
+    expect(r.characters).toBe("[calm warm narrator] Merhaba.".length);
+  });
+
+  it("leaves the style out for a model that would read the tag aloud", async () => {
+    const { provider, calls } = eleven("eleven_flash_v2_5", () => new Response(tone(0.1)));
+    await provider.synthesize({ text: "Hi.", voice: "v", style: "calm" });
+    expect((calls[0]?.body as { text: string }).text).toBe("Hi.");
+  });
+
+  it("explains a refused key and out of credits, and retries a rate limit", async () => {
+    const json = (status: number, detail: unknown) =>
+      new Response(JSON.stringify({ detail }), { status });
+    await expect(
+      eleven("eleven_v4", () =>
+        json(401, { status: "invalid_api_key", message: "Invalid API key" }),
+      ).provider.synthesize({ text: "a", voice: "v" }),
+    ).rejects.toThrow(/key was refused/);
+    await expect(
+      eleven("eleven_v4", () =>
+        json(401, { status: "quota_exceeded", message: "No credits" }),
+      ).provider.synthesize({ text: "a", voice: "v" }),
+    ).rejects.toThrow(/out of credits/);
+    await expect(
+      eleven("eleven_v4", () =>
+        json(401, { status: "missing_permissions", message: "missing text_to_speech" }),
+      ).provider.synthesize({ text: "a", voice: "v" }),
+    ).rejects.toThrow(/allow Text to Speech and Voices/);
+    const limited = await eleven("eleven_v4", () =>
+      json(429, { status: "too_many_concurrent_requests", message: "busy" }),
+    )
+      .provider.synthesize({ text: "a", voice: "v" })
+      .catch((e: unknown) => e);
+    expect(limited).toBeInstanceOf(SpeechError);
+    expect((limited as SpeechError).retryable).toBe(true);
+    expect((limited as SpeechError).retryAfterS).toBeGreaterThan(0);
+  });
+
+  it("lists the account's own voices first, then the default ones", async () => {
+    const urls: string[] = [];
+    const voices = await listElevenLabsVoices({
+      apiKey: "k",
+      endpoint: "https://example.invalid",
+      fetch: (async (url: string) => {
+        urls.push(url);
+        const own = url.includes("voice_type=non-default");
+        return new Response(
+          JSON.stringify({
+            voices: own
+              ? [{ voice_id: "me1", name: "Erhan", category: "cloned", labels: {} }]
+              : [
+                  {
+                    voice_id: "d1",
+                    name: "George - Warm storyteller",
+                    category: "premade",
+                    labels: { descriptive: "warm", gender: "male", accent: "british" },
+                  },
+                  { voice_id: "me1", name: "Erhan", category: "cloned" },
+                ],
+          }),
+        );
+      }) as unknown as typeof fetch,
+    });
+    expect(urls).toHaveLength(2);
+    expect(voices).toEqual([
+      { name: "me1", label: "Erhan", character: "cloned", own: true },
+      { name: "d1", label: "George", character: "warm, male, british", own: false },
+    ]);
+  });
+});
+
+describe("voice cloning", () => {
+  it("cuts at most three levelled mono minutes out of the range", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kf-clone-"));
+    const input = join(dir, "range.wav");
+    writeFileSync(input, pcmWav(tone(3), 24000));
+    const out = cutVoiceSample({ input, startS: 1, endS: 2.5, outFile: join(dir, "sample.wav") });
+    expect(out.durationS).toBe(1.5);
+    const back = wavPcm(readFileSync(out.file));
+    expect(back).toMatchObject({ sampleRate: 44100, channels: 1 });
+    expect(back.pcm.length / 2 / 44100).toBeCloseTo(1.5, 1);
+    expect(() =>
+      cutVoiceSample({ input, startS: 1, endS: 1.2, outFile: join(dir, "x.wav") }),
+    ).toThrow(/too short/);
+  });
+
+  it("joins several spans into one sample", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kf-clone-"));
+    const input = join(dir, "range.wav");
+    writeFileSync(input, pcmWav(tone(10), 24000));
+    const spans = [
+      { startS: 1, endS: 2 },
+      { startS: 5, endS: 6.5 },
+      { startS: 8, endS: 8 },
+    ];
+    const out = cutVoiceSample({ input, spans, outFile: join(dir, "sample.wav") });
+    expect(out.durationS).toBeCloseTo(2.5, 2);
+    const back = wavPcm(readFileSync(out.file));
+    expect(back).toMatchObject({ sampleRate: 44100, channels: 1 });
+    expect(Math.abs(back.pcm.length / 2 / 44100 - 2.5)).toBeLessThan(0.05);
+    expect(() =>
+      cutVoiceSample({ input, spans: [{ startS: 3, endS: 3 }], outFile: join(dir, "x.wav") }),
+    ).toThrow(/too short/);
+  });
+
+  it("sends the name and the sample, and returns the new voice", async () => {
+    let sent: FormData | undefined;
+    let url = "";
+    const r = await cloneElevenLabsVoice({
+      apiKey: "k",
+      endpoint: "https://example.invalid/",
+      name: "Benim sesim",
+      audio: pcmWav(tone(0.1), 24000),
+      removeBackgroundNoise: true,
+      fetch: (async (u: string, init: { body: FormData }) => {
+        url = u;
+        sent = init.body;
+        return new Response(JSON.stringify({ voice_id: "new1", requires_verification: false }));
+      }) as unknown as typeof fetch,
+    });
+    expect(url).toBe("https://example.invalid/v1/voices/add");
+    expect(sent?.get("name")).toBe("Benim sesim");
+    expect(sent?.get("remove_background_noise")).toBe("true");
+    expect(sent?.get("files")).toBeInstanceOf(Blob);
+    expect(r).toEqual({ voiceId: "new1", requiresVerification: false });
   });
 });

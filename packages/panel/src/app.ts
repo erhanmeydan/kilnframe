@@ -29,6 +29,16 @@ import {
   newCaptions,
   type CaptionsCtx,
 } from "./captions";
+import {
+  newVoiceFix,
+  voiceFixAct,
+  voiceFixBox,
+  voiceFixOpened,
+  voiceFixReadFields,
+  voiceFixWatches,
+  voiceFixWriteFields,
+  type VoiceFixCtx,
+} from "./voice-fix";
 import { NOT_REPORTED, feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
@@ -128,10 +138,29 @@ interface StoryState {
   music: "on" | "off";
   /** The new sequence's frame; "orijinal" keeps the open sequence's. */
   format: Format;
-  voices: { name: string; character: string }[];
+  /** Who reads the narration (config/speech.json). */
+  speechProvider: SpeechProvider;
+  /** `name` is what the provider reads with: a Gemini voice name or an ElevenLabs voice id. */
+  voices: { name: string; character: string; label?: string; own?: boolean }[];
+  /** Why the voices could not be listed (a refused ElevenLabs key, no connection). */
+  voicesError: string | null;
   /** The whole voice list is open. */
   allVoices: boolean;
   keySet: boolean;
+  /** Music is always made with Gemini, whatever reads the narration. */
+  musicKeySet: boolean;
+  /** Cloning the editor's voice from the timeline's In/Out range into their ElevenLabs account. */
+  clone: {
+    open: boolean;
+    noise: boolean;
+    /** The editor confirmed the voice is theirs or that they may clone it. */
+    consent: boolean;
+    running: boolean;
+    error: string | null;
+    /** The name of the voice just made. */
+    done: string | null;
+  };
+  cloneName: string;
   jobId: string | null;
   last: string;
   error: string | null;
@@ -154,14 +183,19 @@ function newStory(): StoryState {
     voiceStyle: "",
     script: "",
     note: "",
-    voice: stored("story-voice") ?? "Kore",
+    voice: storedVoice(storedSpeechProvider()),
     music: stored("story-music") === "off" ? "off" : "on",
     format:
       (["landscape", "portrait", "square"] as const).find((f) => f === stored("story-format")) ??
       "orijinal",
+    speechProvider: storedSpeechProvider(),
     voices: [],
+    voicesError: null,
     allVoices: false,
     keySet: true,
+    musicKeySet: true,
+    clone: { open: false, noise: false, consent: false, running: false, error: null, done: null },
+    cloneName: "",
     jobId: null,
     last: "",
     error: null,
@@ -169,6 +203,21 @@ function newStory(): StoryState {
     source: stored("story-source") === "own" ? "own" : "write",
     own: "",
   };
+}
+
+type SpeechProvider = "gemini" | "elevenlabs";
+
+function storedSpeechProvider(): SpeechProvider {
+  return stored("story-speech") === "elevenlabs" ? "elevenlabs" : "gemini";
+}
+
+/** Each provider keeps its own last voice: a Gemini name means nothing to ElevenLabs. */
+function voiceKey(provider: SpeechProvider): string {
+  return provider === "gemini" ? "story-voice" : `story-voice-${provider}`;
+}
+
+function storedVoice(provider: SpeechProvider): string {
+  return stored(voiceKey(provider)) ?? (provider === "gemini" ? "Kore" : "");
 }
 
 /** Voices that suit a narration, shown first (panel design, 8 Oct 2026). */
@@ -206,7 +255,7 @@ interface Lightbox {
   index: number;
 }
 
-type Tab = "range" | "story" | "music" | "captions";
+type Tab = "range" | "story" | "music" | "captions" | "voice";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
@@ -373,6 +422,7 @@ const state = {
   story: newStory(),
   music: newMusic(),
   captions: newCaptions(),
+  voiceFix: newVoiceFix(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -407,6 +457,7 @@ session.on((m) => {
   } else if (m.type === "speech.ended" || m.type === "audio.ended") {
     state.voicePlaying = "";
     state.music.playing = null;
+    state.voiceFix.playing = null;
     render();
   } else if (m.type === "app.update.busy") {
     state.updateBusy = true;
@@ -468,6 +519,13 @@ function wavPresetOk(): boolean {
 function store(key: string, value: string) {
   try {
     localStorage.setItem(`kilnframe:${key}`, value);
+  } catch {
+    // ignore
+  }
+}
+function unstore(key: string) {
+  try {
+    localStorage.removeItem(`kilnframe:${key}`);
   } catch {
     // ignore
   }
@@ -853,6 +911,7 @@ function home(): string {
     ["story", t("tab.story")],
     ["music", t("tab.music")],
     ["captions", t("tab.captions")],
+    ["voice", t("tab.voice")],
   ])}
   ${
     state.tab === "story"
@@ -861,7 +920,9 @@ function home(): string {
         ? musicBox(state.music, musicCtx)
         : state.tab === "captions"
           ? captionsBox(state.captions, captionsCtx)
-          : rangeHome(done)
+          : state.tab === "voice"
+            ? voiceFixBox(state.voiceFix, voiceFixCtx)
+            : rangeHome(done)
   }`;
 }
 
@@ -1146,14 +1207,25 @@ function storyBox(): string {
   ${st.done.musicNote ? `<div class="box mt">${esc(st.done.musicNote)}</div>` : ""}
   <div class="btn2 mt" data-act="story-new">${t("story.restart")}</div>`;
   if (st.stage === "script") {
-    // the narration voices first and the chosen one always; the rest behind All Voices
+    // the narration voices (Gemini) or the editor's own (ElevenLabs) first, and the chosen one always;
+    // the rest behind All Voices
+    const firstDefaults = new Set(
+      st.voices
+        .filter((v) => !v.own)
+        .slice(0, 4)
+        .map((v) => v.name),
+    );
     const shown = st.allVoices
       ? st.voices
-      : st.voices.filter((v) => NARRATION_VOICES.includes(v.name) || v.name === st.voice);
+      : st.voices.filter((v) =>
+          st.speechProvider === "gemini"
+            ? NARRATION_VOICES.includes(v.name) || v.name === st.voice
+            : v.own || firstDefaults.has(v.name) || v.name === st.voice,
+        );
     const voices = shown
       .map(
         (v) =>
-          `<div class="vrow${v.name === st.voice ? " on" : ""}"><div class="vname" data-act="story-voice" data-val="${esc(v.name)}">${v.name === st.voice ? "✓ " : ""}${esc(v.name)} <span class="small muted">${esc(voiceCharacter(v.character))}</span></div>${
+          `<div class="vrow${v.name === st.voice ? " on" : ""}"><div class="vname" data-act="story-voice" data-val="${esc(v.name)}">${v.name === st.voice ? "✓ " : ""}${esc(v.label ?? v.name)} <span class="small muted">${esc(voiceCharacter(v.character))}</span></div>${
             state.voicePlaying === v.name
               ? `<div class="link" data-act="story-stop">■ ${t("story.stopShort")}</div>`
               : `<div class="link" data-act="story-listen" data-val="${esc(v.name)}">▶ ${t("story.listenShort")}</div>`
@@ -1173,9 +1245,16 @@ function storyBox(): string {
   <div class="btn2 mt" data-act="story-rewrite">${t("story.rewrite")}</div>`
   }
   <div class="lbl">${t("story.voice")}</div>
-  ${st.keySet ? "" : `<div class="box warn">${t("story.noKey")}</div>`}
+  ${seg("story-speech", st.speechProvider, [
+    ["gemini", "Gemini"],
+    ["elevenlabs", "ElevenLabs"],
+  ])}
+  ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}</div>`}
+  ${st.voicesError ? `<div class="box warn">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
+  ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
-  <div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>
+  ${st.speechProvider === "elevenlabs" && st.keySet ? cloneBox() : ""}
+  ${shown.length < st.voices.length || st.allVoices ? `<div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>` : ""}
   <div class="lbl">${t("home.format")}</div>
   ${seg("story-format", st.format, [
     ["orijinal", t("format.original")],
@@ -1291,10 +1370,130 @@ async function storyJob(
   }
 }
 
+/** The longest sample a clone is made from (core VOICE_SAMPLE_MAX_S); a shorter range than this works too. */
+const CLONE_MAX_S = 180;
+const CLONE_MIN_S = 30;
+
+/** Clone a voice from the In/Out range: the range, a name, noise removal and the editor's consent. */
+function cloneBox(): string {
+  const c = state.story.clone;
+  const done = c.done ? `<div class="box ok mt">${t("clone.done", { name: c.done })}</div>` : "";
+  if (!c.open)
+    return `${done}<div class="link more" data-act="clone-open">+ ${t("clone.open")}</div>`;
+  if (c.running) return `<div class="box mt">${t("clone.running")}</div>`;
+  const range = state.seq?.range.source === "inout" ? state.seq.range : null;
+  const length = !range
+    ? `<div class="box warn">${t("clone.needRange")}</div>`
+    : range.durationS < CLONE_MIN_S
+      ? `<div class="box warn">${t("clone.short", { duration: formatDuration(range.durationS) })}</div>`
+      : range.durationS > CLONE_MAX_S
+        ? `<div class="note muted">${t("clone.long")}</div>`
+        : "";
+  const check = (act: string, on: boolean, text: string) =>
+    `<div class="check mt" data-act="${act}"><span class="box-mark${on ? " on" : ""}">${on ? "✓" : ""}</span><span>${text}</span></div>`;
+  return `<div class="box mt">
+  <div class="lbl">${t("clone.title")}</div>
+  <div class="note muted">${t("clone.hint")}</div>
+  ${musicRangeLine("range")}
+  ${length}
+  <div class="lbl">${t("clone.name")}</div>
+  <input class="img-note" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}">
+  ${check("clone-noise", c.noise, t("clone.noise"))}
+  ${check("clone-consent", c.consent, t("clone.consent"))}
+  ${c.error ? `<div class="box warn mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
+  <div class="pbtns mt"><div class="pbtn primary" data-act="clone-go">${t("clone.go")}</div><div class="pbtn" data-act="clone-close">${t("prov.cancel")}</div></div>
+</div>`;
+}
+
+/** Exports the In/Out range, has the companion cut a sample and clone it, then picks the new voice. */
+async function cloneVoice() {
+  const st = state.story;
+  const c = st.clone;
+  if (c.running) return;
+  const range = state.seq?.range.source === "inout" ? state.seq.range : null;
+  if (!range) {
+    c.error = t("clone.needRange");
+    return render();
+  }
+  if (!c.consent) {
+    c.error = t("clone.needConsent");
+    return render();
+  }
+  if (range.durationS < CLONE_MIN_S) {
+    c.error = t("clone.short", { duration: formatDuration(range.durationS) });
+    return render();
+  }
+  const name = st.cloneName.trim() || t("clone.namePlaceholder");
+  c.running = true;
+  c.error = null;
+  c.done = null;
+  render();
+  try {
+    const target = await readSequence();
+    if (!target) throw new Error(t("clone.needRange"));
+    const prepared = await session.request<ServerMessage>(
+      {
+        type: "job.prepare",
+        projectPath: target.projectPath,
+        sequenceName: "Voice",
+        ...(target.jobRoot ? { jobRoot: target.jobRoot } : {}),
+      },
+      "job.prepared",
+    );
+    const audioPath = `${String(prepared.jobDir)}/range.wav`;
+    // the editor's own speech: earlier Kilnframe inserts over the range are switched off for the export
+    const audio = await host().withoutOurInserts(target, range.startS, range.endS, () =>
+      host().exportRangeAudio(target, range.startS, range.endS, audioPath, {
+        wavPreset: state.system?.wavPreset ?? "",
+      }),
+    );
+    if (!audio.ok) throw new Error(t("job.exportFailed"));
+    const reply = await session.request<ServerMessage>(
+      {
+        type: "speech.clone",
+        audioPath,
+        rangeStartS: Math.max(0, range.startS - audio.offsetSeconds),
+        rangeEndS: range.endS - audio.offsetSeconds,
+        name,
+        removeNoise: c.noise,
+        consent: true,
+      },
+      "speech.cloned",
+      180_000,
+    );
+    trace(`clone: made ${String(reply.voice)} from ${String(reply.durationS)} s`);
+    st.voice = String(reply.voice);
+    store(voiceKey("elevenlabs"), st.voice);
+    c.open = false;
+    c.consent = false;
+    c.done = name;
+    st.cloneName = "";
+    await loadVoices();
+  } catch (err) {
+    c.error = t("clone.failed", { message: err instanceof Error ? err.message : String(err) });
+  } finally {
+    c.running = false;
+    render();
+  }
+}
+
 async function loadVoices() {
-  const reply = await session.request<ServerMessage>({ type: "speech.voices" }, "voices");
-  state.story.voices = reply.voices as StoryState["voices"];
-  state.story.keySet = Boolean(reply.keySet);
+  const st = state.story;
+  const provider = st.speechProvider;
+  const reply = await session.request<ServerMessage>(
+    { type: "speech.voices", provider },
+    "voices",
+    30_000,
+  );
+  // the editor switched provider while this list was on its way
+  if (st.speechProvider !== provider) return;
+  st.voices = reply.voices as StoryState["voices"];
+  st.keySet = Boolean(reply.keySet);
+  st.musicKeySet = Boolean(reply.musicKeySet ?? reply.keySet);
+  st.voicesError = reply.error ? String(reply.error) : null;
+  // an ElevenLabs voice deleted from the account, or none chosen yet: the first of the list
+  if (st.voices.length && !st.voices.some((v) => v.name === st.voice))
+    st.voice = st.voices[0]?.name ?? "";
 }
 
 function writeStoryJob(revise: boolean) {
@@ -1368,6 +1567,8 @@ async function makeStorySequence() {
         voice: st.voice,
         style: st.voiceStyle || undefined,
         outDir: String(prepared.jobDir),
+        speechProvider: st.speechProvider,
+        language: st.language,
         ...(st.music === "on"
           ? {
               music: {
@@ -1678,6 +1879,11 @@ async function refreshProviders() {
       "keys.has",
     );
     customKey = Boolean(custom.present);
+    const eleven = await session.request<ServerMessage>(
+      { type: "keys.has", provider: "elevenlabs" },
+      "keys.has",
+    );
+    elevenKey = Boolean(eleven.present);
   } catch (err) {
     // not connected: the settings show the app's own box instead (its text follows the panel language)
     if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
@@ -1738,6 +1944,9 @@ function agentState(id: string): { installed: boolean; loggedIn: boolean } | nul
 
 /** Whether a key is saved for the custom endpoint; it is not one of the presets. */
 let customKey = false;
+/** An ElevenLabs key is in the keychain (story narration only). */
+let elevenKey = false;
+const ELEVEN_KEY_URL = "https://elevenlabs.io/app/settings/api-keys";
 function customKeySet(): boolean {
   return customKey;
 }
@@ -1973,8 +2182,17 @@ function speechKeys(): string {
     body = `<div class="small">${t("prov.speechSame")}</div>`;
   else if (gemini?.keySet && setup.editingKey !== "gemini-speech")
     body = `<div class="small">Google Gemini <span class="pkey set">● ${t("prov.keySaved")}</span></div>`;
+  else if (setup.editingKey === "elevenlabs")
+    body = `<div class="small">Google Gemini <span class="pkey">${t("prov.noKey")}</span></div>`;
   else body = keyBlock("gemini", gemini, false);
-  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div>`;
+  // ElevenLabs reads the narration only, never the music. One key field at a time on the screen
+  // (they share the draft), so its field opens with Add Key.
+  const elevenEntry = { keySet: elevenKey, keyUrl: ELEVEN_KEY_URL } as ProviderEntry;
+  const eleven =
+    elevenKey || setup.editingKey === "elevenlabs"
+      ? keyBlock("elevenlabs", elevenEntry, false)
+      : `<div class="pbtns"><div class="pbtn" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
+  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div>`;
 }
 
 /** The first-run guide: companion, computer, speech model, AI, narration and a first try. */
@@ -2382,13 +2600,17 @@ function render() {
       const input = document.getElementById(`${kind}-note-${i}`) as HTMLInputElement | null;
       if (input) img.note = input.value ?? "";
     });
-  const storyFields: [string, "brief" | "script" | "note" | "tone" | "customLength" | "own"][] = [
+  const storyFields: [
+    string,
+    "brief" | "script" | "note" | "tone" | "customLength" | "own" | "cloneName",
+  ][] = [
     ["story-own", "own"],
     ["story-length-input", "customLength"],
     ["story-brief", "brief"],
     ["story-script", "script"],
     ["story-note", "note"],
     ["story-tone", "tone"],
+    ["story-clone-name", "cloneName"],
   ];
   for (const [id, key] of storyFields) {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
@@ -2396,6 +2618,7 @@ function render() {
   }
   musicReadFields(state.music);
   captionsReadFields(state.captions);
+  voiceFixReadFields(state.voiceFix);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
   const baseField = document.getElementById("base-input") as HTMLInputElement | null;
@@ -2456,12 +2679,14 @@ function render() {
     ["story-script", "script"],
     ["story-note", "note"],
     ["story-tone", "tone"],
+    ["story-clone-name", "cloneName"],
   ] as const) {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     if (el) el.value = state.story[key];
   }
   musicWriteFields(state.music);
   captionsWriteFields(state.captions);
+  voiceFixWriteFields(state.voiceFix);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
   if (state.own) {
@@ -2577,7 +2802,7 @@ const musicCtx: MusicCtx = {
   render: () => render(),
   trace: (line) => trace(line),
   connected: () => state.conn === "ok" && wavPresetOk(),
-  keySet: () => state.story.keySet,
+  keySet: () => state.story.musicKeySet,
   inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
   readSequence: () => readSequence(),
   request: (message, reply, timeoutMs) =>
@@ -2601,6 +2826,33 @@ const musicCtx: MusicCtx = {
   slider: () => state.settings.musicLevel ?? -21,
   pricePerSong: () => LYRIA_PRICE_USD,
   openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
+};
+
+/** What the Voice Fix tab (voice-fix.ts) uses from the rest of the panel. */
+const voiceFixCtx: VoiceFixCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: () => musicRangeLine("range"),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  speechTracksAt: (target, startS, endS) => host().speechTracksAt(target, startS, endS),
+  withOnlyAudioTrack: (target, track, fn) => host().withOnlyAudioTrack(target, track, fn),
+  exportAudio: (target, startS, endS, file) =>
+    host().exportRangeAudio(target, startS, endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  renderSettingsLost: async () => (await host().renderSettingsLost?.()) ?? false,
+  placeClips: (target, clips) => host().placeAudioClips(target, clips),
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  forget: (key) => unstore(key),
 };
 
 /** What the Captions tab (captions.ts) uses from the rest of the panel. */
@@ -3605,7 +3857,11 @@ async function saveKey(id: string) {
     setup.editingKey = null;
     setup.keyDraft = "";
     if (id === "custom") customKey = true;
-    if (id === "gemini") void loadVoices().catch(() => undefined);
+    if (id === "elevenlabs") {
+      elevenKey = true;
+      state.voiceFix.keySet = true;
+    }
+    if (id === "gemini" || id === "elevenlabs") void loadVoices().catch(() => undefined);
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }
@@ -3618,6 +3874,10 @@ async function deleteKey(id: string) {
     await session.request<ServerMessage>({ type: "keys.delete", provider: id }, "keys.deleted");
     trace(`settings: key deleted for ${id}`);
     if (id === "custom") customKey = false;
+    if (id === "elevenlabs") {
+      elevenKey = false;
+      state.voiceFix.keySet = false;
+    }
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }
@@ -3795,6 +4055,10 @@ function runAction(el: HTMLElement) {
       void loadVoices()
         .then(render)
         .catch(() => undefined);
+    // the Voice Fix tab reads with ElevenLabs: whether its key is saved
+    if (state.tab === "voice") void voiceFixOpened(state.voiceFix, voiceFixCtx);
+  } else if (act && voiceFixAct(state.voiceFix, voiceFixCtx, act, val)) {
+    /* handled by the Voice Fix tab */
   } else if (act && musicAct(state.music, musicCtx, act, val)) {
     /* handled by the Music tab */
   } else if (act && captionsAct(state.captions, captionsCtx, act, val)) {
@@ -3867,7 +4131,34 @@ function runAction(el: HTMLElement) {
     store("story-music", state.story.music);
   } else if (act === "story-voice") {
     state.story.voice = val;
-    store("story-voice", val);
+    store(voiceKey(state.story.speechProvider), val);
+  } else if (act === "clone-open") {
+    state.story.clone = { ...state.story.clone, open: true, error: null, done: null };
+  } else if (act === "clone-close") {
+    state.story.clone = { ...state.story.clone, open: false, error: null, consent: false };
+  } else if (act === "clone-noise") state.story.clone.noise = !state.story.clone.noise;
+  else if (act === "clone-consent") state.story.clone.consent = !state.story.clone.consent;
+  else if (act === "clone-go") {
+    render();
+    return void cloneVoice();
+  } else if (act === "story-speech") {
+    const st = state.story;
+    const provider: SpeechProvider = val === "elevenlabs" ? "elevenlabs" : "gemini";
+    if (provider !== st.speechProvider) {
+      st.speechProvider = provider;
+      store("story-speech", provider);
+      st.voice = storedVoice(provider);
+      st.voices = [];
+      st.voicesError = null;
+      st.allVoices = false;
+      if (state.voicePlaying) {
+        state.voicePlaying = "";
+        session.send({ type: "speech.stop" });
+      }
+      void loadVoices()
+        .then(render)
+        .catch((e: unknown) => trace(`voices threw: ${String(e)}`));
+    }
   } else if (act === "story-voices-all") state.story.allVoices = !state.story.allVoices;
   else if (act === "story-stop") {
     state.voicePlaying = "";
@@ -3882,7 +4173,13 @@ function runAction(el: HTMLElement) {
     render();
     void session
       .request<ServerMessage>(
-        { type: "speech.preview", voice: val || state.story.voice, language: state.story.language },
+        {
+          type: "speech.preview",
+          voice: val || state.story.voice,
+          language: state.story.language,
+          provider: state.story.speechProvider,
+          label: state.story.voices.find((v) => v.name === (val || state.story.voice))?.label,
+        },
         "speech.played",
         60_000,
       )
@@ -4165,7 +4462,10 @@ setInterval(() => {
   watchTick++;
   if (
     state.screen !== "home" ||
-    !watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
+    !(
+      watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
+      (state.tab === "voice" && voiceFixWatches(state.voiceFix))
+    ) ||
     state.lightbox ||
     pressed
   )

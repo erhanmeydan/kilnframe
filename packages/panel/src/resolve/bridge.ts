@@ -18,7 +18,7 @@ import {
   type ResolveSequence,
 } from "./api";
 import { frameFor, insertScale } from "../frame";
-import { isOurAnimation, isOurInsert } from "../our-files";
+import { isOurAnimation, isOurInsert, isVoiceFixTake } from "../our-files";
 import { framesToTimecode, parseRate, rateString, type Rate } from "./timecode";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Resolve's promise objects are untyped */
@@ -82,6 +82,28 @@ export function createResolveBridge(
           }
           if (ours && (await tl.SetTrackEnable(type, i, false))) hidden.push({ type, index: i });
         }
+      }
+      return hidden;
+    });
+  }
+
+  /** Switches off every enabled audio track but the 1-based `keep`; off the Deliver page. All or none. */
+  function soloOn(id: string, keep: number): Promise<HiddenTrack[]> {
+    return onTimeline(id, async (tl) => {
+      await leaveDeliver();
+      const hidden: HiddenTrack[] = [];
+      try {
+        const count = (await tl.GetTrackCount("audio")) as number;
+        for (let i = 1; i <= count; i++) {
+          if (i === keep || !(await tl.GetIsTrackEnabled("audio", i))) continue;
+          // a refused switch would leave that track in the export: the switch fails as a whole
+          if (!(await tl.SetTrackEnable("audio", i, false))) throw new Error(PLACE_FAILED);
+          hidden.push({ type: "audio", index: i });
+        }
+      } catch (err) {
+        // the caller never learns which tracks went off: they go back on here
+        for (const t of hidden) await tl.SetTrackEnable(t.type, t.index, true).catch(() => false);
+        throw err;
       }
       return hidden;
     });
@@ -483,6 +505,38 @@ export function createResolveBridge(
         return await hideOn(id, startS, endS);
       } catch (err) {
         // no showTracks follows a failed hide: the page it left comes back now, not at a later job's end
+        await restorePage();
+        throw err;
+      }
+    },
+    speechTracks(id, startS, endS) {
+      return onTimeline(id, async (tl) => {
+        const rate = await rateOf(tl);
+        const start = (await tl.GetStartFrame()) as number;
+        const from = start + Math.round(startS * rate.fps);
+        const to = start + Math.round(endS * rate.fps);
+        const found: number[] = [];
+        const count = (await tl.GetTrackCount("audio")) as number;
+        for (let i = 1; i <= count; i++) {
+          if (!(await tl.GetIsTrackEnabled("audio", i))) continue;
+          for (const item of ((await tl.GetItemListInTrack("audio", i)) ?? []) as R[]) {
+            if ((await item.GetEnd()) <= from || (await item.GetStart()) >= to) continue;
+            const path = await pathOf(item);
+            // a compound clip or one without a file is the editor's own
+            if (!path || !(isOurInsert(path) || isVoiceFixTake(path))) {
+              found.push(i - 1);
+              break;
+            }
+          }
+        }
+        return found;
+      });
+    },
+    async soloAudioTrack(id, track) {
+      try {
+        return await soloOn(id, track + 1);
+      } catch (err) {
+        // no showTracks follows a failed switch: the page it left comes back now
         await restorePage();
         throw err;
       }

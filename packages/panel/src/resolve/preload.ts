@@ -11,6 +11,8 @@ const ASYNC = [
   "exportRangePicture",
   "hideOurInserts",
   "showTracks",
+  "speechTracks",
+  "soloAudioTrack",
   "placeInsert",
   "placeAudioClips",
   "createStorySequence",

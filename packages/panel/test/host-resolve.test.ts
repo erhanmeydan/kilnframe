@@ -31,6 +31,8 @@ function fakeApi(over: Partial<KilnframeResolveApi> = {}): KilnframeResolveApi {
     exportRangePicture: vi.fn(async () => true),
     hideOurInserts: vi.fn(async () => [{ type: "video" as const, index: 2 }]),
     showTracks: vi.fn(async () => undefined),
+    speechTracks: vi.fn(async () => [0]),
+    soloAudioTrack: vi.fn(async () => [{ type: "audio" as const, index: 1 }]),
     placeInsert: vi.fn(async () => ({ videoTrack: 1, audioTrack: 1 })),
     createStorySequence: vi.fn(async () => undefined),
     ourInsertSpans: vi.fn(async () => [{ startS: 2, endS: 7 }]),
@@ -275,5 +277,93 @@ describe("filmcraft host", () => {
     await expect(createResolveHost(api, "filmcraft").currentSequence()).rejects.toThrow(
       `${en["filmcraft.exportFailed"]} (FilmCraft: file.exportMedia: cannot create C:/Users/Ömer/Kilnframe/j/sequence.wav)`,
     );
+  });
+  describe("speech track", () => {
+    it("asks the bridge for the speech tracks", async () => {
+      const api = fakeApi({ speechTracks: vi.fn(async () => [0, 2]) });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      expect(await h.speechTracksAt(s, 1, 4)).toEqual([0, 2]);
+      expect(api.speechTracks).toHaveBeenCalledWith("tl-1", 1, 4);
+    });
+
+    it("plays only the chosen track for the export and switches the others back on", async () => {
+      const api = fakeApi();
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      const out = await h.withOnlyAudioTrack(s, 1, async () => {
+        expect(api.showTracks).not.toHaveBeenCalled();
+        return 7;
+      });
+      expect(out).toEqual({ result: 7, isolated: true });
+      expect(api.soloAudioTrack).toHaveBeenCalledWith("tl-1", 1);
+      expect(api.showTracks).toHaveBeenCalledWith("tl-1", [{ type: "audio", index: 1 }]);
+    });
+
+    it("switches the others back on when the export throws", async () => {
+      const api = fakeApi();
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(s, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect(api.showTracks).toHaveBeenCalledWith("tl-1", [{ type: "audio", index: 1 }]);
+    });
+
+    it("asks for the tracks back even with none switched off, so Resolve gets the editor's page back", async () => {
+      const api = fakeApi({ soloAudioTrack: vi.fn(async () => []) });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      expect(await h.withOnlyAudioTrack(s, 0, async () => 1)).toEqual({
+        result: 1,
+        isolated: true,
+      });
+      expect(api.showTracks).toHaveBeenCalledWith("tl-1", []);
+    });
+
+    it("runs the export with every track playing when the tracks cannot be switched", async () => {
+      const api = fakeApi({
+        soloAudioTrack: vi.fn(async () => {
+          throw new Error("refused");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      expect(await h.withOnlyAudioTrack(s, 0, async () => 1)).toEqual({
+        result: 1,
+        isolated: false,
+      });
+      expect(api.showTracks).not.toHaveBeenCalled();
+    });
+    it("says so when the tracks cannot be switched back on after the export", async () => {
+      setLang("en");
+      const api = fakeApi({
+        showTracks: vi.fn(async () => {
+          throw new Error("FILMCRAFT_CONNECTION_LOST");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(h.withOnlyAudioTrack(s, 1, async () => 1)).rejects.toThrow(
+        en["filmcraft.connectionLost"],
+      );
+    });
+
+    it("keeps the export's error when the tracks cannot be switched back on either", async () => {
+      const api = fakeApi({
+        showTracks: vi.fn(async () => {
+          throw new Error("tracks");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(s, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+    });
   });
 });

@@ -49,6 +49,8 @@ export interface FakeOptions {
   staleAfterRefusal?: boolean;
   /** AppendToTimeline places nothing and returns nothing for this file, as for media Resolve cannot use. */
   appendRefuses?: string;
+  /** SetTrackEnable(audio, i, false) answers false and changes nothing for these 1-based audio tracks. */
+  refuseDisable?: number[];
   /** GetTrackCount throws, as on a timeline deleted while the job ran. */
   failTrackCount?: boolean;
 }
@@ -225,6 +227,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       SetTrackEnable: async (type: "video" | "audio", i: number, on: boolean) => {
         const t = list(type)[i - 1];
         if (!t) return false;
+        if (type === "audio" && !on && o.refuseDisable?.includes(i)) return false;
         if (page !== "deliver") t.enabled = on;
         return true;
       },

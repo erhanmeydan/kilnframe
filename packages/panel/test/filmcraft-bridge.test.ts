@@ -254,4 +254,59 @@ describe("filmcraft bridge", () => {
     expect(f.sequence.video).toHaveLength(1);
     expect(f.sequence.audio).toHaveLength(1);
   });
+  describe("speech track", () => {
+    /** A1 the footage, A2 a lav, A3 our music, A4 a clip after the range. */
+    function withAudio() {
+      const f = makeFakeFilmCraft();
+      f.state.addClip("audio", "/Users/ed/Footage/lav.wav", 0, 30);
+      f.state.addClip("audio", `${JOB}/music/s1.wav`, 0, 20);
+      f.state.addClip("audio", "/Users/ed/Footage/room.wav", 12, 30);
+      return f;
+    }
+
+    it("finds the audio tracks with the editor's own clips under the range", async () => {
+      const f = withAudio();
+      const b = bridgeOf(f);
+      const seq = await b.currentSequence();
+      expect(await b.speechTracks(seq.id, 2, 9)).toEqual([0, 1]);
+    });
+
+    it("switches off every other enabled audio track and the same ones back on", async () => {
+      const f = withAudio();
+      f.sequence.audio[3]!.enabled = false;
+      const b = bridgeOf(f);
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, 1);
+      expect(hidden).toEqual([
+        { type: "audio", index: 1 },
+        { type: "audio", index: 3 },
+      ]);
+      expect(f.sequence.audio.map((t) => t.enabled)).toEqual([false, true, false, false]);
+      expect(f.sequence.video.every((t) => t.enabled)).toBe(true);
+      await b.showTracks(seq.id, hidden);
+      expect(f.sequence.audio.map((t) => t.enabled)).toEqual([true, true, true, false]);
+    });
+
+    it("switches the tracks back on when one cannot be switched off", async () => {
+      const f = withAudio();
+      let calls = 0;
+      f.state.before = (command, params) => {
+        if (command === "timeline.setTrack" && params.enabled === false && ++calls === 2)
+          throw new Error("refused");
+      };
+      const b = bridgeOf(f);
+      const seq = await b.currentSequence();
+      await expect(b.soloAudioTrack(seq.id, 1)).rejects.toThrow();
+      expect(f.sequence.audio.every((t) => t.enabled)).toBe(true);
+    });
+    it("leaves out earlier voice fix takes and disabled tracks", async () => {
+      const f = withAudio();
+      f.state.addClip("audio", `${JOB}/voice-fix/fix.wav`, 2, 6);
+      f.state.addClip("audio", "C:\\Users\\Ed\\Kilnframe\\job-2\\voice-fix\\fix.wav", 2, 6);
+      f.sequence.audio[1]!.enabled = false;
+      const b = bridgeOf(f);
+      const seq = await b.currentSequence();
+      expect(await b.speechTracks(seq.id, 2, 9)).toEqual([0]);
+    });
+  });
 });

@@ -15,7 +15,7 @@ import type { Host, HostSequence, PlaceResult } from "./host";
 import { exportError } from "./export-cancel";
 import { premiereCall } from "./premiere-version";
 import { t } from "./i18n";
-import { isOurAnimation, isOurInsert } from "./our-files";
+import { isOurAnimation, isOurInsert, isVoiceFixTake } from "./our-files";
 
 export interface UxpModule {
   host?: { uiLocale?: string };
@@ -271,6 +271,79 @@ export function createPremiereHost(
     } finally {
       for (const track of hidden) await track.setMute(false);
     }
+  }
+
+  /**
+   * 0-based unmuted audio tracks with a clip over [startS, endS) whose file is neither one Kilnframe delivered
+   * nor an earlier voice fix take.
+   */
+  async function speechTracksAt(sequence: Sequence, startS: number, endS: number) {
+    const found: number[] = [];
+    for (let i = 0; i < (await sequence.getAudioTrackCount()); i++) {
+      const track = (await sequence.getAudioTrack(i)) as unknown as Mutable;
+      if (await track.isMuted()) continue;
+      for (const item of track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false)) {
+        const start = (await item.getStartTime()).seconds;
+        const end = (await item.getEndTime()).seconds;
+        if (end <= startS || start >= endS) continue;
+        const path = await pathOf(item);
+        // a clip without a media file (a nested sequence) is the editor's own
+        if (!path || !(isOurInsert(path) || isVoiceFixTake(path))) {
+          found.push(i);
+          break;
+        }
+      }
+    }
+    return found;
+  }
+
+  /**
+   * Runs `fn` with every audio track but `index` muted, then unmutes them whatever happens. Tracks already muted
+   * stay muted. Not isolated when Premiere refused or failed to mute one: `fn` still runs.
+   */
+  async function withOnlyAudioTrack<T>(
+    sequence: Sequence,
+    index: number,
+    fn: () => Promise<T>,
+  ): Promise<{ result: T; isolated: boolean }> {
+    const hidden: Mutable[] = [];
+    let isolated = true;
+    /** Unmutes every track muted here; the first failure, after trying them all. */
+    const restore = async () => {
+      let failure: unknown = null;
+      for (const track of hidden)
+        try {
+          if (!(await track.setMute(false))) failure ??= new Error(t("premiere.unmuteFailed"));
+        } catch (err) {
+          failure ??= err;
+        }
+      return failure;
+    };
+    let result: T;
+    try {
+      for (let i = 0; i < (await sequence.getAudioTrackCount()); i++) {
+        if (i === index) continue;
+        let track: Mutable | undefined;
+        try {
+          track = (await sequence.getAudioTrack(i)) as unknown as Mutable;
+          if (await track.isMuted()) continue;
+          if (await track.setMute(true)) hidden.push(track);
+          else isolated = false;
+        } catch {
+          isolated = false;
+          // the mute may have applied before the call threw: unmute it afterwards too
+          if (track && (await track.isMuted().catch(() => false))) hidden.push(track);
+        }
+      }
+      result = await fn();
+    } catch (err) {
+      // the export's own error is the one the editor needs; one from unmuting would hide it
+      await restore();
+      throw err;
+    }
+    const failure = await restore();
+    if (failure) throw failure;
+    return { result, isolated };
   }
 
   /**
@@ -609,6 +682,14 @@ export function createPremiereHost(
     async withoutOurInserts(seq, startS, endS, fn) {
       const { sequence } = await sequenceOf(seq);
       return withoutOurInserts(sequence, startS, endS, fn);
+    },
+    async speechTracksAt(seq, startS, endS) {
+      const { sequence } = await sequenceOf(seq);
+      return speechTracksAt(sequence, startS, endS);
+    },
+    async withOnlyAudioTrack(seq, track, fn) {
+      const { sequence } = await sequenceOf(seq);
+      return withOnlyAudioTrack(sequence, track, fn);
     },
     async placeInsert(seq, files, atS, handlesS, durationS, tracks) {
       const { project, sequence } = await sequenceOf(seq);

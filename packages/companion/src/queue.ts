@@ -118,6 +118,8 @@ export class JobQueue {
           ? "style-create"
           : j.params.kind === "story-write" ||
               j.params.kind === "story-voice" ||
+              j.params.kind === "voice-fix-read" ||
+              j.params.kind === "voice-fix-say" ||
               j.params.kind === "parts" ||
               j.params.kind === "music-plan" ||
               j.params.kind === "music-make" ||

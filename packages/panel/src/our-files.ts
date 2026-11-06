@@ -29,3 +29,11 @@ export function isOurAnimation(mediaPath: string): boolean {
 export function isOurCaption(mediaPath: string): boolean {
   return OUR_CAPTION.test(mediaPath);
 }
+
+/**
+ * A take a Voice Fix placed: a file in a voice-fix folder. Not the speaker's own recording, so never the track a
+ * new fix clones from.
+ */
+export function isVoiceFixTake(mediaPath: string): boolean {
+  return /(^|[\\/])voice-fix[\\/]/i.test(mediaPath);
+}

@@ -25,6 +25,9 @@ import {
   createSpeechProvider,
   ensureOcrData,
   loadSpeechCatalog,
+  loadMusicCatalog,
+  listElevenLabsVoices,
+  speechModelFor,
   narrate,
   downloadSpeechModel,
   systemReport,
@@ -33,6 +36,7 @@ import {
 } from "@kilnframe/core";
 import { type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
+import { makeCloneVoice } from "./clone-voice.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
 import {
   captionPreviewFrames,
@@ -125,37 +129,60 @@ async function main() {
     saveCaptions: async (jobDir, state) => saveCaptionsState(jobDir, state),
     loadCaptions: async (jobDir) => loadCaptionsState(jobDir),
     deleteStyle: async (name) => deleteUserStyle(name),
-    listVoices: async () => {
+    listVoices: async (provider) => {
       const defaults = loadDefaults();
-      const entry = loadSpeechCatalog().find((p) => p.id === defaults.speech.provider);
-      return {
-        provider: defaults.speech.provider,
-        model: defaults.speech.model,
-        voices: entry?.voices ?? [],
-        keySet: Boolean(await keys.get(entry?.keyName ?? defaults.speech.provider)),
+      const id = provider ?? defaults.speech.provider;
+      const entry = loadSpeechCatalog().find((p) => p.id === id);
+      const key = await keys.get(entry?.keyName ?? id);
+      const musicEntry = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
+      const base = {
+        provider: id,
+        model: speechModelFor(defaults, id) ?? defaults.speech.model,
+        keySet: Boolean(key),
+        musicKeySet: Boolean(await keys.get(musicEntry?.keyName ?? defaults.music.provider)),
       };
+      // ElevenLabs voices live in the editor's account, clones included
+      if (id === "elevenlabs") {
+        if (!key || !entry) return { ...base, voices: [] };
+        try {
+          return {
+            ...base,
+            voices: await listElevenLabsVoices({ apiKey: key, endpoint: entry.endpoint }),
+          };
+        } catch (err) {
+          return { ...base, voices: [], error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+      return { ...base, voices: entry?.voices ?? [] };
     },
-    previewVoice: async (voice, language, onEnd) => {
+    previewVoice: async (voice, language, onEnd, o = {}) => {
       const defaults = loadDefaults();
+      const id = o.provider ?? defaults.speech.provider;
+      const model = speechModelFor(defaults, id) ?? defaults.speech.model;
       const dir = join(
         process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"),
         "cache",
         "voices",
       );
-      const file = join(dir, `${defaults.speech.model}-${voice}-${language.slice(0, 2)}.wav`);
+      const file = join(dir, `${model}-${voice}-${language.slice(0, 2)}.wav`);
       if (!existsSync(file)) {
+        const entry = loadSpeechCatalog().find((p) => p.id === id);
         const speech = createSpeechProvider(defaults, {
-          apiKey: await keys.get(defaults.speech.provider),
+          provider: id,
+          model,
+          apiKey: await keys.get(entry?.keyName ?? id),
         });
         await narrate({
           provider: speech,
-          text: previewText(voice, language),
+          text: previewText(o.label ?? voice, language),
           voice,
+          language,
           outFile: file,
         });
       }
       playSound(file, onEnd);
     },
+    cloneVoice: makeCloneVoice({ getKey: (name) => keys.get(name) }),
     stopVoice: () => stopSound(),
     playAudio: (file, onEnd) => playSound(file, onEnd),
     inspectImages: async (paths) =>

@@ -47,6 +47,8 @@ const BRIDGE_CALLS = [
   "exportRangePicture",
   "hideOurInserts",
   "showTracks",
+  "speechTracks",
+  "soloAudioTrack",
   "placeInsert",
   "placeAudioClips",
   "createStorySequence",

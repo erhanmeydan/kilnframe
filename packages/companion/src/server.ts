@@ -57,14 +57,37 @@ export interface CompanionOptions {
   /** Style cards (name, display name, summary, thumbnail) for the panel's style picker. */
   listStyles?: () => Promise<unknown[]>;
   /** The speech provider's voices and whether its key is set, for story mode. */
-  listVoices?: () => Promise<{
+  listVoices?: (provider?: string) => Promise<{
     provider: string;
     model: string;
     voices: unknown[];
     keySet: boolean;
+    musicKeySet: boolean;
+    error?: string;
   }>;
   /** Says a short sample with a voice through the system's speakers; `onEnd` when it stops playing. */
-  previewVoice?: (voice: string, language: string, onEnd: () => void) => Promise<void>;
+  previewVoice?: (
+    voice: string,
+    language: string,
+    onEnd: () => void,
+    o?: { provider?: string | undefined; label?: string | undefined },
+  ) => Promise<void>;
+  /** Clones a voice in the editor's ElevenLabs account from an exported range. */
+  cloneVoice?: (o: {
+    audioPath: string;
+    rangeStartS?: number;
+    rangeEndS?: number;
+    spans?: { startS: number; endS: number }[];
+    name: string;
+    removeNoise: boolean;
+    dryRun?: boolean;
+  }) => Promise<{
+    voice: string;
+    name: string;
+    durationS: number;
+    requiresVerification: boolean;
+    sample?: string;
+  }>;
   /** Stops the sample that is playing. */
   stopVoice?: () => void;
   /** Plays a sound file (a music clip or preview); the server checks the file is one. */
@@ -304,24 +327,46 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
           case "speech.voices": {
             if (!o.listVoices) throw new Error("story mode is not supported");
-            send({ type: "voices", ...(await o.listVoices()) });
+            send({ type: "voices", ...(await o.listVoices(msg.provider)) });
             break;
           }
           case "speech.preview":
             if (!o.previewVoice) throw new Error("story mode is not supported");
-            await o.previewVoice(msg.voice, msg.language, () =>
-              broadcast({ type: "speech.ended", voice: msg.voice }),
+            await o.previewVoice(
+              msg.voice,
+              msg.language,
+              () => broadcast({ type: "speech.ended", voice: msg.voice }),
+              { provider: msg.provider, label: msg.label },
             );
             send({ type: "speech.played", voice: msg.voice });
             break;
           case "audio.play":
-            // only the Music tab's own clips: never any file a page names
-            if (!/[\\/]music[\\/](preview[\\/])?s\d+(-\d+)?\.wav$/.test(msg.file))
-              throw new Error("Only music clips can be played.");
+            // only the Music tab's clips and Voice Fix's takes and sample: never any file a page names
+            if (
+              !/[\\/]music[\\/](preview[\\/])?s\d+(-\d+)?\.wav$/.test(msg.file) &&
+              !/[\\/]voice-fix[\\/](take-\d+|voice-sample)\.wav$/.test(msg.file)
+            )
+              throw new Error("Only music clips and voice fix takes can be played.");
             if (!o.playAudio) throw new Error("playing music is not supported");
             o.playAudio(msg.file, () => broadcast({ type: "audio.ended" }));
             send({ type: "audio.played" });
             break;
+          case "speech.clone": {
+            if (!o.cloneVoice) throw new Error("voice cloning is not supported");
+            send({
+              type: "speech.cloned",
+              ...(await o.cloneVoice({
+                audioPath: msg.audioPath,
+                ...(msg.spans
+                  ? { spans: msg.spans }
+                  : { rangeStartS: msg.rangeStartS!, rangeEndS: msg.rangeEndS! }),
+                name: msg.name,
+                removeNoise: msg.removeNoise,
+                ...(msg.dryRun ? { dryRun: true } : {}),
+              })),
+            });
+            break;
+          }
           case "speech.stop":
             o.stopVoice?.();
             broadcast({ type: "speech.ended", voice: "" });

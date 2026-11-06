@@ -98,6 +98,9 @@ const ProviderChoice = {
   thinking: z.enum(["off", "on"]).optional(),
 };
 
+/** A speech provider of config/speech.json. */
+export const SpeechProviderId = z.enum(["gemini", "elevenlabs"]);
+
 /** Story mode, step one: write the narration from a brief, or revise it with a note. */
 export const StoryWriteJobParamsSchema = z.object({
   kind: z.literal("story-write"),
@@ -126,7 +129,10 @@ export const StoryVoiceJobParamsSchema = z.object({
   voice: z.string().min(1),
   style: z.string().max(300).optional(),
   outDir: z.string().min(1),
+  speechProvider: SpeechProviderId.optional(),
   speechModel: z.string().optional(),
+  /** The narration's language, for providers that take it. */
+  language: z.string().max(10).optional(),
   /** A Lyria music bed under the narration, in the chosen style's mood when there is one. */
   music: z
     .object({
@@ -228,6 +234,45 @@ const CaptionColorsSchema = z.object({
   box: z.string().min(1).optional(),
 });
 
+/**
+ * Voice Fix, step one: Whisper reads the exported window; the fixed range's words, the sentences around it and
+ * the stretches the voice clone can learn from (never the range itself) come back. Times count from the
+ * window file's start.
+ */
+export const VoiceFixReadJobParamsSchema = z
+  .object({
+    kind: z.literal("voice-fix-read"),
+    audioPath: z.string().min(1),
+    fixStartS: z.number().min(0),
+    fixEndS: z.number().positive(),
+    outDir: z.string().min(1),
+    /**
+     * The window around the fix inside `audioPath` (an export of the whole sequence, say): cut to
+     * `<outDir>/window.wav`, and only that is read. The result's times then count from the window's start.
+     */
+    windowStartS: z.number().min(0).optional(),
+    windowEndS: z.number().positive().optional(),
+  })
+  .refine(
+    (p) =>
+      (p.windowStartS === undefined) === (p.windowEndS === undefined) &&
+      (p.windowStartS === undefined || p.windowEndS! > p.windowStartS),
+    { message: "Give both window ends, the end after the start, or neither." },
+  );
+
+/** Voice Fix, step two: the edited text read in the editor's cloned voice, one numbered take at a time. */
+export const VoiceFixSayJobParamsSchema = z.object({
+  kind: z.literal("voice-fix-say"),
+  text: z.string().min(1).max(5000),
+  voice: z.string().min(1),
+  /** The sentences just before and after the fix, as delivery context only (never read aloud). */
+  before: z.string().max(2000).optional(),
+  after: z.string().max(2000).optional(),
+  language: z.string().max(10).optional(),
+  outDir: z.string().min(1),
+  take: z.number().int().min(1),
+});
+
 /** The Captions tab, step 1: the range's words from Whisper, corrected by the user's text model. */
 export const CaptionsTextJobParamsSchema = z.object({
   kind: z.literal("captions-text"),
@@ -276,6 +321,8 @@ export const CaptionsPreviewJobParamsSchema = z.object({
 });
 
 export const JobParamsSchema = z.union([
+  VoiceFixReadJobParamsSchema,
+  VoiceFixSayJobParamsSchema,
   CaptionsTextJobParamsSchema,
   CaptionsRenderJobParamsSchema,
   CaptionsPreviewJobParamsSchema,
@@ -287,6 +334,8 @@ export const JobParamsSchema = z.union([
   MusicMakeJobParamsSchema,
   RenderJobParamsSchema,
 ]);
+export type VoiceFixReadJobParams = z.infer<typeof VoiceFixReadJobParamsSchema>;
+export type VoiceFixSayJobParams = z.infer<typeof VoiceFixSayJobParamsSchema>;
 export type CaptionsTextJobParams = z.infer<typeof CaptionsTextJobParamsSchema>;
 export type CaptionsRenderJobParams = z.infer<typeof CaptionsRenderJobParamsSchema>;
 export type CaptionsPreviewJobParams = z.infer<typeof CaptionsPreviewJobParamsSchema>;
@@ -342,15 +391,53 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
   z.object({ type: z.literal("job.get"), jobId: z.string() }),
   z.object({ type: z.literal("styles.delete"), name: z.string().min(1) }),
-  z.object({ type: z.literal("speech.voices") }),
+  /** The voices of a speech provider (config/speech.json); the defaults' provider when none is named. */
+  z.object({ type: z.literal("speech.voices"), provider: SpeechProviderId.optional() }),
   z.object({
     type: z.literal("speech.preview"),
-    // part of a cache file name, so a plain voice name only
+    // part of a cache file name, so a plain voice name (or an ElevenLabs voice id) only
     voice: z.string().regex(/^[A-Za-z0-9_.-]{1,60}$/),
     language: z.string().regex(/^[A-Za-z-]{2,10}$/),
+    provider: SpeechProviderId.optional(),
+    /** The name the sample says, when the voice is an id. */
+    label: z.string().max(60).optional(),
   }),
   z.object({ type: z.literal("speech.stop") }),
-  /** Plays a music clip or its preview from a job folder; speech.stop stops it. */
+  /**
+   * Clones the editor's voice in their ElevenLabs account from a range exported to a job folder. The
+   * panel only sends it after the editor confirmed the voice is theirs or that they may clone it.
+   */
+  z
+    .object({
+      type: z.literal("speech.clone"),
+      audioPath: z.string().regex(/\.wav$/i),
+      /** Either one range of the file or several spans of it, never both. */
+      rangeStartS: z.number().min(0).optional(),
+      rangeEndS: z.number().positive().optional(),
+      spans: z
+        .array(z.object({ startS: z.number().min(0), endS: z.number().positive() }))
+        .min(1)
+        .max(200)
+        .optional(),
+      name: z.string().trim().min(1).max(60),
+      removeNoise: z.boolean().default(false),
+      /** Only cut the sample (so the editor can listen to it) and upload nothing. */
+      dryRun: z.boolean().optional(),
+      /** Required for a real clone; a dry run uploads nothing and needs none. */
+      consent: z.literal(true).optional(),
+    })
+    .refine((m) => m.dryRun === true || m.consent === true, {
+      message: "A voice is cloned only with the editor's consent.",
+    })
+    .refine(
+      (m) => {
+        const range = m.rangeStartS !== undefined || m.rangeEndS !== undefined;
+        const whole = m.rangeStartS !== undefined && m.rangeEndS !== undefined;
+        return m.spans !== undefined ? !range : whole;
+      },
+      { message: "Give either a range or spans, not both." },
+    ),
+  /** Plays a music clip or its preview, a Voice Fix take or the clone sample, from a job folder; speech.stop stops it. */
   z.object({ type: z.literal("audio.play"), file: z.string().min(1) }),
   z.object({ type: z.literal("assets.inspect"), paths: z.array(z.string().min(1)).max(12) }),
   z.object({ type: z.literal("providers.list") }),
@@ -437,8 +524,27 @@ export type ServerMessage =
   | { type: "job.state"; jobId: string; state: JobState | "unknown" }
   | { type: "assets"; assets: unknown[] }
   | { type: "styles.deleted"; name: string }
-  | { type: "voices"; provider: string; model: string; voices: unknown[]; keySet: boolean }
+  | {
+      type: "voices";
+      provider: string;
+      model: string;
+      voices: unknown[];
+      keySet: boolean;
+      /** Music is always made with Gemini, whatever reads the narration. */
+      musicKeySet: boolean;
+      /** Why the voices could not be listed (a refused key, no connection). */
+      error?: string;
+    }
   | { type: "speech.played"; voice: string }
+  | {
+      type: "speech.cloned";
+      voice: string;
+      name: string;
+      durationS: number;
+      requiresVerification: boolean;
+      /** The cut sample file, in a dry run. */
+      sample?: string;
+    }
   /** The sample stopped: it finished, Stop was pressed, or another one started. */
   | { type: "speech.ended"; voice: string }
   | { type: "audio.played" }

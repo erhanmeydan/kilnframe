@@ -6,6 +6,9 @@ import {
   previewCaptionStill,
   renderCaptions,
   createSpeechProvider,
+  fixContext,
+  speechModelFor,
+  voiceSampleSpans,
   createStyle,
   loadPalette,
   makeMusic,
@@ -22,6 +25,7 @@ import {
   writeMusicPlan,
   type Transcript,
   loadSpeechCatalog,
+  speechPriceUsd,
   narrate,
   planParts,
   readTranscript,
@@ -57,6 +61,8 @@ import type {
   MusicMakeJobParams,
   StoryVoiceJobParams,
   StyleJobParams,
+  VoiceFixReadJobParams,
+  VoiceFixSayJobParams,
 } from "./protocol.js";
 import type { JobRunner } from "./queue.js";
 
@@ -91,6 +97,9 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       return captionsRenderJob(params, events.progress, events.signal);
     if (params.kind === "captions-preview") return captionsPreviewJob(params, events.signal);
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
+    if (params.kind === "voice-fix-read") return voiceFixReadJob(params, defaults, events.progress);
+    if (params.kind === "voice-fix-say")
+      return voiceFixSayJob(params, keys, defaults, events.progress);
     if (params.kind === "music-make")
       return musicMakeJob(params, keys, events.progress, events.signal);
     if (params.kind === "parts") {
@@ -331,9 +340,11 @@ async function storyVoiceJob(
   progress: (message: string) => void,
 ) {
   const defaults = loadDefaults();
+  const id = params.speechProvider ?? defaults.speech.provider;
   const speech = createSpeechProvider(defaults, {
+    provider: id,
     model: params.speechModel,
-    apiKey: await keys.get(defaults.speech.provider),
+    apiKey: await keys.get(loadSpeechCatalog().find((p) => p.id === id)?.keyName ?? id),
   });
   mkdirSync(params.outDir, { recursive: true });
   writeFileSync(join(params.outDir, "story.txt"), `${params.text}\n`);
@@ -342,16 +353,14 @@ async function storyVoiceJob(
     text: params.text,
     voice: params.voice,
     style: params.style,
+    language: params.language,
     outFile: join(params.outDir, "narration.wav"),
     onProgress: progress,
   });
   writeFileSync(
     join(params.outDir, "narration.json"),
-    `${JSON.stringify({ title: params.title, voice: params.voice, model: speech.model, ...result }, null, 2)}\n`,
+    `${JSON.stringify({ title: params.title, voice: params.voice, provider: speech.id, model: speech.model, ...result }, null, 2)}\n`,
   );
-  const price = loadSpeechCatalog()
-    .find((p) => p.id === speech.id)
-    ?.models.find((m) => m.id === speech.model)?.price;
   let music: { file: string; priceUsd: number } | null = null;
   let musicError: string | null = null;
   if (params.music) {
@@ -381,9 +390,93 @@ async function storyVoiceJob(
     file: result.file,
     durationS: result.durationS,
     chunks: result.chunks,
-    listPriceUsd: price
-      ? (result.audioTokens * price.outputAudio + result.inputTokens * price.input) / 1e6
-      : 0,
+    listPriceUsd: speechPriceUsd(speech.id, speech.model, result),
+  };
+}
+
+/**
+ * Voice Fix, step one: transcribes the whole exported window once, then picks the text of the fixed range,
+ * the sentences around it, and the stretches of the window a voice clone can learn from.
+ */
+async function voiceFixReadJob(
+  params: VoiceFixReadJobParams,
+  defaults: Defaults,
+  progress: (message: string) => void,
+) {
+  mkdirSync(params.outDir, { recursive: true });
+  let audioPath = params.audioPath;
+  let range = { startS: params.fixStartS, endS: params.fixEndS };
+  let windowPath: string | null = null;
+  if (params.windowStartS !== undefined && params.windowEndS !== undefined) {
+    // only the window is read; the fix and every time returned count from its start
+    windowPath = join(params.outDir, "window.wav");
+    await cutAudio(params.audioPath, windowPath, params.windowStartS, params.windowEndS);
+    audioPath = windowPath;
+    range = {
+      startS: Math.max(0, params.fixStartS - params.windowStartS),
+      endS: params.fixEndS - params.windowStartS,
+    };
+  }
+  // Whisper guesses the language from the window's first seconds, which may be music, an intro in
+  // another language or silence (a Turkish narration came back as English): guess it from the part
+  // being fixed, which is the editor's own speech, and read the window in that language
+  let language: string | undefined;
+  const fixPath = join(params.outDir, "fix.wav");
+  try {
+    await cutAudio(audioPath, fixPath, range.startS, range.endS);
+    language = (await transcribe({ audioPath: fixPath, defaults })).language ?? undefined;
+  } catch {
+    // no speech in the part, or too short to say: the window's own guess is used
+  }
+  // a window without speech surfaces as the job's error (NoSpeechError)
+  const transcript = await transcribe({
+    audioPath,
+    defaults,
+    language,
+    onProgress: progress,
+  });
+  writeFileSync(join(params.outDir, "transcript.json"), JSON.stringify(transcript, null, 2));
+  const { text, before, after } = fixContext(transcript.words, range);
+  return {
+    kind: "voice-fix-read" as const,
+    text,
+    before,
+    after,
+    language: transcript.language ?? "",
+    sample: voiceSampleSpans(transcript.words, range),
+    ...(windowPath ? { windowPath } : {}),
+  };
+}
+
+/** Voice Fix, step two: reads the edited text exactly as typed in the editor's clone; no style, no rewrite. */
+async function voiceFixSayJob(
+  params: VoiceFixSayJobParams,
+  keys: KeyStore,
+  defaults: Defaults,
+  progress: (message: string) => void,
+) {
+  const speech = createSpeechProvider(defaults, {
+    provider: "elevenlabs",
+    model: speechModelFor(defaults, "elevenlabs"),
+    apiKey: await keys.get(
+      loadSpeechCatalog().find((p) => p.id === "elevenlabs")?.keyName ?? "elevenlabs",
+    ),
+  });
+  const result = await narrate({
+    provider: speech,
+    text: params.text,
+    voice: params.voice,
+    language: params.language,
+    before: params.before,
+    after: params.after,
+    outFile: join(params.outDir, `take-${params.take}.wav`),
+    onProgress: progress,
+  });
+  return {
+    kind: "voice-fix-say" as const,
+    file: result.file,
+    durationS: result.durationS,
+    priceUsd: speechPriceUsd(speech.id, speech.model, result),
   };
 }
 
