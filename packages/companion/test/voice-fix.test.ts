@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -15,6 +15,7 @@ import type * as Core from "@kilnframe/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import { ClientMessageSchema, JobParamsSchema, MemoryKeyStore } from "../src/index.js";
+import { voiceSampleFile } from "../src/panel-support.js";
 import { pipelineRunner } from "../src/runner.js";
 import { startCompanion, type Companion } from "../src/server.js";
 
@@ -82,6 +83,42 @@ describe("voice fix protocol", () => {
     expect(parse({ spans: [] })).toBe(false);
     expect(parse({ spans: [{ startS: 1, endS: 5 }], consent: false })).toBe(false);
   });
+
+  it("needs consent for a real clone but not for a dry run", () => {
+    const msg = {
+      type: "speech.clone",
+      audioPath: "/a/window.wav",
+      name: "V",
+      spans: [{ startS: 1, endS: 5 }],
+    };
+    const parse = (o: object) => ClientMessageSchema.safeParse({ ...msg, ...o }).success;
+    expect(parse({ dryRun: true })).toBe(true);
+    expect(parse({})).toBe(false);
+    expect(parse({ dryRun: false })).toBe(false);
+    expect(parse({ consent: true })).toBe(true);
+  });
+
+  it("takes both window ends of voice-fix-read or neither", () => {
+    const base = {
+      kind: "voice-fix-read",
+      audioPath: "/a/export.wav",
+      fixStartS: 200,
+      fixEndS: 203,
+      outDir: "/a/voice-fix",
+    };
+    const parse = (o: object) => JobParamsSchema.safeParse({ ...base, ...o }).success;
+    expect(parse({ windowStartS: 20, windowEndS: 383 })).toBe(true);
+    expect(parse({ windowStartS: 20 })).toBe(false);
+    expect(parse({ windowEndS: 383 })).toBe(false);
+    expect(parse({ windowStartS: 50, windowEndS: 40 })).toBe(false);
+  });
+});
+
+describe("voice sample file", () => {
+  it("goes next to audio in a voice-fix folder, else into a voice-fix folder beside it", () => {
+    expect(voiceSampleFile("/j/voice-fix/window.wav")).toBe("/j/voice-fix/voice-sample.wav");
+    expect(voiceSampleFile("/j/other.wav")).toBe("/j/voice-fix/voice-sample.wav");
+  });
 });
 
 describe("voice-fix-read", () => {
@@ -131,6 +168,45 @@ describe("voice-fix-read", () => {
     ]);
     expect(r.sample.speechS).toBeCloseTo(2, 3);
     expect(existsSync(join(outDir, "transcript.json"))).toBe(true);
+    expect(r).not.toHaveProperty("windowPath");
+  });
+
+  it("cuts the window out of a longer export, reads only it, and counts times from its start", async () => {
+    const job = dir();
+    const exportFile = join(job, "export.wav");
+    // 30 s of silence at 8 kHz stands in for the whole sequence's export
+    writeFileSync(exportFile, pcmWav(Buffer.alloc(30 * 8000 * 2), 8000));
+    // the words as Whisper hears them in the window (which starts 10 s into the export)
+    const words = [
+      { text: "Önce.", start: 0, end: 1 },
+      { text: "Yanlış", start: 5, end: 6 },
+      { text: "kelime.", start: 6, end: 7.5 },
+      { text: "Sonra.", start: 12, end: 13 },
+    ];
+    vi.mocked(transcribe).mockResolvedValue({ language: "tr", duration_s: 14, words } as never);
+    const outDir = join(job, "voice-fix");
+    const r = (await pipelineRunner(new MemoryKeyStore())(
+      JobParamsSchema.parse({
+        kind: "voice-fix-read",
+        audioPath: exportFile,
+        fixStartS: 15,
+        fixEndS: 18,
+        windowStartS: 10,
+        windowEndS: 24,
+        outDir,
+      }),
+      events,
+    )) as { text: string; windowPath: string; sample: { spans: unknown[] } };
+    const windowPath = join(outDir, "window.wav");
+    expect(r.windowPath).toBe(windowPath);
+    expect(existsSync(windowPath)).toBe(true);
+    expect(vi.mocked(transcribe).mock.calls[0]![0]).toMatchObject({ audioPath: windowPath });
+    // the fix 15 to 18 s in the export is 5 to 8 s in the window
+    expect(r.text).toBe("Yanlış kelime.");
+    expect(r.sample.spans).toEqual([
+      { startS: 0, endS: 1 },
+      { startS: 12, endS: 13 },
+    ]);
   });
 });
 

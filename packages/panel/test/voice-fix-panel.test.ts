@@ -201,15 +201,18 @@ describe("voice fix panel", () => {
     await tick();
     await tick();
     // the window: 180 s before In (200 - 180) and 180 s after Out, clamped to the sequence's end
-    expect(exports[0]).toEqual([20, 300, "/j/voice-fix/window.wav"]);
+    // exported to the job folder (which exists); the companion cuts the window into voice-fix/
+    expect(exports[0]).toEqual([20, 300, "/j/export.wav"]);
     expect(sent.find((m) => m.type === "job.prepare")).toMatchObject({ sequenceName: "Voice Fix" });
     const read = jobs(sent)[0]!;
     // times count from the exported file's start
     expect(read).toEqual({
       kind: "voice-fix-read",
-      audioPath: "/j/voice-fix/window.wav",
+      audioPath: "/j/export.wav",
       fixStartS: 180,
       fixEndS: 183,
+      windowStartS: 0,
+      windowEndS: 280,
       outDir: "/j/voice-fix",
     });
     emit({
@@ -222,9 +225,12 @@ describe("voice fix panel", () => {
         after: "",
         language: "tr",
         sample: { spans: [{ startS: 0, endS: 90 }], speechS: 88 },
+        windowPath: "/j/voice-fix/window.wav",
       },
     });
     expect(st.stage).toBe("edit");
+    // the sample spans count from the window the companion cut: the clone reads that file
+    expect(st.windowFile).toBe("/j/voice-fix/window.wav");
     expect(st.text).toBe("geliyor 17");
     voiceFixAct(st, ctx, "fix-say", "");
     await tick();
@@ -270,14 +276,34 @@ describe("voice fix panel", () => {
     voiceFixAct(st, ctx, "fix-clone", "");
     await tick();
     await tick();
-    expect(exports[0]).toEqual([10, 80, "/j/voice-fix/other.wav"]);
+    expect(exports[0]).toEqual([10, 80, "/j/other.wav"]);
     const clone = sent.find((m) => m.type === "speech.clone")!;
     expect(clone).toMatchObject({
-      audioPath: "/j/voice-fix/other.wav",
+      audioPath: "/j/other.wav",
       rangeStartS: 10,
       rangeEndS: 80,
     });
     expect(clone).not.toHaveProperty("spans");
+  });
+
+  it("cuts the sample for listening without consent and plays it", async () => {
+    const { ctx, sent } = fakeCtx();
+    (ctx as unknown as { request: (m: Msg) => Promise<unknown> }).request = async (m: Msg) => {
+      sent.push(m);
+      return m.type === "speech.clone" ? { sample: "/j/voice-fix/voice-sample.wav" } : {};
+    };
+    const st = atStage("consent");
+    voiceFixAct(st, ctx, "fix-sample", "");
+    await tick();
+    await tick();
+    const dry = sent.find((m) => m.type === "speech.clone")!;
+    expect(dry).toMatchObject({ audioPath: "/j/voice-fix/window.wav", dryRun: true });
+    expect(dry).not.toHaveProperty("consent");
+    expect(sent.find((m) => m.type === "audio.play")).toEqual({
+      type: "audio.play",
+      file: "/j/voice-fix/voice-sample.wav",
+    });
+    expect(st.playing).toBe("sample");
   });
 
   it("refuses another part that overlaps the range being fixed", async () => {

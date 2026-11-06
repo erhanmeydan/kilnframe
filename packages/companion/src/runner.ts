@@ -404,14 +404,26 @@ async function voiceFixReadJob(
   progress: (message: string) => void,
 ) {
   mkdirSync(params.outDir, { recursive: true });
+  let audioPath = params.audioPath;
+  let range = { startS: params.fixStartS, endS: params.fixEndS };
+  let windowPath: string | null = null;
+  if (params.windowStartS !== undefined && params.windowEndS !== undefined) {
+    // only the window is read; the fix and every time returned count from its start
+    windowPath = join(params.outDir, "window.wav");
+    await cutAudio(params.audioPath, windowPath, params.windowStartS, params.windowEndS);
+    audioPath = windowPath;
+    range = {
+      startS: Math.max(0, params.fixStartS - params.windowStartS),
+      endS: params.fixEndS - params.windowStartS,
+    };
+  }
   // a window without speech surfaces as the job's error (NoSpeechError)
   const transcript = await transcribe({
-    audioPath: params.audioPath,
+    audioPath,
     defaults,
     onProgress: progress,
   });
   writeFileSync(join(params.outDir, "transcript.json"), JSON.stringify(transcript, null, 2));
-  const range = { startS: params.fixStartS, endS: params.fixEndS };
   const { text, before, after } = fixContext(transcript.words, range);
   return {
     kind: "voice-fix-read" as const,
@@ -420,6 +432,7 @@ async function voiceFixReadJob(
     after,
     language: transcript.language ?? "",
     sample: voiceSampleSpans(transcript.words, range),
+    ...(windowPath ? { windowPath } : {}),
   };
 }
 

@@ -1,6 +1,6 @@
 // The Voice Fix tab: the editor marks a mis-spoken part with In/Out, edits its words, and has them read in
-// their own ElevenLabs voice clone. Step one exports a window around the part from the speech track alone and
-// has the companion read it (voice-fix-read); a clone is made once per sequence and track, with the editor's
+// their own ElevenLabs voice clone. Step one exports the speech track alone and has the companion cut a window
+// around the part and read it (voice-fix-read); a clone is made once per sequence and track, with the editor's
 // consent; step two reads the text exactly as typed (voice-fix-say), and the take goes on a new audio track
 // at In. The original clip is never touched.
 import type { ServerMessage } from "./companion-session";
@@ -38,6 +38,7 @@ export interface VoiceFixState {
   /** The part being fixed, in sequence seconds. */
   fixStartS: number;
   fixEndS: number;
+  /** The window the companion cut (voice-fix/window.wav): the sample spans count from its start. */
   windowFile: string | null;
   /** The speech track could be heard alone in the export. */
   isolated: boolean;
@@ -435,7 +436,8 @@ async function readWindow(
     "job.prepared",
   );
   st.jobDir = String(prepared.jobDir);
-  const file = `${outDir(st)}/window.wav`;
+  // into the job folder, which exists: the companion cuts the window into voice-fix/ and reads only that
+  const file = `${st.jobDir}/export.wav`;
   const fromS = Math.max(0, st.fixStartS - WINDOW_S);
   const toS = Math.min(target.endSeconds, st.fixEndS + WINDOW_S);
   let exported;
@@ -449,7 +451,6 @@ async function readWindow(
   }
   if (!exported.result.ok) throw new Error(t("job.exportFailed"));
   st.isolated = exported.isolated;
-  st.windowFile = file;
   const offset = exported.result.offsetSeconds;
   await fixJob(
     st,
@@ -460,6 +461,8 @@ async function readWindow(
       // the written file starts at offsetSeconds in the sequence
       fixStartS: Math.max(0, st.fixStartS - offset),
       fixEndS: st.fixEndS - offset,
+      windowStartS: Math.max(0, fromS - offset),
+      windowEndS: toS - offset,
       outDir: outDir(st),
     },
     "idle",
@@ -469,6 +472,8 @@ async function readWindow(
       st.after = String(result.after ?? "");
       st.language = String(result.language ?? "");
       st.sample = (result.sample as VoiceFixState["sample"]) ?? null;
+      // the sample spans count from the window the companion cut
+      st.windowFile = result.windowPath ? String(result.windowPath) : null;
       st.stage = "edit";
     },
   );
@@ -571,7 +576,8 @@ async function cloneSource(
     return null;
   }
   const track = st.track;
-  const file = `${outDir(st)}/other.wav`;
+  // next to the job folder's export; the companion puts its sample in voice-fix/
+  const file = `${st.jobDir}/other.wav`;
   const endS = Math.min(range.endS, range.startS + CLONE_MAX_S);
   let exported;
   try {
@@ -610,9 +616,8 @@ async function listenSample(st: VoiceFixState, ctx: VoiceFixCtx): Promise<void> 
         ...source,
         name: cloneName(st),
         removeNoise: false,
+        // only cut to listen to: nothing is uploaded, so no consent is sent yet
         dryRun: true,
-        // the schema asks for it on every clone message; a dry run uploads nothing
-        consent: true,
       },
       "speech.cloned",
       180_000,

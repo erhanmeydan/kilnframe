@@ -5,7 +5,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   spawnAgentSync,
   withFreshPath,
@@ -53,6 +53,7 @@ import {
   stopSound,
   previewText,
   prepareJobDir,
+  voiceSampleFile,
   styleCards,
   reviewFromDisk,
 } from "./panel-support.js";
@@ -189,11 +190,11 @@ async function main() {
       // a dry run only cuts the sample, so it needs no key
       if (!o.dryRun && (!entry || !key))
         throw new Error("Voice cloning needs an ElevenLabs key. Add it in the settings.");
-      // the sample sits next to the exported range, in the same job folder
+      // the sample goes in the job's voice-fix folder (cutVoiceSample makes it), where audio.play finds it
       const sample = cutVoiceSample({
         input: o.audioPath,
         ...(o.spans ? { spans: o.spans } : { startS: o.rangeStartS ?? 0, endS: o.rangeEndS ?? 0 }),
-        outFile: join(dirname(o.audioPath), "voice-sample.wav"),
+        outFile: voiceSampleFile(o.audioPath),
       });
       if (o.dryRun)
         return {

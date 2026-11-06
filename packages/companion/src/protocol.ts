@@ -239,13 +239,26 @@ const CaptionColorsSchema = z.object({
  * the stretches the voice clone can learn from (never the range itself) come back. Times count from the
  * window file's start.
  */
-export const VoiceFixReadJobParamsSchema = z.object({
-  kind: z.literal("voice-fix-read"),
-  audioPath: z.string().min(1),
-  fixStartS: z.number().min(0),
-  fixEndS: z.number().positive(),
-  outDir: z.string().min(1),
-});
+export const VoiceFixReadJobParamsSchema = z
+  .object({
+    kind: z.literal("voice-fix-read"),
+    audioPath: z.string().min(1),
+    fixStartS: z.number().min(0),
+    fixEndS: z.number().positive(),
+    outDir: z.string().min(1),
+    /**
+     * The window around the fix inside `audioPath` (an export of the whole sequence, say): cut to
+     * `<outDir>/window.wav`, and only that is read. The result's times then count from the window's start.
+     */
+    windowStartS: z.number().min(0).optional(),
+    windowEndS: z.number().positive().optional(),
+  })
+  .refine(
+    (p) =>
+      (p.windowStartS === undefined) === (p.windowEndS === undefined) &&
+      (p.windowStartS === undefined || p.windowEndS! > p.windowStartS),
+    { message: "Give both window ends, the end after the start, or neither." },
+  );
 
 /** Voice Fix, step two: the edited text read in the editor's cloned voice, one numbered take at a time. */
 export const VoiceFixSayJobParamsSchema = z.object({
@@ -410,7 +423,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       removeNoise: z.boolean().default(false),
       /** Only cut the sample (so the editor can listen to it) and upload nothing. */
       dryRun: z.boolean().optional(),
-      consent: z.literal(true),
+      /** Required for a real clone; a dry run uploads nothing and needs none. */
+      consent: z.literal(true).optional(),
+    })
+    .refine((m) => m.dryRun === true || m.consent === true, {
+      message: "A voice is cloned only with the editor's consent.",
     })
     .refine(
       (m) => {
