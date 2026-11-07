@@ -22,7 +22,7 @@ import { bundledTools } from "./bundle.js";
 import { companionPath } from "./shell-path.js";
 import type { AppUpdateState } from "@kilnframe/companion";
 import { updateMenuLine } from "./update-menu.js";
-import { startUpdates, type Updates } from "./updates.js";
+import { startUpdates, storeUpdates, type Updates } from "./updates.js";
 import {
   bundledPlugin,
   installPlugin,
@@ -55,6 +55,11 @@ const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
 const home = process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe");
 const logFile = join(home, "companion.log");
+/**
+ * Installed from the Microsoft Store (an MSIX package): the Store updates the app, and the package starts it at
+ * login (its startup task), since a login item it writes lands in the package's own copy of the registry.
+ */
+const fromStore = process.windowsStore === true;
 const turkish = app.getLocale().toLowerCase().startsWith("tr");
 
 const text = turkish
@@ -100,6 +105,8 @@ const text = turkish
       quitWhenDone: "Bitince Kapat",
       quitNow: "Şimdi Kapat",
       closingWhenDone: "Animasyon bitince kapanacak",
+      oldInstall:
+        "Kilnframe kurulum dosyasıyla da kurulu. İkisi birlikte çalışmaz: Ayarlar > Uygulamalar'dan eski Kilnframe'i kaldırın.",
     }
   : {
       running: "Kilnframe is running",
@@ -143,6 +150,8 @@ const text = turkish
       quitWhenDone: "Quit When Done",
       quitNow: "Quit Now",
       closingWhenDone: "Quits when the animation is done",
+      oldInstall:
+        "Kilnframe is also installed from its installer. The two do not run together: remove the old Kilnframe in Settings > Apps.",
     };
 
 let tray: Tray | null = null;
@@ -321,7 +330,18 @@ function askToQuit() {
 /** On Windows the login item carries LOGIN_FLAG, so a start at login can be told apart (announce.ts). */
 const loginArgs = process.platform === "win32" ? { args: [LOGIN_FLAG] } : {};
 const openAtLogin = () => app.getLoginItemSettings(loginArgs).openAtLogin;
-const setOpenAtLogin = (on: boolean) => app.setLoginItemSettings({ openAtLogin: on, ...loginArgs });
+const setOpenAtLogin = (on: boolean) => {
+  if (!fromStore) app.setLoginItemSettings({ openAtLogin: on, ...loginArgs });
+};
+
+/** Where the installer (Kilnframe-Windows.exe) puts the app. */
+const oldInstall = () =>
+  join(
+    process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"),
+    "Programs",
+    "kilnframe",
+    "Kilnframe.exe",
+  );
 
 /** Opened by the user, or again while it runs: say where the icon is, and open its menu the second time. */
 function announce(again: boolean) {
@@ -487,15 +507,20 @@ function refreshMenu() {
           void shell.openPath(styles);
         },
       },
-      {
-        label: text.login,
-        type: "checkbox",
-        checked: login,
-        click: () => {
-          setOpenAtLogin(!login);
-          refreshMenu();
-        },
-      },
+      // the Store build starts at login through its package, switched in Windows' Startup apps settings
+      ...(fromStore
+        ? []
+        : [
+            {
+              label: text.login,
+              type: "checkbox" as const,
+              checked: login,
+              click: () => {
+                setOpenAtLogin(!login);
+                refreshMenu();
+              },
+            },
+          ]),
       { type: "separator" },
       { label: text.quit, click: () => app.quit() },
     ]),
@@ -580,7 +605,17 @@ else {
     readyAt = Date.now();
     refreshMenu();
     // only a packaged app updates; in development the version is the repository's
-    if (app.isPackaged)
+    if (fromStore) {
+      updates = storeUpdates(
+        appVersion,
+        () => void shell.openExternal("ms-windows-store://downloadsandupdates"),
+      );
+      // the installer's copy would start at login too and take the companion's port
+      if (existsSync(oldInstall())) {
+        logLine(`store: the installer's Kilnframe is also installed (${oldInstall()})`);
+        notify(text.oldInstall);
+      }
+    } else if (app.isPackaged)
       updates = startUpdates({
         current: appVersion,
         log: logLine,

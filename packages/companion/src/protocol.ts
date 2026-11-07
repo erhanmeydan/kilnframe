@@ -488,6 +488,8 @@ export interface AppUpdateState {
   notes?: string | undefined;
   percent?: number | undefined;
   error?: string | undefined;
+  /** Installed from the Microsoft Store, which updates the app itself: the panel sends the editor there. */
+  store?: boolean | undefined;
 }
 
 export type ServerMessage =
