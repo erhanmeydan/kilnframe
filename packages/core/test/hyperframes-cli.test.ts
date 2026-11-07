@@ -27,13 +27,13 @@ import { PlanSchema } from "../src/schemas/plan.js";
 // The real CLI starts Chrome, as the caption render tests do.
 const RENDER = Boolean(process.env.KILNFRAME_RENDER_TESTS);
 
-/** One second of an orange box sliding over navy at 320x180: small enough for a render in a second or two. */
-const FIXTURE = `<!doctype html>
+/** `seconds` (one by default) of an orange box sliding over navy at 320x180: one renders in a second or two. */
+const fixtureHtml = (seconds = 1) => `<!doctype html>
 <html><head><meta charset="UTF-8" /><script src="gsap.js"></script>
 <style>html,body{margin:0;background:#000}#root{position:absolute;inset:0;overflow:hidden;background:#123}#box{position:absolute;left:40px;top:40px;width:80px;height:80px;background:#f80}</style></head>
-<body><div id="root" data-composition-id="fixture" data-start="0" data-width="320" data-height="180" data-duration="1">
+<body><div id="root" data-composition-id="fixture" data-start="0" data-width="320" data-height="180" data-duration="${seconds}">
 <div id="box"></div></div>
-<script>const tl = gsap.timeline({ paused: true }); tl.to("#box", { x: 160, duration: 1, ease: "none" }, 0); window.__timelines["fixture"] = tl;</script></body></html>
+<script>const tl = gsap.timeline({ paused: true }); tl.to("#box", { x: 160, duration: ${seconds}, ease: "none" }, 0); window.__timelines["fixture"] = tl;</script></body></html>
 `;
 
 /** The temporary folders a test made, removed after it. */
@@ -44,9 +44,9 @@ const temp = (prefix: string) => {
   return dir;
 };
 
-function fixture(): string {
+function fixture(seconds = 1): string {
   const dir = temp("kf-hf-cli-");
-  writeFileSync(join(dir, "index.html"), FIXTURE);
+  writeFileSync(join(dir, "index.html"), fixtureHtml(seconds));
   copyFileSync(join(vendorDir(), "gsap", "gsap.min.js"), join(dir, "gsap.js"));
   return dir;
 }
@@ -276,7 +276,11 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
   }, 120_000);
 
   it("a render that waits for another says so (onWait), and both finish", async () => {
-    const dir = fixture();
+    // the second starts once the first holds HyperFrames' render slot, and the first is long enough to still hold
+    // it when the second asks: started together, a slow start of one could find the other done and never wait
+    const dir = fixture(5);
+    const cacheDir = temp("kf-hf-cache-");
+    setHyperframesDirs({ cacheDir, configDir: temp("kf-hf-config-") });
     const waited: string[] = [];
     const render = (name: string) =>
       renderProject(dir, {
@@ -286,8 +290,12 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
         onFrames: () => {},
         onWait: () => waited.push(name),
       });
-    await Promise.all([render("a"), render("b")]);
-    expect(waited).toHaveLength(1);
+    const first = render("a");
+    const slot = join(cacheDir, "locks", "render.lock");
+    for (let i = 0; i < 200 && !existsSync(slot); i++) await new Promise((r) => setTimeout(r, 50));
+    expect(existsSync(slot)).toBe(true);
+    await Promise.all([first, render("b")]);
+    expect(waited).toEqual(["b"]);
     expect(
       existsSync(join(dir, "renders", "a.mp4")) && existsSync(join(dir, "renders", "b.mp4")),
     ).toBe(true);
