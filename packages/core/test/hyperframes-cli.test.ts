@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -208,12 +209,34 @@ describe("hyperframesEnv", () => {
     });
   });
 
+  it("turns off the warm check, whose process outlives the run (CI is its only switch in 0.9)", () => {
+    expect(hyperframesEnv({ PATH: "/bin" }).CI).toBe("1");
+  });
+
   it("leaves HyperFrames' own folders alone when the app gives none", () => {
     const env = hyperframesEnv({ PATH: "/bin" });
     expect(env.HYPERFRAMES_CACHE_DIR).toBeUndefined();
     expect(env.HYPERFRAMES_CONFIG_DIR).toBeUndefined();
   });
 });
+
+/**
+ * HyperFrames' warm-check processes (0.9: started detached when a check ends) whose working folder is dir, by pid.
+ * Read with pgrep and lsof, so macOS and Linux only.
+ */
+function warmChecksIn(dir: string): number[] {
+  const pids = spawnSync("pgrep", ["-f", "warmCheck.js"], { encoding: "utf8" })
+    .stdout.split("\n")
+    .map(Number)
+    .filter((n) => n > 0);
+  const want = realpathSync(dir);
+  return pids.filter((pid) => {
+    const cwd = spawnSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8" })
+      .stdout.split("\n")
+      .find((l) => l.startsWith("n"));
+    return cwd?.slice(1) === want;
+  });
+}
 
 /** The browser HyperFrames launches, under the environment a run gets now. */
 const browserPath = () =>
@@ -327,6 +350,24 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
     await snapshotProject(dir, [4], out);
     expect(snapshotStills(out)).toHaveLength(1);
   }, 120_000);
+
+  it.skipIf(process.platform === "win32")(
+    "a check leaves no warm-check process behind, holding a Chrome and the project as its folder",
+    async () => {
+      // a short cache folder: the warm process listens on <cache>/warm/<12 hex>.sock, and a path over macOS's
+      // 103 bytes makes it quit at once, which would hide it (the reviewer's home folder did)
+      const cache = mkdtempSync("/tmp/kfw-");
+      made.push(cache);
+      setHyperframesDirs({ cacheDir: cache, configDir: temp("kf-hf-config-") });
+      const dir = fixture();
+      await checkProject(dir);
+      await new Promise((r) => setTimeout(r, 1000));
+      const left = warmChecksIn(dir);
+      for (const pid of left) process.kill(pid);
+      expect(left).toEqual([]);
+    },
+    120_000,
+  );
 
   it("keeps HyperFrames' caches in the folders the app gives, and renders with the Chrome it is told", async () => {
     const dirs = temp("kf-hf-dirs-");

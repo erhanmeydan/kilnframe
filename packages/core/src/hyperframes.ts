@@ -30,13 +30,24 @@ export function setHyperframesDirs(d: HyperframesDirs): void {
   dirs = { ...d };
 }
 
-/** The environment a HyperFrames run gets: the caller's, quiet, and the app's folders when it set them. */
+/**
+ * The environment a HyperFrames run gets: the caller's, quiet, without the warm check, and the app's folders when
+ * it set them.
+ *
+ * CI turns off 0.9's warm check: a check run without a terminal starts, as it ends, a detached process that
+ * launches a Chrome and idles five minutes in the project folder for the next check. Being detached, it escapes
+ * every kill of the job's process tree, so it outlived Cancel and quit, and on Windows the folder it holds cannot
+ * be removed. CI is HyperFrames' only switch for it; in 0.9.19 CI otherwise only turns off colours (NO_COLOR does
+ * already), the render feedback prompt (off with telemetry), the update check, the desktop app hint and
+ * telemetry's CI field, and on Windows lets the setup prompts draw their Unicode symbols.
+ */
 export function hyperframesEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...base,
     HYPERFRAMES_NO_TELEMETRY: "1",
     DO_NOT_TRACK: "1",
     NO_COLOR: "1",
+    CI: "1",
   };
   if (dirs.cacheDir) env.HYPERFRAMES_CACHE_DIR = dirs.cacheDir;
   if (dirs.configDir) env.HYPERFRAMES_CONFIG_DIR = dirs.configDir;
