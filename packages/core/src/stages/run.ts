@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Defaults } from "../config.js";
-import { checkProject, type CheckFinding } from "../hyperframes.js";
+import { checkProject, sceneOfFinding, type CheckFinding } from "../hyperframes.js";
 import { assembleProject } from "../project/assemble.js";
 import { UsageMeter, type TextProvider } from "../providers/types.js";
 import { sceneMode, type Plan } from "../schemas/plan.js";
@@ -62,11 +62,8 @@ export interface PipelineResult {
 
 /** Which scene a HyperFrames finding belongs to, from its file or selector. */
 export function findingScene(f: CheckFinding, sceneIds: string[]): string | null {
-  for (const id of sceneIds) {
-    if (f.sourceFile?.includes(`compositions/${id}.html`)) return id;
-    if (f.selector && new RegExp(`#${id}-|\\[data-composition-id="${id}"\\]`).test(f.selector))
-      return id;
-  }
+  const placed = sceneOfFinding(f, sceneIds);
+  if (placed) return placed;
   // Runtime errors are reported against index.html; the scene usually names itself in the message
   // ("s2 build error", "#s2-card"). Only attribute when exactly one scene is named.
   const named = sceneIds.filter((id) => new RegExp(`(^|[^a-z0-9])${id}([^0-9]|$)`).test(f.message));

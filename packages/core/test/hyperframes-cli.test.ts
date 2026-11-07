@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
@@ -15,6 +16,7 @@ import {
   checkProject,
   hyperframesBin,
   hyperframesEnv,
+  inCanvasScene,
   parseCheckJson,
   renderProject,
   setHyperframesDirs,
@@ -54,17 +56,49 @@ function fixture(seconds = 1): string {
 
 const goldenDir = join(import.meta.dirname, "..", "..", "..", "examples", "golden");
 
-/** A golden scene (examples/golden/<name>) assembled as the pipeline does, root page and all. */
-function golden(name: string): string {
+/**
+ * A golden scene (examples/golden/<name>) assembled as the pipeline does, root page and all; `own` replaces scenes of
+ * its plan by id.
+ */
+function golden(name: string, own: Record<string, string> = {}): string {
   const from = join(goldenDir, name);
   const plan = PlanSchema.parse(JSON.parse(readFileSync(join(from, "plan.json"), "utf8")));
   const scenes = Object.fromEntries(
-    plan.scenes.map((s) => [s.id, readFileSync(join(from, "scenes", `${s.id}.html`), "utf8")]),
+    plan.scenes.map((s) => [
+      s.id,
+      own[s.id] ?? readFileSync(join(from, "scenes", `${s.id}.html`), "utf8"),
+    ]),
   );
   const dir = temp(`kf-golden-${name}-`);
   assembleProject({ plan, scenes, projectDir: dir, assetsDir: join(from, "assets") });
   return dir;
 }
+
+/** A scene of a bar chart drawn in SVG, under a full-frame gradient backdrop written after it. */
+const coveredChart = `<!doctype html>
+<html><head><meta charset="UTF-8" /></head><body><template>
+<style>#s1-root{position:absolute;inset:0;overflow:hidden;background:#e8dcc8}#s1-chart{position:absolute;left:360px;top:240px}#s1-backdrop{position:absolute;inset:0;background:linear-gradient(135deg,#1b2a3a,#2e4a62)}</style>
+<div id="s1-root" data-composition-id="s1" data-width="1920" data-height="1080">
+<svg id="s1-chart" width="1200" height="600" viewBox="0 0 1200 600">
+<rect class="s1-bar" x="0" y="300" width="200" height="300" fill="#3e6e73" />
+<rect class="s1-bar" x="300" y="200" width="200" height="400" fill="#3e6e73" />
+<rect class="s1-bar" x="600" y="100" width="200" height="500" fill="#d9826b" />
+</svg>
+<div id="s1-backdrop"></div>
+</div>
+<script type="module">
+const ID = "s1";
+window.__hf = window.__hf || {};
+window.__hf.buildReady = window.__hf.buildReady || {};
+window.__hf.buildReady[ID] = (async () => {
+  const tl = gsap.timeline({ paused: true });
+  tl.fromTo(".s1-bar", { opacity: 0 }, { opacity: 1, duration: 1, stagger: 0.2 }, 0.2);
+  window.__timelines[ID] = tl;
+  return true;
+})();
+</script>
+</template></body></html>
+`;
 
 /** The brand at bytes 8-11 of an ISO media file: "qt  " for a QuickTime mov, "isom" and the like for an mp4. */
 function brand(file: string): string {
@@ -137,15 +171,17 @@ describe("parseCheckJson", () => {
   });
 });
 
-describe("parseCheckJson, a finding the app counts as a warning", () => {
+describe("parseCheckJson, a finding the app counts as a warning in a scene with a canvas", () => {
   const coveredBg = {
     code: "canvas_covered",
     severity: "error",
     message: "An opaque element covers the canvas above every other visible clip.",
     selector: "#s1-bg",
+    sourceFile: "compositions/s1.html",
   };
+  const onCanvas = () => true;
 
-  it("reads layout's canvas_covered as a warning, and the check passes when it was the only error", () => {
+  it("reads layout's canvas_covered as a warning in a scene with a canvas, and the check passes when it was the only error", () => {
     // kil-lacivert: the flat background div sits under the WebGL canvas, yet 0.9.13 calls it covering
     const report = parseCheckJson(
       JSON.stringify({
@@ -153,12 +189,29 @@ describe("parseCheckJson, a finding the app counts as a warning", () => {
         layout: { ok: false, errorCount: 1, findings: [coveredBg] },
         lint: { ok: true, errorCount: 0, findings: [] },
       }),
+      onCanvas,
     );
     expect(report.errors).toEqual([]);
     expect(report.warnings.map((w) => [w.section, w.code, w.severity])).toEqual([
       ["layout", "canvas_covered", "warning"],
     ]);
     expect(report.ok).toBe(true);
+  });
+
+  it("keeps it an error in a scene without a canvas: an opaque cover over a chart hides it", () => {
+    const report = parseCheckJson(
+      JSON.stringify({ ok: false, layout: { ok: false, errorCount: 1, findings: [coveredBg] } }),
+      () => false,
+    );
+    expect(report.errors.map((e) => [e.section, e.code])).toEqual([["layout", "canvas_covered"]]);
+    expect(report.ok).toBe(false);
+  });
+
+  it("keeps it an error when no project is given to look in", () => {
+    const report = parseCheckJson(
+      JSON.stringify({ ok: false, layout: { ok: false, errorCount: 1, findings: [coveredBg] } }),
+    );
+    expect(report.errors.map((e) => e.code)).toEqual(["canvas_covered"]);
   });
 
   it("still fails on any other error beside it", () => {
@@ -171,6 +224,7 @@ describe("parseCheckJson, a finding the app counts as a warning", () => {
           findings: [coveredBg, { ...coveredBg, code: "content_overflow" }],
         },
       }),
+      onCanvas,
     );
     expect(report.errors.map((e) => e.code)).toEqual(["content_overflow"]);
     expect(report.ok).toBe(false);
@@ -179,9 +233,55 @@ describe("parseCheckJson, a finding the app counts as a warning", () => {
   it("keeps canvas_covered an error from any other section", () => {
     const report = parseCheckJson(
       JSON.stringify({ ok: false, craft: { ok: false, errorCount: 1, findings: [coveredBg] } }),
+      onCanvas,
     );
     expect(report.errors.map((e) => e.code)).toEqual(["canvas_covered"]);
     expect(report.ok).toBe(false);
+  });
+});
+
+describe("inCanvasScene", () => {
+  const project = (scenes: Record<string, string>) => {
+    const dir = temp("kf-hf-scenes-");
+    mkdirSync(join(dir, "compositions"));
+    writeFileSync(join(dir, "index.html"), "<div data-composition-id='root'></div>");
+    for (const [id, html] of Object.entries(scenes))
+      writeFileSync(join(dir, "compositions", `${id}.html`), html);
+    return dir;
+  };
+  const gl = '<canvas id="s1-gl" width="1920" height="1080"></canvas><div id="s1-bg"></div>';
+  const chart = '<svg id="s2-chart"></svg><div id="s2-cover"></div>';
+
+  it("finds the scene by the finding's source file", () => {
+    const at = inCanvasScene(project({ s1: gl, s2: chart }));
+    expect(at({ severity: "error", message: "", sourceFile: "compositions/s1.html" })).toBe(true);
+    expect(at({ severity: "error", message: "", sourceFile: "compositions/s2.html" })).toBe(false);
+  });
+
+  it("finds the scene by the selector's id when there is no source file", () => {
+    const at = inCanvasScene(project({ s1: gl, s2: chart, s10: chart }));
+    expect(at({ severity: "error", message: "", selector: "#s1-bg" })).toBe(true);
+    expect(at({ severity: "error", message: "", selector: "#s2-cover" })).toBe(false);
+    // s10's selector is not s1's
+    expect(at({ severity: "error", message: "", selector: "#s10-cover" })).toBe(false);
+  });
+
+  it("counts a canvas a scene's script makes", () => {
+    const at = inCanvasScene(
+      project({ s1: '<div id="s1-bg"></div><script>document.body.appendChild(document.createElement("canvas"))</script>' }),
+    );
+    expect(at({ severity: "error", message: "", selector: "#s1-bg" })).toBe(true);
+  });
+
+  it("says no for the root page, a scene it cannot find and a file outside the project", () => {
+    const dir = project({ s1: gl });
+    const at = inCanvasScene(dir);
+    expect(at({ severity: "error", message: "", sourceFile: "index.html" })).toBe(false);
+    expect(at({ severity: "error", message: "", selector: "#s9-bg" })).toBe(false);
+    expect(at({ severity: "error", message: "", selector: "[data-composition-id]" })).toBe(false);
+    writeFileSync(join(dir, "..", "outside.html"), gl);
+    made.push(join(dir, "..", "outside.html"));
+    expect(at({ severity: "error", message: "", sourceFile: "../outside.html" })).toBe(false);
   });
 });
 
@@ -339,6 +439,26 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
     const report = await checkProject(golden("flat-infografik"));
     expect(report.errors).toEqual([]);
     expect(report.ok).toBe(true);
+  }, 120_000);
+
+  it("a WebGL background under a canvas is a warning: kil-lacivert passes", async () => {
+    const report = await checkProject(golden("kil-lacivert"));
+    expect(report.warnings.map((w) => [w.section, w.code])).toContainEqual([
+      "layout",
+      "canvas_covered",
+    ]);
+    expect(report.errors).toEqual([]);
+    expect(report.ok).toBe(true);
+  }, 120_000);
+
+  it("a full-frame opaque backdrop over an SVG chart, in a scene without a canvas, stays an error", async () => {
+    // the slip the check is there for: the backdrop comes after the content, so the frame shows only it
+    const report = await checkProject(golden("flat-infografik", { s1: coveredChart }));
+    expect(report.errors.map((e) => [e.section, e.code])).toContainEqual([
+      "layout",
+      "canvas_covered",
+    ]);
+    expect(report.ok).toBe(false);
   }, 120_000);
 
   it("snapshots a scene whose async build returns its timeline", async () => {

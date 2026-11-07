@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
@@ -123,21 +123,70 @@ function isSection(value: unknown): value is Required<Pick<CheckSection, "findin
 }
 
 /**
- * Findings the app counts as warnings though HyperFrames calls them errors, as "section:code".
- * - layout:canvas_covered (0.9.13 and up) is a false positive for a flat background under a WebGL canvas: the
- *   clay-3D layout (a background div at z-index 0, the canvas above it) is reported as covering the canvas,
- *   while the stills show the figure in front of the background. As an error it failed the check and sent the
- *   scene to repair rounds that could not fix it. To be reported upstream.
+ * Findings the app counts as warnings, though HyperFrames calls them errors, in a scene that draws on a canvas, as
+ * "section:code". Elsewhere they stay errors.
+ * - layout:canvas_covered (0.9.13 and up) fires when one opaque element spanning the frame sits above every other
+ *   painted clip. Under a WebGL canvas that is a false positive: the audit cannot read the canvas's pixels, so the
+ *   clay-3D layout (a background div at z-index 0, the canvas above it) is reported as covered while the stills
+ *   show the figure in front of the background; as an error it sent the scene to repair rounds that could not fix
+ *   it. In a scene without a canvas it is the slip it is meant to catch (a full-frame backdrop written after the
+ *   chart or shapes it should be under), which no other check of the app catches in an overlay. To be reported
+ *   upstream.
  */
-const APP_WARNINGS = new Set(["layout:canvas_covered"]);
+const CANVAS_WARNINGS = new Set(["layout:canvas_covered"]);
+
+/** Whether the scene a finding belongs to draws on a canvas; see inCanvasScene. */
+export type InCanvasScene = (finding: CheckFinding) => boolean;
+
+/** A <canvas> in a scene's markup, or one its script makes (a WebGL renderer adds its own). */
+const DRAWS_ON_CANVAS = /<canvas\b|createElement\(\s*["'`]canvas["'`]\s*\)/i;
+
+/**
+ * Which of sceneIds a finding is placed in by its file (compositions/<id>.html) or its selector (#<id>-…, or the
+ * scene's [data-composition-id]), else null.
+ */
+export function sceneOfFinding(f: CheckFinding, sceneIds: string[]): string | null {
+  for (const id of sceneIds) {
+    if (f.sourceFile?.includes(`compositions/${id}.html`)) return id;
+    if (f.selector && new RegExp(`#${id}-|\\[data-composition-id="${id}"\\]`).test(f.selector))
+      return id;
+  }
+  return null;
+}
+
+/**
+ * For a finding of a check of projectDir: whether its scene (sceneOfFinding, over the project's compositions)
+ * draws on a canvas. The root page and a scene not found say no.
+ */
+export function inCanvasScene(projectDir: string): InCanvasScene {
+  const scenes = join(projectDir, "compositions");
+  let ids: string[];
+  try {
+    ids = readdirSync(scenes)
+      .filter((n) => n.endsWith(".html"))
+      .map((n) => n.slice(0, -".html".length));
+  } catch {
+    ids = [];
+  }
+  return (f) => {
+    const id = sceneOfFinding(f, ids);
+    if (id === null) return false;
+    try {
+      return DRAWS_ON_CANVAS.test(readFileSync(join(scenes, `${id}.html`), "utf8"));
+    } catch {
+      return false;
+    }
+  };
+}
 
 /**
  * Parses `hyperframes check --json` output into errors and warnings across all sections. Every section that
  * carries findings counts, not a fixed list: 0.8 had lint, runtime, layout, motion and contrast, 0.9 added
  * craft and audio, and a section left out would fail the top-level ok without a finding to say why. A finding
- * in APP_WARNINGS is a warning whatever HyperFrames calls it.
+ * in CANVAS_WARNINGS is a warning when `onCanvas` says its scene draws on a canvas (inCanvasScene of the project
+ * checked); without it, an error.
  */
-export function parseCheckJson(json: string): CheckReport {
+export function parseCheckJson(json: string, onCanvas: InCanvasScene = () => false): CheckReport {
   const start = json.indexOf("{");
   if (start < 0) throw new Error("hyperframes check did not return JSON.");
   const raw = JSON.parse(json.slice(start)) as Record<string, unknown>;
@@ -147,7 +196,7 @@ export function parseCheckJson(json: string): CheckReport {
   for (const [name, section] of Object.entries(raw)) {
     if (!isSection(section)) continue;
     for (const f of section.findings) {
-      if (f.severity === "error" && APP_WARNINGS.has(`${name}:${f.code}`)) {
+      if (f.severity === "error" && CANVAS_WARNINGS.has(`${name}:${f.code}`) && onCanvas(f)) {
         warnings.push({ ...f, severity: "warning", section: name });
         demoted++;
       } else if (f.severity === "error") errors.push({ ...f, section: name });
@@ -166,7 +215,7 @@ export function parseCheckJson(json: string): CheckReport {
 
 export async function checkProject(projectDir: string): Promise<CheckReport & { ms: number }> {
   const r = await runHyperframes(["check", "--json"], projectDir);
-  return { ...parseCheckJson(r.stdout), ms: r.ms };
+  return { ...parseCheckJson(r.stdout, inCanvasScene(projectDir)), ms: r.ms };
 }
 
 export async function snapshotProject(
