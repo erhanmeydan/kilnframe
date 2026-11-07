@@ -262,6 +262,16 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
     expect(report.ok).toBe(true);
   }, 120_000);
 
+  it("snapshots a scene whose async build returns its timeline", async () => {
+    // teknik-cizim's scenes register buildReady = build() and end build with `return tl`: the promise took
+    // the paused timeline's then and never settled, and 0.9's snapshot waited 45 s for it, then failed
+    const dir = golden("teknik-cizim");
+    expect(readFileSync(join(dir, "compositions", "s1.html"), "utf8")).toContain("return tl;");
+    const out = join(dir, "shots");
+    await snapshotProject(dir, [4], out);
+    expect(snapshotStills(out)).toHaveLength(1);
+  }, 120_000);
+
   it("keeps HyperFrames' caches in the folders the app gives, and renders with the Chrome it is told", async () => {
     const dirs = temp("kf-hf-dirs-");
     setHyperframesDirs({ cacheDir: join(dirs, "cache"), configDir: join(dirs, "config") });

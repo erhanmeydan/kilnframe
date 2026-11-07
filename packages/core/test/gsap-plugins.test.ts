@@ -1,8 +1,9 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { GSAP_PLUGINS, rootHtml, vendorDir } from "../src/project/assemble.js";
-import { draftToPlan, parseFps } from "../src/index.js";
+import { BUILD_READY_GUARD, GSAP_PLUGINS, rootHtml, vendorDir } from "../src/project/assemble.js";
+import { draftToPlan, loadPrompt, parseFps } from "../src/index.js";
 
 const plan = draftToPlan(
   {
@@ -84,5 +85,70 @@ describe("root page", () => {
 
   it("selects nothing on the inline style attribute, which HyperFrames 0.9's check fails", () => {
     expect(rootHtml(plan)).not.toMatch(/\[style[*^$~|]?=/);
+  });
+});
+
+describe("buildReady guard", () => {
+  /** The guard run in a page of its own, with GSAP loaded first as in the root. */
+  function page() {
+    // GSAP's ticker is never needed here: the timelines stay paused
+    const idle = () => 0;
+    const win: Record<string, unknown> = {
+      requestAnimationFrame: idle,
+      cancelAnimationFrame: idle,
+      setTimeout: idle,
+      clearTimeout: idle,
+    };
+    win.window = win;
+    runInNewContext(readFileSync(join(vendorDir(), "gsap", "gsap.min.js"), "utf8"), win);
+    runInNewContext(BUILD_READY_GUARD, win);
+    const run = <T>(code: string) => runInNewContext(code, win) as T;
+    return run;
+  }
+  const settled = (p: Promise<unknown>) =>
+    Promise.race([
+      p.then(
+        (v) => ({ value: v }),
+        (e: unknown) => ({ error: String(e) }),
+      ),
+      new Promise((r) => setTimeout(() => r("never settled"), 200)),
+    ]);
+
+  it("settles a build that returns its paused timeline, and with nothing", async () => {
+    // teknik-cizim's pattern: buildReady = build(), and build ends with `return tl`
+    const run = page();
+    run(`
+      window.__hf = window.__hf || {};
+      window.__hf.buildReady = window.__hf.buildReady || {};
+      async function build() {
+        const tl = gsap.timeline({ paused: true });
+        tl.to({ x: 0 }, { x: 1, duration: 2 });
+        return tl;
+      }
+      window.__hf.buildReady["s1"] = build();
+    `);
+    expect(await settled(run<Promise<unknown>>(`window.__hf.buildReady["s1"]`))).toEqual({
+      value: undefined,
+    });
+  });
+
+  it("still passes on a build that failed", async () => {
+    const run = page();
+    run(`window.__hf.buildReady["s1"] = Promise.reject(new Error("no font"));`);
+    expect(await settled(run<Promise<unknown>>(`window.__hf.buildReady["s1"]`))).toEqual({
+      error: "Error: no font",
+    });
+  });
+
+  it("is asked for in the compose prompt too: a build returns nothing, never its timeline", () => {
+    const prompt = loadPrompt("compose");
+    expect(prompt).toContain('window.__hf.buildReady["SCENE_ID"] = buildPromise;');
+    expect(prompt).toContain("The build returns\n  nothing, never the timeline (no `return tl;`)");
+  });
+
+  it("is in the root after GSAP, before any scene", () => {
+    const html = rootHtml(plan);
+    expect(html.indexOf(BUILD_READY_GUARD)).toBeGreaterThan(html.indexOf("gsap.registerPlugin("));
+    expect(html.indexOf(BUILD_READY_GUARD)).toBeLessThan(html.indexOf('<div id="root"'));
   });
 });

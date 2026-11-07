@@ -26,6 +26,22 @@ export const GSAP_PLUGINS = [
   "CustomEase",
 ] as const;
 
+/**
+ * Run in the root once GSAP is loaded, before any scene: a scene's buildReady settles with nothing, whatever its
+ * build returned. A GSAP animation is a thenable that settles only once it has played to its end, so an async
+ * build ending in `return tl` handed the paused timeline to its own promise, which then never settled, and
+ * HyperFrames 0.9 waits for every buildReady before the first frame (its snapshot gave up after 45 s). No scene
+ * awaits an animation, so none is a thenable here; a build that fails still rejects.
+ */
+export const BUILD_READY_GUARD = `gsap.core.Animation.prototype.then = undefined;
+      window.__hf = window.__hf || {};
+      window.__hf.buildReady = new Proxy(window.__hf.buildReady || {}, {
+        set(ready, id, build) {
+          ready[id] = build && typeof build.then === "function" ? Promise.resolve(build).then(() => undefined) : build;
+          return true;
+        },
+      });`;
+
 /** The root composition: one host per scene, played back to back, plus shared runtime scripts. */
 export function rootHtml(plan: Plan): string {
   const { width, height, fps } = plan;
@@ -45,6 +61,9 @@ export function rootHtml(plan: Plan): string {
     <script src="vendor/gsap/gsap.min.js"></script>
 ${GSAP_PLUGINS.map((p) => `    <script src="vendor/gsap/${p}.min.js"></script>`).join("\n")}
     <script>gsap.registerPlugin(${GSAP_PLUGINS.join(", ")});</script>
+    <script>
+      ${BUILD_READY_GUARD}
+    </script>
     <script src="vendor/d3/d3.min.js"></script>
     <script src="vendor/icons/lucide.js"></script>
     <script type="importmap">
