@@ -219,6 +219,8 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
       said = pct;
       log(`Rendering video (${done}/${total} frames)`);
     },
+    // another render holds HyperFrames' slot: the wait is said, not a bar standing still
+    onWait: () => log("Waiting for another render to finish"),
   });
   timingsMs.render = render.ms;
 

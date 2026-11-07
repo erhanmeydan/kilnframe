@@ -122,6 +122,8 @@ export async function renderCaptions(
           shown = pct;
           log(`Rendering captions${part}: ${pct}%`);
         },
+        // another render holds HyperFrames' slot: the wait is said, not a bar standing still
+        onWait: () => log(`Waiting for another render to finish${part}`),
       });
       log(`Encoding the caption clip${part}`);
       const piece = segments.length > 1 ? join(projectDir, `piece-${k + 1}.mov`) : video;

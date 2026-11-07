@@ -19,6 +19,7 @@ import {
   setHyperframesDirs,
   snapshotProject,
   snapshotStills,
+  waitsForRenderSlot,
 } from "../src/hyperframes.js";
 import { vendorDir } from "../src/project/assemble.js";
 
@@ -120,6 +121,18 @@ describe("parseCheckJson", () => {
   });
 });
 
+describe("waitsForRenderSlot", () => {
+  it("knows the line HyperFrames 0.9 prints while another render holds the slot", () => {
+    expect(
+      waitsForRenderSlot(
+        "  Waiting for another render to finish (pid 4242, project /p, running 3s). Renders run one at a time per user account; pass --no-wait to stop instead.",
+      ),
+    ).toBe(true);
+    expect(waitsForRenderSlot('@hf-progress {"stage":"capture"}')).toBe(false);
+    expect(waitsForRenderSlot("  Lock: /cache/locks/render.lock")).toBe(false);
+  });
+});
+
 describe("hyperframesEnv", () => {
   it("passes the app's cache and settings folders to HyperFrames", () => {
     setHyperframesDirs({ cacheDir: "/app/hf-cache", configDir: "/app/hf-config" });
@@ -197,6 +210,24 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
     });
     expect(frames.length).toBeGreaterThan(0);
     expect(frames.at(-1)).toEqual([30, 30]);
+  }, 120_000);
+
+  it("a render that waits for another says so (onWait), and both finish", async () => {
+    const dir = fixture();
+    const waited: string[] = [];
+    const render = (name: string) =>
+      renderProject(dir, {
+        fps: "30",
+        output: join(dir, "renders", `${name}.mp4`),
+        format: "mp4",
+        onFrames: () => {},
+        onWait: () => waited.push(name),
+      });
+    await Promise.all([render("a"), render("b")]);
+    expect(waited).toHaveLength(1);
+    expect(
+      existsSync(join(dir, "renders", "a.mp4")) && existsSync(join(dir, "renders", "b.mp4")),
+    ).toBe(true);
   }, 120_000);
 
   it("render honours -o and --format", async () => {

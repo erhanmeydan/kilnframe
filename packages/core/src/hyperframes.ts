@@ -182,6 +182,19 @@ export interface RenderOptions {
   onLine?: (line: string) => void;
   /** Frames captured so far: given, the render runs without --quiet so HyperFrames reports them. */
   onFrames?: (done: number, total: number) => void;
+  /**
+   * Another render holds HyperFrames' render slot (0.9.14 and up: one render at a time per cache folder) and this
+   * one waits for it; said once per holder. Its frames come once it runs.
+   */
+  onWait?: () => void;
+}
+
+/**
+ * Whether a line is HyperFrames' word that the render waits for another to finish (its render slot): printed
+ * once per holder while it waits, before any frame.
+ */
+export function waitsForRenderSlot(line: string): boolean {
+  return line.trimStart().startsWith("Waiting for another render to finish");
 }
 
 /** A `@hf-progress {"code":"capture","done":…,"total":…}` line's frame counts, else null. */
@@ -200,14 +213,16 @@ export function capturedFrames(line: string): { done: number; total: number } | 
 export async function renderProject(projectDir: string, o: RenderOptions): Promise<RunResult> {
   const args = ["render", "--fps", o.fps, "-o", o.output, "--format", o.format];
   if (!o.onFrames) args.push("--quiet");
-  const onFrames = o.onFrames;
-  const onLine = onFrames
-    ? (line: string) => {
-        const f = capturedFrames(line);
-        if (f) onFrames(f.done, f.total);
-        o.onLine?.(line);
-      }
-    : o.onLine;
+  const { onFrames, onWait } = o;
+  const onLine =
+    onFrames || onWait
+      ? (line: string) => {
+          const f = onFrames && capturedFrames(line);
+          if (f) onFrames(f.done, f.total);
+          else if (onWait && waitsForRenderSlot(line)) onWait();
+          o.onLine?.(line);
+        }
+      : o.onLine;
   const r = await runHyperframes(args, projectDir, onLine);
   // without --quiet the log is long: its end holds the failure
   if (r.code !== 0)
