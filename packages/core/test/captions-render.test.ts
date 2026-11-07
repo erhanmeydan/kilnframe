@@ -1,14 +1,20 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { buildCaptionProject, type CaptionDoc } from "../src/captions/compose.js";
 import { previewCaptionStill, renderCaptions } from "../src/captions/render.js";
 import { CAPTION_LOOKS } from "../src/captions/styles.js";
 import type { CaptionLine, CaptionStyleId } from "../src/captions/types.js";
 import { ffmpegPath } from "../src/config.js";
-import { checkProject, snapshotProject } from "../src/hyperframes.js";
+import {
+  checkProject,
+  hyperframesBin,
+  hyperframesEnv,
+  setHyperframesDirs,
+  snapshotProject,
+} from "../src/hyperframes.js";
 
 // Real HyperFrames renders take a browser and minutes: run with KILNFRAME_RENDER_TESTS=1.
 const RENDER = Boolean(process.env.KILNFRAME_RENDER_TESTS);
@@ -109,6 +115,26 @@ const two = doc([
 ]);
 
 describe.skipIf(!RENDER)("caption render", () => {
+  // as the real-CLI tests in hyperframes-cli.test.ts: HyperFrames' caches in a folder of this file's own, removed
+  // after (no copy of each caption project lands in ~/.cache/hyperframes/history), and its own pick of Chrome
+  // given by path, since with another cache folder it would look for its Chrome there
+  let caches = "";
+  const shellBefore = process.env.PRODUCER_HEADLESS_SHELL_PATH;
+  beforeAll(() => {
+    process.env.PRODUCER_HEADLESS_SHELL_PATH = spawnSync(process.execPath, [hyperframesBin(), "browser", "path"], {
+      env: hyperframesEnv(),
+      encoding: "utf8",
+    }).stdout.trim();
+    caches = mkdtempSync(join(tmpdir(), "kf-caption-hf-"));
+  });
+  beforeEach(() => setHyperframesDirs({ cacheDir: join(caches, "cache"), configDir: join(caches, "config") }));
+  afterEach(() => setHyperframesDirs({}));
+  afterAll(() => {
+    if (shellBefore === undefined) delete process.env.PRODUCER_HEADLESS_SHELL_PATH;
+    else process.env.PRODUCER_HEADLESS_SHELL_PATH = shellBefore;
+    rmSync(caches, { recursive: true, force: true });
+  });
+
   it.each(LOOKS)(
     "passes hyperframes check for %s",
     async (look) => {
