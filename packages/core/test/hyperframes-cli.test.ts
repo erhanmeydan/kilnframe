@@ -1,9 +1,18 @@
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   checkProject,
+  hyperframesBin,
   hyperframesEnv,
   parseCheckJson,
   renderProject,
@@ -25,8 +34,16 @@ const FIXTURE = `<!doctype html>
 <script>const tl = gsap.timeline({ paused: true }); tl.to("#box", { x: 160, duration: 1, ease: "none" }, 0); window.__timelines["fixture"] = tl;</script></body></html>
 `;
 
+/** The temporary folders a test made, removed after it. */
+const made: string[] = [];
+const temp = (prefix: string) => {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  made.push(dir);
+  return dir;
+};
+
 function fixture(): string {
-  const dir = mkdtempSync(join(tmpdir(), "kf-hf-cli-"));
+  const dir = temp("kf-hf-cli-");
   writeFileSync(join(dir, "index.html"), FIXTURE);
   copyFileSync(join(vendorDir(), "gsap", "gsap.min.js"), join(dir, "gsap.js"));
   return dir;
@@ -37,11 +54,14 @@ function brand(file: string): string {
   return readFileSync(file).subarray(4, 12).toString("latin1");
 }
 
-afterEach(() => setHyperframesDirs({}));
+afterEach(() => {
+  setHyperframesDirs({});
+  for (const d of made.splice(0)) rmSync(d, { recursive: true, force: true });
+});
 
 describe("snapshotStills", () => {
   const files = (names: string[]) => {
-    const dir = mkdtempSync(join(tmpdir(), "kf-hf-stills-"));
+    const dir = temp("kf-hf-stills-");
     for (const n of names) writeFileSync(join(dir, n), "");
     return { dir, read: () => snapshotStills(dir).map((f) => f.slice(dir.length + 1)) };
   };
@@ -59,6 +79,16 @@ describe("snapshotStills", () => {
   it("orders the names snapshot --keep writes by their time", () => {
     const { read } = files(["at-12.25s.png", "at-1.5s.png", "at-0s.png", "notes.txt"]);
     expect(read()).toEqual(["at-0s.png", "at-1.5s.png", "at-12.25s.png"]);
+  });
+
+  it("gives the numbered stills only from a folder holding both kinds: a number and a time have no one order", () => {
+    const { read } = files([
+      "frame-01-at-5s.png",
+      "at-0.5s.png",
+      "frame-00-at-1s.png",
+      "at-12s.png",
+    ]);
+    expect(read()).toEqual(["frame-00-at-1s.png", "frame-01-at-5s.png"]);
   });
 });
 
@@ -109,7 +139,31 @@ describe("hyperframesEnv", () => {
   });
 });
 
+/** The browser HyperFrames launches, under the environment a run gets now. */
+const browserPath = () =>
+  spawnSync(process.execPath, [hyperframesBin(), "browser", "path"], {
+    env: hyperframesEnv(),
+    encoding: "utf8",
+  }).stdout.trim();
+
 describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
+  // HyperFrames' own pick of Chrome, from its own cache folder; every run below keeps its caches in a folder of
+  // its own (none adds a copy of the fixture to ~/.cache/hyperframes/history), and is told that Chrome by path,
+  // as an app does: with another cache folder, HyperFrames would look for its Chrome there
+  let chrome = "";
+  const shellBefore = process.env.PRODUCER_HEADLESS_SHELL_PATH;
+  beforeAll(() => {
+    chrome = browserPath();
+  });
+  beforeEach(() => {
+    process.env.PRODUCER_HEADLESS_SHELL_PATH = chrome;
+    setHyperframesDirs({ cacheDir: temp("kf-hf-cache-"), configDir: temp("kf-hf-config-") });
+  });
+  afterEach(() => {
+    if (shellBefore === undefined) delete process.env.PRODUCER_HEADLESS_SHELL_PATH;
+    else process.env.PRODUCER_HEADLESS_SHELL_PATH = shellBefore;
+  });
+
   it("snapshot writes frames the readers find", async () => {
     const dir = fixture();
     const out = join(dir, "shots");
@@ -155,11 +209,14 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
     expect(brand(mp4)).toMatch(/^ftyp(isom|mp42)/);
   }, 120_000);
 
-  it("keeps HyperFrames' caches in the folders the app gives", async () => {
-    const dirs = mkdtempSync(join(tmpdir(), "kf-hf-dirs-"));
+  it("keeps HyperFrames' caches in the folders the app gives, and renders with the Chrome it is told", async () => {
+    const dirs = temp("kf-hf-dirs-");
     setHyperframesDirs({ cacheDir: join(dirs, "cache"), configDir: join(dirs, "config") });
+    expect(browserPath()).toBe(chrome);
     await checkProject(fixture());
     expect(existsSync(join(dirs, "cache", "history"))).toBe(true);
     expect(existsSync(join(dirs, "config", "config.json"))).toBe(true);
+    // no Chrome fetched into the app's cache folder
+    expect(existsSync(join(dirs, "cache", "chrome"))).toBe(false);
   }, 120_000);
 });

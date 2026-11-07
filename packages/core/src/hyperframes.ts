@@ -105,7 +105,7 @@ export interface CheckReport {
 }
 
 /** A check pass's report: any top-level entry that carries findings. */
-function isSection(value: unknown): value is CheckSection {
+function isSection(value: unknown): value is Required<Pick<CheckSection, "findings">> {
   return (
     typeof value === "object" && value !== null && Array.isArray((value as CheckSection).findings)
   );
@@ -124,7 +124,7 @@ export function parseCheckJson(json: string): CheckReport {
   const warnings: CheckFinding[] = [];
   for (const [name, section] of Object.entries(raw)) {
     if (!isSection(section)) continue;
-    for (const f of section.findings ?? []) {
+    for (const f of section.findings) {
       if (f.severity === "error") errors.push({ ...f, section: name });
       else if (f.severity === "warning") warnings.push({ ...f, section: name });
     }
@@ -162,16 +162,16 @@ const TIMED_STILL = /^at-(\d+(?:\.\d+)?)s\.png$/;
 /**
  * The stills a snapshot run wrote into dir, in the order of their times: numbered stills by number (frame-100
  * comes after frame-99), timed ones by time. The contact sheet and anything else in the folder are left out.
+ * A number and a time cannot be put in one order, so a folder with both (a --keep run into one of numbered
+ * stills) gives the numbered ones only: the plain run's, which is what every caller here makes.
  */
 export function snapshotStills(dir: string): string[] {
-  const order = (f: string) => {
-    const n = NUMBERED_STILL.exec(f) ?? TIMED_STILL.exec(f);
-    return n ? Number(n[1]) : null;
-  };
-  return readdirSync(dir)
-    .map((f) => ({ f, at: order(f) }))
-    .filter((s): s is { f: string; at: number } => s.at !== null)
-    .sort((a, b) => a.at - b.at)
+  const files = readdirSync(dir);
+  const scheme = files.some((f) => NUMBERED_STILL.test(f)) ? NUMBERED_STILL : TIMED_STILL;
+  return files
+    .map((f) => ({ f, at: scheme.exec(f)?.[1] }))
+    .filter((s): s is { f: string; at: string } => s.at !== undefined)
+    .sort((a, b) => Number(a.at) - Number(b.at))
     .map((s) => join(dir, s.f));
 }
 
