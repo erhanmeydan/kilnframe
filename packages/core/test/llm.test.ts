@@ -207,10 +207,20 @@ describe("compose", () => {
     const scene = (head: string) =>
       `<template>${head}<div id="root" data-composition-id="s2" data-width="1920" data-height="1080"></div><script type="module">const tl = gsap.timeline({ paused: true }); window.__timelines["s2"] = tl;</script></template>`;
     const again = /loads GSAP itself/;
-    expect(staticSceneProblems(scene('<script src="vendor/gsap/gsap.min.js"></script>'), "s2").join()).toMatch(again);
-    expect(staticSceneProblems(scene("<script src='./vendor/gsap/SplitText.min.js'></script>"), "s2").join()).toMatch(again);
     expect(
-      staticSceneProblems(scene('<script type="module">import gsap from "vendor/gsap/index.js";</script>'), "s2").join(),
+      staticSceneProblems(scene('<script src="vendor/gsap/gsap.min.js"></script>'), "s2").join(),
+    ).toMatch(again);
+    expect(
+      staticSceneProblems(
+        scene("<script src='./vendor/gsap/SplitText.min.js'></script>"),
+        "s2",
+      ).join(),
+    ).toMatch(again);
+    expect(
+      staticSceneProblems(
+        scene('<script type="module">import gsap from "vendor/gsap/index.js";</script>'),
+        "s2",
+      ).join(),
     ).toMatch(again);
     expect(staticSceneProblems(scene(""), "s2")).toEqual([]);
   });

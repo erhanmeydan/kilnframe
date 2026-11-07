@@ -230,7 +230,8 @@ export function parseCheckJson(json: string, onCanvas: InCanvasScene = () => fal
     });
   }
   if (raw.ok !== true && errors.length === 0) {
-    for (const section of unexplained) errors.push({ severity: "error", section, message: UNEXPLAINED });
+    for (const section of unexplained)
+      errors.push({ severity: "error", section, message: UNEXPLAINED });
     if (!unexplained.length && !explained) errors.push({ severity: "error", message: UNEXPLAINED });
   }
   return { ok: errors.length === 0, errors, warnings, raw };

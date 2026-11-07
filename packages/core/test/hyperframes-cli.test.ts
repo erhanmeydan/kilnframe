@@ -220,15 +220,23 @@ describe("parseCheckJson, a check that failed without a finding", () => {
   });
 
   it("is one error for the whole check when no section says it failed", () => {
-    const report = parseCheckJson(JSON.stringify({ ok: false, lint: { ok: true, errorCount: 0, findings: [] } }));
-    expect(report.errors).toEqual([{ severity: "error", message: "The check failed without saying why." }]);
+    const report = parseCheckJson(
+      JSON.stringify({ ok: false, lint: { ok: true, errorCount: 0, findings: [] } }),
+    );
+    expect(report.errors).toEqual([
+      { severity: "error", message: "The check failed without saying why." },
+    ]);
   });
 
   it("adds nothing beside errors that are listed", () => {
     const report = parseCheckJson(
       JSON.stringify({
         ok: false,
-        lint: { ok: false, errorCount: 1, findings: [{ severity: "error", message: "bad", code: "x" }] },
+        lint: {
+          ok: false,
+          errorCount: 1,
+          findings: [{ severity: "error", message: "bad", code: "x" }],
+        },
       }),
     );
     expect(report.errors.map((e) => e.message)).toEqual(["bad"]);
@@ -357,7 +365,9 @@ describe("inCanvasScene", () => {
 
   it("counts a canvas a scene's script makes", () => {
     const at = inCanvasScene(
-      project({ s1: '<div id="s1-bg"></div><script>document.body.appendChild(document.createElement("canvas"))</script>' }),
+      project({
+        s1: '<div id="s1-bg"></div><script>document.body.appendChild(document.createElement("canvas"))</script>',
+      }),
     );
     expect(at({ severity: "error", message: "", selector: "#s1-bg" })).toBe(true);
   });
@@ -420,7 +430,9 @@ function warmChecksIn(dir: string): number[] {
     .filter((n) => n > 0);
   const want = realpathSync(dir);
   return pids.filter((pid) => {
-    const cwd = spawnSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8" })
+    const cwd = spawnSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], {
+      encoding: "utf8",
+    })
       .stdout.split("\n")
       .find((l) => l.startsWith("n"));
     return cwd?.slice(1) === want;
