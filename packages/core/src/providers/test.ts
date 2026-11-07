@@ -21,7 +21,9 @@ export interface ProviderTestResult {
 export async function testProvider(provider: TextProvider): Promise<ProviderTestResult> {
   const started = Date.now();
   try {
-    provider.preflight?.();
+    // the check that does not block, when the provider has one: an app runs this test in its main process
+    if (provider.preflightAsync) await provider.preflightAsync();
+    else provider.preflight?.();
     const r = await provider.complete({
       system: "You check a connection. Answer with one English word.",
       messages: [

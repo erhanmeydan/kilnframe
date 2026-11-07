@@ -1,4 +1,5 @@
 import {
+  execFile,
   spawn,
   spawnSync,
   type ChildProcessWithoutNullStreams,
@@ -71,6 +72,27 @@ function readRegistryPaths(): string[] {
     });
     return r.status === 0 ? parseRegPath(r.stdout) : "";
   });
+}
+
+/** The same as readRegistryPaths, without blocking the caller while `reg` runs. */
+function readRegistryPathsAsync(): Promise<string[]> {
+  const keys = [
+    "HKCU\\Environment",
+    "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+  ];
+  return Promise.all(
+    keys.map(
+      (key) =>
+        new Promise<string>((resolve) =>
+          execFile(
+            "reg",
+            ["query", key, "/v", "Path"],
+            { encoding: "utf8", timeout: 5_000, windowsHide: true },
+            (err, stdout) => resolve(err ? "" : parseRegPath(stdout)),
+          ),
+        ),
+    ),
+  );
 }
 
 /** Where to look on Windows: the registry's PATH, then the process's own, then the installers' folders. */
@@ -157,8 +179,50 @@ export function remembered<T>(fn: () => T, ms: number, now: () => number = Date.
   };
 }
 
-// each lookup spawns `reg query` twice; a settings refresh looks up three agents several times
-const registryPathsNow = remembered(readRegistryPaths, 5_000);
+/**
+ * fn's result kept for `ms`, refreshed without blocking: past `ms` the last answer is given at once and `read`
+ * asks again beside the caller. Only a first call before any answer blocks (`fn`); `ready()` fills it without.
+ */
+export function keptFresh<T>(
+  fn: () => T,
+  read: () => Promise<T>,
+  ms: number,
+  now: () => number = Date.now,
+): (() => T) & { ready: () => Promise<void> } {
+  let at = -Infinity;
+  let value: { v: T } | null = null;
+  let asking: Promise<void> | null = null;
+  const ask = (): Promise<void> =>
+    (asking ??= read()
+      .then((v) => {
+        value = { v };
+        at = now();
+      })
+      .catch(() => {})
+      .finally(() => (asking = null)));
+  const get = () => {
+    if (!value) {
+      value = { v: fn() };
+      at = now();
+    } else if (now() - at >= ms) void ask();
+    return value.v;
+  };
+  return Object.assign(get, {
+    ready: () => (value && now() - at < ms ? Promise.resolve() : ask()),
+  });
+}
+
+// each lookup reads the registry's PATH (`reg query`, twice); a settings refresh looks up three agents several
+// times, and a job runs an agent for every request: it is kept, and read again beside the caller once stale
+const registryPathsNow = keptFresh(readRegistryPaths, readRegistryPathsAsync, 5_000);
+
+/**
+ * Reads Windows' registry PATH beside the caller, so no agent lookup after it waits on `reg` (elsewhere there is
+ * nothing to read). An app calls it as it starts; the async helpers below call it themselves.
+ */
+export function warmAgentLookup(): Promise<void> {
+  return process.platform === "win32" ? registryPathsNow.ready() : Promise.resolve();
+}
 
 function defaultLookup(): AgentLookup {
   return {
@@ -189,6 +253,45 @@ export function spawnAgentSync(
 ): SpawnSyncReturns<string> {
   const run = agentSpawn(agent, args, opts.env ?? process.env);
   return spawnSync(run.file, run.args, { ...opts, env: run.env, windowsHide: true });
+}
+
+/** What an agent CLI printed and how it ended, as spawnSync gives it; `error` when it could not run or timed out. */
+export interface AgentRun {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+  error?: Error;
+}
+
+/** spawnAgentSync without blocking: the agent CLI runs beside the caller, its registry lookup too. */
+export async function runAgent(
+  agent: AgentName,
+  args: string[],
+  opts: { timeout?: number; env?: NodeJS.ProcessEnv; cwd?: string } = {},
+): Promise<AgentRun> {
+  await warmAgentLookup();
+  const run = agentSpawn(agent, args, opts.env ?? process.env);
+  return new Promise((resolve) =>
+    execFile(
+      run.file,
+      run.args,
+      {
+        encoding: "utf8",
+        env: run.env,
+        windowsHide: true,
+        ...(opts.timeout ? { timeout: opts.timeout } : {}),
+        ...(opts.cwd ? { cwd: opts.cwd } : {}),
+      },
+      (err, stdout, stderr) => {
+        if (!err) return resolve({ status: 0, stdout, stderr });
+        const code = (err as { code?: unknown }).code;
+        // a non-zero exit is an answer; not starting at all, or a timeout, is an error, as spawnSync says
+        if (typeof code === "number" && !err.killed)
+          return resolve({ status: code, stdout, stderr });
+        resolve({ status: null, stdout, stderr, error: err });
+      },
+    ),
+  );
 }
 
 /** spawn (piped stdio) for an agent CLI, found as agentCommand finds it. */

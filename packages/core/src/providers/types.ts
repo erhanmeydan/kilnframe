@@ -66,6 +66,8 @@ export interface TextProvider {
   complete(request: TextRequest): Promise<TextResponse>;
   /** Fails fast, before transcription, when the provider cannot work (for example no credentials). */
   preflight?(): void;
+  /** The same check without blocking the caller (an app's main process uses it when the provider has it). */
+  preflightAsync?(): Promise<void>;
   /** Models available to this account, for the model picker. */
   listModels?(): Promise<ModelInfo[]>;
   /** The model's price when the provider lists it (OpenRouter), for models models.json does not know. */
@@ -113,6 +115,7 @@ export class UsageMeter {
       capabilities: provider.capabilities,
       ...(provider.billing ? { billing: provider.billing } : {}),
       ...(provider.preflight ? { preflight: () => provider.preflight?.() } : {}),
+      ...(provider.preflightAsync ? { preflightAsync: () => provider.preflightAsync!() } : {}),
       ...(provider.listModels ? { listModels: () => provider.listModels!() } : {}),
       ...(provider.modelPrice ? { modelPrice: () => provider.modelPrice!() } : {}),
       ...(provider.loadedContext ? { loadedContext: () => provider.loadedContext!() } : {}),

@@ -1,4 +1,4 @@
-import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
+import { runAgent, spawnAgent, spawnAgentSync, type AgentRun } from "./agent-binary.js";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,12 +31,27 @@ export interface CodexStatus {
 
 export function codexStatus(): CodexStatus {
   const version = spawnAgentSync("codex", ["--version"], { encoding: "utf8", timeout: 20_000 });
-  if (version.error || version.status !== 0)
+  if (version.error || version.status !== 0) return codexStatusOf(version, null);
+  return codexStatusOf(
+    version,
+    spawnAgentSync("codex", ["login", "status"], { encoding: "utf8", timeout: 20_000 }),
+  );
+}
+
+/** codexStatus without blocking: the CLI is asked beside the caller. */
+export async function codexStatusAsync(): Promise<CodexStatus> {
+  const version = await runAgent("codex", ["--version"], { timeout: 20_000 });
+  if (version.error || version.status !== 0) return codexStatusOf(version, null);
+  return codexStatusOf(version, await runAgent("codex", ["login", "status"], { timeout: 20_000 }));
+}
+
+/** The state from what `codex --version` and `codex login status` printed. */
+function codexStatusOf(
+  version: AgentRun,
+  status: Pick<AgentRun, "stdout" | "stderr"> | null,
+): CodexStatus {
+  if (version.error || version.status !== 0 || !status)
     return { installed: false, version: null, loggedIn: false, method: null };
-  const status = spawnAgentSync("codex", ["login", "status"], {
-    encoding: "utf8",
-    timeout: 20_000,
-  });
   const text = `${status.stdout}\n${status.stderr}`;
   const loggedIn = /logged in/i.test(text) && !/not logged in/i.test(text);
   return {
@@ -133,7 +148,15 @@ export class CodexProvider implements TextProvider {
   }
 
   preflight(): void {
-    const s = codexStatus();
+    this.check(codexStatus());
+  }
+
+  /** preflight without blocking: an app's main process checks this way. */
+  async preflightAsync(): Promise<void> {
+    this.check(await codexStatusAsync());
+  }
+
+  private check(s: CodexStatus): void {
     if (!s.installed)
       throw new ProviderError(
         "Codex is not installed. Install it from developers.openai.com/codex/cli, or use an API key.",

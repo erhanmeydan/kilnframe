@@ -1,4 +1,4 @@
-import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
+import { runAgent, spawnAgent, spawnAgentSync, type AgentRun } from "./agent-binary.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -72,7 +72,34 @@ function cliEnv(usePlan: boolean): NodeJS.ProcessEnv {
 /** Version and sign-in state. Only the fields the settings screen needs are kept (no e-mail or org). */
 export function claudeCodeStatus(): ClaudeCodeStatus {
   const version = spawnAgentSync("claude", ["--version"], { encoding: "utf8", timeout: 20_000 });
-  if (version.error || version.status !== 0) {
+  if (version.error || version.status !== 0) return claudeCodeStatusOf(version, null);
+  const status = spawnAgentSync("claude", ["auth", "status"], {
+    encoding: "utf8",
+    timeout: 20_000,
+    env: cliEnv(true),
+  });
+  return claudeCodeStatusOf(version, status);
+}
+
+/**
+ * claudeCodeStatus without blocking: the CLI is asked beside the caller. An app's main process uses this one,
+ * as each asking takes about a second.
+ */
+export async function claudeCodeStatusAsync(): Promise<ClaudeCodeStatus> {
+  const version = await runAgent("claude", ["--version"], { timeout: 20_000 });
+  if (version.error || version.status !== 0) return claudeCodeStatusOf(version, null);
+  return claudeCodeStatusOf(
+    version,
+    await runAgent("claude", ["auth", "status"], { timeout: 20_000, env: cliEnv(true) }),
+  );
+}
+
+/** The state from what `claude --version` and `claude auth status` printed. */
+function claudeCodeStatusOf(
+  version: AgentRun,
+  status: Pick<AgentRun, "stdout"> | null,
+): ClaudeCodeStatus {
+  if (version.error || version.status !== 0 || !status) {
     return {
       installed: false,
       version: null,
@@ -81,11 +108,6 @@ export function claudeCodeStatus(): ClaudeCodeStatus {
       subscription: null,
     };
   }
-  const status = spawnAgentSync("claude", ["auth", "status"], {
-    encoding: "utf8",
-    timeout: 20_000,
-    env: cliEnv(true),
-  });
   let parsed: { loggedIn?: boolean; authMethod?: string; subscriptionType?: string } = {};
   try {
     parsed = JSON.parse(status.stdout) as typeof parsed;
@@ -165,7 +187,15 @@ export class ClaudeCodeProvider implements TextProvider {
   }
 
   preflight(): void {
-    const s = claudeCodeStatus();
+    this.check(claudeCodeStatus());
+  }
+
+  /** preflight without blocking: an app's main process checks this way. */
+  async preflightAsync(): Promise<void> {
+    this.check(await claudeCodeStatusAsync());
+  }
+
+  private check(s: ClaudeCodeStatus): void {
     if (!s.installed) {
       throw new ProviderError(
         "Claude Code is not installed. Install it from claude.com/code, or use an API key.",

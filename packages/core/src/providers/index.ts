@@ -137,6 +137,7 @@ export function withModelFallback(
     },
     ...(primary.billing ? { billing: primary.billing } : {}),
     ...(primary.preflight ? { preflight: () => primary.preflight?.() } : {}),
+    ...(primary.preflightAsync ? { preflightAsync: () => primary.preflightAsync!() } : {}),
     ...(primary.listModels ? { listModels: () => primary.listModels!() } : {}),
     // the model in use: the fallback's once the primary model turned out unavailable
     modelPrice: () => active.modelPrice?.() ?? Promise.resolve(undefined),
