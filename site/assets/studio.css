@@ -1647,3 +1647,13 @@ footer .wrap {
 .hero h1 .clay {
   white-space: nowrap;
 }
+
+/* the Windows installer for those who skip the Microsoft Store */
+.alt-download {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.closing .alt-download {
+  text-align: center;
+}

@@ -39,7 +39,7 @@ Kilnframe itself is free. The only cost is the AI: a plan the editor already has
 
 - Website and download: https://kilnframe.com (Turkish: https://kilnframe.com/tr/)
 - Download for Mac: https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg
-- Download for Windows: https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe
+- Download for Windows: https://apps.microsoft.com/detail/9NJ407WWN82F (Microsoft Store) or the installer https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe
 - Source code: https://github.com/erhanmeydan/kilnframe
 - Changelog: https://kilnframe.com/changelog/
 - Promo video: https://youtu.be/6W_dFwX2UYs

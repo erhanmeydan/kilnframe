@@ -53,7 +53,8 @@
             "softwareRequirements": "Adobe Premiere Pro 2026 (26.2 or later), DaVinci Resolve Studio 21.1 or later or FilmCraft 0.14.0 or later",
             "downloadUrl": [
               "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-mac.pkg",
-              "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+              "https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe",
+              "https://apps.microsoft.com/detail/9NJ407WWN82F"
             ],
             "license": "https://www.apache.org/licenses/LICENSE-2.0",
             "isAccessibleForFree": true,
@@ -210,7 +211,7 @@
                 "name": "Why does Windows warn about the installer?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "The Windows installer is not code signed yet, so SmartScreen asks. Click More info, then Run anyway. The Mac installer is signed and notarized by Apple."
+                  "text": "The Windows installer (.exe) is not code signed yet, so SmartScreen asks: click More info, then Run anyway. The Microsoft Store version is signed by Microsoft and shows no warning, so it is the easier way on Windows. The Mac installer is signed and notarized by Apple."
                 }
               },
               {
@@ -277,16 +278,24 @@
                   >Download for Mac <small>Apple silicon</small></a
                 >
                 <a
-                  data-goatcounter-click="download-windows"
+                  data-goatcounter-click="download-windows-store"
                   class="btn"
                   data-os="windows"
-                  href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
-                  >Windows <small>10 / 11</small></a
+                  href="https://apps.microsoft.com/detail/9NJ407WWN82F"
+                  >Windows <small>Microsoft Store</small></a
                 >
                 <button class="btn play" data-play="../assets/video/promo-en.mp4">
                   ▶ Watch the film
                 </button>
               </div>
+              <p class="alt-download">
+                Prefer an installer?
+                <a
+                  data-goatcounter-click="download-windows"
+                  href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+                  >Windows installer (.exe)</a
+                >
+              </p>
               <div class="meta tc">
                 <span data-version></span><span>No account</span
                 ><span
@@ -1379,8 +1388,10 @@
             <details>
               <summary>Why does Windows warn about the installer?</summary>
               <p>
-                The Windows installer is not code signed yet, so SmartScreen asks. Click More info,
-                then Run anyway. The Mac installer is signed and notarized by Apple.
+                The Windows installer (.exe) is not code signed yet, so SmartScreen asks: click More
+                info, then Run anyway. The Microsoft Store version is signed by Microsoft and shows
+                no warning, so it is the easier way on Windows. The Mac installer is signed and
+                notarized by Apple.
               </p>
             </details>
             <details>
@@ -1407,12 +1418,20 @@
               >Download for Mac</a
             >
             <a
-              data-goatcounter-click="download-windows"
+              data-goatcounter-click="download-windows-store"
               class="btn"
-              href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
-              >Download for Windows</a
+              href="https://apps.microsoft.com/detail/9NJ407WWN82F"
+              >Windows (Microsoft Store)</a
             >
           </div>
+          <p class="alt-download">
+            Prefer an installer?
+            <a
+              data-goatcounter-click="download-windows"
+              href="https://github.com/erhanmeydan/kilnframe/releases/latest/download/Kilnframe-Windows.exe"
+              >Windows installer (.exe)</a
+            >
+          </p>
           <!-- the list lives at Kit; without the script the form still posts there and Kit shows its own page -->
           <form
             class="list"
