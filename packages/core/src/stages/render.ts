@@ -10,7 +10,7 @@ import {
 } from "../hyperframes.js";
 import { formatFps, framesToSeconds, parseFps, renderFps } from "../fps.js";
 import { compositeOver, nearestFrame, readFrames } from "../frames.js";
-import { assembleProject } from "../project/assemble.js";
+import { assembleProject, rootHtml } from "../project/assemble.js";
 import { PlanSchema, sceneMode, type Plan } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
 import { buildPreview, deliver } from "./deliver.js";
@@ -167,7 +167,11 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
   mkdirSync(outDir, { recursive: true });
 
   let warnings: CheckFinding[] = [];
-  if (!o.prechecked) {
+  if (o.prechecked) {
+    // the root page is the core's, not the scenes': written anew, a job checked under an older core (approved in
+    // the companion before an update) renders with today's, the buildReady guard and the haze rule included
+    writeFileSync(join(projectDir, "index.html"), rootHtml(plan));
+  } else {
     log("Assembling HyperFrames project");
     assembleProject({ plan, scenes: o.scenes, projectDir, assetsDir: join(outDir, "assets") });
     log("Validating (hyperframes check)");
