@@ -203,6 +203,18 @@ describe("compose", () => {
     ).toEqual([]);
   });
 
+  it("rejects a scene that loads GSAP itself: a second copy has a then of its own, past the root's buildReady guard", () => {
+    const scene = (head: string) =>
+      `<template>${head}<div id="root" data-composition-id="s2" data-width="1920" data-height="1080"></div><script type="module">const tl = gsap.timeline({ paused: true }); window.__timelines["s2"] = tl;</script></template>`;
+    const again = /loads GSAP itself/;
+    expect(staticSceneProblems(scene('<script src="vendor/gsap/gsap.min.js"></script>'), "s2").join()).toMatch(again);
+    expect(staticSceneProblems(scene("<script src='./vendor/gsap/SplitText.min.js'></script>"), "s2").join()).toMatch(again);
+    expect(
+      staticSceneProblems(scene('<script type="module">import gsap from "vendor/gsap/index.js";</script>'), "s2").join(),
+    ).toMatch(again);
+    expect(staticSceneProblems(scene(""), "s2")).toEqual([]);
+  });
+
   it("rejects showing elements with visibility, which leaks past the scene's end", () => {
     const scene = (js: string) =>
       `<template><div id="root" data-composition-id="s3" data-width="720" data-height="1280"></div><script>${js} window.__timelines["s3"] = tl;</script></template>`;

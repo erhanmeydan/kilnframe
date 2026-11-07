@@ -102,6 +102,8 @@ overflow: hidden;`), never with fixed pixel width/height. A class on the root br
 window.__hf.buildReady["SCENE_ID"] = buildPromise;` synchronously at the top of the module. The build returns
   nothing, never the timeline (no `return tl;`): a GSAP timeline is a thenable that settles only once it has
   played to its end, so a promise resolved with it never settles and the scene never becomes ready.
+- Never load GSAP or its plugins yourself (no `<script src>` or `import` of them): the root page loads them once
+  for every scene, and a second copy would make the timeline a thenable again.
 - Canvas and WebGL drawing is driven by the timeline: add a linear tween on a plain object whose `t` setter
   redraws the frame for that time:
   ```js

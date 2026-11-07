@@ -51,6 +51,10 @@ export function staticSceneProblems(
     [/\.play\s*\(\s*\)/, "calls play(); the renderer seeks the paused timeline itself"],
     [/PCFSoftShadowMap/, "uses PCFSoftShadowMap, which no longer exists; use THREE.PCFShadowMap"],
     [
+      /<script\b[^>]*\bsrc\s*=\s*["'][^"']*gsap|(?:\bfrom|\bimport\s*\()\s*["'][^"']*gsap/i,
+      "loads GSAP itself; the root page loads it and its plugins once for every scene, and a second copy undoes the guard that lets the scene become ready",
+    ],
+    [
       /visibility\s*[:=]\s*["'`]visible["'`]|autoAlpha/,
       "shows elements with visibility or autoAlpha; a child set to visible stays on screen after the scene ends, so use opacity",
     ],

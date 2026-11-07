@@ -27,15 +27,21 @@ export const GSAP_PLUGINS = [
 ] as const;
 
 /**
- * Run in the root once GSAP is loaded, before any scene: a scene's buildReady settles with nothing, whatever its
- * build returned. A GSAP animation is a thenable that settles only once it has played to its end, so an async
- * build ending in `return tl` handed the paused timeline to its own promise, which then never settled, and
- * HyperFrames 0.9 waits for every buildReady before the first frame (its snapshot gave up after 45 s). No scene
- * awaits an animation (the compose prompt forbids playing one, and no example or golden scene awaits or chains
- * one), so none is a thenable here; a build that fails still rejects. HyperFrames' teardown, run again on each
- * init, gives window.__hf.buildReady a new plain object: buildReady is a property whose setter wraps whatever object
- * it is given, so the scenes registered after that settle with nothing too. Only a new window.__hf (HyperFrames
- * keeps the one it finds) would lose that, and the prototype's missing then still holds there.
+ * Run in the root once GSAP is loaded, before any scene. A GSAP animation is a thenable that settles only once it
+ * has played to its end, so an async build ending in `return tl` handed the paused timeline to its own promise,
+ * which then never settled, and HyperFrames 0.9 waits for every buildReady before the first frame (its snapshot gave
+ * up after 45 s). What fixes that is the first line: with no then on Animation's prototype, no animation is a
+ * thenable, so the build's own promise settles with the timeline as a plain value. No scene awaits an animation (the
+ * compose prompt forbids playing one, and no example or golden scene awaits or chains one); a build that fails still
+ * rejects.
+ *
+ * The rest makes every buildReady entry settle with nothing, a value no reader of it depends on. It cannot settle a
+ * build promise that adopted a thenable timeline: that promise waits on the timeline's then whatever is chained on
+ * it. So a scene that loads a second copy of GSAP (its own prototype, with its own then) brings the hang back; the
+ * compose prompt forbids that, and staticSceneProblems turns such a scene down. HyperFrames' teardown, run again on
+ * each init, gives window.__hf.buildReady a new plain object: buildReady is a property whose setter wraps whatever
+ * object it is given, so the scenes registered after that are wrapped too. Only a new window.__hf (HyperFrames keeps
+ * the one it finds) would lose that, and the prototype's missing then still holds there.
  */
 export const BUILD_READY_GUARD = `gsap.core.Animation.prototype.then = undefined;
       window.__hf = window.__hf || {};
