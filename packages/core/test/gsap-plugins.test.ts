@@ -132,6 +132,29 @@ describe("buildReady guard", () => {
     });
   });
 
+  it("still settles builds with nothing after HyperFrames' teardown gives buildReady a new object", async () => {
+    // the runtime's teardown (run again on each init) sets window.__hf.buildReady = {}: the scenes registered after
+    // it go into that object, and still settle with nothing
+    const run = page();
+    run(`
+      window.__hf.buildReady = {};
+      async function build() {
+        const tl = gsap.timeline({ paused: true });
+        tl.to({ x: 0 }, { x: 1, duration: 2 });
+        return tl;
+      }
+      window.__hf.buildReady["s1"] = build();
+    `);
+    expect(await settled(run<Promise<unknown>>(`window.__hf.buildReady["s1"]`))).toEqual({
+      value: undefined,
+    });
+    // a scene set before the new object, in the object given, is kept and settled the same way
+    run(`window.__hf.buildReady = { s2: Promise.resolve(gsap.timeline({ paused: true })) };`);
+    expect(await settled(run<Promise<unknown>>(`window.__hf.buildReady["s2"]`))).toEqual({
+      value: undefined,
+    });
+  });
+
   it("still passes on a build that failed", async () => {
     const run = page();
     run(`window.__hf.buildReady["s1"] = Promise.reject(new Error("no font"));`);
