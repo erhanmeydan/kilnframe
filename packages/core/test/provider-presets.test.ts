@@ -240,6 +240,42 @@ describe("retries", () => {
     expect(calls).toBe(2);
   });
 
+  it("learns how many requests the account takes at once and queues the rest", async () => {
+    // an endpoint that holds at most 4 requests at once and refuses the 5th with a 429
+    let open = 0;
+    let peakAfterLearning = 0;
+    let refused = 0;
+    vi.stubGlobal("fetch", async () => {
+      if (open >= 4) {
+        refused++;
+        return new Response(
+          JSON.stringify({ error: { message: "at most 4 concurrent requests" } }),
+          { status: 429 },
+        );
+      }
+      open++;
+      if (refused) peakAfterLearning = Math.max(peakAfterLearning, open);
+      await new Promise((r) => setTimeout(r, 20));
+      open--;
+      return ok();
+    });
+    const p = provider();
+    const replies = await Promise.all(Array.from({ length: 6 }, () => p.complete(request)));
+    expect(replies.map((r) => r.text)).toEqual(Array(6).fill("fine"));
+    expect(refused).toBeGreaterThan(0);
+    expect(peakAfterLearning).toBeLessThanOrEqual(4);
+  });
+
+  it("still gives up on a 429 when nothing else is running", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      return new Response(JSON.stringify({ error: { message: "busy" } }), { status: 429 });
+    });
+    await expect(provider().complete(request)).rejects.toThrow(/error 429/);
+    expect(calls).toBe(3);
+  });
+
   it("gives up after three tries, and never retries a refused key", async () => {
     let calls = 0;
     vi.stubGlobal("fetch", async () => {

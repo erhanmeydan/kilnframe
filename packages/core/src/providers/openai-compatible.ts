@@ -126,6 +126,9 @@ interface ChatCompletion {
  * Any endpoint that speaks the OpenAI Chat Completions format: OpenAI, Gemini, xAI, MiniMax, LM Studio or a custom
  * server. Base URLs live in providers.json.
  */
+/** How often one request waits for a free slot after a 429 before it counts as a failed try. */
+const MAX_SLOT_WAITS = 50;
+
 export class OpenAICompatibleProvider implements TextProvider {
   readonly name: string;
   readonly model: string;
@@ -439,18 +442,53 @@ export class OpenAICompatibleProvider implements TextProvider {
    */
   async complete(req: TextRequest): Promise<TextResponse> {
     let effort = this.o.reasoningEffort;
+    let waits = 0;
     for (let attempt = 1; ; attempt++) {
+      await this.slot();
       try {
         return await this.once(req, effort);
       } catch (err) {
+        const others = this.running - 1;
+        // Some accounts may hold only a few requests at once (a custom endpoint allowed 4 while a job
+        // composed 6 scenes together): learn that limit, and wait for a running request to finish
+        // instead of spending one of the tries
+        if (
+          err instanceof ProviderError &&
+          err.kind === "rate-limited" &&
+          others > 0 &&
+          waits < MAX_SLOT_WAITS
+        ) {
+          this.limit = Math.min(this.limit, others);
+          waits++;
+          attempt--;
+          continue;
+        }
         if (!(err instanceof ProviderError) || !err.retryable) throw err;
         if (attempt >= (err.kind === "cut-off" ? 2 : 3)) throw err;
         // the thinking counts against the limit: the try again thinks little (OpenRouter takes the level
         // for any model; elsewhere only where the preset sets one)
         if (err.kind === "cut-off" && (effort || this.name === "openrouter")) effort = "low";
         await new Promise((r) => setTimeout(r, (this.o.retryDelayMs ?? 5_000) * attempt));
+      } finally {
+        this.release();
       }
     }
+  }
+
+  /** Requests in flight, and how many the provider takes at once (learned from a 429). */
+  private running = 0;
+  private limit = Number.POSITIVE_INFINITY;
+  private queue: (() => void)[] = [];
+
+  /** Waits until fewer requests run than the provider takes at once, then counts this one in. */
+  private async slot(): Promise<void> {
+    while (this.running >= this.limit) await new Promise<void>((r) => this.queue.push(r));
+    this.running++;
+  }
+
+  private release(): void {
+    this.running--;
+    this.queue.shift()?.();
   }
 
   /**
@@ -567,7 +605,7 @@ export class OpenAICompatibleProvider implements TextProvider {
           ? `${this.name} does not offer the model "${this.model}": ${detail}`
           : `${this.name} error ${res.status}: ${detail}`,
         res.status === 429 || res.status >= 500,
-        unavailable ? "model-unavailable" : undefined,
+        unavailable ? "model-unavailable" : res.status === 429 ? "rate-limited" : undefined,
       );
     }
     return this.answer(body, req, maxTokens);

@@ -78,7 +78,8 @@ export interface TextProvider {
 }
 
 /** A provider failure with a message a user can act on. Never contains the API key. */
-export type ProviderErrorKind = "model-unavailable" | "cut-off" | "context-exceeded";
+export type ProviderErrorKind =
+  "model-unavailable" | "cut-off" | "context-exceeded" | "rate-limited";
 
 export class ProviderError extends Error {
   constructor(
@@ -88,6 +89,7 @@ export class ProviderError extends Error {
      * "model-unavailable": the provider does not offer the requested model; another model may work.
      * "cut-off": the reply hit the output limit before it ended, often a model that thinks at great length.
      * "context-exceeded": the request does not fit in the context a local model is loaded with.
+     * "rate-limited": the provider answered 429 (too many requests, or too many at once).
      */
     readonly kind?: ProviderErrorKind,
   ) {
