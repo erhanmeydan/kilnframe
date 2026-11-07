@@ -13,7 +13,7 @@ import { dirname, join, resolve } from "node:path";
 import { ffmpegPath } from "../config.js";
 import { formatFps, parseFps, renderFps } from "../fps.js";
 import { compositeOver } from "../frames.js";
-import { renderProject, snapshotProject } from "../hyperframes.js";
+import { renderProject, snapshotProject, snapshotStills } from "../hyperframes.js";
 import { deliver } from "../stages/deliver.js";
 import {
   CAPTION_SEGMENT_S,
@@ -168,12 +168,12 @@ export async function previewCaptionStill(o: CaptionStillOptions): Promise<strin
     buildCaptionProject(o.doc, o.look, o.colors, dir);
     const shots = join(dir, "shots");
     await snapshotProject(dir, [o.atS], shots);
-    const shot = readdirSync(shots).find((f) => f.endsWith(".png"));
+    const [shot] = snapshotStills(shots);
     if (!shot) throw new Error("HyperFrames did not write the caption still.");
     const out = resolve(o.out);
     mkdirSync(dirname(out), { recursive: true });
-    if (o.frame) compositeOver(join(shots, shot), o.frame, out);
-    else copyFileSync(join(shots, shot), out);
+    if (o.frame) compositeOver(shot, o.frame, out);
+    else copyFileSync(shot, out);
     return out;
   } finally {
     rmSync(dir, { recursive: true, force: true });

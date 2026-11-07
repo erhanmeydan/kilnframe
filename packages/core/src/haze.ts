@@ -1,8 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { rmSync } from "node:fs";
 import { ffmpegPath } from "./config.js";
-import { snapshotProject, type CheckFinding } from "./hyperframes.js";
+import { snapshotProject, snapshotStills, type CheckFinding } from "./hyperframes.js";
 import { sceneMode, type Plan } from "./schemas/plan.js";
 
 /** Alpha at or below this (8%) is nearly invisible over the footage but still tints it once graded. */
@@ -63,14 +62,12 @@ export async function overlayHazeFindings(
     overlay.map((o) => o.at),
     workDir,
   );
-  const shots = readdirSync(workDir)
-    .filter((f) => /^frame-\d+.*\.png$/.test(f))
-    .sort();
+  const shots = snapshotStills(workDir);
   const findings: CheckFinding[] = [];
   overlay.forEach(({ s, at }, i) => {
     const shot = shots[i];
     if (!shot) return;
-    const share = faintShare(join(workDir, shot));
+    const share = faintShare(shot);
     if (share <= MAX_FAINT_SHARE) return;
     findings.push({
       code: "overlay_faint_layer",

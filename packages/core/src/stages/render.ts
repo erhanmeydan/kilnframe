@@ -1,15 +1,13 @@
 import { edgeCutScenes } from "../edges.js";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { checkProject, renderProject, snapshotProject, type CheckFinding } from "../hyperframes.js";
+import {
+  checkProject,
+  renderProject,
+  snapshotProject,
+  snapshotStills,
+  type CheckFinding,
+} from "../hyperframes.js";
 import { formatFps, framesToSeconds, parseFps, renderFps } from "../fps.js";
 import { compositeOver, nearestFrame, readFrames } from "../frames.js";
 import { assembleProject } from "../project/assemble.js";
@@ -129,12 +127,7 @@ async function reviewStills(
   rmSync(stillsDir, { recursive: true, force: true });
   mkdirSync(stillsDir, { recursive: true });
   const snap = await snapshotProject(projectDir, candidates.flat(), sampleDir);
-  // by number: frame-100 comes after frame-99
-  const index = (f: string) => Number(/^frame-(\d+)/.exec(f)?.[1] ?? 0);
-  const shots = readdirSync(sampleDir)
-    .filter((f) => /^frame-\d+.*\.png$/.test(f))
-    .sort((a, b) => index(a) - index(b))
-    .map((f) => join(sampleDir, f));
+  const shots = snapshotStills(sampleDir);
   const stills: string[] = [];
   const times: number[] = [];
   let at = 0;

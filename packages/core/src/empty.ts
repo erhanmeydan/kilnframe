@@ -2,11 +2,10 @@
 // only the background (a Three.js camera looking past its objects, a scene that never draws, 11 Oct 2026).
 // Measured in pixels at two points of each scene; such a scene goes back to repair instead of reaching review.
 import { spawnSync } from "node:child_process";
-import { readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { rmSync } from "node:fs";
 import { ffmpegPath } from "./config.js";
 import { framesToSeconds, parseFps } from "./fps.js";
-import { snapshotProject, type CheckFinding } from "./hyperframes.js";
+import { snapshotProject, snapshotStills, type CheckFinding } from "./hyperframes.js";
 import { sceneMode, type Plan } from "./schemas/plan.js";
 import { fullness } from "./stages/still-pick.js";
 
@@ -69,11 +68,7 @@ export async function emptySceneFindings(
   });
   rmSync(workDir, { recursive: true, force: true });
   await snapshotProject(projectDir, times.flat(), workDir);
-  const index = (f: string) => Number(/^frame-(\d+)/.exec(f)?.[1] ?? 0);
-  const shots = readdirSync(workDir)
-    .filter((f) => /^frame-\d+.*\.png$/.test(f))
-    .sort((a, b) => index(a) - index(b))
-    .map((f) => join(workDir, f));
+  const shots = snapshotStills(workDir);
   const findings: CheckFinding[] = [];
   let at = 0;
   plan.scenes.forEach((s, i) => {

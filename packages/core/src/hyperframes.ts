@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
@@ -9,6 +10,37 @@ export function hyperframesBin(): string {
   const pkgPath = require.resolve("hyperframes/package.json");
   const pkg = require(pkgPath) as { bin: Record<string, string> };
   return join(dirname(pkgPath), pkg.bin.hyperframes as string);
+}
+
+/** Folders an app keeps HyperFrames' own files in, instead of ~/.cache/hyperframes and its settings folder. */
+export interface HyperframesDirs {
+  /** HYPERFRAMES_CACHE_DIR: project history (a copy of every file it saw), warm-up tokens. */
+  cacheDir?: string;
+  /** HYPERFRAMES_CONFIG_DIR: settings, install state and the list of running commands. */
+  configDir?: string;
+}
+
+let dirs: HyperframesDirs = {};
+
+/**
+ * Every later HyperFrames run keeps its caches and settings in these folders (HyperFrames 0.9.16 and up), so
+ * an app can size and clean them; an empty object gives HyperFrames its own folders back.
+ */
+export function setHyperframesDirs(d: HyperframesDirs): void {
+  dirs = { ...d };
+}
+
+/** The environment a HyperFrames run gets: the caller's, quiet, and the app's folders when it set them. */
+export function hyperframesEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...base,
+    HYPERFRAMES_NO_TELEMETRY: "1",
+    DO_NOT_TRACK: "1",
+    NO_COLOR: "1",
+  };
+  if (dirs.cacheDir) env.HYPERFRAMES_CACHE_DIR = dirs.cacheDir;
+  if (dirs.configDir) env.HYPERFRAMES_CONFIG_DIR = dirs.configDir;
+  return env;
 }
 
 export interface RunResult {
@@ -27,7 +59,7 @@ export function runHyperframes(
     const started = Date.now();
     const proc = spawn(process.execPath, [hyperframesBin(), ...args], {
       cwd,
-      env: { ...process.env, HYPERFRAMES_NO_TELEMETRY: "1", DO_NOT_TRACK: "1", NO_COLOR: "1" },
+      env: hyperframesEnv(),
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -55,7 +87,7 @@ export interface CheckFinding {
   sourceFile?: string;
   time?: number;
   fixHint?: string;
-  /** Which check pass reported it: lint, runtime, layout, motion or contrast. */
+  /** Which check pass reported it: lint, runtime, layout, motion, contrast, craft or audio. */
   section?: string;
 }
 
@@ -72,18 +104,27 @@ export interface CheckReport {
   raw: Record<string, unknown>;
 }
 
-const SECTIONS = ["lint", "runtime", "layout", "motion", "contrast"] as const;
+/** A check pass's report: any top-level entry that carries findings. */
+function isSection(value: unknown): value is CheckSection {
+  return (
+    typeof value === "object" && value !== null && Array.isArray((value as CheckSection).findings)
+  );
+}
 
-/** Parses `hyperframes check --json` output into errors and warnings across all sections. */
+/**
+ * Parses `hyperframes check --json` output into errors and warnings across all sections. Every section that
+ * carries findings counts, not a fixed list: 0.8 had lint, runtime, layout, motion and contrast, 0.9 added
+ * craft and audio, and a section left out would fail the top-level ok without a finding to say why.
+ */
 export function parseCheckJson(json: string): CheckReport {
   const start = json.indexOf("{");
   if (start < 0) throw new Error("hyperframes check did not return JSON.");
   const raw = JSON.parse(json.slice(start)) as Record<string, unknown>;
   const errors: CheckFinding[] = [];
   const warnings: CheckFinding[] = [];
-  for (const name of SECTIONS) {
-    const section = raw[name] as CheckSection | undefined;
-    for (const f of section?.findings ?? []) {
+  for (const [name, section] of Object.entries(raw)) {
+    if (!isSection(section)) continue;
+    for (const f of section.findings ?? []) {
       if (f.severity === "error") errors.push({ ...f, section: name });
       else if (f.severity === "warning") warnings.push({ ...f, section: name });
     }
@@ -111,6 +152,27 @@ export async function snapshotProject(
   const r = await runHyperframes(["snapshot", "--at", at, "--no-end", "-o", outDir], projectDir);
   if (r.code !== 0) throw new Error(`hyperframes snapshot failed:\n${r.stderr || r.stdout}`);
   return r;
+}
+
+/** A still snapshot names by default, frame-<n>-at-<t>s.png, numbered in the order of the --at times. */
+const NUMBERED_STILL = /^frame-(\d+).*\.png$/;
+/** A still snapshot --keep names, at-<t>s.png (0.8.159 and up): named for its time alone. */
+const TIMED_STILL = /^at-(\d+(?:\.\d+)?)s\.png$/;
+
+/**
+ * The stills a snapshot run wrote into dir, in the order of their times: numbered stills by number (frame-100
+ * comes after frame-99), timed ones by time. The contact sheet and anything else in the folder are left out.
+ */
+export function snapshotStills(dir: string): string[] {
+  const order = (f: string) => {
+    const n = NUMBERED_STILL.exec(f) ?? TIMED_STILL.exec(f);
+    return n ? Number(n[1]) : null;
+  };
+  return readdirSync(dir)
+    .map((f) => ({ f, at: order(f) }))
+    .filter((s): s is { f: string; at: number } => s.at !== null)
+    .sort((a, b) => a.at - b.at)
+    .map((s) => join(dir, s.f));
 }
 
 export interface RenderOptions {
