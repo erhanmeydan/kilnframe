@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Defaults } from "../config.js";
-import { checkProject, sceneOfFinding, type CheckFinding } from "../hyperframes.js";
+import { checkProject, isUnexplained, sceneOfFinding, type CheckFinding } from "../hyperframes.js";
 import { assembleProject } from "../project/assemble.js";
 import { UsageMeter, type TextProvider } from "../providers/types.js";
 import { sceneMode, type Plan } from "../schemas/plan.js";
@@ -137,7 +137,20 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
     const scenes = Object.fromEntries([...composed.values()].map((c) => [c.id, c.html]));
     assembleProject({ plan, scenes, projectDir, assetsDir: join(outDir, "assets") });
     log(round === 0 ? "Validating (hyperframes check)" : `Validating after repair round ${round}`);
-    const check = await checkProject(projectDir);
+    let check = await checkProject(projectDir);
+    // a check that failed without saying why (a pass cut short) names nothing a scene could fix: it is checked once
+    // more, and when it says nothing again the job stops with that, rather than every scene going to repair
+    if (check.errors.some(isUnexplained)) {
+      log("The check failed without saying why; checking again");
+      check = await checkProject(projectDir);
+      if (check.errors.some(isUnexplained)) {
+        writeJson(join(outDir, "check.json"), check.raw);
+        a.onGiveUp?.();
+        throw new Error(
+          "HyperFrames' check failed without saying why, twice: there is nothing a repair could fix.",
+        );
+      }
+    }
     writeJson(join(outDir, "check.json"), check.raw);
     // every round is kept, so a run shows what had to be repaired (the benchmark reads these)
     writeJson(join(outDir, "checks", `round-${round}.json`), check.raw);

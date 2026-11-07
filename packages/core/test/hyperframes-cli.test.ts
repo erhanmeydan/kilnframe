@@ -215,7 +215,12 @@ describe("parseCheckJson, a check that failed without a finding", () => {
     );
     expect(report.ok).toBe(false);
     expect(report.errors).toEqual([
-      { severity: "error", section: "layout", message: "The check failed without saying why." },
+      {
+        code: "check_unexplained",
+        severity: "error",
+        section: "layout",
+        message: "The check failed without saying why.",
+      },
     ]);
   });
 
@@ -224,7 +229,11 @@ describe("parseCheckJson, a check that failed without a finding", () => {
       JSON.stringify({ ok: false, lint: { ok: true, errorCount: 0, findings: [] } }),
     );
     expect(report.errors).toEqual([
-      { severity: "error", message: "The check failed without saying why." },
+      {
+        code: "check_unexplained",
+        severity: "error",
+        message: "The check failed without saying why.",
+      },
     ]);
   });
 

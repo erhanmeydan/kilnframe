@@ -184,6 +184,15 @@ export function inCanvasScene(projectDir: string): InCanvasScene {
 
 /** The error the app gives a check, or a pass of it, that failed without listing why: a timeout, a budget cut short. */
 const UNEXPLAINED = "The check failed without saying why.";
+const UNEXPLAINED_CODE = "check_unexplained";
+
+/**
+ * Whether a finding is the app's own for a check that failed without listing why: nothing in a scene to repair, so
+ * the repair loop checks again instead of sending it to the scenes.
+ */
+export function isUnexplained(f: CheckFinding): boolean {
+  return f.code === UNEXPLAINED_CODE;
+}
 
 /**
  * Parses `hyperframes check --json` output into errors and warnings across all sections. Every section that
@@ -230,9 +239,9 @@ export function parseCheckJson(json: string, onCanvas: InCanvasScene = () => fal
     });
   }
   if (raw.ok !== true && errors.length === 0) {
-    for (const section of unexplained)
-      errors.push({ severity: "error", section, message: UNEXPLAINED });
-    if (!unexplained.length && !explained) errors.push({ severity: "error", message: UNEXPLAINED });
+    const finding = { code: UNEXPLAINED_CODE, severity: "error", message: UNEXPLAINED } as const;
+    for (const section of unexplained) errors.push({ ...finding, section });
+    if (!unexplained.length && !explained) errors.push({ ...finding });
   }
   return { ok: errors.length === 0, errors, warnings, raw };
 }
