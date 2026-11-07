@@ -75,8 +75,14 @@ describe("GSAP plugins", () => {
 describe("root page", () => {
   it("makes a scene outside its time fully transparent, not only hidden", () => {
     // a hidden scene's SVG filter (a paper grain) was still drawn into every frame
-    expect(rootHtml(plan)).toContain(
-      '[data-composition-src][style*="visibility: hidden"], [data-composition-file][style*="visibility: hidden"] { opacity: 0 !important; }',
+    const html = rootHtml(plan);
+    expect(html).toContain(".kf-scene-hidden { opacity: 0 !important; }");
+    expect(html).toContain(
+      'classList.toggle("kf-scene-hidden", host.style.visibility === "hidden")',
     );
+  });
+
+  it("selects nothing on the inline style attribute, which HyperFrames 0.9's check fails", () => {
+    expect(rootHtml(plan)).not.toMatch(/\[style[*^$~|]?=/);
   });
 });

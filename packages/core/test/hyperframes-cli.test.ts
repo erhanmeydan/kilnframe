@@ -21,7 +21,8 @@ import {
   snapshotStills,
   waitsForRenderSlot,
 } from "../src/hyperframes.js";
-import { vendorDir } from "../src/project/assemble.js";
+import { assembleProject, vendorDir } from "../src/project/assemble.js";
+import { PlanSchema } from "../src/schemas/plan.js";
 
 // The real CLI starts Chrome, as the caption render tests do.
 const RENDER = Boolean(process.env.KILNFRAME_RENDER_TESTS);
@@ -47,6 +48,20 @@ function fixture(): string {
   const dir = temp("kf-hf-cli-");
   writeFileSync(join(dir, "index.html"), FIXTURE);
   copyFileSync(join(vendorDir(), "gsap", "gsap.min.js"), join(dir, "gsap.js"));
+  return dir;
+}
+
+const goldenDir = join(import.meta.dirname, "..", "..", "..", "examples", "golden");
+
+/** A golden scene (examples/golden/<name>) assembled as the pipeline does, root page and all. */
+function golden(name: string): string {
+  const from = join(goldenDir, name);
+  const plan = PlanSchema.parse(JSON.parse(readFileSync(join(from, "plan.json"), "utf8")));
+  const scenes = Object.fromEntries(
+    plan.scenes.map((s) => [s.id, readFileSync(join(from, "scenes", `${s.id}.html`), "utf8")]),
+  );
+  const dir = temp(`kf-golden-${name}-`);
+  assembleProject({ plan, scenes, projectDir: dir, assetsDir: join(from, "assets") });
   return dir;
 }
 
@@ -238,6 +253,13 @@ describe.skipIf(!RENDER)("the pinned HyperFrames CLI", () => {
     await renderProject(dir, { fps: "30", output: mp4, format: "mp4" });
     expect(brand(mov)).toBe("ftypqt  ");
     expect(brand(mp4)).toMatch(/^ftyp(isom|mp42)/);
+  }, 120_000);
+
+  it("passes a project of the core's root page: no rule of its own fails 0.9's lint", async () => {
+    // the root's haze rule read the inline style attribute, an error since 0.9.0 in every project
+    const report = await checkProject(golden("flat-infografik"));
+    expect(report.errors).toEqual([]);
+    expect(report.ok).toBe(true);
   }, 120_000);
 
   it("keeps HyperFrames' caches in the folders the app gives, and renders with the Chrome it is told", async () => {

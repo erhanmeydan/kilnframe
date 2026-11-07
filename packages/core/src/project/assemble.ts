@@ -54,9 +54,9 @@ ${GSAP_PLUGINS.map((p) => `    <script src="vendor/gsap/${p}.min.js"></script>`)
       html, body { margin: 0; background: ${background}; }
       #root { position: relative; width: 100%; height: 100%; overflow: hidden; }
       /* the runtime hides a scene outside its time with visibility, but an SVG filter in it (a paper grain)
-         was still drawn into every frame: a faint haze over the footage. Only scene hosts, as HyperFrames'
-         check asks; the src rule alone missed them in snapshots and renders, the file rule caught them */
-      [data-composition-src][style*="visibility: hidden"], [data-composition-file][style*="visibility: hidden"] { opacity: 0 !important; }
+         was still drawn into every frame: a faint haze over the footage. The script below marks a hidden
+         scene host with this class; HyperFrames 0.9's check fails a selector on the inline style itself */
+      .kf-scene-hidden { opacity: 0 !important; }
     </style>
   </head>
   <body>
@@ -65,6 +65,17 @@ ${hosts}
     </div>
     <script>
       window.__timelines["main"] = gsap.timeline({ paused: true });
+      // A scene host the runtime hides (visibility: hidden in its style) gets kf-scene-hidden, and loses it
+      // when shown. Only the hosts' own style is watched: GSAP writes inside the scenes never reach it. A
+      // render inlines the scenes first, and their hosts then carry data-composition-file instead of -src.
+      (() => {
+        const sync = (host) => host.classList.toggle("kf-scene-hidden", host.style.visibility === "hidden");
+        const watch = new MutationObserver((changes) => changes.forEach((c) => sync(c.target)));
+        for (const host of document.querySelectorAll("[data-composition-src], [data-composition-file]")) {
+          sync(host);
+          watch.observe(host, { attributes: true, attributeFilter: ["style"] });
+        }
+      })();
     </script>
   </body>
 </html>
