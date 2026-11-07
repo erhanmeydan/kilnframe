@@ -22,6 +22,7 @@ import {
   setHyperframesDirs,
   snapshotProject,
   snapshotStills,
+  stillsTaken,
   waitsForRenderSlot,
 } from "../src/hyperframes.js";
 import { assembleProject, vendorDir } from "../src/project/assemble.js";
@@ -140,6 +141,37 @@ describe("snapshotStills", () => {
       "at-12s.png",
     ]);
     expect(read()).toEqual(["frame-00-at-1s.png", "frame-01-at-5s.png"]);
+  });
+});
+
+describe("stillsTaken", () => {
+  const folder = (names: string[]) => {
+    const dir = temp("kf-hf-taken-");
+    for (const n of names) writeFileSync(join(dir, n), "");
+    return dir;
+  };
+
+  it("gives the stills when there is one for every time asked", () => {
+    const dir = folder(["frame-00-at-1s.png", "frame-01-at-2s.png", "contact-sheet.jpg"]);
+    expect(stillsTaken(dir, 2).map((f) => f.slice(dir.length + 1))).toEqual([
+      "frame-00-at-1s.png",
+      "frame-01-at-2s.png",
+    ]);
+  });
+
+  it("throws on fewer, naming what the folder holds: stills renamed by a later HyperFrames would pass every check unseen", () => {
+    const dir = folder(["shot-1.png", "shot-2.png"]);
+    expect(() => stillsTaken(dir, 2)).toThrow(/2 stills.*found 0.*shot-1\.png, shot-2\.png/s);
+  });
+
+  it("throws on an empty or missing folder", () => {
+    expect(() => stillsTaken(folder([]), 1)).toThrow(/found 0/);
+    expect(() => stillsTaken(join(temp("kf-hf-taken-"), "none"), 1)).toThrow(/found 0/);
+  });
+
+  it("throws on one missing in the middle, which would put every later scene on the wrong frames", () => {
+    const dir = folder(["frame-00-at-1s.png", "frame-02-at-3s.png"]);
+    expect(() => stillsTaken(dir, 3)).toThrow(/3 stills.*found 2/s);
   });
 });
 

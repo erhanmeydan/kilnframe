@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
 
@@ -246,6 +246,7 @@ export async function snapshotProject(
   const at = timesS.map((t) => t.toFixed(3)).join(",");
   const r = await runHyperframes(["snapshot", "--at", at, "--no-end", "-o", outDir], projectDir);
   if (r.code !== 0) throw new Error(`hyperframes snapshot failed:\n${r.stderr || r.stdout}`);
+  stillsTaken(resolve(projectDir, outDir), timesS.length);
   return r;
 }
 
@@ -268,6 +269,28 @@ export function snapshotStills(dir: string): string[] {
     .filter((s): s is { f: string; at: string } => s.at !== undefined)
     .sort((a, b) => Number(a.at) - Number(b.at))
     .map((s) => join(dir, s.f));
+}
+
+/**
+ * The stills a snapshot run wrote into dir (snapshotStills), and an error when there are fewer than the `count` times
+ * it was asked for, naming what the folder holds. Every reader takes the stills in order, one per time: with one
+ * missing, every later scene would be judged on the wrong frame, and with none (a later HyperFrames naming them
+ * otherwise) the haze and empty-scene checks would find nothing and pass.
+ */
+export function stillsTaken(dir: string, count: number): string[] {
+  let stills: string[] = [];
+  let names: string[] = [];
+  try {
+    names = readdirSync(dir);
+    stills = snapshotStills(dir);
+  } catch {
+    // no folder: no stills
+  }
+  if (stills.length < count)
+    throw new Error(
+      `hyperframes snapshot was asked for ${count} stills and found ${stills.length} in ${dir}: ${names.join(", ") || "nothing"}`,
+    );
+  return stills;
 }
 
 export interface RenderOptions {
