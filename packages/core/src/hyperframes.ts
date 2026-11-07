@@ -24,7 +24,10 @@ let dirs: HyperframesDirs = {};
 
 /**
  * Every later HyperFrames run keeps its caches and settings in these folders (HyperFrames 0.9.16 and up), so
- * an app can size and clean them; an empty object gives HyperFrames its own folders back.
+ * an app can size and clean them; an empty object gives HyperFrames its own folders back. For a caller that does not
+ * set the environment of its own (the core's tests, a script): an app that starts job processes sets
+ * HYPERFRAMES_CACHE_DIR and HYPERFRAMES_CONFIG_DIR in process.env instead, which every process it starts inherits
+ * (the desktop does, at start) and hyperframesEnv passes on; this setter is the process's own only.
  */
 export function setHyperframesDirs(d: HyperframesDirs): void {
   dirs = { ...d };
