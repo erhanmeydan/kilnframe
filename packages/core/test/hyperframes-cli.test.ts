@@ -372,6 +372,44 @@ describe("inCanvasScene", () => {
     expect(at({ severity: "error", message: "", selector: "#s10-cover" })).toBe(false);
   });
 
+  it("finds the scene of a cover known by its class alone (.<id>-…), as HyperFrames names an element without an id", () => {
+    const at = inCanvasScene(project({ s1: gl, s2: chart, s10: chart }));
+    expect(at({ severity: "error", message: "", selector: "div.s1-backdrop" })).toBe(true);
+    expect(at({ severity: "error", message: "", selector: "div.s2-backdrop.s2-layer" })).toBe(
+      false,
+    );
+    expect(at({ severity: "error", message: "", selector: "div.s10-backdrop" })).toBe(false);
+  });
+
+  it("finds the scene of a cover known by its path under the scene's #root, by the time it was seen", () => {
+    // s1 is on screen for the first 2 s (60 frames at 30 fps), s2 after it
+    const dir = project({ s1: gl, s2: chart });
+    writeFileSync(
+      join(dir, "plan.json"),
+      JSON.stringify({
+        fps: "30",
+        scenes: [
+          { id: "s1", start_frame: 0, end_frame: 60 },
+          { id: "s2", start_frame: 60, end_frame: 120 },
+        ],
+      }),
+    );
+    const at = inCanvasScene(dir);
+    const path = "#root > div:nth-of-type(2)";
+    expect(at({ severity: "error", message: "", selector: path, time: 0.3 })).toBe(true);
+    expect(at({ severity: "error", message: "", selector: path, time: 2.5 })).toBe(false);
+    // no time, or no plan to place it by: not known, so not demoted
+    expect(at({ severity: "error", message: "", selector: path })).toBe(false);
+    expect(
+      inCanvasScene(project({ s1: gl }))({
+        severity: "error",
+        message: "",
+        selector: path,
+        time: 0.3,
+      }),
+    ).toBe(false);
+  });
+
   it("counts a canvas a scene's script makes", () => {
     const at = inCanvasScene(
       project({

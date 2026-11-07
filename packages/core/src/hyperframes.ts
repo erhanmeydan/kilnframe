@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
+import { framesToSeconds, parseFps } from "./fps.js";
 
 const require = createRequire(import.meta.url);
 
@@ -145,21 +146,45 @@ export type InCanvasScene = (finding: CheckFinding) => boolean;
 const DRAWS_ON_CANVAS = /<canvas\b|createElement\(\s*["'`]canvas["'`]\s*\)/i;
 
 /**
- * Which of sceneIds a finding is placed in by its file (compositions/<id>.html) or its selector (#<id>-…, or the
- * scene's [data-composition-id]), else null.
+ * Which of sceneIds a finding is placed in by its file (compositions/<id>.html) or its selector (#<id>-…, a class
+ * .<id>-…, which HyperFrames names an element by when it has no id, or the scene's [data-composition-id]), else null.
  */
 export function sceneOfFinding(f: CheckFinding, sceneIds: string[]): string | null {
   for (const id of sceneIds) {
     if (f.sourceFile?.includes(`compositions/${id}.html`)) return id;
-    if (f.selector && new RegExp(`#${id}-|\\[data-composition-id="${id}"\\]`).test(f.selector))
+    if (f.selector && new RegExp(`[#.]${id}-|\\[data-composition-id="${id}"\\]`).test(f.selector))
       return id;
   }
   return null;
 }
 
+/** A selector HyperFrames builds as a path from a scene's root (#root, the id the compose prompt gives it). */
+const UNDER_ROOT = /^#root(?![\w-])/;
+
 /**
- * For a finding of a check of projectDir: whether its scene (sceneOfFinding, over the project's compositions)
- * draws on a canvas. The root page and a scene not found say no.
+ * The scene on screen at a finding's time, from the plan in projectDir: for a selector that names the scene only by
+ * its root (#root > div:nth-of-type(2)). Null without a time or a plan, or when no scene or more than one is.
+ */
+function sceneAtTime(projectDir: string, f: CheckFinding): string | null {
+  if (f.time === undefined || !UNDER_ROOT.test(f.selector ?? "")) return null;
+  let plan: { fps: string; scenes: { id: string; start_frame: number; end_frame: number }[] };
+  try {
+    plan = JSON.parse(readFileSync(join(projectDir, "plan.json"), "utf8")) as typeof plan;
+  } catch {
+    return null;
+  }
+  const fps = parseFps(plan.fps);
+  const on = plan.scenes.filter(
+    (s) =>
+      framesToSeconds(s.start_frame, fps) <= (f.time as number) &&
+      (f.time as number) < framesToSeconds(s.end_frame, fps),
+  );
+  return on.length === 1 ? (on[0] as { id: string }).id : null;
+}
+
+/**
+ * For a finding of a check of projectDir: whether its scene (sceneOfFinding, over the project's compositions, else
+ * sceneAtTime for a path under #root) draws on a canvas. The root page and a scene not found say no.
  */
 export function inCanvasScene(projectDir: string): InCanvasScene {
   const scenes = join(projectDir, "compositions");
@@ -172,8 +197,8 @@ export function inCanvasScene(projectDir: string): InCanvasScene {
     ids = [];
   }
   return (f) => {
-    const id = sceneOfFinding(f, ids);
-    if (id === null) return false;
+    const id = sceneOfFinding(f, ids) ?? sceneAtTime(projectDir, f);
+    if (id === null || !ids.includes(id)) return false;
     try {
       return DRAWS_ON_CANVAS.test(readFileSync(join(scenes, `${id}.html`), "utf8"));
     } catch {
