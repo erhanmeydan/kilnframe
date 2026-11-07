@@ -171,6 +171,38 @@ describe("parseCheckJson", () => {
   });
 });
 
+describe("parseCheckJson, a check that failed without a finding", () => {
+  it("is an error, so the app never takes it for a pass and its later checks still run", () => {
+    // a budget-truncated or timed-out pass: ok false, nothing listed
+    const report = parseCheckJson(
+      JSON.stringify({
+        ok: false,
+        lint: { ok: true, errorCount: 0, findings: [] },
+        layout: { ok: false, errorCount: 0, findings: [] },
+      }),
+    );
+    expect(report.ok).toBe(false);
+    expect(report.errors).toEqual([
+      { severity: "error", section: "layout", message: "The check failed without saying why." },
+    ]);
+  });
+
+  it("is one error for the whole check when no section says it failed", () => {
+    const report = parseCheckJson(JSON.stringify({ ok: false, lint: { ok: true, errorCount: 0, findings: [] } }));
+    expect(report.errors).toEqual([{ severity: "error", message: "The check failed without saying why." }]);
+  });
+
+  it("adds nothing beside errors that are listed", () => {
+    const report = parseCheckJson(
+      JSON.stringify({
+        ok: false,
+        lint: { ok: false, errorCount: 1, findings: [{ severity: "error", message: "bad", code: "x" }] },
+      }),
+    );
+    expect(report.errors.map((e) => e.message)).toEqual(["bad"]);
+  });
+});
+
 describe("parseCheckJson, a finding the app counts as a warning in a scene with a canvas", () => {
   const coveredBg = {
     code: "canvas_covered",
@@ -228,6 +260,31 @@ describe("parseCheckJson, a finding the app counts as a warning in a scene with 
     );
     expect(report.errors.map((e) => e.code)).toEqual(["content_overflow"]);
     expect(report.ok).toBe(false);
+  });
+
+  it("does not let a demoted finding pass a section that failed for another reason it does not list", () => {
+    // layout failed with one error, the demoted one; motion failed with none listed (a pass cut short)
+    const report = parseCheckJson(
+      JSON.stringify({
+        ok: false,
+        layout: { ok: false, errorCount: 1, findings: [coveredBg] },
+        motion: { ok: false, errorCount: 0, findings: [] },
+      }),
+      onCanvas,
+    );
+    expect(report.ok).toBe(false);
+    expect(report.errors.map((e) => [e.section, e.message])).toEqual([
+      ["motion", "The check failed without saying why."],
+    ]);
+  });
+
+  it("does not let a demoted finding pass a section whose error count is larger than its listed errors", () => {
+    const report = parseCheckJson(
+      JSON.stringify({ ok: false, layout: { ok: false, errorCount: 2, findings: [coveredBg] } }),
+      onCanvas,
+    );
+    expect(report.ok).toBe(false);
+    expect(report.errors.map((e) => e.section)).toEqual(["layout"]);
   });
 
   it("keeps canvas_covered an error from any other section", () => {

@@ -179,12 +179,19 @@ export function inCanvasScene(projectDir: string): InCanvasScene {
   };
 }
 
+/** The error the app gives a check, or a pass of it, that failed without listing why: a timeout, a budget cut short. */
+const UNEXPLAINED = "The check failed without saying why.";
+
 /**
  * Parses `hyperframes check --json` output into errors and warnings across all sections. Every section that
  * carries findings counts, not a fixed list: 0.8 had lint, runtime, layout, motion and contrast, 0.9 added
  * craft and audio, and a section left out would fail the top-level ok without a finding to say why. A finding
  * in CANVAS_WARNINGS is a warning when `onCanvas` says its scene draws on a canvas (inCanvasScene of the project
  * checked); without it, an error.
+ *
+ * The check passes when no error is left. A check HyperFrames failed with no error listed (a pass cut short, or one
+ * whose failing count is more than the findings it reads as warnings here) gets an error of its own, per section
+ * where one says so: a check counted as passed runs the app's later checks (haze, empty scenes) and renders.
  */
 export function parseCheckJson(json: string, onCanvas: InCanvasScene = () => false): CheckReport {
   const start = json.indexOf("{");
@@ -192,16 +199,26 @@ export function parseCheckJson(json: string, onCanvas: InCanvasScene = () => fal
   const raw = JSON.parse(json.slice(start)) as Record<string, unknown>;
   const errors: CheckFinding[] = [];
   const warnings: CheckFinding[] = [];
-  let demoted = 0;
+  // the sections that failed with no error left to say why, and whether a demoted finding explains them
+  const unexplained: string[] = [];
+  let explained = 0;
   for (const [name, section] of Object.entries(raw)) {
     if (!isSection(section)) continue;
+    let demoted = 0;
+    let listed = 0;
     for (const f of section.findings) {
       if (f.severity === "error" && CANVAS_WARNINGS.has(`${name}:${f.code}`) && onCanvas(f)) {
         warnings.push({ ...f, severity: "warning", section: name });
         demoted++;
-      } else if (f.severity === "error") errors.push({ ...f, section: name });
-      else if (f.severity === "warning") warnings.push({ ...f, section: name });
+      } else if (f.severity === "error") {
+        errors.push({ ...f, section: name });
+        listed++;
+      } else if (f.severity === "warning") warnings.push({ ...f, section: name });
     }
+    if ((section as CheckSection).ok !== false || listed > 0) continue;
+    const count = (section as CheckSection).errorCount ?? demoted;
+    if (demoted > 0 && count === demoted) explained++;
+    else unexplained.push(name);
   }
   if (raw.browserSkipped === true) {
     errors.push({
@@ -209,8 +226,11 @@ export function parseCheckJson(json: string, onCanvas: InCanvasScene = () => fal
       message: "The browser checks did not run (layout, motion, contrast).",
     });
   }
-  // HyperFrames' own ok counts the errors the app reads as warnings; with none left, the check passed
-  return { ok: (raw.ok === true || demoted > 0) && errors.length === 0, errors, warnings, raw };
+  if (raw.ok !== true && errors.length === 0) {
+    for (const section of unexplained) errors.push({ severity: "error", section, message: UNEXPLAINED });
+    if (!unexplained.length && !explained) errors.push({ severity: "error", message: UNEXPLAINED });
+  }
+  return { ok: errors.length === 0, errors, warnings, raw };
 }
 
 export async function checkProject(projectDir: string): Promise<CheckReport & { ms: number }> {
