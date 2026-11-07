@@ -112,9 +112,19 @@ function isSection(value: unknown): value is Required<Pick<CheckSection, "findin
 }
 
 /**
+ * Findings the app counts as warnings though HyperFrames calls them errors, as "section:code".
+ * - layout:canvas_covered (0.9.13 and up) is a false positive for a flat background under a WebGL canvas: the
+ *   clay-3D layout (a background div at z-index 0, the canvas above it) is reported as covering the canvas,
+ *   while the stills show the figure in front of the background. As an error it failed the check and sent the
+ *   scene to repair rounds that could not fix it. To be reported upstream.
+ */
+const APP_WARNINGS = new Set(["layout:canvas_covered"]);
+
+/**
  * Parses `hyperframes check --json` output into errors and warnings across all sections. Every section that
  * carries findings counts, not a fixed list: 0.8 had lint, runtime, layout, motion and contrast, 0.9 added
- * craft and audio, and a section left out would fail the top-level ok without a finding to say why.
+ * craft and audio, and a section left out would fail the top-level ok without a finding to say why. A finding
+ * in APP_WARNINGS is a warning whatever HyperFrames calls it.
  */
 export function parseCheckJson(json: string): CheckReport {
   const start = json.indexOf("{");
@@ -122,10 +132,14 @@ export function parseCheckJson(json: string): CheckReport {
   const raw = JSON.parse(json.slice(start)) as Record<string, unknown>;
   const errors: CheckFinding[] = [];
   const warnings: CheckFinding[] = [];
+  let demoted = 0;
   for (const [name, section] of Object.entries(raw)) {
     if (!isSection(section)) continue;
     for (const f of section.findings) {
-      if (f.severity === "error") errors.push({ ...f, section: name });
+      if (f.severity === "error" && APP_WARNINGS.has(`${name}:${f.code}`)) {
+        warnings.push({ ...f, severity: "warning", section: name });
+        demoted++;
+      } else if (f.severity === "error") errors.push({ ...f, section: name });
       else if (f.severity === "warning") warnings.push({ ...f, section: name });
     }
   }
@@ -135,7 +149,8 @@ export function parseCheckJson(json: string): CheckReport {
       message: "The browser checks did not run (layout, motion, contrast).",
     });
   }
-  return { ok: raw.ok === true && errors.length === 0, errors, warnings, raw };
+  // HyperFrames' own ok counts the errors the app reads as warnings; with none left, the check passed
+  return { ok: (raw.ok === true || demoted > 0) && errors.length === 0, errors, warnings, raw };
 }
 
 export async function checkProject(projectDir: string): Promise<CheckReport & { ms: number }> {

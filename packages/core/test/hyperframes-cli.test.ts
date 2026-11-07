@@ -136,6 +136,54 @@ describe("parseCheckJson", () => {
   });
 });
 
+describe("parseCheckJson, a finding the app counts as a warning", () => {
+  const coveredBg = {
+    code: "canvas_covered",
+    severity: "error",
+    message: "An opaque element covers the canvas above every other visible clip.",
+    selector: "#s1-bg",
+  };
+
+  it("reads layout's canvas_covered as a warning, and the check passes when it was the only error", () => {
+    // kil-lacivert: the flat background div sits under the WebGL canvas, yet 0.9.13 calls it covering
+    const report = parseCheckJson(
+      JSON.stringify({
+        ok: false,
+        layout: { ok: false, errorCount: 1, findings: [coveredBg] },
+        lint: { ok: true, errorCount: 0, findings: [] },
+      }),
+    );
+    expect(report.errors).toEqual([]);
+    expect(report.warnings.map((w) => [w.section, w.code, w.severity])).toEqual([
+      ["layout", "canvas_covered", "warning"],
+    ]);
+    expect(report.ok).toBe(true);
+  });
+
+  it("still fails on any other error beside it", () => {
+    const report = parseCheckJson(
+      JSON.stringify({
+        ok: false,
+        layout: {
+          ok: false,
+          errorCount: 2,
+          findings: [coveredBg, { ...coveredBg, code: "content_overflow" }],
+        },
+      }),
+    );
+    expect(report.errors.map((e) => e.code)).toEqual(["content_overflow"]);
+    expect(report.ok).toBe(false);
+  });
+
+  it("keeps canvas_covered an error from any other section", () => {
+    const report = parseCheckJson(
+      JSON.stringify({ ok: false, craft: { ok: false, errorCount: 1, findings: [coveredBg] } }),
+    );
+    expect(report.errors.map((e) => e.code)).toEqual(["canvas_covered"]);
+    expect(report.ok).toBe(false);
+  });
+});
+
 describe("waitsForRenderSlot", () => {
   it("knows the line HyperFrames 0.9 prints while another render holds the slot", () => {
     expect(
