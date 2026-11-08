@@ -350,7 +350,10 @@ export function captionHtml(
       : "";
     if (emoji) anyEmoji = true;
     blocks.push(
-      `<div class="line${emoji ? " has-emoji" : ""}" id="l${i}">${emoji}<div class="block" style="font-size:${size}px">${markup}</div></div>`,
+      emoji
+        ? // the emoji hangs above the block in a box as large as the block, so the line sits where it would without it
+          `<div class="line has-emoji" id="l${i}"><div class="emoji-box">${emoji}<div class="block" style="font-size:${size}px">${markup}</div></div></div>`
+        : `<div class="line" id="l${i}"><div class="block" style="font-size:${size}px">${markup}</div></div>`,
     );
     for (const w of entry.windows)
       script += `tl.set("#l${i}",{opacity:1},${w.startS.toFixed(3)});tl.set("#l${i}",{opacity:0},${w.endS.toFixed(3)});\n`;
@@ -361,8 +364,9 @@ export function captionHtml(
   }
   if (anyEmoji)
     extraCss.push(
-      `.line.has-emoji{flex-direction:column;align-items:center;justify-content:${format === "portrait" ? "center" : "flex-end"}}`,
-      `.emoji{font-family:${EMOJI_FONTS};line-height:1;margin-bottom:.15em}`,
+      `.emoji-box{position:relative}`,
+      // centred over the block by flex, which overflows both sides alike when the emoji is wider than the block
+      `.emoji{position:absolute;left:0;right:0;bottom:100%;display:flex;justify-content:center;white-space:nowrap;font-family:${EMOJI_FONTS};line-height:1;margin-bottom:.15em}`,
     );
 
   const placement =

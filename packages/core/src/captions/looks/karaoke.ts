@@ -37,6 +37,8 @@ export function look(o: LookInput): LookParts {
     letterSpacingEm: LETTER_SPACING_EM,
     wordSpacingEm: 0,
     padX: Math.round(8 * k),
+    // the sweep is the accent: a word already in the accent would hide it
+    accentFill: true,
     // a word said before this composition starts is already bright and filled
     wordMarkup: (w, id) => {
       const s = escapeHtml(w.text);

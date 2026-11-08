@@ -44,7 +44,10 @@ export interface LookParts {
   wordSpacingEm: number;
   /** Space the block takes on each side of its widest row (padding, stroke). */
   padX: number;
-  /** The spoken word sits on a fill of the accent colour, so a word drawn in the accent would not show. */
+  /**
+   * The spoken word sits on, or is swept by, a fill of the accent colour, so a word drawn in the accent would
+   * hide it: emphasis is drawn larger instead.
+   */
   accentFill?: boolean;
 }
 

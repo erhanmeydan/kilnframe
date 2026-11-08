@@ -720,7 +720,7 @@ describe("word colour, emphasis and line emoji", () => {
     expect(html).not.toContain("scale:1.15");
   });
 
-  it.each(["dinamik", "daktilo", "hap"] as const)(
+  it.each(["dinamik", "daktilo", "hap", "karaoke"] as const)(
     "falls back to scale in %s, where the accent colour cannot show",
     (look) => {
       const html = captionHtml(withWord(2, { emphasis: true }), look, CAPTION_LOOKS[look].colors);
@@ -743,6 +743,10 @@ describe("word colour, emphasis and line emoji", () => {
     expect(loud).toContain("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
     const hap = extras(captionHtml(d, "hap", CAPTION_LOOKS.hap.colors));
     expect(hap).toBe("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    // Karaoke sweeps the accent over the spoken word: a word already in the accent would hide the sweep
+    const karaoke = extras(captionHtml(d, "karaoke", CAPTION_LOOKS.karaoke.colors));
+    expect(karaoke).toBe("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    expect(karaoke).not.toContain(CAPTION_LOOKS.karaoke.colors.accent);
   });
 
   it("scales without colour in scale mode, and the emphasis colour wins over the word's own", () => {
@@ -788,22 +792,48 @@ describe("word colour, emphasis and line emoji", () => {
       );
       const size = Number(/class="block" style="font-size:([\d.]+)px"/.exec(html)?.[1]);
       expect(html).toContain(
-        `<div class="line has-emoji" id="l0"><div class="emoji" style="font-size:${Math.round(size * 11) / 10}px">&lt;b&gt;🔥</div><div class="block" style="font-size:${size}px">`,
+        `<div class="line has-emoji" id="l0"><div class="emoji-box"><div class="emoji" style="font-size:${Math.round(size * 11) / 10}px">&lt;b&gt;🔥</div><div class="block" style="font-size:${size}px">`,
       );
       expect(html).not.toContain("<b>");
       expect(html).toContain('<div class="line" id="l1">');
       const css = extras(html);
+      expect(css).toContain(".emoji-box{position:relative}");
       expect(css).toContain(
-        `.line.has-emoji{flex-direction:column;align-items:center;justify-content:${portrait ? "center" : "flex-end"}}`,
-      );
-      expect(css).toContain(
-        '.emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";line-height:1;margin-bottom:.15em}',
+        '.emoji{position:absolute;left:0;right:0;bottom:100%;display:flex;justify-content:center;white-space:nowrap;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";line-height:1;margin-bottom:.15em}',
       );
       expect(html).toContain(
         'tl.fromTo("#l0 .emoji",{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.18,ease:"back.out(2)"},2.000);',
       );
       expect(html).not.toContain('"#l1 .emoji"');
     }
+  });
+
+  it.each([
+    [1080, 1920],
+    [1920, 1080],
+  ])("keeps a line with an emoji exactly where it sits without one (%ix%i)", (width, height) => {
+    const plain = doc([line("bir iki üç", 2, 4)], { width, height });
+    const withEmoji = doc([{ ...line("bir iki üç", 2, 4), emoji: "🔥" }], { width, height });
+    const a = captionHtml(plain, "loud", CAPTION_LOOKS.loud.colors);
+    const b = captionHtml(withEmoji, "loud", CAPTION_LOOKS.loud.colors);
+    // the page's own styles, the block and its size are the same
+    const firstStyle = (h: string) => /<style>[\s\S]*?<\/style>/.exec(h)?.[0];
+    expect(firstStyle(b)).toBe(firstStyle(a));
+    const block = (h: string) => /<div class="block"[^>]*>.*?<\/div><\/div>/.exec(h)?.[0];
+    expect(block(b)).toBe(block(a));
+    // the only box around the block is a positioned one with nothing else set, and nothing restyles the line
+    const css = extras(b);
+    expect(css).not.toMatch(/\.line|\.block/);
+    expect(css).toMatch(/^\.emoji-box\{position:relative\}$/m);
+    // the emoji is out of the flow, hung above the box
+    expect(css).toMatch(/^\.emoji\{position:absolute;left:0;right:0;bottom:100%;/m);
+    // without the emoji and its box the line's markup is the plain line's
+    const unwrapped = b
+      .replace(/<div class="emoji-box"><div class="emoji"[^>]*>[^<]*<\/div>/, "")
+      .replace(/<\/div><\/div><\/div>\n<\/div>/, "</div></div>\n</div>")
+      .replace(' has-emoji"', '"');
+    const lineOf = (h: string) => /<div class="line"[^\n]*/.exec(h)?.[0];
+    expect(lineOf(unwrapped)).toBe(lineOf(a));
   });
 
   it("leaves the emoji pop out for a line that came in before the segment", () => {
