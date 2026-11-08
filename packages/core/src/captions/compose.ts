@@ -284,9 +284,8 @@ export function captionHtml(
   const maxRowPx = width - safe.left - safe.right - 2 * parts.padX;
   const maxChars = style.maxChars[format];
   const mode = doc.emphasis ?? "color";
-  // the accent cannot show on an emphasised word: colour falls back to scale
-  const noColour =
-    colors.accent.toLowerCase() === colors.text.toLowerCase() || parts.accentFill === true;
+  // the accent cannot show on an emphasised word (the text's colour, or too near it to tell): colour falls back to scale
+  const noColour = nearColour(colors.accent, colors.text) || parts.accentFill === true;
   const emphasisColour = mode !== "scale" && !noColour;
   const emphasisScale = mode !== "color" || noColour;
 

@@ -741,6 +741,14 @@ describe("word colour, emphasis and line emoji", () => {
     expect(extras(html)).toMatch(scaleRule(0, true));
   });
 
+  it("treats an accent too near the text colour to tell apart as the same colour", () => {
+    const html = captionHtml(withWord(0, { emphasis: true }), "loud", {
+      text: "#ffd040",
+      accent: "#ffd23f",
+    });
+    expect(extras(html)).toMatch(scaleRule(0, true));
+  });
+
   it.each(["#ffd23f", "#FFD23F", "#ffcc40"])(
     "scales an emphasised word whose own colour (%s) is the accent or near it, and colours the rest",
     (color) => {
