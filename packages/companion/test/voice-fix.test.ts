@@ -116,8 +116,10 @@ describe("voice fix protocol", () => {
 
 describe("voice sample file", () => {
   it("goes next to audio in a voice-fix folder, else into a voice-fix folder beside it", () => {
-    expect(voiceSampleFile("/j/voice-fix/window.wav")).toBe("/j/voice-fix/voice-sample.wav");
-    expect(voiceSampleFile("/j/other.wav")).toBe("/j/voice-fix/voice-sample.wav");
+    // join: the companion writes Windows paths with backslashes
+    const sample = join("/j", "voice-fix", "voice-sample.wav");
+    expect(voiceSampleFile(join("/j", "voice-fix", "window.wav"))).toBe(sample);
+    expect(voiceSampleFile(join("/j", "other.wav"))).toBe(sample);
   });
 });
 
