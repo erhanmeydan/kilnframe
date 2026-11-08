@@ -670,3 +670,165 @@ describe("Editoryal", () => {
     );
   });
 });
+
+describe("word colour, emphasis and line emoji", () => {
+  const extras = (html: string) => {
+    const blocks = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1] as string);
+    return blocks.length > 1 ? (blocks.slice(1).join("\n").trim() as string) : "";
+  };
+  const withWord = (
+    n: number,
+    over: Partial<CaptionLine["words"][number]>,
+    over2: Partial<CaptionLine> = {},
+  ) => {
+    const l = line("bir iki üç dört", 1, 3);
+    l.words[n] = { ...(l.words[n] as CaptionLine["words"][number]), ...over };
+    return doc([{ ...l, ...over2 }]);
+  };
+
+  it("adds nothing when no word has a colour or emphasis and no line has an emoji", () => {
+    for (const look of LOOKS) {
+      const html = captionHtml(sample, look, CAPTION_LOOKS[look].colors);
+      expect(html.match(/<style>/g)).toHaveLength(1);
+      expect(html).not.toContain("has-emoji");
+      expect(html).not.toContain(".emoji");
+    }
+  });
+
+  it("draws a word in its own #rrggbb colour with exactly one rule", () => {
+    const html = captionHtml(
+      withWord(1, { color: "#ff0000" }),
+      "sakin",
+      CAPTION_LOOKS.sakin.colors,
+    );
+    expect(html.match(/#w0_1\{color:#ff0000\}/g)).toHaveLength(1);
+    expect(extras(html)).toBe("#w0_1{color:#ff0000}");
+  });
+
+  it("ignores a colour that is not #rrggbb", () => {
+    for (const color of ["red;}body{", "#fff", "#12345g", "#ff0000;x"]) {
+      const html = captionHtml(withWord(1, { color }), "sakin", CAPTION_LOOKS.sakin.colors);
+      expect(html.match(/<style>/g)).toHaveLength(1);
+      expect(html).not.toContain("#w0_1{");
+      expect(html).not.toContain("body{color");
+    }
+  });
+
+  it("draws an emphasised word in the accent colour in Loud (colour mode)", () => {
+    const html = captionHtml(withWord(2, { emphasis: true }), "loud", CAPTION_LOOKS.loud.colors);
+    expect(extras(html)).toBe(`#w0_2{color:${CAPTION_LOOKS.loud.colors.accent}}`);
+    expect(html).not.toContain("scale:1.15");
+  });
+
+  it.each(["dinamik", "daktilo", "hap"] as const)(
+    "falls back to scale in %s, where the accent colour cannot show",
+    (look) => {
+      const html = captionHtml(withWord(2, { emphasis: true }), look, CAPTION_LOOKS[look].colors);
+      expect(extras(html)).toBe("#w0_2{display:inline-block;scale:1.15;margin:0 .08em}");
+    },
+  );
+
+  it("treats accent and text that differ only in case as the same colour", () => {
+    const html = captionHtml(withWord(0, { emphasis: true }), "loud", {
+      text: "#FFFFFF",
+      accent: "#ffffff",
+    });
+    expect(extras(html)).toBe("#w0_0{display:inline-block;scale:1.15;margin:0 .08em}");
+  });
+
+  it("draws both in both mode where colour shows, and only scale where it does not", () => {
+    const d = { ...withWord(1, { emphasis: true }), emphasis: "both" as const };
+    const loud = extras(captionHtml(d, "loud", CAPTION_LOOKS.loud.colors));
+    expect(loud).toContain(`#w0_1{color:${CAPTION_LOOKS.loud.colors.accent}}`);
+    expect(loud).toContain("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    const hap = extras(captionHtml(d, "hap", CAPTION_LOOKS.hap.colors));
+    expect(hap).toBe("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+  });
+
+  it("scales without colour in scale mode, and the emphasis colour wins over the word's own", () => {
+    const scale = {
+      ...withWord(1, { emphasis: true, color: "#00ff00" }),
+      emphasis: "scale" as const,
+    };
+    const html = extras(captionHtml(scale, "loud", CAPTION_LOOKS.loud.colors));
+    expect(html).toContain("#w0_1{color:#00ff00}");
+    expect(html).toContain("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    const colour = extras(
+      captionHtml(
+        withWord(1, { emphasis: true, color: "#00ff00" }),
+        "loud",
+        CAPTION_LOOKS.loud.colors,
+      ),
+    );
+    expect(colour).toBe(`#w0_1{color:${CAPTION_LOOKS.loud.colors.accent}}`);
+  });
+
+  it("restores Loud's popped word to its own colour, not the text colour", () => {
+    const html = captionHtml(withWord(1, { color: "#00ff00" }), "loud", CAPTION_LOOKS.loud.colors);
+    const { text } = CAPTION_LOOKS.loud.colors;
+    expect(html).toMatch(/tl\.set\("#w0_1",\{color:"#00ff00"\},[\d.]+\);\n/);
+    expect(html).not.toMatch(new RegExp(`tl\\.set\\("#w0_1",\\{color:"${text}"\\}`));
+    expect(html).toMatch(new RegExp(`tl\\.set\\("#w0_0",\\{color:"${text}"\\},[\\d.]+\\);\\n`));
+    // an emphasised word in colour mode goes back to the accent
+    const emph = captionHtml(withWord(1, { emphasis: true }), "loud", CAPTION_LOOKS.loud.colors);
+    expect(emph).toMatch(
+      new RegExp(
+        `tl\\.set\\("#w0_1",\\{color:"${CAPTION_LOOKS.loud.colors.accent}"\\},[\\d.]+\\);\\n`,
+      ),
+    );
+  });
+
+  it("draws an emoji above the line, escaped, and pops it in with the line", () => {
+    const d = doc([{ ...line("bir iki üç", 2, 4), emoji: "<b>🔥" }, line("dört beş", 5, 6)]);
+    for (const portrait of [true, false]) {
+      const html = captionHtml(
+        portrait ? d : { ...d, width: 1920, height: 1080 },
+        "loud",
+        CAPTION_LOOKS.loud.colors,
+      );
+      const size = Number(/class="block" style="font-size:([\d.]+)px"/.exec(html)?.[1]);
+      expect(html).toContain(
+        `<div class="line has-emoji" id="l0"><div class="emoji" style="font-size:${Math.round(size * 11) / 10}px">&lt;b&gt;🔥</div><div class="block" style="font-size:${size}px">`,
+      );
+      expect(html).not.toContain("<b>");
+      expect(html).toContain('<div class="line" id="l1">');
+      const css = extras(html);
+      expect(css).toContain(
+        `.line.has-emoji{flex-direction:column;align-items:center;justify-content:${portrait ? "center" : "flex-end"}}`,
+      );
+      expect(css).toContain(
+        '.emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";line-height:1;margin-bottom:.15em}',
+      );
+      expect(html).toContain(
+        'tl.fromTo("#l0 .emoji",{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.18,ease:"back.out(2)"},2.000);',
+      );
+      expect(html).not.toContain('"#l1 .emoji"');
+    }
+  });
+
+  it("leaves the emoji pop out for a line that came in before the segment", () => {
+    const d = doc([{ ...line("kenarı geçen satır burada", 9, 13), emoji: "🎉" }], {
+      durationS: 20,
+    });
+    const [first, second] = captionSegments(d, 10);
+    expect(captionHtml(d, "loud", CAPTION_LOOKS.loud.colors, first)).toContain(
+      'tl.fromTo("#l0 .emoji"',
+    );
+    const html = captionHtml(d, "loud", CAPTION_LOOKS.loud.colors, second);
+    expect(html).toContain('class="line has-emoji"');
+    expect(html).not.toContain('"#l0 .emoji"');
+  });
+
+  it("measures a scaled word's growth into the row, so the block is drawn smaller when it would not fit", () => {
+    // a row that just fits without emphasis
+    const words = "AAAAAA BBBBBB CCCCCC DDDDDD EEEEEE FFFFFF GGG";
+    const plain = doc([line(words, 1, 4)]);
+    const base = fontSizes(captionHtml(plain, "sakin", CAPTION_LOOKS.sakin.colors))[0] as number;
+    const l = line(words, 1, 4);
+    l.words = l.words.map((w) => ({ ...w, emphasis: true }));
+    const scaled = fontSizes(
+      captionHtml({ ...doc([l]), emphasis: "scale" }, "sakin", CAPTION_LOOKS.sakin.colors),
+    )[0] as number;
+    expect(scaled).toBeLessThan(base);
+  });
+});

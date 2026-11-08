@@ -39,6 +39,7 @@ export function look(o: LookInput): LookParts {
     wordSpacingEm: WORD_SPACING_EM,
     // the chip reaches past an edge word
     padX: Math.ceil(fontPx * CHIP_PAD_EM),
+    accentFill: true,
     wordMarkup: (w, id) =>
       `<span class="w" id="${id}"><i class="c"></i>${escapeHtml(w.text)}</span>`,
     animate: (line, i, timing, rows) => {

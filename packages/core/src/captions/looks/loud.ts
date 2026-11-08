@@ -46,7 +46,7 @@ export function look(o: LookInput): LookParts {
           : "";
       for (const { w, n } of liveWords(line)) {
         const id = `#w${i}_${n}`;
-        a += `tl.set("${id}",{color:"${accent}"},${t(w.start)});tl.fromTo("${id}",{scaleX:1,scaleY:1},{scaleX:${popX(w.text)},scaleY:${POP_MAX},duration:0.08,ease:"power2.out"},${t(w.start)});tl.to("${id}",{scaleX:1,scaleY:1,duration:0.08,ease:"power2.in"},${t(w.start + 0.08)});tl.set("${id}",{color:"${text}"},${t(Math.max(w.end, w.start + 0.16))});\n`;
+        a += `tl.set("${id}",{color:"${accent}"},${t(w.start)});tl.fromTo("${id}",{scaleX:1,scaleY:1},{scaleX:${popX(w.text)},scaleY:${POP_MAX},duration:0.08,ease:"power2.out"},${t(w.start)});tl.to("${id}",{scaleX:1,scaleY:1,duration:0.08,ease:"power2.in"},${t(w.start + 0.08)});tl.set("${id}",{color:"${w.color ?? text}"},${t(Math.max(w.end, w.start + 0.16))});\n`;
       }
       return a;
     },

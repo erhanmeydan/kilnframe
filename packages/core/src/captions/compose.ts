@@ -17,11 +17,13 @@ import { look as sakin } from "./looks/sakin.js";
 import {
   CAPTION_FONT,
   CAPTION_FONT_ACTIVE,
+  escapeHtml,
+  t,
   type LookInput,
   type LookParts,
 } from "./looks/shared.js";
 import { CAPTION_LOOKS, type CaptionLook } from "./styles.js";
-import type { CaptionColors, CaptionLine, CaptionStyleId } from "./types.js";
+import type { CaptionColors, CaptionLine, CaptionStyleId, CaptionWord } from "./types.js";
 import { lowerCase, upperCase } from "./upper.js";
 
 export interface CaptionDoc {
@@ -36,6 +38,11 @@ export interface CaptionDoc {
   fps: string;
   /** Stretches of the timeline where no caption is shown (an animation insert sits there). */
   hideSpans: { startS: number; endS: number }[];
+  /**
+   * How an emphasised word is drawn; missing: "color". Where the accent cannot show (it is the text colour,
+   * or the spoken word sits on an accent fill) colour is drawn as scale.
+   */
+  emphasis?: "color" | "scale" | "both";
 }
 
 export interface TimeSpan {
@@ -213,13 +220,28 @@ function fontFile(look: CaptionLook, font?: string): string {
 }
 
 /** The CSS format() hint for a font file, by its kind. */
-const FONT_FORMATS: Record<string, string> = { ".ttf": "truetype", ".otf": "opentype", ".woff2": "woff2" };
+const FONT_FORMATS: Record<string, string> = {
+  ".ttf": "truetype",
+  ".otf": "opentype",
+  ".woff2": "woff2",
+};
 
 /** The name the font is copied under beside index.html, and the format() hint the page gives for it. */
 function fontCopy(file: string): { name: string; format: string } {
   const ext = extname(file).toLowerCase();
-  return { name: `font${FONT_FORMATS[ext] ? ext : ".ttf"}`, format: FONT_FORMATS[ext] ?? "truetype" };
+  return {
+    name: `font${FONT_FORMATS[ext] ? ext : ".ttf"}`,
+    format: FONT_FORMATS[ext] ?? "truetype",
+  };
 }
+
+/** A word's own colour is used only in this form; anything else could break out of the style rule. */
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+/** An emphasised word in scale mode: CSS scale (the looks' GSAP transforms still apply) and room each side. */
+const EMPHASIS_SCALE = 1.15;
+const EMPHASIS_MARGIN_EM = 0.08;
+/** The system's colour emoji fonts, as the Graphics panel's. */
+const EMOJI_FONTS = `"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji"`;
 
 function seconds(s: number): string {
   return s.toFixed(6).replace(/\.?0+$/, "") || "0";
@@ -247,23 +269,46 @@ export function captionHtml(
   const safe = safeArea(format, width, height);
   const maxRowPx = width - safe.left - safe.right - 2 * parts.padX;
   const maxChars = style.maxChars[format];
+  const mode = doc.emphasis ?? "color";
+  // the accent cannot show on an emphasised word: colour falls back to scale
+  const noColour =
+    colors.accent.toLowerCase() === colors.text.toLowerCase() || parts.accentFill === true;
+  const emphasisColour = mode !== "scale" && !noColour;
+  const emphasisScale = mode !== "color" || noColour;
 
   const blocks: string[] = [];
+  // rules for the new fields only, so a doc without them writes the same page as before
+  const extraCss: string[] = [];
+  let anyEmoji = false;
   let script = "";
   for (const entry of segment.entries) {
     const i = entry.index;
     const line = {
       ...entry.line,
-      words: entry.line.words.map((w) => ({
-        ...w,
-        text: style.uppercase
-          ? upperCase(w.text, doc.language, doc.glossary)
-          : style.lowercase
-            ? lowerCase(w.text, doc.language, doc.glossary)
-            : w.text,
-      })),
+      words: entry.line.words.map((w) => {
+        const word: CaptionWord = {
+          ...w,
+          text: style.uppercase
+            ? upperCase(w.text, doc.language, doc.glossary)
+            : style.lowercase
+              ? lowerCase(w.text, doc.language, doc.glossary)
+              : w.text,
+        };
+        // the colour the word is drawn in, handed to the look so a timeline that colours it can give it back
+        const color = w.emphasis && emphasisColour ? colors.accent : w.color;
+        delete word.color;
+        if (color && (color === colors.accent || HEX_COLOR.test(color))) word.color = color;
+        return word;
+      }),
     };
     const ids = new Map(line.words.map((w, n) => [w, `w${i}_${n}`]));
+    const scaled = new Set(line.words.filter((w) => w.emphasis && emphasisScale));
+    for (const w of line.words) {
+      const id = ids.get(w) as string;
+      if (w.color) extraCss.push(`#${id}{color:${w.color}}`);
+      if (scaled.has(w))
+        extraCss.push(`#${id}{display:inline-block;scale:${EMPHASIS_SCALE};margin:0 .08em}`);
+    }
     const rows = blockRows(
       line.words.map((w) => w.text),
       maxChars,
@@ -275,8 +320,21 @@ export function captionHtml(
       at += r.length;
       return slice;
     });
+    // a scaled word takes its growth and its margins more room in the row
+    const growthEm = (ws: typeof line.words) =>
+      ws
+        .filter((w) => scaled.has(w))
+        .reduce(
+          (sum, w) =>
+            sum + (EMPHASIS_SCALE - 1) * rowWidthEm(font, w.text, parts) + 2 * EMPHASIS_MARGIN_EM,
+          0,
+        );
     const widest = Math.max(
-      ...rows.map((r) => rowWidthEm(font, r.join(" "), parts) * parts.fontPx),
+      ...rows.map(
+        (r, ri) =>
+          (rowWidthEm(font, r.join(" "), parts) + growthEm(rowWords[ri] as typeof line.words)) *
+          parts.fontPx,
+      ),
     );
     // a row that would leave the safe area (a long word or an edited line) draws the whole block smaller
     const scale = Math.min(1, maxRowPx / widest);
@@ -287,13 +345,25 @@ export function captionHtml(
           `<div class="row">${ws.map((w) => parts.wordMarkup(w, ids.get(w) as string)).join(" ")}</div>`,
       )
       .join("");
+    const emoji = line.emoji
+      ? `<div class="emoji" style="font-size:${Math.round(size * 11) / 10}px">${escapeHtml(line.emoji)}</div>`
+      : "";
+    if (emoji) anyEmoji = true;
     blocks.push(
-      `<div class="line" id="l${i}"><div class="block" style="font-size:${size}px">${markup}</div></div>`,
+      `<div class="line${emoji ? " has-emoji" : ""}" id="l${i}">${emoji}<div class="block" style="font-size:${size}px">${markup}</div></div>`,
     );
     for (const w of entry.windows)
       script += `tl.set("#l${i}",{opacity:1},${w.startS.toFixed(3)});tl.set("#l${i}",{opacity:0},${w.endS.toFixed(3)});\n`;
     script += parts.animate(line, i, entry.timing, rowWords);
+    // the emoji pops in with the line; one that came in before this composition starts is already on screen
+    if (emoji && entry.timing.enterS >= 0)
+      script += `tl.fromTo("#l${i} .emoji",{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.18,ease:"back.out(2)"},${t(entry.timing.enterS)});\n`;
   }
+  if (anyEmoji)
+    extraCss.push(
+      `.line.has-emoji{flex-direction:column;align-items:center;justify-content:${format === "portrait" ? "center" : "flex-end"}}`,
+      `.emoji{font-family:${EMOJI_FONTS};line-height:1;margin-bottom:.15em}`,
+    );
 
   const placement =
     format === "portrait"
@@ -325,7 +395,7 @@ html,body{margin:0;background:transparent}
 .block{text-align:center}
 .row{white-space:nowrap}
 ${parts.css}
-</style>
+</style>${extraCss.length ? `\n<style>\n${extraCss.join("\n")}\n</style>` : ""}
 </head>
 <body>
 <div id="root" data-composition-id="captions" data-start="0" data-width="${width}" data-height="${height}" data-duration="${duration}">

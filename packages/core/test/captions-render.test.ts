@@ -121,13 +121,19 @@ describe.skipIf(!RENDER)("caption render", () => {
   let caches = "";
   const shellBefore = process.env.PRODUCER_HEADLESS_SHELL_PATH;
   beforeAll(() => {
-    process.env.PRODUCER_HEADLESS_SHELL_PATH = spawnSync(process.execPath, [hyperframesBin(), "browser", "path"], {
-      env: hyperframesEnv(),
-      encoding: "utf8",
-    }).stdout.trim();
+    process.env.PRODUCER_HEADLESS_SHELL_PATH = spawnSync(
+      process.execPath,
+      [hyperframesBin(), "browser", "path"],
+      {
+        env: hyperframesEnv(),
+        encoding: "utf8",
+      },
+    ).stdout.trim();
     caches = mkdtempSync(join(tmpdir(), "kf-caption-hf-"));
   });
-  beforeEach(() => setHyperframesDirs({ cacheDir: join(caches, "cache"), configDir: join(caches, "config") }));
+  beforeEach(() =>
+    setHyperframesDirs({ cacheDir: join(caches, "cache"), configDir: join(caches, "config") }),
+  );
   afterEach(() => setHyperframesDirs({}));
   afterAll(() => {
     if (shellBefore === undefined) delete process.env.PRODUCER_HEADLESS_SHELL_PATH;
@@ -256,6 +262,22 @@ describe.skipIf(!RENDER)("caption render", () => {
     expect(left.filter((f) => f.endsWith(".mov"))).toEqual([]);
     expect(left.filter((f) => /^part-\d+\/index\.html$/.test(f))).toHaveLength(3);
   }, 600_000);
+
+  it("draws a line's emoji above its block, with an emphasised word in it", async () => {
+    const plain = line("Yapay zekâ ile video", 0.2, 2.6);
+    plain.words[1] = { ...(plain.words[1] as CaptionLine["words"][number]), emphasis: true };
+    const withEmoji = doc([{ ...plain, emoji: "🔥" }], { emphasis: "both" });
+    const [bare] = await shotsAt(doc([plain], { emphasis: "both" }), "loud", [1.5]);
+    const [shot] = await shotsAt(withEmoji, "loud", [1.5]);
+    const bareRows = opaqueRows(bare as string, 1080, 1920);
+    const rows = opaqueRows(shot as string, 1080, 1920);
+    // the block is drawn as without the emoji, its bottom now at the last visible row; the emoji sits above it
+    const blockTop =
+      (rows.at(-1) as number) - ((bareRows.at(-1) as number) - (bareRows[0] as number));
+    const above = rows.filter((y) => y < blockTop - 10);
+    // about the emoji's height (1.1 times the block's 104 px) of visible rows
+    expect(above.length).toBeGreaterThan(60);
+  }, 180_000);
 
   it("makes a still over a frame of the footage", async () => {
     const dir = mkdtempSync(join(tmpdir(), "kf-caption-still-"));

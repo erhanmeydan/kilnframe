@@ -32,7 +32,9 @@ export interface LookParts {
   wordMarkup: (w: CaptionWord, id: string) => string;
   /**
    * GSAP calls on `tl` for line i: its entrance at timing.enterS and its spoken words. rows holds the
-   * line's words as they are drawn, row by row.
+   * line's words as they are drawn, row by row. A word's color is the colour the composition draws it in
+   * (its own, or the accent when emphasised), missing for the look's text colour: a look that colours a
+   * word in its timeline gives that colour back after.
    */
   animate: (line: CaptionLine, i: number, timing: LineTiming, rows: CaptionWord[][]) => string;
   /** Font size of the text in pixels; a block whose widest row would not fit is drawn smaller. */
@@ -42,6 +44,8 @@ export interface LookParts {
   wordSpacingEm: number;
   /** Space the block takes on each side of its widest row (padding, stroke). */
   padX: number;
+  /** The spoken word sits on a fill of the accent colour, so a word drawn in the accent would not show. */
+  accentFill?: boolean;
 }
 
 /** Sizes are set for a 1080 px short edge and scale with the frame. */
