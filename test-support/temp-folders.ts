@@ -19,26 +19,27 @@ const roots = new Set([root, fs.realpathSync(root)]);
 const made = new Set<string>();
 
 /** A folder of the temporary folder itself is kept to be removed; one inside another test folder goes with it. */
-const keep = (dir: string): string => {
-  if (roots.has(dirname(dir))) made.add(dir);
+const keep = <T extends string | Buffer>(dir: T): T => {
+  const name = String(dir);
+  if (roots.has(dirname(name))) made.add(name);
   return dir;
 };
 
 fs.mkdtempSync = ((prefix: string, options?: unknown) =>
-  keep(String(mkdtempSync(prefix, options as never)))) as typeof fs.mkdtempSync;
+  keep(mkdtempSync(prefix, options as never))) as typeof fs.mkdtempSync;
 fs.mkdtemp = ((prefix: string, ...rest: unknown[]) => {
   const done = rest.pop() as (err: NodeJS.ErrnoException | null, dir: string) => void;
   mkdtemp(prefix, ...(rest as [never]), (err: NodeJS.ErrnoException | null, dir: string) =>
-    done(err, err ? dir : keep(String(dir))),
+    done(err, err ? dir : keep(dir)),
   );
 }) as typeof fs.mkdtemp;
 fs.promises.mkdtemp = (async (prefix: string, options?: unknown) =>
-  keep(String(await mkdtempAsync(prefix, options as never)))) as typeof fs.promises.mkdtemp;
+  keep(await mkdtempAsync(prefix, options as never))) as typeof fs.promises.mkdtemp;
 // the test files import node:fs and node:fs/promises as modules: they see these from now on
 syncBuiltinESMExports();
 
 // the file's own afterAll hooks run before this one (vitest runs them last in, first out), so nothing still needs them
-afterAll(() => {
+const sweep = () => {
   for (const dir of made) {
     try {
       rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
@@ -47,4 +48,12 @@ afterAll(() => {
     }
   }
   made.clear();
-});
+};
+afterAll(sweep);
+// a run stopped with Ctrl-C or a kill leaves no afterAll behind: remove them then too, and let the signal go on
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    sweep();
+    if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
+  });
+}

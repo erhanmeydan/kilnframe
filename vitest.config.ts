@@ -6,7 +6,15 @@ import { configDefaults, defineConfig } from "vitest/config";
 // Tests never see the editor's own styles in ~/.kilnframe/styles; they get an empty folder.
 const userStyles = mkdtempSync(join(tmpdir(), "mi-user-styles-"));
 // the config is loaded in every run, by the workers too; each removes the folder it made when it ends
-process.on("exit", () => rmSync(userStyles, { recursive: true, force: true }));
+const removeUserStyles = () => rmSync(userStyles, { recursive: true, force: true });
+process.on("exit", removeUserStyles);
+// a run stopped with Ctrl-C or a kill does not reach "exit" alone: remove it then too, and let the signal go on
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    removeUserStyles();
+    if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
+  });
+}
 
 export default defineConfig({
   test: {

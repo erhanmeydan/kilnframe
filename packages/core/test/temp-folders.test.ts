@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -35,8 +35,15 @@ test("a test run leaves no scratch folder of its own in the temporary folder", a
     ],
     { cwd: repo, env: { ...env, KF_TEMP_PREFIX: prefix, KF_TEMP_REPORT: report } },
   );
-  const made = JSON.parse(readFileSync(report, "utf8")) as string[];
+  const { made, sentinel } = JSON.parse(readFileSync(report, "utf8")) as {
+    made: string[];
+    sentinel: string;
+  };
   expect(made).toHaveLength(4);
   expect(made.filter((dir) => existsSync(dir))).toEqual([]);
+  // a folder the wrapped calls did not make is not the helper's to remove
+  const sentinelKept = existsSync(sentinel);
+  rmSync(sentinel, { recursive: true, force: true });
+  expect(sentinelKept).toBe(true);
   expect(count()).toBe(before);
 }, 60_000);
