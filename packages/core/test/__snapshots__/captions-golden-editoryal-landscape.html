@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<script src="gsap.min.js"></script>
+<style>
+@font-face{font-family:"Caption";src:url("font.ttf") format("truetype");font-weight:500}
+@font-face{font-family:"CaptionActive";src:url("font-active.ttf") format("truetype");font-weight:500}
+html,body{margin:0;background:transparent}
+#root{position:relative;width:1920px;height:1080px;overflow:hidden;background:transparent}
+#captions{position:absolute;inset:0}
+.line{position:absolute;left:0;right:0;bottom:120px;align-items:flex-end;height:0;display:flex;justify-content:center;opacity:0}
+.block{text-align:center}
+.row{white-space:nowrap}
+.block{font-family:Caption;font-weight:500;line-height:1.18;letter-spacing:-0.005em;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,.55),0 2px 16px rgba(0,0,0,.6),0 0 36px rgba(0,0,0,.25)}
+.w{display:inline-block;position:relative}
+.i{position:absolute;left:50%;top:-0.048em;transform:translateX(-50%);white-space:nowrap;font-size:1.05em;font-family:CaptionActive;font-weight:500;color:#e8c58a;opacity:0}
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="captions" data-start="0" data-width="1920" data-height="1080" data-duration="10">
+<div id="captions" class="clip" data-start="0" data-duration="10" data-track-index="0">
+<div class="line" id="l0"><div class="block" style="font-size:58px"><div class="row"><span class="w" id="w0_0"><span class="r">Hello</span><span class="i" aria-hidden="true">Hello</span></span> <span class="w" id="w0_1"><span class="r">and</span><span class="i" aria-hidden="true">and</span></span> <span class="w" id="w0_2"><span class="r">welcome</span><span class="i" aria-hidden="true">welcome</span></span> <span class="w" id="w0_3"><span class="r">back</span><span class="i" aria-hidden="true">back</span></span></div></div></div>
+<div class="line" id="l1"><div class="block" style="font-size:58px"><div class="row"><span class="w" id="w1_0"><span class="r">the</span><span class="i" aria-hidden="true">the</span></span> <span class="w" id="w1_1"><span class="r">quick</span><span class="i" aria-hidden="true">quick</span></span> <span class="w" id="w1_2"><span class="r">brown</span><span class="i" aria-hidden="true">brown</span></span> <span class="w" id="w1_3"><span class="r">fox</span><span class="i" aria-hidden="true">fox</span></span> <span class="w" id="w1_4"><span class="r">jumps</span><span class="i" aria-hidden="true">jumps</span></span> <span class="w" id="w1_5"><span class="r">over</span><span class="i" aria-hidden="true">over</span></span></div></div></div>
+<div class="line" id="l2"><div class="block" style="font-size:58px"><div class="row"><span class="w" id="w2_0"><span class="r">lazy</span><span class="i" aria-hidden="true">lazy</span></span> <span class="w" id="w2_1"><span class="r">dogs</span><span class="i" aria-hidden="true">dogs</span></span> <span class="w" id="w2_2"><span class="r">sleep</span><span class="i" aria-hidden="true">sleep</span></span></div></div></div>
+</div>
+</div>
+<script>
+const tl = gsap.timeline({ paused: true });
+tl.set("#l0",{opacity:1},0.500);tl.set("#l0",{opacity:0},2.850);
+tl.fromTo("#l0 .block",{opacity:0,filter:"blur(6px)"},{opacity:1,filter:"blur(0px)",duration:0.3,ease:"power2.out"},0.500);
+tl.set("#w0_0 .r",{opacity:0},0.500);tl.fromTo("#w0_0 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},0.500);tl.set("#w0_0 .i",{opacity:0},1.000);tl.to("#w0_0 .r",{opacity:1,duration:0.100,ease:"power1.out"},1.000);
+tl.set("#w0_1 .r",{opacity:0},1.000);tl.fromTo("#w0_1 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},1.000);tl.set("#w0_1 .i",{opacity:0},1.500);tl.to("#w0_1 .r",{opacity:1,duration:0.100,ease:"power1.out"},1.500);
+tl.set("#w0_2 .r",{opacity:0},1.500);tl.fromTo("#w0_2 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},1.500);tl.set("#w0_2 .i",{opacity:0},2.000);tl.to("#w0_2 .r",{opacity:1,duration:0.100,ease:"power1.out"},2.000);
+tl.set("#w0_3 .r",{opacity:0},2.000);tl.fromTo("#w0_3 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},2.000);
+tl.set("#l1",{opacity:1},3.000);tl.set("#l1",{opacity:0},5.000);
+tl.set("#l1",{opacity:1},5.500);tl.set("#l1",{opacity:0},6.350);
+tl.fromTo("#l1 .block",{opacity:0,filter:"blur(6px)"},{opacity:1,filter:"blur(0px)",duration:0.3,ease:"power2.out"},3.000);
+tl.set("#w1_0 .r",{opacity:0},3.000);tl.fromTo("#w1_0 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},3.000);tl.set("#w1_0 .i",{opacity:0},3.500);tl.to("#w1_0 .r",{opacity:1,duration:0.100,ease:"power1.out"},3.500);
+tl.set("#w1_1 .r",{opacity:0},3.500);tl.fromTo("#w1_1 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},3.500);tl.set("#w1_1 .i",{opacity:0},4.000);tl.to("#w1_1 .r",{opacity:1,duration:0.100,ease:"power1.out"},4.000);
+tl.set("#w1_2 .r",{opacity:0},4.000);tl.fromTo("#w1_2 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},4.000);tl.set("#w1_2 .i",{opacity:0},4.500);tl.to("#w1_2 .r",{opacity:1,duration:0.100,ease:"power1.out"},4.500);
+tl.set("#w1_3 .r",{opacity:0},4.500);tl.fromTo("#w1_3 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},4.500);tl.set("#w1_3 .i",{opacity:0},5.000);tl.to("#w1_3 .r",{opacity:1,duration:0.100,ease:"power1.out"},5.000);
+tl.set("#w1_4 .r",{opacity:0},5.000);tl.fromTo("#w1_4 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},5.000);tl.set("#w1_4 .i",{opacity:0},5.500);tl.to("#w1_4 .r",{opacity:1,duration:0.100,ease:"power1.out"},5.500);
+tl.set("#w1_5 .r",{opacity:0},5.500);tl.fromTo("#w1_5 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},5.500);
+tl.set("#l2",{opacity:1},8.200);tl.set("#l2",{opacity:0},9.750);
+tl.fromTo("#l2 .block",{opacity:0,filter:"blur(6px)"},{opacity:1,filter:"blur(0px)",duration:0.3,ease:"power2.out"},8.200);
+tl.set("#w2_0 .r",{opacity:0},0.000);tl.fromTo("#w2_0 .i",{opacity:0},{opacity:1,duration:0.001,ease:"power1.out"},0.000);tl.set("#w2_0 .i",{opacity:0},8.600);tl.to("#w2_0 .r",{opacity:1,duration:0.100,ease:"power1.out"},8.600);
+tl.set("#w2_1 .r",{opacity:0},8.600);tl.fromTo("#w2_1 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},8.600);tl.set("#w2_1 .i",{opacity:0},9.000);tl.to("#w2_1 .r",{opacity:1,duration:0.100,ease:"power1.out"},9.000);
+tl.set("#w2_2 .r",{opacity:0},9.000);tl.fromTo("#w2_2 .i",{opacity:0},{opacity:1,duration:0.100,ease:"power1.out"},9.000);
+window.__timelines["captions"] = tl;
+</script>
+</body>
+</html>
