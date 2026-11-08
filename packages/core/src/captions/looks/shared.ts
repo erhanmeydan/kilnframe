@@ -59,7 +59,10 @@ export interface LookParts {
    * hide it: emphasis is drawn larger instead.
    */
   accentFill?: boolean;
-  /** Inside a word, the element that draws the said word's fill; a word of its own colour has it in that colour. */
+  /**
+   * Inside a word, the element that draws the said word's accent fill; a word whose own colour is the accent,
+   * or near it, has the fill in the text colour so it can still be seen.
+   */
   fillSelector?: string;
   /** How far the block rises as it comes in, in px; a line's emoji rises with it. */
   enterYPx?: number;

@@ -741,6 +741,23 @@ describe("word colour, emphasis and line emoji", () => {
     expect(extras(html)).toMatch(scaleRule(0, true));
   });
 
+  it.each(["#ffd23f", "#FFD23F", "#ffcc40"])(
+    "scales an emphasised word whose own colour (%s) is the accent or near it, and colours the rest",
+    (color) => {
+      const l = line("bir iki üç", 1, 3);
+      const ws = l.words as CaptionLine["words"][number][];
+      ws[0] = { ...(ws[0] as CaptionLine["words"][number]), emphasis: true, color };
+      ws[2] = { ...(ws[2] as CaptionLine["words"][number]), emphasis: true };
+      const css = extras(captionHtml(doc([l]), "loud", CAPTION_LOOKS.loud.colors));
+      // the word keeps its own colour and is drawn larger, as it would be where the accent equals the text
+      expect(css).toContain(`#w0_0{color:${color}}`);
+      expect(css).toMatch(scaleRule(0));
+      // a word not near the accent is coloured, not scaled
+      expect(css).toContain(`#w0_2{color:${CAPTION_LOOKS.loud.colors.accent}}`);
+      expect(css).not.toMatch(scaleRule(2));
+    },
+  );
+
   it("draws both in both mode where colour shows, and only scale where it does not", () => {
     const d = { ...withWord(1, { emphasis: true }), emphasis: "both" as const };
     const loud = extras(captionHtml(d, "loud", CAPTION_LOOKS.loud.colors));
@@ -924,14 +941,32 @@ describe("word colour, emphasis and line emoji", () => {
     expect(leftScaled).toBeLessThan(0);
   });
 
-  it("draws Karaoke's fill in a coloured word's own colour", () => {
-    const html = captionHtml(
-      withWord(1, { color: "#00ff00" }),
-      "karaoke",
-      CAPTION_LOOKS.karaoke.colors,
-    );
-    expect(extras(html)).toBe("#w0_1{color:#00ff00}\n#w0_1 .f{color:#00ff00}");
-  });
+  it.each([
+    // the accent sweeps a word of another colour
+    ["#00ff00", "accent"],
+    ["#ffffff", "accent"],
+    // a word in the accent, or near it, is swept in the text colour
+    ["#7be0ff", "text"],
+    ["#80e0f8", "text"],
+  ] as const)(
+    "keeps Karaoke's sweep visible over a word coloured %s (swept in the %s colour)",
+    (color, swept) => {
+      const { text, accent } = CAPTION_LOOKS.karaoke.colors;
+      const html = captionHtml(withWord(1, { color }), "karaoke", CAPTION_LOOKS.karaoke.colors);
+      const css = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join("\n");
+      // the colour the last rule for this selector gives, as the page would draw it
+      const last = (selector: RegExp) => [...css.matchAll(selector)].at(-1)?.[1];
+      const word = last(/#w0_1\{color:(#[0-9a-f]{6})\}/gi) ?? text;
+      const sweep =
+        last(/#w0_1 \.f\{color:(#[0-9a-f]{6})\}/gi) ?? last(/^\.f\{[^}]*color:(#[0-9a-f]{6})/gim);
+      expect(word).toBe(color);
+      // the said part must read apart from the part not said yet: far apart in RGB
+      const rgb = (h: string) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
+      const apart = Math.hypot(...rgb(word).map((v, k) => v - (rgb(sweep as string)[k] as number)));
+      expect(apart).toBeGreaterThan(100);
+      expect(sweep).toBe(swept === "accent" ? accent : text);
+    },
+  );
 
   it("keeps Daktilo's strip from running ahead of the caret before a scaled word", () => {
     const words = (emph: boolean) => {

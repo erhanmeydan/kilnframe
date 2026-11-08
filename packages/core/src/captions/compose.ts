@@ -238,6 +238,16 @@ function fontCopy(file: string): { name: string; format: string } {
 
 /** A word's own colour is used only in this form; anything else could break out of the style rule. */
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+/** Two colours closer than this (straight-line distance in RGB, 0–441) are too near to tell apart on a word. */
+const NEAR_RGB = 60;
+
+/** True when two #rrggbb colours are the same or too near to tell apart; false when either is not one. */
+function nearColour(a: string | undefined, b: string): boolean {
+  if (!a || !HEX_COLOR.test(a) || !HEX_COLOR.test(b)) return false;
+  const rgb = (h: string) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
+  const [x, y] = [rgb(a), rgb(b)];
+  return Math.hypot(...x.map((v, k) => v - (y[k] as number))) < NEAR_RGB;
+}
 /** Room each side of a scaled word beyond its own growth. */
 const EMPHASIS_MARGIN_EM = 0.08;
 /** The longest emoji value drawn (as the project's limit); a longer one, or one with control characters, is left out. */
@@ -286,6 +296,8 @@ export function captionHtml(
   let anyEmoji = false;
   let script = "";
   for (const entry of segment.entries) {
+    // the emphasised words drawn larger: all of them in scale mode, or where their colour cannot show
+    const scaled = new Set<CaptionWord>();
     const i = entry.index;
     const line = {
       ...entry.line,
@@ -298,10 +310,16 @@ export function captionHtml(
               ? lowerCase(w.text, doc.language, doc.glossary)
               : w.text,
         };
-        // the colour the word is drawn in, handed to the look so a timeline that colours it can give it back
-        const color = w.emphasis === true && emphasisColour ? colors.accent : w.color;
+        // the colour the word is drawn in, handed to the look so a timeline that colours it can give it back;
+        // a word whose own colour is the accent, or near it, would not stand out in the accent: it is scaled
+        const color =
+          w.emphasis === true && emphasisColour && !nearColour(w.color, colors.accent)
+            ? colors.accent
+            : w.color;
         delete word.color;
         if (color && HEX_COLOR.test(color)) word.color = color;
+        if (w.emphasis === true && (emphasisScale || nearColour(w.color, colors.accent)))
+          scaled.add(word);
         return word;
       }),
     };
@@ -313,7 +331,7 @@ export function captionHtml(
     // neighbours move aside; in em of the word, each side
     const room = new Map(
       line.words
-        .filter((w) => w.emphasis === true && emphasisScale)
+        .filter((w) => scaled.has(w))
         .map((w) => [
           w,
           Number(
@@ -328,9 +346,11 @@ export function captionHtml(
       const id = ids.get(w) as string;
       const margin = room.get(w);
       if (w.color) extraCss.push(`#${id}{color:${w.color}}`);
-      // a look whose said word is drawn by a fill of its own draws that fill in the word's colour too
-      if (w.color && parts.fillSelector)
-        extraCss.push(`#${id} ${parts.fillSelector}{color:${w.color}}`);
+      // a look whose said word is drawn by a fill of the accent keeps that fill in the accent, so the word's
+      // colour shows before it is said and the accent once it is; a word in the accent, or near it, would hide
+      // the fill, so its fill is drawn in the text colour
+      if (w.color && parts.fillSelector && nearColour(w.color, colors.accent))
+        extraCss.push(`#${id} ${parts.fillSelector}{color:${colors.text}}`);
       if (margin !== undefined)
         extraCss.push(`#${id}{display:inline-block;scale:${EMPHASIS_SCALE};margin:0 ${margin}em}`);
     }
