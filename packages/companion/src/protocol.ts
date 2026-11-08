@@ -104,7 +104,8 @@ export const SpeechProviderId = z.enum(["gemini", "elevenlabs"]);
 /** Story mode, step one: write the narration from a brief, or revise it with a note. */
 export const StoryWriteJobParamsSchema = z.object({
   kind: z.literal("story-write"),
-  brief: z.string().max(4000).default(""),
+  /** As long as a narration may be: editors paste whole articles to tell as a story. */
+  brief: z.string().max(20000).default(""),
   durationS: z.number().min(10).max(600),
   language: z.string().min(2).max(10),
   tone: z.string().max(300).optional(),

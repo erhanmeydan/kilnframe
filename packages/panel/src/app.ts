@@ -1509,10 +1509,10 @@ function writeStoryJob(revise: boolean) {
   void storyJob(
     {
       kind: "story-write",
-      brief: st.brief.trim(),
+      brief: st.brief.trim().slice(0, 20000),
       durationS: st.durationS,
       language: st.language,
-      ...(st.tone.trim() ? { tone: st.tone.trim() } : {}),
+      ...(st.tone.trim() ? { tone: st.tone.trim().slice(0, 300) } : {}),
       ...(revise
         ? {
             revise: {
@@ -1524,7 +1524,7 @@ function writeStoryJob(revise: boolean) {
                   .map((p) => p.trim())
                   .filter(Boolean),
               },
-              note: st.note.trim(),
+              note: st.note.trim().slice(0, 1000),
             },
           }
         : {}),
@@ -1567,7 +1567,7 @@ async function makeStorySequence() {
     await storyJob(
       {
         kind: "story-voice",
-        title: st.title || "Story",
+        title: (st.title || "Story").slice(0, 200),
         text: st.script.trim(),
         voice: st.voice,
         style: st.voiceStyle || undefined,
@@ -1578,7 +1578,7 @@ async function makeStorySequence() {
           ? {
               music: {
                 ...(state.style ? { style: state.style } : {}),
-                subject: st.title || st.brief,
+                subject: (st.title || st.brief).slice(0, 400),
               },
             }
           : {}),
