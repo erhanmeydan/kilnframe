@@ -29,6 +29,7 @@ export function look(o: LookInput): LookParts {
     letterSpacingEm: -0.02,
     wordSpacingEm: 0,
     padX,
+    enterYPx: Math.round(10 * k),
     wordMarkup: (w, id) => `<span class="w" id="${id}">${escapeHtml(w.text)}<i></i></span>`,
     animate: (line, i, timing) => {
       // a line that came in before this composition starts is already on screen

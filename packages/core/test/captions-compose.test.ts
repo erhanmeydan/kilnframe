@@ -672,6 +672,11 @@ describe("Editoryal", () => {
 });
 
 describe("word colour, emphasis and line emoji", () => {
+  /** The scale rule for word n of line 0; whole: the only extra rule. */
+  const scaleRule = (n: number, whole = false) =>
+    new RegExp(
+      `${whole ? "^" : ""}#w0_${n}\\{display:inline-block;scale:1\\.15;margin:0 [\\d.]+em\\}${whole ? "$" : ""}`,
+    );
   const extras = (html: string) => {
     const blocks = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1] as string);
     return blocks.length > 1 ? (blocks.slice(1).join("\n").trim() as string) : "";
@@ -724,7 +729,7 @@ describe("word colour, emphasis and line emoji", () => {
     "falls back to scale in %s, where the accent colour cannot show",
     (look) => {
       const html = captionHtml(withWord(2, { emphasis: true }), look, CAPTION_LOOKS[look].colors);
-      expect(extras(html)).toBe("#w0_2{display:inline-block;scale:1.15;margin:0 .08em}");
+      expect(extras(html)).toMatch(scaleRule(2, true));
     },
   );
 
@@ -733,19 +738,19 @@ describe("word colour, emphasis and line emoji", () => {
       text: "#FFFFFF",
       accent: "#ffffff",
     });
-    expect(extras(html)).toBe("#w0_0{display:inline-block;scale:1.15;margin:0 .08em}");
+    expect(extras(html)).toMatch(scaleRule(0, true));
   });
 
   it("draws both in both mode where colour shows, and only scale where it does not", () => {
     const d = { ...withWord(1, { emphasis: true }), emphasis: "both" as const };
     const loud = extras(captionHtml(d, "loud", CAPTION_LOOKS.loud.colors));
     expect(loud).toContain(`#w0_1{color:${CAPTION_LOOKS.loud.colors.accent}}`);
-    expect(loud).toContain("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    expect(loud).toMatch(scaleRule(1));
     const hap = extras(captionHtml(d, "hap", CAPTION_LOOKS.hap.colors));
-    expect(hap).toBe("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    expect(hap).toMatch(scaleRule(1, true));
     // Karaoke sweeps the accent over the spoken word: a word already in the accent would hide the sweep
     const karaoke = extras(captionHtml(d, "karaoke", CAPTION_LOOKS.karaoke.colors));
-    expect(karaoke).toBe("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    expect(karaoke).toMatch(scaleRule(1, true));
     expect(karaoke).not.toContain(CAPTION_LOOKS.karaoke.colors.accent);
   });
 
@@ -756,7 +761,7 @@ describe("word colour, emphasis and line emoji", () => {
     };
     const html = extras(captionHtml(scale, "loud", CAPTION_LOOKS.loud.colors));
     expect(html).toContain("#w0_1{color:#00ff00}");
-    expect(html).toContain("#w0_1{display:inline-block;scale:1.15;margin:0 .08em}");
+    expect(html).toMatch(scaleRule(1));
     const colour = extras(
       captionHtml(
         withWord(1, { emphasis: true, color: "#00ff00" }),
@@ -860,5 +865,136 @@ describe("word colour, emphasis and line emoji", () => {
       captionHtml({ ...doc([l]), emphasis: "scale" }, "sakin", CAPTION_LOOKS.sakin.colors),
     )[0] as number;
     expect(scaled).toBeLessThan(base);
+  });
+
+  it("gives a scaled word margins that hold its growth, so its neighbours move aside", () => {
+    for (const look of ["kil-lacivert", "bant", "karaoke", "dinamik", "hap"] as const) {
+      const f = fontkit.openSync(join(vendorFonts, CAPTION_LOOKS[look].font)) as fontkit.Font;
+      const font =
+        "wght" in (f.variationAxes ?? {})
+          ? f.getVariation({ wght: CAPTION_LOOKS[look].weight })
+          : f;
+      const word = "gerçekleştirdik";
+      const measured =
+        font.layout(word).positions.reduce((a, p) => a + p.xAdvance, 0) / font.unitsPerEm;
+      const l = line(`bunu ${word} sonunda`, 1, 3);
+      l.words[1] = { ...(l.words[1] as CaptionLine["words"][number]), emphasis: true };
+      const html = captionHtml(
+        { ...doc([l]), emphasis: "scale" },
+        look,
+        CAPTION_LOOKS[look].colors,
+      );
+      const margin = Number(
+        /#w0_1\{display:inline-block;scale:1\.15;margin:0 ([\d.]+)em\}/.exec(html)?.[1],
+      );
+      // half its growth (letter spacing aside) plus 0.08 em
+      // as drawn: with the look's letter spacing
+      const ls = Number(/letter-spacing:(-?[\d.]+)em/.exec(html)?.[1]);
+      const drawn = measured + ls * [...word].length;
+      // half its growth, plus 0.08 em
+      expect(margin).toBeGreaterThanOrEqual(0.075 * drawn + 0.08 - 0.001);
+    }
+  });
+
+  it("draws a coloured word in Hap in the text colour while it is on the chip", () => {
+    const l = line("bir iki üç", 10, 13);
+    l.words[1] = { ...(l.words[1] as CaptionLine["words"][number]), color: "#00ff00" };
+    const html = captionHtml(doc([l], { durationS: 20 }), "hap", CAPTION_LOOKS.hap.colors);
+    expect(html).toContain(`tl.set("#w0_1",{color:"${CAPTION_LOOKS.hap.colors.text}"},11.000);`);
+    expect(html).toContain('tl.set("#w0_1",{color:"#00ff00"},12.000);');
+    // an uncoloured word is left alone
+    expect(html).not.toMatch(/tl\.set\("#w0_[02]",\{color/);
+  });
+
+  it("starts Hap's chip slide into a scaled word from where the chip before is seen", () => {
+    const plain = doc([line("bir iki üç", 10, 13)], { durationS: 20 });
+    const l = line("bir iki üç", 10, 13);
+    l.words[1] = { ...(l.words[1] as CaptionLine["words"][number]), emphasis: true };
+    const from = (html: string) =>
+      /tl\.fromTo\("#w0_1 \.c",\{left:"(-?[\d.]+)em",width:"([\d.]+)em"\}/
+        .exec(html)!
+        .slice(1)
+        .map(Number);
+    const [, widthPlain] = from(captionHtml(plain, "hap", CAPTION_LOOKS.hap.colors));
+    const [leftScaled, widthScaled] = from(
+      captionHtml(doc([l], { durationS: 20 }), "hap", CAPTION_LOOKS.hap.colors),
+    );
+    // the chip before is not scaled; in the scaled word's space it is 1.15 times smaller
+    expect(widthScaled).toBeCloseTo((widthPlain as number) / 1.15, 2);
+    expect(leftScaled).toBeLessThan(0);
+  });
+
+  it("draws Karaoke's fill in a coloured word's own colour", () => {
+    const html = captionHtml(
+      withWord(1, { color: "#00ff00" }),
+      "karaoke",
+      CAPTION_LOOKS.karaoke.colors,
+    );
+    expect(extras(html)).toBe("#w0_1{color:#00ff00}\n#w0_1 .f{color:#00ff00}");
+  });
+
+  it("keeps Daktilo's strip from running ahead of the caret before a scaled word", () => {
+    const words = (emph: boolean) => {
+      const l = line("bir harika", 10, 12);
+      if (emph) l.words[1] = { ...(l.words[1] as CaptionLine["words"][number]), emphasis: true };
+      return captionHtml(doc([l], { durationS: 20 }), "daktilo", CAPTION_LOOKS.daktilo.colors);
+    };
+    // the strip's cut once "bir" is typed (its last letter)
+    const cut = (html: string) =>
+      Number(
+        /tl\.set\("#w0_0c2",\{opacity:1\},[\d.]+\);tl\.set\("#w0_0c2 i",\{opacity:1\},[\d.]+\);tl\.set\("[^"]+",\{clipPath:"inset\(0em ([\d.]+)em/.exec(
+          html,
+        )?.[1],
+      );
+    const scaled = words(true);
+    const margin = Number(/margin:0 ([\d.]+)em/.exec(scaled)?.[1]);
+    expect(cut(scaled) - cut(words(false))).toBeCloseTo(2 * margin, 2);
+  });
+
+  it.each([
+    ["bant", 8],
+    ["karaoke", 8],
+    ["hap", 10],
+    ["kil-lacivert", 10],
+  ] as const)("raises %s's emoji with its block as it comes in", (look, y) => {
+    const d = doc([{ ...line("bir iki üç", 2, 4), emoji: "🔥" }]);
+    const html = captionHtml(d, look, CAPTION_LOOKS[look].colors);
+    expect(html).toMatch(new RegExp(`tl\\.fromTo\\("#l0 \\.block",\\{opacity:0,y:${y}\\}`));
+    expect(html).toContain(
+      `tl.fromTo("#l0 .emoji",{opacity:0,scale:0.6,y:${y}},{opacity:1,scale:1,y:0,duration:0.18,ease:"back.out(2)"},2.000);`,
+    );
+  });
+
+  it("fades Bant's emoji out with its block", () => {
+    const html = captionHtml(
+      doc([{ ...line("bir iki üç", 2, 4), emoji: "🔥" }]),
+      "bant",
+      CAPTION_LOOKS.bant.colors,
+    );
+    expect(html).toMatch(/tl\.to\("#l0 \.block,#l0 \.emoji",\{opacity:0/);
+    const plain = captionHtml(doc([line("bir iki üç", 2, 4)]), "bant", CAPTION_LOOKS.bant.colors);
+    expect(plain).toMatch(/tl\.to\("#l0 \.block",\{opacity:0/);
+  });
+
+  it("takes only #rrggbb colours, a true emphasis and a short emoji without control characters", () => {
+    const rgba = captionHtml(withWord(1, { emphasis: true }), "loud", {
+      text: "#ffffff",
+      accent: "rgba(1,2,3,1)",
+    });
+    expect(rgba.match(/<style>/g)).toHaveLength(1);
+    const stringy = captionHtml(
+      withWord(1, { emphasis: "false" as unknown as boolean }),
+      "loud",
+      CAPTION_LOOKS.loud.colors,
+    );
+    expect(stringy.match(/<style>/g)).toHaveLength(1);
+    for (const emoji of ["🔥".repeat(9), "a\u0007", "x\ny"]) {
+      const html = captionHtml(
+        doc([{ ...line("bir iki", 1, 2), emoji }]),
+        "bant",
+        CAPTION_LOOKS.bant.colors,
+      );
+      expect(html).not.toContain("emoji");
+    }
   });
 });

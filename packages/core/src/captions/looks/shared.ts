@@ -1,6 +1,9 @@
 import type { OutputFormat } from "../../schemas/plan.js";
 import type { CaptionColors, CaptionLine, CaptionWord } from "../types.js";
 
+/** How much larger an emphasised word is drawn in scale mode (CSS scale, so the looks' GSAP transforms still apply). */
+export const EMPHASIS_SCALE = 1.15;
+
 /** Font families the composition declares with @font-face for the look's files. */
 export const CAPTION_FONT = "Caption";
 export const CAPTION_FONT_ACTIVE = "CaptionActive";
@@ -34,9 +37,16 @@ export interface LookParts {
    * GSAP calls on `tl` for line i: its entrance at timing.enterS and its spoken words. rows holds the
    * line's words as they are drawn, row by row. A word's color is the colour the composition draws it in
    * (its own, or the accent when emphasised), missing for the look's text colour: a look that colours a
-   * word in its timeline gives that colour back after.
+   * word in its timeline gives that colour back after. room holds, for each word drawn EMPHASIS_SCALE times
+   * as large, the margin each side of it in em: its growth plus a little, as laid out.
    */
-  animate: (line: CaptionLine, i: number, timing: LineTiming, rows: CaptionWord[][]) => string;
+  animate: (
+    line: CaptionLine,
+    i: number,
+    timing: LineTiming,
+    rows: CaptionWord[][],
+    room: Map<CaptionWord, number>,
+  ) => string;
   /** Font size of the text in pixels; a block whose widest row would not fit is drawn smaller. */
   fontPx: number;
   letterSpacingEm: number;
@@ -49,6 +59,10 @@ export interface LookParts {
    * hide it: emphasis is drawn larger instead.
    */
   accentFill?: boolean;
+  /** Inside a word, the element that draws the said word's fill; a word of its own colour has it in that colour. */
+  fillSelector?: string;
+  /** How far the block rises as it comes in, in px; a line's emoji rises with it. */
+  enterYPx?: number;
 }
 
 /** Sizes are set for a 1080 px short edge and scale with the frame. */

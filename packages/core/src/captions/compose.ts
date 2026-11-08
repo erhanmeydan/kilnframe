@@ -17,6 +17,7 @@ import { look as sakin } from "./looks/sakin.js";
 import {
   CAPTION_FONT,
   CAPTION_FONT_ACTIVE,
+  EMPHASIS_SCALE,
   escapeHtml,
   t,
   type LookInput,
@@ -237,9 +238,12 @@ function fontCopy(file: string): { name: string; format: string } {
 
 /** A word's own colour is used only in this form; anything else could break out of the style rule. */
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-/** An emphasised word in scale mode: CSS scale (the looks' GSAP transforms still apply) and room each side. */
-const EMPHASIS_SCALE = 1.15;
+/** Room each side of a scaled word beyond its own growth. */
 const EMPHASIS_MARGIN_EM = 0.08;
+/** The longest emoji value drawn (as the project's limit); a longer one, or one with control characters, is left out. */
+const EMOJI_MAX = 16;
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 /** The system's colour emoji fonts, as the Graphics panel's. */
 const EMOJI_FONTS = `"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji"`;
 
@@ -295,19 +299,40 @@ export function captionHtml(
               : w.text,
         };
         // the colour the word is drawn in, handed to the look so a timeline that colours it can give it back
-        const color = w.emphasis && emphasisColour ? colors.accent : w.color;
+        const color = w.emphasis === true && emphasisColour ? colors.accent : w.color;
         delete word.color;
-        if (color && (color === colors.accent || HEX_COLOR.test(color))) word.color = color;
+        if (color && HEX_COLOR.test(color)) word.color = color;
         return word;
       }),
     };
+    // an emoji past the project's limit or with control characters (a hand-edited file) is left out
+    if (line.emoji !== undefined && (line.emoji.length > EMOJI_MAX || CONTROL.test(line.emoji)))
+      delete line.emoji;
     const ids = new Map(line.words.map((w, n) => [w, `w${i}_${n}`]));
-    const scaled = new Set(line.words.filter((w) => w.emphasis && emphasisScale));
+    // a scaled word's margins hold its growth (CSS scale takes no layout room) and a little more, so its
+    // neighbours move aside; in em of the word, each side
+    const room = new Map(
+      line.words
+        .filter((w) => w.emphasis === true && emphasisScale)
+        .map((w) => [
+          w,
+          Number(
+            (
+              ((EMPHASIS_SCALE - 1) / 2) * rowWidthEm(font, w.text, parts) +
+              EMPHASIS_MARGIN_EM
+            ).toFixed(3),
+          ),
+        ]),
+    );
     for (const w of line.words) {
       const id = ids.get(w) as string;
+      const margin = room.get(w);
       if (w.color) extraCss.push(`#${id}{color:${w.color}}`);
-      if (scaled.has(w))
-        extraCss.push(`#${id}{display:inline-block;scale:${EMPHASIS_SCALE};margin:0 .08em}`);
+      // a look whose said word is drawn by a fill of its own draws that fill in the word's colour too
+      if (w.color && parts.fillSelector)
+        extraCss.push(`#${id} ${parts.fillSelector}{color:${w.color}}`);
+      if (margin !== undefined)
+        extraCss.push(`#${id}{display:inline-block;scale:${EMPHASIS_SCALE};margin:0 ${margin}em}`);
     }
     const rows = blockRows(
       line.words.map((w) => w.text),
@@ -320,15 +345,9 @@ export function captionHtml(
       at += r.length;
       return slice;
     });
-    // a scaled word takes its growth and its margins more room in the row
+    // a scaled word's margins widen its row
     const growthEm = (ws: typeof line.words) =>
-      ws
-        .filter((w) => scaled.has(w))
-        .reduce(
-          (sum, w) =>
-            sum + (EMPHASIS_SCALE - 1) * rowWidthEm(font, w.text, parts) + 2 * EMPHASIS_MARGIN_EM,
-          0,
-        );
+      ws.reduce((sum, w) => sum + 2 * (room.get(w) ?? 0), 0);
     const widest = Math.max(
       ...rows.map(
         (r, ri) =>
@@ -357,10 +376,13 @@ export function captionHtml(
     );
     for (const w of entry.windows)
       script += `tl.set("#l${i}",{opacity:1},${w.startS.toFixed(3)});tl.set("#l${i}",{opacity:0},${w.endS.toFixed(3)});\n`;
-    script += parts.animate(line, i, entry.timing, rowWords);
+    script += parts.animate(line, i, entry.timing, rowWords, room);
     // the emoji pops in with the line; one that came in before this composition starts is already on screen
     if (emoji && entry.timing.enterS >= 0)
-      script += `tl.fromTo("#l${i} .emoji",{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.18,ease:"back.out(2)"},${t(entry.timing.enterS)});\n`;
+      // it rises with a block that slides in
+      script += parts.enterYPx
+        ? `tl.fromTo("#l${i} .emoji",{opacity:0,scale:0.6,y:${parts.enterYPx}},{opacity:1,scale:1,y:0,duration:0.18,ease:"back.out(2)"},${t(entry.timing.enterS)});\n`
+        : `tl.fromTo("#l${i} .emoji",{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.18,ease:"back.out(2)"},${t(entry.timing.enterS)});\n`;
   }
   if (anyEmoji)
     extraCss.push(

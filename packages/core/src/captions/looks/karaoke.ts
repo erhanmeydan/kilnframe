@@ -39,6 +39,8 @@ export function look(o: LookInput): LookParts {
     padX: Math.round(8 * k),
     // the sweep is the accent: a word already in the accent would hide it
     accentFill: true,
+    fillSelector: ".f",
+    enterYPx: Math.round(8 * k),
     // a word said before this composition starts is already bright and filled
     wordMarkup: (w, id) => {
       const s = escapeHtml(w.text);

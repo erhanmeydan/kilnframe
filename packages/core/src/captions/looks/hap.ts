@@ -1,6 +1,7 @@
 import { CAPTION_LOOKS } from "../styles.js";
 import {
   CAPTION_FONT,
+  EMPHASIS_SCALE,
   escapeHtml,
   liveWords,
   scaleOf,
@@ -40,9 +41,10 @@ export function look(o: LookInput): LookParts {
     // the chip reaches past an edge word
     padX: Math.ceil(fontPx * CHIP_PAD_EM),
     accentFill: true,
+    enterYPx: Math.round(10 * k),
     wordMarkup: (w, id) =>
       `<span class="w" id="${id}"><i class="c"></i>${escapeHtml(w.text)}</span>`,
-    animate: (line, i, timing, rows) => {
+    animate: (line, i, timing, rows, room) => {
       // a line that came in before this composition starts is already on screen
       let a =
         timing.enterS >= 0
@@ -57,15 +59,36 @@ export function look(o: LookInput): LookParts {
         if (prev && rowOf.get(prev) === rowOf.get(w)) {
           // slide from the word before: its chip's left edge and width, measured from this word
           const back = width(prev.text) + space;
+          let fromLeft = -back - CHIP_PAD_EM;
+          let fromWidth = width(prev.text) + 2 * CHIP_PAD_EM;
+          const mPrev = room.get(prev) ?? 0;
+          const mHere = room.get(w) ?? 0;
+          if (mPrev || mHere) {
+            // a scaled word is drawn larger around its centre and has margins: start from where the chip
+            // before is seen, in this word's own (possibly scaled) space
+            const sPrev = mPrev ? EMPHASIS_SCALE : 1;
+            const sHere = mHere ? EMPHASIS_SCALE : 1;
+            const wPrev = width(prev.text);
+            const centre = width(w.text) / 2;
+            const seenLeft =
+              -(back + mPrev + mHere) + wPrev / 2 - sPrev * (wPrev / 2 + CHIP_PAD_EM);
+            fromLeft = centre + (seenLeft - centre) / sHere;
+            fromWidth = (sPrev * (wPrev + 2 * CHIP_PAD_EM)) / sHere;
+          }
           // the chip stays hidden until the word starts: only its place and size are set up front
-          a += `tl.set("${chip}",{opacity:1},${at});tl.fromTo("${chip}",{left:${em(-back - CHIP_PAD_EM)},width:${em(width(prev.text) + 2 * CHIP_PAD_EM)}},{left:${em(-CHIP_PAD_EM)},width:${em(width(w.text) + 2 * CHIP_PAD_EM)},duration:${MOVE_S},ease:"power3.inOut"},${at});\n`;
+          a += `tl.set("${chip}",{opacity:1},${at});tl.fromTo("${chip}",{left:${em(fromLeft)},width:${em(fromWidth)}},{left:${em(-CHIP_PAD_EM)},width:${em(width(w.text) + 2 * CHIP_PAD_EM)},duration:${MOVE_S},ease:"power3.inOut"},${at});\n`;
         } else {
           // a fresh chip pops in; its opacity only changes through sets, so a hand-over to a word that
           // starts before the pop ends still hides it
           a += `tl.set("${chip}",{opacity:1},${at});tl.fromTo("${chip}",{scale:0.86},{scale:1,duration:0.1,ease:"power2.out"},${at});\n`;
         }
+        // a word of its own colour is drawn in the text colour while on the chip, so it reads on the accent
+        if (w.color) a += `tl.set("#w${i}_${n}",{color:"${text}"},${at});\n`;
         // the chip before hands over; a word over before this composition starts had no chip shown
-        if (prev && j > 0) a += `tl.set("#w${i}_${n - 1} .c",{opacity:0},${at});\n`;
+        if (prev && j > 0) {
+          a += `tl.set("#w${i}_${n - 1} .c",{opacity:0},${at});\n`;
+          if (prev.color) a += `tl.set("#w${i}_${n - 1}",{color:"${prev.color}"},${at});\n`;
+        }
       }
       return a;
     },

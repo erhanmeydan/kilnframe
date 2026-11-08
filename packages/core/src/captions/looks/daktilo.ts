@@ -1,6 +1,14 @@
 import { CAPTION_LOOKS } from "../styles.js";
 import type { CaptionWord } from "../types.js";
-import { CAPTION_FONT, escapeHtml, scaleOf, t, type LookInput, type LookParts } from "./shared.js";
+import {
+  CAPTION_FONT,
+  EMPHASIS_SCALE,
+  escapeHtml,
+  scaleOf,
+  t,
+  type LookInput,
+  type LookParts,
+} from "./shared.js";
 
 /** A word types its letters over this share of its length, so the last one lands before it ends. */
 const TYPE_SHARE = 0.9;
@@ -43,9 +51,12 @@ export function look(o: LookInput): LookParts {
 .ch{display:inline-block;position:relative;opacity:0}
 .ch.on{opacity:1}
 .ch i{position:absolute;left:100%;top:.2em;bottom:.18em;width:.07em;margin-left:.02em;background:${accent};opacity:0}`;
-  /** How far the strip of a row stays cut back from its right edge once `typed` of its text is in. */
-  const cutEm = (rowText: string, typed: string) =>
-    Math.max(0, measure(rowText) - measure(typed) - CARET_ROOM_EM);
+  /**
+   * How far the strip of a row stays cut back from its right edge once `typed` of its text is in. extra is
+   * the room scaled words add to the row (all of it, and up to the caret).
+   */
+  const cutEm = (rowText: string, typed: string, extra = { row: 0, typed: 0 }) =>
+    Math.max(0, measure(rowText) + extra.row - (measure(typed) + extra.typed) - CARET_ROOM_EM);
   const clip = (em: number) => `"inset(0em ${em.toFixed(3)}em 0em 0em)"`;
   return {
     css,
@@ -63,7 +74,7 @@ export function look(o: LookInput): LookParts {
       );
       return `<span class="w" id="${id}">${cells.join("")}</span>`;
     },
-    animate: (line, i, timing, rows) => {
+    animate: (line, i, timing, rows, room) => {
       // a line that came in before this composition starts is already on screen
       let a =
         timing.enterS >= 0
@@ -76,17 +87,33 @@ export function look(o: LookInput): LookParts {
         const rowText = ws.map((w) => w.text).join(" ");
         let before = "";
         let early: number | null = null;
+        // a scaled word's margins widen the row, and its letters are drawn larger from its centre
+        const rowExtra = ws.reduce((sum, w) => sum + 2 * (room.get(w) ?? 0), 0);
+        let doneExtra = 0;
         for (const w of ws) {
           const n = line.words.indexOf(w);
           const times = letterTimes(w);
+          const margin = room.get(w);
+          let part = "";
           for (const [j, ch] of letters(w.text).entries()) {
             before += ch;
+            part += ch;
             const at = times[j] as number;
-            const cut = cutEm(rowText, before);
+            const cut = margin
+              ? cutEm(rowText, before, {
+                  row: rowExtra,
+                  typed:
+                    doneExtra +
+                    margin -
+                    ((EMPHASIS_SCALE - 1) / 2) * measure(w.text) +
+                    (EMPHASIS_SCALE - 1) * measure(part),
+                })
+              : cutEm(rowText, before, { row: rowExtra, typed: doneExtra });
             if (at <= 0) early = cut;
             else typed.push({ id: `#w${i}_${n}c${j}`, at, row, cut });
           }
           before += " ";
+          doneExtra += 2 * (margin ?? 0);
         }
         // a row partly typed before this composition starts shows its strip that far from the start
         if (early !== null) a += `tl.set("${row}",{clipPath:${clip(early)}},0);\n`;
