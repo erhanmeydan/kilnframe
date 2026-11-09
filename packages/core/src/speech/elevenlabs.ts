@@ -81,7 +81,11 @@ export class ElevenLabsSpeechProvider implements SpeechProvider {
 }
 
 /** A readable error from an ElevenLabs reply: its `detail` is an object, a list or a string. */
-async function elevenLabsError(res: Response): Promise<SpeechError> {
+/** What an ElevenLabs error says, in words an editor can act on; speech and music both use it. */
+export async function elevenLabsFailure(
+  res: Response,
+  what: string,
+): Promise<{ message: string; retryable: boolean; retryAfterS?: number }> {
   const json = (await res.json().catch(() => null)) as { detail?: unknown } | null;
   const d = json?.detail;
   const status =
@@ -96,29 +100,46 @@ async function elevenLabsError(res: Response): Promise<SpeechError> {
         : typeof d === "string"
           ? d
           : "") || res.statusText;
+  const final = (message: string) => ({ message, retryable: false });
   // a used-up quota comes back as 401 too, so the status is read first
   if (res.status === 402 || /quota_exceeded|payment_required/.test(status))
-    return new SpeechError(`Your ElevenLabs account is out of credits: ${detail}`);
+    return final(`Your ElevenLabs account is out of credits: ${detail}`);
   // a key made with restricted permissions: say which switch to turn on in the key's settings
   if (/missing_permissions/.test(status))
-    return new SpeechError(
-      `The ElevenLabs key is missing a permission. On elevenlabs.io under API keys, edit the key and allow Text to Speech and Voices (read; write to clone a voice). ${detail}`,
+    return final(
+      `The ElevenLabs key is missing a permission. On elevenlabs.io under API keys, edit the key and allow ${ELEVENLABS_PERMISSIONS}. ${detail}`,
     );
   if (res.status === 401 || /invalid_api_key/.test(status))
-    return new SpeechError(`The ElevenLabs key was refused: ${detail}`);
+    return final(`The ElevenLabs key was refused: ${detail}`);
   // instant cloning is not in every plan
-  if (/can_not_use_instant_voice_cloning|subscription|upgrade/i.test(status))
-    return new SpeechError(`Your ElevenLabs plan does not include voice cloning: ${detail}`);
+  if (/can_not_use_instant_voice_cloning/i.test(status))
+    return final(`Your ElevenLabs plan does not include voice cloning: ${detail}`);
+  if (/subscription|upgrade/i.test(status))
+    return final(`Your ElevenLabs plan does not include this: ${detail}`);
   if (/voice_limit_reached/.test(status))
-    return new SpeechError(`Your ElevenLabs account has no room for another voice: ${detail}`);
+    return final(`Your ElevenLabs account has no room for another voice: ${detail}`);
+  // the music's text named something ElevenLabs will not compose (an artist, a song)
+  if (/bad_prompt|bad_composition_plan/.test(status))
+    return final(`ElevenLabs blocked the text: ${detail}`);
   if (res.status === 404 || /voice_not_found/.test(status))
-    return new SpeechError(`ElevenLabs could not find this voice: ${detail}`);
+    return final(
+      `ElevenLabs could not find this ${what === "speech" ? "voice" : "model"}: ${detail}`,
+    );
   const wait = Number(res.headers.get("retry-after"));
-  return new SpeechError(
-    `ElevenLabs speech failed (${res.status}): ${detail}`,
-    res.status === 429 || res.status >= 500,
-    res.status === 429 ? (Number.isFinite(wait) && wait > 0 ? wait : 5) : undefined,
-  );
+  return {
+    message: `ElevenLabs ${what} failed (${res.status}): ${detail}`,
+    retryable: res.status === 429 || res.status >= 500,
+    ...(res.status === 429 ? { retryAfterS: Number.isFinite(wait) && wait > 0 ? wait : 5 } : {}),
+  };
+}
+
+/** The key permissions Kilnframe uses, as ElevenLabs' key settings name them. */
+export const ELEVENLABS_PERMISSIONS =
+  "Text to Speech, Voices (read; write to clone a voice) and Music Generation";
+
+async function elevenLabsError(res: Response): Promise<SpeechError> {
+  const f = await elevenLabsFailure(res, "speech");
+  return new SpeechError(f.message, f.retryable, f.retryAfterS);
 }
 
 export interface ElevenLabsVoice {

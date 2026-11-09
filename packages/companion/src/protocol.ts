@@ -101,6 +101,9 @@ const ProviderChoice = {
 /** A speech provider of config/speech.json. */
 export const SpeechProviderId = z.enum(["gemini", "elevenlabs"]);
 
+/** A music provider of config/music.json: Lyria (a Gemini key) or ElevenLabs. */
+export const MusicProviderId = z.enum(["gemini", "elevenlabs"]);
+
 /** Story mode, step one: write the narration from a brief, or revise it with a note. */
 export const StoryWriteJobParamsSchema = z.object({
   kind: z.literal("story-write"),
@@ -134,11 +137,12 @@ export const StoryVoiceJobParamsSchema = z.object({
   speechModel: z.string().optional(),
   /** The narration's language, for providers that take it. */
   language: z.string().max(10).optional(),
-  /** A Lyria music bed under the narration, in the chosen style's mood when there is one. */
+  /** A music bed under the narration, in the chosen style's mood when there is one. */
   music: z
     .object({
       style: z.string().optional(),
       subject: z.string().max(400).optional(),
+      provider: MusicProviderId.optional(),
     })
     .optional(),
 });
@@ -185,8 +189,10 @@ export const MusicMakeJobParamsSchema = z.object({
   slider: z.number().min(-30).max(-12),
   only: z.array(z.string().min(1)).optional(),
   speechFile: z.string().min(1).optional(),
-  /** The editor's notes per section: each rewrites that section's Lyria text before it is made. */
+  /** The editor's notes per section: each rewrites that section's music text before it is made. */
   notes: z.record(z.string(), z.string().max(500)).optional(),
+  /** Who makes the music; the defaults' provider (Lyria) when left out. */
+  musicProvider: MusicProviderId.optional(),
   ...ProviderChoice,
 });
 
@@ -533,7 +539,7 @@ export type ServerMessage =
       model: string;
       voices: unknown[];
       keySet: boolean;
-      /** Music is always made with Gemini, whatever reads the narration. */
+      /** Whether there is a Gemini key for Lyria music (ElevenLabs music uses the ElevenLabs key). */
       musicKeySet: boolean;
       /** Why the voices could not be listed (a refused key, no connection). */
       error?: string;

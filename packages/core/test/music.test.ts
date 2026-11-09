@@ -130,6 +130,61 @@ describe("music", () => {
     expect(r.priceUsd).toBeCloseTo(price * 2);
   });
 
+  it("makes a story's music with ElevenLabs when asked, priced by its length", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mi-music-eleven-"));
+    sine(join(dir, "song.wav"), 8, 220);
+    sine(join(dir, "voice.wav"), 5, 500, 1);
+    const asked: Record<string, unknown>[] = [];
+    const r = await makeMusic({
+      defaults: loadDefaults(),
+      provider: "elevenlabs",
+      apiKey: "k",
+      brief: "calm",
+      narration: join(dir, "voice.wav"),
+      durationS: 5,
+      outFile: join(dir, "music.wav"),
+      fetch: (async (_u: unknown, init?: { body?: string }) => {
+        asked.push(JSON.parse(init?.body ?? "{}") as Record<string, unknown>);
+        return new Response(readFileSync(join(dir, "song.wav")), {
+          headers: { "content-type": "audio/mpeg" },
+        });
+      }) as unknown as typeof fetch,
+      heardWords: async () => 0,
+    });
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({
+      model_id: "music_v2_5",
+      music_length_ms: 8000,
+      force_instrumental: true,
+    });
+    // 8 s at 0.15 USD a minute
+    expect(r.priceUsd).toBeCloseTo(0.02);
+  });
+
+  it("says what ElevenLabs music needs: a permission, credits, or a plainer text", async () => {
+    const answer = (status: number, detail: Record<string, unknown>) =>
+      (async () => new Response(JSON.stringify({ detail }), { status })) as unknown as typeof fetch;
+    const ask = (f: typeof fetch) =>
+      generateMusic({
+        apiKey: "k",
+        model: "music_v2_5",
+        endpoint: "https://api.elevenlabs.io/v1/music",
+        prompt: "calm",
+        durationS: 20,
+        fetch: f,
+      });
+    await expect(
+      ask(answer(401, { status: "missing_permissions", message: "no music_generation" })),
+    ).rejects.toThrow(/allow .*Music Generation/);
+    await expect(ask(answer(402, { status: "payment_required", message: "x" }))).rejects.toThrow(
+      /out of credits/,
+    );
+    // the score's plainer second try looks for "blocked"
+    await expect(
+      ask(answer(400, { status: "bad_prompt", message: "artist name" })),
+    ).rejects.toThrow(/blocked/);
+  });
+
   it("loops a short piece to the narration and ducks it while the voice speaks", () => {
     const dir = mkdtempSync(join(tmpdir(), "mi-music-"));
     sine(join(dir, "raw.wav"), 8, 220);

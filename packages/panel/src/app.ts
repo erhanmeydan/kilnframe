@@ -15,6 +15,7 @@ import {
   newMusic,
   watchesSequence,
   type MusicCtx,
+  type MusicProvider,
 } from "./music";
 import {
   captionsAct,
@@ -147,7 +148,7 @@ interface StoryState {
   /** The whole voice list is open. */
   allVoices: boolean;
   keySet: boolean;
-  /** Music is always made with Gemini, whatever reads the narration. */
+  /** Whether there is a Gemini key for Lyria music (ElevenLabs music uses the ElevenLabs key). */
   musicKeySet: boolean;
   /** Cloning the editor's voice from the timeline's In/Out range into their ElevenLabs account. */
   clone: {
@@ -1275,12 +1276,21 @@ function storyBox(): string {
   ])}
   ${
     st.music === "on"
+      ? `${seg("music-provider", storedMusicProvider(), [
+          ["gemini", "Lyria"],
+          ["elevenlabs", "ElevenLabs"],
+        ])}${musicKeyFor(storedMusicProvider()) ? "" : `<div class="box warn">${t("story.musicNoKey")}</div>`}`
+      : ""
+  }
+  ${
+    st.music === "on"
       ? `<div class="note muted">${
           state.styles.find((s) => s.name === state.style)
             ? t("story.musicStyle", {
                 style: localized(state.styles.find((s) => s.name === state.style)!.displayName),
+                maker: musicMaker(),
               })
-            : t("story.musicTone")
+            : t("story.musicTone", { maker: musicMaker() })
         }</div>`
       : ""
   }
@@ -1577,6 +1587,7 @@ async function makeStorySequence() {
         ...(st.music === "on"
           ? {
               music: {
+                provider: storedMusicProvider(),
                 ...(state.style ? { style: state.style } : {}),
                 subject: (st.title || st.brief).slice(0, 400),
               },
@@ -2190,14 +2201,14 @@ function speechKeys(): string {
   else if (setup.editingKey === "elevenlabs")
     body = `<div class="small">Google Gemini <span class="pkey">${t("prov.noKey")}</span></div>`;
   else body = keyBlock("gemini", gemini, false);
-  // ElevenLabs reads the narration only, never the music. One key field at a time on the screen
-  // (they share the draft), so its field opens with Add Key.
+  // ElevenLabs reads narration and makes music. One key field at a time on the screen (they share the
+  // draft), so its field opens with Add Key.
   const elevenEntry = { keySet: elevenKey, keyUrl: ELEVEN_KEY_URL } as ProviderEntry;
   const eleven =
     elevenKey || setup.editingKey === "elevenlabs"
       ? keyBlock("elevenlabs", elevenEntry, false)
       : `<div class="pbtns"><div class="pbtn" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
-  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div>`;
+  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div><div class="note muted">${t("prov.elevenPermissions")}</div>`;
 }
 
 /** The first-run guide: companion, computer, speech model, AI, narration and a first try. */
@@ -2797,6 +2808,23 @@ async function exportFootageFrames(
 
 /** Lyria 3.5's price per piece (the companion's music catalog); shown before any money is spent. */
 const LYRIA_PRICE_USD = 0.08;
+/** ElevenLabs Music's price per minute of music (the companion's music catalog). */
+const ELEVEN_MUSIC_PRICE_PER_MINUTE_USD = 0.15;
+
+/** Who makes the music, in the Music tab and in story mode: the editor's last choice. */
+function storedMusicProvider(): MusicProvider {
+  return stored("music-provider") === "elevenlabs" ? "elevenlabs" : "gemini";
+}
+
+/** Who makes a story's music and about what it costs, for the line under the music choice. */
+function musicMaker(): string {
+  return t(storedMusicProvider() === "elevenlabs" ? "story.makerEleven" : "story.makerLyria");
+}
+
+/** Whether the chosen music provider has its key. */
+function musicKeyFor(p: MusicProvider): boolean {
+  return p === "elevenlabs" ? elevenKey : state.story.musicKeySet;
+}
 
 /** What the Music tab (music.ts) uses from the rest of the panel. */
 const musicCtx: MusicCtx = {
@@ -2807,7 +2835,7 @@ const musicCtx: MusicCtx = {
   render: () => render(),
   trace: (line) => trace(line),
   connected: () => state.conn === "ok" && wavPresetOk(),
-  keySet: () => state.story.musicKeySet,
+  keySet: (p) => musicKeyFor(p ?? storedMusicProvider()),
   inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
   readSequence: () => readSequence(),
   request: (message, reply, timeoutMs) =>
@@ -2829,8 +2857,21 @@ const musicCtx: MusicCtx = {
   placeClips: (target, clips) => host().placeAudioClips(target, clips),
   rangeLine: (scope) => musicRangeLine(scope),
   slider: () => state.settings.musicLevel ?? -21,
-  pricePerSong: () => LYRIA_PRICE_USD,
-  openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
+  provider: () => storedMusicProvider(),
+  setProvider: (p) => {
+    store("music-provider", p);
+  },
+  price: (p) =>
+    p === "elevenlabs"
+      ? { perMinute: ELEVEN_MUSIC_PRICE_PER_MINUTE_USD }
+      : { perSong: LYRIA_PRICE_USD },
+  openTerms: () =>
+    void host().openUrl(
+      storedMusicProvider() === "elevenlabs"
+        ? "https://elevenlabs.io/music-terms"
+        : "https://ai.google.dev/gemini-api/terms",
+    ),
+  providerParams: () => providerParams(),
 };
 
 /** What the Voice Fix tab (voice-fix.ts) uses from the rest of the panel. */

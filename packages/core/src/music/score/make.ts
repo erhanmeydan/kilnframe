@@ -1,6 +1,6 @@
-// The music-make step: one Lyria piece per section, fitted to its section, joined (a crossfade is baked into
+// The music-make step: one piece per section (Lyria or ElevenLabs), fitted to its section, joined (a crossfade is baked into
 // the next clip's head), ducked under the speech by the level curve; the last piece's own close ends the range.
-// Raw pieces are kept per section, so making one section again re-cuts its neighbours without Lyria.
+// Raw pieces are kept per section, so making one section again re-cuts its neighbours without a new request.
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -14,7 +14,13 @@ import {
 import { join } from "node:path";
 import { ffmpegPath } from "../../config.js";
 import type { Word } from "../../schemas/transcript.js";
-import { generateMusic, loadMusicCatalog, MusicError, saveRawMusic } from "../index.js";
+import {
+  generateMusic,
+  MusicError,
+  musicPriceUsd,
+  musicProviderOf,
+  saveRawMusic,
+} from "../index.js";
 import { audioSeconds, readAudio, SR, writeAudio } from "./audio-io.js";
 import { bakeCrossfade, fade, fitLength } from "./fit.js";
 import {
@@ -36,6 +42,8 @@ const FINAL_FADE_S = 0.5;
 /** A piece must outlast its own loop crossfade twice over to be looped (a cut-off reply is refused). */
 const MIN_PIECE_S = 6;
 const FINAL_RAMP_S = 20;
+/** The model a piece without a model in its note was made with (before ElevenLabs music). */
+const LYRIA_DEFAULT = "lyria-3.5";
 
 export interface MakeMusicOptions {
   plan: MusicPlan;
@@ -109,8 +117,7 @@ export async function makeScore(
   for (const d of [dir, rawDir, join(dir, "clean"), join(dir, "preview")])
     mkdirSync(d, { recursive: true });
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
-  const models = loadMusicCatalog().flatMap((p) => p.models);
-  const priceOf = (id: string) => models.find((m) => m.id === id)?.pricePerSong ?? 0;
+  const provider = musicProviderOf(o.model)?.id;
   let priceUsd = 0;
   const errors = new Map<string, string>();
   const sections = o.plan.sections;
@@ -126,10 +133,16 @@ export async function makeScore(
   ) as typeof fetch;
 
   /**
-   * One Lyria piece, with the story mode's retries and one plainer try after a content refusal. The piece
+   * One piece, with the story mode's retries and one plainer try after a content refusal. The piece
    * replaces the section's earlier one only once it has arrived, with a note of the prompt it was made for.
    */
-  async function generate(model: string, prompt: string, plain: string, id: string) {
+  async function generate(
+    model: string,
+    prompt: string,
+    plain: string,
+    id: string,
+    durationS: number,
+  ) {
     let text = prompt;
     for (let attempt = 1; ; attempt++) {
       try {
@@ -138,14 +151,19 @@ export async function makeScore(
           model,
           endpoint: o.endpoint,
           prompt: text,
+          durationS,
+          provider,
           fetch: doFetch,
         });
-        priceUsd += priceOf(model);
+        priceUsd += musicPriceUsd(model, durationS);
         const saved = saveRawMusic(r.audio, r.mimeType, join(rawDir, "incoming", id));
         const ext = saved.slice(saved.lastIndexOf("."));
         for (const f of readdirSync(rawDir)) if (f.startsWith(`${id}.`)) rmSync(join(rawDir, f));
         renameSync(saved, join(rawDir, `${id}${ext}`));
-        writeFileSync(join(rawDir, `${id}.json`), JSON.stringify({ prompt }));
+        writeFileSync(
+          join(rawDir, `${id}.json`),
+          JSON.stringify({ prompt, model, askS: durationS }),
+        );
         return;
       } catch (err) {
         if (stopped()) throw err;
@@ -158,30 +176,60 @@ export async function makeScore(
           continue;
         }
         if (!(err instanceof MusicError) || !err.retryable || attempt >= 3) throw err;
-        await sleep(2000 * attempt);
+        // a rate limit says how long to wait (ElevenLabs)
+        await sleep(Math.max(2000 * attempt, (err.retryAfterS ?? 0) * 1000));
       }
     }
   }
 
-  /** Whether the kept piece was made for this section as the plan has it now (its prompt holds its length). */
-  const fits = (s: MusicSection) => {
-    const note = join(rawDir, `${s.id}.json`);
-    if (!rawOf(rawDir, s.id) || !existsSync(note)) return false;
+  /**
+   * How long a piece to ask for. Lyria is told a length in words and its piece is looped or cut to fit;
+   * ElevenLabs makes the length asked, so a piece that crossfades into the next one also covers the
+   * crossfade, with a second to spare (a piece a few milliseconds short would loop its own opening in).
+   */
+  const askFor = (s: MusicSection) => {
+    const len = s.endS - s.startS;
+    if (provider !== "elevenlabs") return len;
+    const next = sections[sections.indexOf(s) + 1];
+    const crossfades = !s.final && s.transitionOut === "crossfade" && !!next && !next.silent;
+    return Math.max(len + (crossfades ? CROSSFADE_S : 0) + 1, MIN_PIECE_S + 1);
+  };
+
+  /** What made a kept piece: its prompt, model and asked length (a piece from before 0.4.5 was Lyria's). */
+  const noteOf = (id: string): { prompt?: string; model?: string; askS?: number } | null => {
+    const note = join(rawDir, `${id}.json`);
+    if (!existsSync(note)) return null;
     try {
-      return (
-        (JSON.parse(readFileSync(note, "utf8")) as { prompt?: string }).prompt ===
-        lyriaPrompt(o.plan, s)
-      );
+      return JSON.parse(readFileSync(note, "utf8")) as {
+        prompt?: string;
+        model?: string;
+        askS?: number;
+      };
     } catch {
-      return false;
+      return null;
     }
+  };
+
+  /**
+   * Whether the kept piece was made for this section as the plan has it now (its prompt holds its length), by
+   * the same model, and long enough (a section that now crossfades needs a longer ElevenLabs piece).
+   */
+  const fits = (s: MusicSection) => {
+    const note = rawOf(rawDir, s.id) ? noteOf(s.id) : null;
+    if (!note) return false;
+    return (
+      note.prompt === lyriaPrompt(o.plan, s) &&
+      (note.model ?? LYRIA_DEFAULT) === o.model &&
+      (note.askS ?? Infinity) >= askFor(s) - 0.001
+    );
   };
 
   // 1. raw pieces: the asked sections only (a remake is paid for one section, not for others that failed
   // before); a whole make: every section without a piece made for it as it is now
   const wanted = sections.filter((s) => !s.silent && (o.only ? o.only.includes(s.id) : !fits(s)));
   let done = 0;
-  await pool(wanted, o.concurrency ?? 3, async (s) => {
+  // ElevenLabs holds few long requests at once on the smaller plans
+  await pool(wanted, o.concurrency ?? (provider === "elevenlabs" ? 2 : 3), async (s) => {
     if (stopped()) return;
     o.onProgress?.(`Writing the music ${++done}/${wanted.length}`);
     const plainSection: MusicSection = {
@@ -189,7 +237,13 @@ export async function makeScore(
       prompt: "Simple, calm instrumental background music.",
     };
     try {
-      await generate(o.model, lyriaPrompt(o.plan, s), lyriaPrompt(o.plan, plainSection), s.id);
+      await generate(
+        o.model,
+        lyriaPrompt(o.plan, s),
+        lyriaPrompt(o.plan, plainSection),
+        s.id,
+        askFor(s),
+      );
     } catch (err) {
       errors.set(s.id, err instanceof Error ? err.message : String(err));
     }
@@ -333,7 +387,10 @@ export async function makeScore(
     });
   }
 
-  // 4. the record: what made this music, for the editor's own files
+  // 4. the record: what made this music, for the editor's own files; a remake may have used another model
+  // for some sections
+  const modelOf = (id: string) => noteOf(id)?.model ?? LYRIA_DEFAULT;
+  const models = sections.filter((s) => usable.has(s.id)).map((s) => modelOf(s.id));
   const record = join(dir, "music.json");
   writeFileSync(
     record,
@@ -342,12 +399,15 @@ export async function makeScore(
         version: 1,
         model: o.model,
         createdAt: new Date().toISOString(),
-        synthId: "All Lyria audio carries Google's inaudible SynthID watermark.",
+        ...(models.some((m) => musicProviderOf(m)?.id === "gemini")
+          ? { synthId: "All Lyria audio carries Google's inaudible SynthID watermark." }
+          : {}),
         world: o.plan.world,
         sections: sections.map((s) => ({
           id: s.id,
           title: s.title,
           prompt: s.silent ? null : lyriaPrompt(o.plan, s),
+          model: usable.has(s.id) ? modelOf(s.id) : null,
           startS: s.startS,
           endS: s.endS,
           file: made.find((m) => m.id === s.id)?.file ?? null,

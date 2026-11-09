@@ -76,15 +76,46 @@ function readScript(path: string | undefined): string | undefined {
  * The text model of the Music tab: it plans the music and rewrites a section for a note. It runs on the music
  * provider's own key (the Google key Lyria uses), never on the text model the editor chose for animations.
  */
-export async function musicTextProvider(defaults: Defaults, keys: KeyStore): Promise<TextProvider> {
-  const music = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
-  const apiKey = music ? await keys.get(music.keyName) : undefined;
-  if (!apiKey) throw new Error("Music needs a Google Gemini key. Add it in Settings.");
+/**
+ * The model that plans the music and rewrites a section for a note: Gemini when there is a Gemini key, else
+ * the AI chosen in the settings (someone with only an ElevenLabs key makes music too).
+ */
+export async function musicTextProvider(
+  defaults: Defaults,
+  keys: KeyStore,
+  choice?: {
+    provider?: string | undefined;
+    model?: string | undefined;
+    baseURL?: string | undefined;
+    thinking?: "off" | "on" | undefined;
+  },
+): Promise<TextProvider> {
+  const planner = defaults.music.planner;
+  const geminiKey = await keys.get(planner.provider);
+  if (geminiKey)
+    return createTextProvider(defaults, {
+      provider: planner.provider,
+      model: planner.model,
+      apiKey: geminiKey,
+    });
+  if (!choice?.provider) throw new Error("Music needs a Google Gemini key. Add it in Settings.");
   return createTextProvider(defaults, {
-    provider: defaults.music.planner.provider,
-    model: defaults.music.planner.model,
-    apiKey,
+    provider: choice.provider,
+    model: choice.model,
+    baseURL: choice.baseURL,
+    thinking: choice.thinking,
+    // "auto" falls back to the Anthropic API, so its key is the Anthropic one
+    apiKey: await keys.get(choice.provider === "auto" ? "anthropic" : choice.provider),
   });
+}
+
+/** The music provider and model for a job: the defaults' (Lyria 3.5) unless another provider is asked for. */
+function musicChoice(defaults: Defaults, id: string | undefined) {
+  const provider = loadMusicCatalog().find((p) => p.id === (id ?? defaults.music.provider));
+  if (!provider) throw new Error(`No music provider ${id ?? defaults.music.provider}`);
+  const model =
+    provider.id === defaults.music.provider ? defaults.music.model : provider.models[0]!.id;
+  return { provider, model };
 }
 
 /** Runs the core pipeline for a panel job, with the API key read from the keychain. */
@@ -121,7 +152,7 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
       return { kind: "parts", ...r };
     }
     if (params.kind === "music-plan") {
-      const planner = await musicTextProvider(defaults, keys);
+      const planner = await musicTextProvider(defaults, keys, params);
       mkdirSync(params.outDir, { recursive: true });
       const ranged = params.rangeStartS !== undefined && params.rangeEndS !== undefined;
       const speech = ranged ? join(params.outDir, "range.wav") : params.audioPath;
@@ -368,10 +399,12 @@ async function storyVoiceJob(
       (params.music.style ? loadPalette(params.music.style).music : undefined) ??
       `A calm, warm documentary score that fits a narration read in this manner: ${params.style ?? "clear and warm"}.`;
     const brief = params.music;
+    const { provider: musicProvider } = musicChoice(defaults, brief.provider);
     ({ music, musicError } = await musicOrNote(async () =>
       makeMusic({
         defaults,
-        apiKey: (await keys.get(defaults.music.provider)) ?? "",
+        provider: musicProvider.id,
+        apiKey: (await keys.get(musicProvider.keyName)) ?? "",
         brief: mood,
         subject: brief.subject ?? params.title,
         narration: result.file,
@@ -480,7 +513,7 @@ async function voiceFixSayJob(
   };
 }
 
-/** The Music tab's second step: Lyria pieces made into one clip per section under the speech. */
+/** The Music tab's second step: pieces (Lyria or ElevenLabs) made into one clip per section under the speech. */
 async function musicMakeJob(
   params: MusicMakeJobParams,
   keys: KeyStore,
@@ -488,8 +521,7 @@ async function musicMakeJob(
   signal?: AbortSignal,
 ) {
   const defaults = loadDefaults();
-  const provider = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
-  if (!provider) throw new Error(`No music provider ${defaults.music.provider}`);
+  const { provider, model } = musicChoice(defaults, params.musicProvider);
   const transcriptFile = join(params.outDir, "transcript.json");
   const words = existsSync(transcriptFile)
     ? (JSON.parse(readFileSync(transcriptFile, "utf8")) as Transcript).words
@@ -502,7 +534,7 @@ async function musicMakeJob(
   let billing: string = "api";
   if (notes.length) {
     progress("Rewriting the music for your notes");
-    const text = await musicTextProvider(defaults, keys);
+    const text = await musicTextProvider(defaults, keys, params);
     billing = text.billing ?? "api";
     const metered = usage.wrap(text);
     for (const [id, note] of notes) {
@@ -520,7 +552,7 @@ async function musicMakeJob(
     slider: params.slider,
     apiKey: (await keys.get(provider.keyName)) ?? "",
     endpoint: provider.endpoint,
-    model: defaults.music.model,
+    model,
     only: params.only,
     onProgress: progress,
   });
