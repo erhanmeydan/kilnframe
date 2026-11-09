@@ -124,6 +124,16 @@ describe("job errors in the panel's language", () => {
     expect(tr).toHaveProperty("job.noCredits");
   });
 
+  it("says a Z.ai key with no balance behind it is out of credits", () => {
+    expect(
+      readableJobError(
+        "zai error 429: Insufficient balance or no resource package. Please recharge.",
+      ),
+    ).toEqual({ key: "job.noCredits", vars: { provider: "Z.ai" }, reasons: [] });
+    // a busy endpoint stays a plain error
+    expect(readableJobError("zai error 429: Too many requests")).toBeNull();
+  });
+
   it("says a provider too busy for the model, in the panel's language", () => {
     expect(
       readableJobError(

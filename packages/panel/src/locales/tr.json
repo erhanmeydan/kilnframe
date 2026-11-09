@@ -389,6 +389,7 @@
   "prov.modelPlaceholder": "Örneğin qwen/qwen3.8-27b",
   "prov.keyStored": "Anahtar bu bilgisayarın anahtar zincirinde saklanır.",
   "prov.geminiShared": "Seslendirme ve müzik de bu anahtarı kullanır.",
+  "prov.zaiPlan": "Z.ai iki tür anahtar verir. Standard sekmesindeki anahtar hesap bakiyenizi kullanır, kullanmadan önce bakiye yükleyin. Personal Coding Plan sekmesindeki anahtar aboneliğinizi kullanır, ama Z.ai Coding Plan'ı sadece desteklediği kodlama araçlarında kullanmaya izin veriyor ve başka yerde kullanan hesabı kısıtlayabiliyor. Bu anahtarı kullanmak sizin kararınız ve sorumluluğunuzdadır.",
   "prov.lmNone": "LM Studio'dan model gelmedi. Açık olduğundan emin olup Bağlantıyı Dene'ye basın.",
   "prov.lmHidden": "{n} model görsel okumadığı için listede yok.",
   "prov.lmHidden.one": "1 model görsel okumadığı için listede yok.",

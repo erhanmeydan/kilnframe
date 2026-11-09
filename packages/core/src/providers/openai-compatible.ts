@@ -126,6 +126,9 @@ interface ChatCompletion {
  * Any endpoint that speaks the OpenAI Chat Completions format: OpenAI, Gemini, xAI, MiniMax, LM Studio or a custom
  * server. Base URLs live in providers.json.
  */
+/** A provider's words for an account with no balance or credits left (Z.ai sends them with a 429). */
+const NO_BALANCE = /insufficient balance|no resource package|recharge|insufficient_quota/i;
+
 /** How often one request waits for a free slot after a 429 before it counts as a failed try. */
 const MAX_SLOT_WAITS = 50;
 
@@ -597,6 +600,9 @@ export class OpenAICompatibleProvider implements TextProvider {
           `${this.name} rejected the API key. Check it in the settings: ${detail}`,
           false,
         );
+      // an account with nothing to pay with: Z.ai answers it with a 429 like a busy endpoint, but waiting
+      // or asking again cannot help
+      const noBalance = (res.status === 402 || res.status === 429) && NO_BALANCE.test(detail);
       const unavailable =
         res.status === 404 ||
         ((res.status === 400 || res.status === 422) && mentionsUnavailableModel(detail));
@@ -604,8 +610,12 @@ export class OpenAICompatibleProvider implements TextProvider {
         unavailable
           ? `${this.name} does not offer the model "${this.model}": ${detail}`
           : `${this.name} error ${res.status}: ${detail}`,
-        res.status === 429 || res.status >= 500,
-        unavailable ? "model-unavailable" : res.status === 429 ? "rate-limited" : undefined,
+        !noBalance && (res.status === 429 || res.status >= 500),
+        unavailable
+          ? "model-unavailable"
+          : res.status === 429 && !noBalance
+            ? "rate-limited"
+            : undefined,
       );
     }
     return this.answer(body, req, maxTokens);

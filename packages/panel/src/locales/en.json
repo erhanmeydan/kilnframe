@@ -389,6 +389,7 @@
   "prov.modelPlaceholder": "For example qwen/qwen3.8-27b",
   "prov.keyStored": "The key is kept in this computer's keychain.",
   "prov.geminiShared": "Narration and music use this key too.",
+  "prov.zaiPlan": "Z.ai gives two kinds of keys. A key from the Standard tab uses your account balance, so add credit before you use it. A key from the Personal Coding Plan tab uses your plan, but Z.ai allows the Coding Plan only in the coding tools it supports and may limit an account that uses it elsewhere. Using that key is your choice and your responsibility.",
   "prov.lmNone": "No models came from LM Studio. Make sure it is open, then press Test Connection.",
   "prov.lmHidden": "{n} models are not listed because they do not read images.",
   "prov.lmHidden.one": "1 model is not listed because it does not read images.",

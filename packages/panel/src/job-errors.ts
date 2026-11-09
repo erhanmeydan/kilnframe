@@ -62,8 +62,13 @@ export function readableJobError(message: string): ReadableError | null {
     return { key: "job.noAi", vars: {}, reasons: [] };
   if (message.includes("Music needs a Google Gemini key"))
     return { key: "music.noKey", vars: {}, reasons: [] };
-  // an account out of credits, or a key over its spending limit (OpenRouter's 402)
-  const credits = /^(\S+) error 402: .*(credit|afford)/i.exec(message);
+  // an account out of credits, or a key over its spending limit (OpenRouter's 402); Z.ai says a key with
+  // no balance behind it with a 429
+  const credits =
+    /^(\S+) error 402: .*(credit|afford)/i.exec(message) ??
+    /^(\S+) error 4\d\d: .*(insufficient balance|no resource package|recharge|insufficient_quota)/i.exec(
+      message,
+    );
   if (credits)
     return {
       key: "job.noCredits",

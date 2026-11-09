@@ -276,6 +276,28 @@ describe("retries", () => {
     expect(calls).toBe(3);
   });
 
+  it("stops at once when the account has no balance, even with other requests running", async () => {
+    // Z.ai answers a key with no balance behind it with a 429, like a busy endpoint
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 5));
+      return new Response(
+        JSON.stringify({
+          error: { message: "Insufficient balance or no resource package. Please recharge." },
+        }),
+        { status: 429 },
+      );
+    });
+    const p = provider();
+    const results = await Promise.allSettled([p.complete(request), p.complete(request)]);
+    for (const r of results) {
+      expect(r.status).toBe("rejected");
+      expect(String((r as PromiseRejectedResult).reason)).toMatch(/xai error 429: Insufficient balance/);
+    }
+    expect(calls).toBe(2);
+  });
+
   it("gives up after three tries, and never retries a refused key", async () => {
     let calls = 0;
     vi.stubGlobal("fetch", async () => {
