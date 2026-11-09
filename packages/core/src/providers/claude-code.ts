@@ -182,7 +182,7 @@ export class ClaudeCodeProvider implements TextProvider {
 
   async listModels(): Promise<ModelInfo[]> {
     // The CLI has no model list; it accepts the current model IDs and the aliases opus, sonnet, haiku.
-    return ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5", "claude-haiku-4-5"].map(
+    return ["claude-opus-5-5", "claude-fable-5-2", "claude-sonnet-5-5", "claude-haiku-4-5"].map(
       (id) => ({
         id,
         displayName: id,

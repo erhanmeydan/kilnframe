@@ -533,9 +533,12 @@ function unstore(key: string) {
     // ignore
   }
 }
+/** Claude models the list no longer offers, moved to the one that took their place. */
+const CLAUDE_MODEL_SUCCESSORS: Record<string, string> = { "claude-fable-5-1": "claude-fable-5-2" };
+
 function loadSettings(): Settings {
   try {
-    return {
+    const settings: Settings = {
       provider: "auto",
       model: "claude-opus-5-5",
       models: {},
@@ -544,6 +547,7 @@ function loadSettings(): Settings {
       lang: "auto",
       ...JSON.parse(stored("settings") ?? "{}"),
     };
+    return { ...settings, model: CLAUDE_MODEL_SUCCESSORS[settings.model] ?? settings.model };
   } catch {
     return {
       provider: "auto",
@@ -1689,6 +1693,7 @@ function localThinking(id: string): "off" | "on" {
 }
 
 const CLAUDE_MODEL_NAMES: Record<string, string> = {
+  "claude-fable-5-2": "Fable 5.2",
   "claude-fable-5-1": "Fable 5.1",
   "claude-opus-5-5": "Opus 5.5",
   "claude-sonnet-5-5": "Sonnet 5.5",
@@ -2123,7 +2128,7 @@ function modelList(): string {
   if (CLAUDE_KINDS.has(id))
     options = [
       ["claude-opus-5-5", t("settings.opusNote")],
-      ["claude-fable-5-1", t("settings.fableNote")],
+      ["claude-fable-5-2", t("settings.fableNote")],
       ["claude-sonnet-5-5", t("settings.sonnetNote")],
     ];
   else if (id === "codex")
