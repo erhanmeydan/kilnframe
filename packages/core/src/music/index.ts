@@ -13,21 +13,40 @@ import { transcribe } from "../stages/transcribe.js";
 
 const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
 
-export class MusicError extends Error {
-  constructor(
-    message: string,
-    readonly retryable = false,
-  ) {
-    super(message);
-  }
-}
+import { composeElevenLabsMusic } from "./elevenlabs.js";
+import { MusicError } from "./errors.js";
+
+export { MusicError };
 
 export interface MusicCatalogProvider {
   id: string;
   displayName: string;
   endpoint: string;
   keyName: string;
-  models: { id: string; label: string; maxS: number; pricePerSong: number }[];
+  models: {
+    id: string;
+    label: string;
+    maxS: number;
+    pricePerSong: number;
+    /** ElevenLabs bills by the minute of music made. */
+    pricePerMinute?: number;
+  }[];
+}
+
+/** The catalog entry that offers a model id. */
+export function musicProviderOf(model: string): MusicCatalogProvider | undefined {
+  return loadMusicCatalog().find((p) => p.models.some((m) => m.id === model));
+}
+
+/** The list price of one piece of the given length. */
+export function musicPriceUsd(model: string, durationS: number): number {
+  const m = loadMusicCatalog()
+    .flatMap((p) => p.models)
+    .find((x) => x.id === model);
+  if (!m) return 0;
+  if (m.pricePerMinute === undefined) return m.pricePerSong;
+  // ElevenLabs makes 3 s at least, and at most the model's longest piece
+  return (m.pricePerMinute * Math.min(m.maxS, Math.max(3, durationS))) / 60;
 }
 
 export function loadMusicCatalog(): MusicCatalogProvider[] {
@@ -56,14 +75,29 @@ export function musicPrompt(o: {
     .join(" ");
 }
 
-/** One Lyria request through the Interactions API; returns the encoded audio as it came. */
+/**
+ * One piece of music; returns the encoded audio as it came. Lyria (the Interactions API) is told the length in
+ * its prompt; ElevenLabs makes exactly `durationS`.
+ */
 export async function generateMusic(o: {
   apiKey: string;
   model: string;
   endpoint: string;
   prompt: string;
+  /** The length to make, for a provider that takes one (ElevenLabs). */
+  durationS?: number | undefined;
+  provider?: string | undefined;
   fetch?: typeof fetch;
 }): Promise<{ audio: Buffer; mimeType: string }> {
+  if ((o.provider ?? musicProviderOf(o.model)?.id) === "elevenlabs")
+    return composeElevenLabsMusic({
+      apiKey: o.apiKey,
+      model: o.model,
+      endpoint: o.endpoint,
+      prompt: o.prompt,
+      durationS: o.durationS ?? 30,
+      ...(o.fetch ? { fetch: o.fetch } : {}),
+    });
   const doFetch = o.fetch ?? fetch;
   let res: Response;
   try {
@@ -244,16 +278,23 @@ export async function makeMusic(o: {
   durationS: number;
   outFile: string;
   model?: string | undefined;
+  /** A music provider of config/music.json; the defaults' one when left out. */
+  provider?: string | undefined;
   fetch?: typeof fetch;
   onProgress?: ((message: string) => void) | undefined;
   /** How many words speech recognition hears in a file; the default runs the local Whisper model. */
   heardWords?: (file: string) => Promise<number>;
 }): Promise<{ file: string; bed: string; durationS: number; priceUsd: number; prompt: string }> {
+  const providerId = o.provider ?? o.defaults.music.provider;
+  const entry = loadMusicCatalog().find((p) => p.id === providerId);
+  if (!entry) throw new MusicError(`Unknown music provider "${providerId}".`);
   if (!o.apiKey)
-    throw new MusicError("No Gemini key for the music. Add one in the panel's settings.");
-  const entry = loadMusicCatalog().find((p) => p.id === o.defaults.music.provider);
-  if (!entry) throw new MusicError(`Unknown music provider "${o.defaults.music.provider}".`);
-  const modelId = o.model ?? o.defaults.music.model;
+    throw new MusicError(
+      `No ${entry.id === "elevenlabs" ? "ElevenLabs" : "Gemini"} key for the music. Add one in the panel's settings.`,
+    );
+  const modelId =
+    o.model ??
+    (entry.id === o.defaults.music.provider ? o.defaults.music.model : entry.models[0]?.id);
   const model = entry.models.find((m) => m.id === modelId);
   if (!model) throw new MusicError(`Unknown music model "${modelId}".`);
   const prompt = musicPrompt({
@@ -261,6 +302,7 @@ export async function makeMusic(o: {
     subject: o.subject,
     durationS: Math.min(o.durationS + 3, model.maxS),
   });
+  const askS = Math.min(o.durationS + 3, model.maxS);
   o.onProgress?.("Writing the music");
   const heard =
     o.heardWords ??
@@ -282,6 +324,8 @@ export async function makeMusic(o: {
           model: model.id,
           endpoint: entry.endpoint,
           prompt: asked,
+          durationS: askS,
+          provider: entry.id,
           ...(o.fetch ? { fetch: o.fetch } : {}),
         });
         break;
@@ -318,5 +362,5 @@ export async function makeMusic(o: {
     outFile: o.outFile,
     lufs: o.defaults.music.lufs,
   });
-  return { ...fitted, priceUsd: model.pricePerSong * songs, prompt: asked };
+  return { ...fitted, priceUsd: musicPriceUsd(model.id, askS) * songs, prompt: asked };
 }

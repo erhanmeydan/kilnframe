@@ -1,4 +1,4 @@
-// The Music tab: the whole timeline or the In/Out range scored with Lyria in sections. Step one asks the
+// The Music tab: the whole timeline or the In/Out range scored with Lyria or ElevenLabs in sections. Step one asks the
 // companion for a plan (music-plan), which the editor reviews; step two makes the music (music-make), which the
 // editor listens to section by section, makes again where needed, and places on a new audio track.
 import type { ServerMessage } from "./companion-session";
@@ -58,6 +58,8 @@ export interface MusicState {
   /** Resolve could not put its Deliver settings back after the export: said next to the plan. */
   settingsNote: string | null;
   placedTrack: number | null;
+  /** Who makes this plan's music: fixed when the plan is asked for, so a remake never mixes providers. */
+  provider: MusicProvider | null;
 }
 
 export function newMusic(): MusicState {
@@ -79,11 +81,25 @@ export function newMusic(): MusicState {
     error: null,
     settingsNote: null,
     placedTrack: null,
+    provider: null,
   };
 }
 
-export function planCost(plan: MusicPlan, pricePerSong: number): number {
-  return plan.sections.filter((s) => !s.silent).length * pricePerSong;
+/** A music provider's list price: per piece (Lyria) or per minute of music (ElevenLabs). */
+export type MusicPrice = { perSong: number } | { perMinute: number };
+
+export type MusicProvider = "gemini" | "elevenlabs";
+
+export function planCost(plan: MusicPlan, price: MusicPrice): number {
+  const made = plan.sections.filter((s) => !s.silent);
+  if ("perSong" in price) return made.length * price.perSong;
+  // as the companion asks: a crossfade's 2.5 s under the next section's head, a second to spare, 7 s at least
+  const asked = made.map((s) => {
+    const next = plan.sections[plan.sections.indexOf(s) + 1];
+    const crossfades = !s.final && s.transitionOut === "crossfade" && !!next && !next.silent;
+    return Math.max(s.endS - s.startS + (crossfades ? 2.5 : 0) + 1, 7);
+  });
+  return (asked.reduce((n, x) => n + x, 0) * price.perMinute) / 60;
 }
 
 export function toggleSilent(plan: MusicPlan, id: string): MusicPlan {
@@ -157,6 +173,15 @@ export function afterMake(
     textSpend({ listPriceUsd: result.textPriceUsd, billing: result.billing });
   for (const id of noted) delete st.edits[id];
   st.placedTrack = null;
+  // nothing could be made (a key without the music permission, no credits): back to the plan with the
+  // reason, never a listen screen whose Place puts nothing on the timeline
+  const failed = result.sections.find((m) => m.error && !m.file);
+  if (failed && !result.sections.some((m) => m.file)) {
+    st.made = null;
+    st.stage = "plan";
+    st.error = readableJobText(failed.error!) ?? t("music.jobFailed", { message: failed.error! });
+    return;
+  }
   st.stage = "listen";
 }
 
@@ -190,7 +215,8 @@ export interface MusicCtx {
   render(): void;
   trace(line: string): void;
   connected(): boolean;
-  keySet(): boolean;
+  /** Whether the given music provider (the chosen one when left out) has its key. */
+  keySet(p?: MusicProvider): boolean;
   /** The sequence's In/Out range when it has one. */
   inOut(): Range | null;
   readSequence(): Promise<HostSequence | null>;
@@ -218,8 +244,13 @@ export interface MusicCtx {
   /** The range line shown above the choices, as on the range tab. */
   rangeLine(scope: "all" | "range"): string;
   slider(): number;
-  pricePerSong(): number;
+  /** Who makes the music; the editor's last choice, also used by story mode. */
+  provider(): MusicProvider;
+  setProvider(p: MusicProvider): void;
+  price(p: MusicProvider): MusicPrice;
   openTerms(): void;
+  /** The AI chosen in the settings: it plans the music when there is no Gemini key. */
+  providerParams(): Record<string, unknown>;
 }
 
 const turkish = () => lang() === "tr";
@@ -284,9 +315,26 @@ export function musicBox(st: MusicState, ctx: MusicCtx): string {
   ${ctx.seg("music-scope", range ? st.scope : "all", scopes)}
   <div class="lbl">${t("music.note")}</div>
   <textarea id="music-note" placeholder="${t("music.notePlaceholder")}"></textarea>
-  ${ctx.keySet() ? "" : `<div class="box warn">${t("music.noKey")}</div>`}
-  <div class="small muted mt">${t("music.licence")} <span class="link" data-act="music-terms">${t("music.terms")}</span></div>
+  ${providerChoice(ctx)}
+  ${ctx.keySet() ? "" : `<div class="box warn">${t(eleven(ctx) ? "music.noKeyEleven" : "music.noKey")}</div>`}
+  <div class="small muted mt">${t(eleven(ctx) ? "music.licenceEleven" : "music.licence")} <span class="link" data-act="music-terms">${t("music.terms")}</span></div>
   <div class="btn mt${ready ? "" : " off"}" data-act="music-plan">${t("music.plan")}</div>`;
+}
+
+const eleven = (ctx: MusicCtx) => ctx.provider() === "elevenlabs";
+
+/** The provider this plan's music is made with (a plan from before the choice existed: the chosen one). */
+const planProvider = (st: MusicState, ctx: MusicCtx): MusicProvider =>
+  st.provider ?? ctx.provider();
+
+/** Lyria or ElevenLabs, and what an ElevenLabs key must be allowed to do. */
+function providerChoice(ctx: MusicCtx): string {
+  return `<div class="lbl">${t("music.provider")}</div>
+  ${ctx.seg("music-provider", ctx.provider(), [
+    ["gemini", "Lyria"],
+    ["elevenlabs", "ElevenLabs"],
+  ])}
+  ${eleven(ctx) ? `<div class="note muted">${t("music.elevenNote")}</div>` : ""}`;
 }
 
 function planScreen(st: MusicState, ctx: MusicCtx): string {
@@ -313,8 +361,8 @@ function planScreen(st: MusicState, ctx: MusicCtx): string {
   <input class="img-note" id="music-world" type="text">
   <div class="lbl">${t("music.sections")}</div>
   ${rows}
-  <div class="small muted mt">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.pricePerSong()), turkish()) })}</div>
-  <div class="btn mt${ctx.keySet() ? "" : " off"}" data-act="music-make">${t("music.make")}</div>
+  <div class="small muted mt">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.price(planProvider(st, ctx))), turkish()) })}</div>
+  <div class="btn mt${ctx.keySet(planProvider(st, ctx)) ? "" : " off"}" data-act="music-make">${t("music.make")}</div>
   <div class="link mt" data-act="music-new">${t("music.newPlan")}</div>`;
 }
 
@@ -327,6 +375,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       const head = `<div class="row"><span><b>${clock(s.startS)} · ${clock(s.endS)}</b> ${ctx.esc(s.title)}</span>`;
       if (!m.file)
         return `<div class="box small">${head}<span class="warn-text">${t("music.failed")}</span></div>
+    ${m.error ? `<div class="small muted mt">${ctx.esc(readableJobText(m.error) ?? m.error)}</div>` : ""}
     <div class="link" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
       const lv = levelNote(m, ctx.slider());
       const levels =
@@ -347,7 +396,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
   return `${placed}<div class="lbl">${t("music.listen")}</div>
   ${rows}
   <div class="small muted mt">${t("music.spent", { usd: formatUsd(st.spent, turkish()) })}</div>
-  ${st.placedTrack === null ? `<div class="btn mt" data-act="music-place">${t("music.place")}</div>` : ""}
+  ${st.placedTrack === null && st.made!.some((m) => m.file) ? `<div class="btn mt" data-act="music-place">${t("music.place")}</div>` : ""}
   <div class="link mt" data-act="music-new">${t("music.newPlan")}</div>`;
 }
 
@@ -455,6 +504,7 @@ async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
     const { audio, frames } = exported;
     if (!audio.ok) throw new Error(t("job.exportFailed"));
     st.jobDir = jobDir;
+    st.provider = ctx.provider();
     st.rangeStartS = range.startS;
     st.durationS = range.durationS;
     await musicJob(
@@ -468,6 +518,7 @@ async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
         rangeEndS: range.endS - audio.offsetSeconds,
         outDir: jobDir,
         language: lang(),
+        ...ctx.providerParams(),
         ...(st.note.trim() ? { note: st.note.trim() } : {}),
         ...(frames.length ? { frames: frames.slice(0, 3) } : {}),
       },
@@ -506,6 +557,8 @@ async function makeMusic(st: MusicState, ctx: MusicCtx, only?: string[]): Promis
       outDir: st.jobDir,
       durationS: st.durationS,
       slider: ctx.slider(),
+      musicProvider: planProvider(st, ctx),
+      ...ctx.providerParams(),
       ...(only ? { only } : {}),
       ...(Object.keys(notes).length ? { notes } : {}),
       ...(st.speechFile ? { speechFile: st.speechFile } : {}),
@@ -522,7 +575,7 @@ async function makeMusic(st: MusicState, ctx: MusicCtx, only?: string[]): Promis
 
 async function placeMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
   // busy before the first wait: a second click must not place the music on a second track
-  if (st.stage !== "listen" || !st.made) return;
+  if (st.stage !== "listen" || !st.made?.some((m) => m.file)) return;
   st.stage = "placing";
   const target = await ctx.readSequence();
   if (!target) {
@@ -550,6 +603,7 @@ async function placeMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
 /** The Music tab's own actions; any other (the settings' music-level) is the panel's. */
 const MUSIC_ACTS = new Set([
   "music-scope",
+  "music-provider",
   "music-cancel",
   "music-terms",
   "music-plan",
@@ -567,6 +621,8 @@ export function musicAct(st: MusicState, ctx: MusicCtx, act: string, val: string
   if (!MUSIC_ACTS.has(act)) return false;
   const plan = st.plan;
   if (act === "music-scope") st.scope = val === "range" ? "range" : "all";
+  else if (act === "music-provider")
+    ctx.setProvider(val === "elevenlabs" ? "elevenlabs" : "gemini");
   else if (act === "music-cancel") {
     if (st.jobId) ctx.send({ type: "job.cancel", jobId: st.jobId });
   } else if (act === "music-terms") ctx.openTerms();

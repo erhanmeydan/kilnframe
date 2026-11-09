@@ -276,7 +276,7 @@ describe("ElevenLabs speech", () => {
       eleven("eleven_v4", () =>
         json(401, { status: "missing_permissions", message: "missing text_to_speech" }),
       ).provider.synthesize({ text: "a", voice: "v" }),
-    ).rejects.toThrow(/allow Text to Speech and Voices/);
+    ).rejects.toThrow(/allow Text to Speech, Voices .* and Music Generation/);
     const limited = await eleven("eleven_v4", () =>
       json(429, { status: "too_many_concurrent_requests", message: "busy" }),
     )

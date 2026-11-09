@@ -1,5 +1,5 @@
 {
-  "$comment": "Music beds for story mode. Checked against ai.google.dev/gemini-api/docs/music-generation and /pricing on 2026-10-07. Prices in USD per generated song. All Lyria audio carries an inaudible SynthID watermark.",
+  "$comment": "Music beds for story mode. Checked against ai.google.dev/gemini-api/docs/music-generation and /pricing on 2026-10-07. Prices in USD per generated song. All Lyria audio carries an inaudible SynthID watermark. ElevenLabs checked against elevenlabs.io/docs/api-reference/music/compose, /docs/overview/capabilities/music and /pricing/api on 2026-11-09: POST /v1/music with xi-api-key, model_id music_v2_5 (music_v1 is removed 2027-01-31), music_length_ms 3000 to 300000 with force_instrumental, USD 0.15 per minute, paid plans only.",
   "version": 1,
   "providers": [
     {
@@ -10,6 +10,21 @@
       "models": [
         { "id": "lyria-3.5", "label": "Lyria 3.5", "maxS": 180, "pricePerSong": 0.08 },
         { "id": "lyria-3-clip-preview", "label": "Lyria 3 Clip", "maxS": 30, "pricePerSong": 0.04 }
+      ]
+    },
+    {
+      "id": "elevenlabs",
+      "displayName": "ElevenLabs Music",
+      "endpoint": "https://api.elevenlabs.io/v1/music",
+      "keyName": "elevenlabs",
+      "models": [
+        {
+          "id": "music_v2_5",
+          "label": "Eleven Music v2.5",
+          "maxS": 300,
+          "pricePerSong": 0,
+          "pricePerMinute": 0.15
+        }
       ]
     }
   ]

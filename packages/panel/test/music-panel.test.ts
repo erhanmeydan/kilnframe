@@ -56,8 +56,12 @@ const plan = {
 
 describe("music panel", () => {
   it("prices only the sections with music", () => {
-    expect(planCost(plan, 0.08)).toBeCloseTo(0.24);
-    expect(planCost(toggleSilent(plan, "s2"), 0.08)).toBeCloseTo(0.16);
+    expect(planCost(plan, { perSong: 0.08 })).toBeCloseTo(0.24);
+    expect(planCost(toggleSilent(plan, "s2"), { perSong: 0.08 })).toBeCloseTo(0.16);
+    // ElevenLabs bills by the minute of music made, silent sections not counted
+    const minutes =
+      plan.sections.filter((x) => x.id !== "s2").reduce((n, x) => n + x.endS - x.startS, 0) / 60;
+    expect(planCost(toggleSilent(plan, "s2"), { perMinute: 0.15 })).toBeCloseTo(minutes * 0.15);
     expect(toggleSilent(toggleSilent(plan, "s2"), "s2").sections[1]!.silent).toBe(false);
   });
 
@@ -128,6 +132,31 @@ describe("music panel", () => {
     expect(st.spent).toBeCloseTo(0.08);
     // the note that made s2 again is used up; the other note waits for its own remake
     expect(st.edits).toEqual({ s3: "keep" });
+  });
+
+  it("goes back to the plan with the reason when no section could be made, offering no Place", () => {
+    const st = { ...newMusic(), plan, jobDir: "/j", stage: "making" as const };
+    const error =
+      "The ElevenLabs key is missing a permission. On elevenlabs.io under API keys, edit the key and allow Music Generation.";
+    afterMake(
+      st,
+      {
+        sections: plan.sections.map((x) => ({
+          id: x.id,
+          file: null,
+          clean: null,
+          preview: null,
+          atS: x.startS,
+          durationS: x.endS - x.startS,
+          measured: { speechDb: null, gapDb: null },
+          error,
+        })),
+      },
+      [],
+    );
+    expect(st.stage).toBe("plan");
+    expect(st.made).toBeNull();
+    expect(st.error).toContain("Music Generation");
   });
 
   it("counts the text model's price in the music spend when it is paid by API, not on a plan", () => {
@@ -231,7 +260,7 @@ describe("music panel", () => {
     expect(st.settingsNote).toBeNull();
   });
 
-  it("asks for a music plan without the animation text model: the companion plans music with Gemini", async () => {
+  it("sends the chosen AI with a music plan: the companion uses it only when there is no Gemini key", async () => {
     const sent: { type: string; params?: Record<string, unknown> }[] = [];
     const ctx = {
       readSequence: async () => ({ name: "Talk", projectPath: "/p/a.prproj", endSeconds: 60 }),
@@ -247,13 +276,65 @@ describe("music panel", () => {
       on: () => () => undefined,
       render: () => undefined,
       trace: () => undefined,
+      providerParams: () => ({ provider: "anthropic", model: "claude-sonnet-5-5" }),
+      provider: () => "gemini",
     } as never;
     musicAct(newMusic(), ctx, "music-plan", "");
     await new Promise((r) => setTimeout(r, 0));
     const job = sent.find((m) => m.params?.kind === "music-plan");
-    expect(job).toBeDefined();
-    expect(job?.params).not.toHaveProperty("provider");
-    expect(job?.params).not.toHaveProperty("model");
+    expect(job?.params).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5-5" });
+  });
+
+  it("makes the music with the chosen provider and says what an ElevenLabs key must allow", async () => {
+    const sent: { type: string; params?: Record<string, unknown> }[] = [];
+    let chosen: "gemini" | "elevenlabs" = "gemini";
+    const ctx = {
+      esc: (x: string) => x,
+      reportLink: () => "",
+      inOut: () => null,
+      connected: () => true,
+      keySet: () => true,
+      rangeLine: () => "",
+      seg: (name: string, value: string) => `[${name}=${value}]`,
+      provider: () => chosen,
+      setProvider: (p: "gemini" | "elevenlabs") => (chosen = p),
+      providerParams: () => ({}),
+      request: async (m: { type: string; params?: Record<string, unknown> }) => {
+        sent.push(m);
+        return { jobId: "j1" };
+      },
+      on: () => () => undefined,
+      slider: () => -21,
+      render: () => undefined,
+      trace: () => undefined,
+    } as never;
+    const st = newMusic();
+    expect(musicBox(st, ctx)).toContain("[music-provider=gemini]");
+    expect(musicBox(st, ctx)).not.toContain("Music Generation");
+    musicAct(st, ctx, "music-provider", "elevenlabs");
+    expect(chosen).toBe("elevenlabs");
+    expect(musicBox(st, ctx)).toContain("Music Generation");
+    musicAct({ ...st, plan, jobDir: "/j", stage: "plan" as const }, ctx, "music-make", "");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent.find((m) => m.params?.kind === "music-make")?.params).toMatchObject({
+      musicProvider: "elevenlabs",
+    });
+    // a plan asked for with Lyria is remade with Lyria, whatever story mode chose since
+    sent.length = 0;
+    const lyriaPlan = {
+      ...st,
+      plan,
+      jobDir: "/j",
+      stage: "listen" as const,
+      made: [],
+      provider: "gemini" as const,
+    };
+    musicAct(lyriaPlan, ctx, "music-redo", "s1");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent.find((m) => m.params?.kind === "music-make")?.params).toMatchObject({
+      musicProvider: "gemini",
+      only: ["s1"],
+    });
   });
 
   it("offers to report a music error", () => {
@@ -266,6 +347,7 @@ describe("music panel", () => {
       keySet: () => true,
       rangeLine: () => "",
       seg: () => "",
+      provider: () => "gemini",
     } as never;
     expect(musicBox(st, ctx)).toContain("[report The music could not be made: Lyria failed]");
   });
@@ -278,6 +360,8 @@ describe("music panel", () => {
       slider: () => -21,
       render: () => undefined,
       trace: () => undefined,
+      provider: () => "gemini",
+      providerParams: () => ({}),
     } as never;
     const st = { ...newMusic(), plan, jobDir: "/j", stage: "listen" as const, made: [] };
     musicAct(st, ctx, "music-make", "");
@@ -300,7 +384,16 @@ describe("music panel", () => {
     musicAct(st, ctx, "music-plan", "");
     musicAct(st, ctx, "music-plan", "");
     expect(reads).toBe(1);
-    const listen = { ...newMusic(), plan, stage: "listen" as const, made: [] };
+    const one = {
+      id: "s1",
+      file: "/j/music/s1.wav",
+      clean: null,
+      preview: null,
+      atS: 0,
+      durationS: 30,
+      measured: { speechDb: null, gapDb: null },
+    };
+    const listen = { ...newMusic(), plan, stage: "listen" as const, made: [one] };
     musicAct(listen, ctx, "music-place", "");
     musicAct(listen, ctx, "music-place", "");
     expect(reads).toBe(2);
