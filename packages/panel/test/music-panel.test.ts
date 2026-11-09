@@ -134,6 +134,31 @@ describe("music panel", () => {
     expect(st.edits).toEqual({ s3: "keep" });
   });
 
+  it("goes back to the plan with the reason when no section could be made, offering no Place", () => {
+    const st = { ...newMusic(), plan, jobDir: "/j", stage: "making" as const };
+    const error =
+      "The ElevenLabs key is missing a permission. On elevenlabs.io under API keys, edit the key and allow Music Generation.";
+    afterMake(
+      st,
+      {
+        sections: plan.sections.map((x) => ({
+          id: x.id,
+          file: null,
+          clean: null,
+          preview: null,
+          atS: x.startS,
+          durationS: x.endS - x.startS,
+          measured: { speechDb: null, gapDb: null },
+          error,
+        })),
+      },
+      [],
+    );
+    expect(st.stage).toBe("plan");
+    expect(st.made).toBeNull();
+    expect(st.error).toContain("Music Generation");
+  });
+
   it("counts the text model's price in the music spend when it is paid by API, not on a plan", () => {
     const st = { ...newMusic(), stage: "making" as const };
     afterMake(st, { sections: [], priceUsd: 0.08, textPriceUsd: 0.02, billing: "api" }, []);
@@ -359,7 +384,16 @@ describe("music panel", () => {
     musicAct(st, ctx, "music-plan", "");
     musicAct(st, ctx, "music-plan", "");
     expect(reads).toBe(1);
-    const listen = { ...newMusic(), plan, stage: "listen" as const, made: [] };
+    const one = {
+      id: "s1",
+      file: "/j/music/s1.wav",
+      clean: null,
+      preview: null,
+      atS: 0,
+      durationS: 30,
+      measured: { speechDb: null, gapDb: null },
+    };
+    const listen = { ...newMusic(), plan, stage: "listen" as const, made: [one] };
     musicAct(listen, ctx, "music-place", "");
     musicAct(listen, ctx, "music-place", "");
     expect(reads).toBe(2);

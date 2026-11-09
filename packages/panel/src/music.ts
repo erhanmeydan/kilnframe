@@ -173,6 +173,15 @@ export function afterMake(
     textSpend({ listPriceUsd: result.textPriceUsd, billing: result.billing });
   for (const id of noted) delete st.edits[id];
   st.placedTrack = null;
+  // nothing could be made (a key without the music permission, no credits): back to the plan with the
+  // reason, never a listen screen whose Place puts nothing on the timeline
+  const failed = result.sections.find((m) => m.error && !m.file);
+  if (failed && !result.sections.some((m) => m.file)) {
+    st.made = null;
+    st.stage = "plan";
+    st.error = readableJobText(failed.error!) ?? t("music.jobFailed", { message: failed.error! });
+    return;
+  }
   st.stage = "listen";
 }
 
@@ -366,6 +375,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       const head = `<div class="row"><span><b>${clock(s.startS)} · ${clock(s.endS)}</b> ${ctx.esc(s.title)}</span>`;
       if (!m.file)
         return `<div class="box small">${head}<span class="warn-text">${t("music.failed")}</span></div>
+    ${m.error ? `<div class="small muted mt">${ctx.esc(readableJobText(m.error) ?? m.error)}</div>` : ""}
     <div class="link" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
       const lv = levelNote(m, ctx.slider());
       const levels =
@@ -386,7 +396,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
   return `${placed}<div class="lbl">${t("music.listen")}</div>
   ${rows}
   <div class="small muted mt">${t("music.spent", { usd: formatUsd(st.spent, turkish()) })}</div>
-  ${st.placedTrack === null ? `<div class="btn mt" data-act="music-place">${t("music.place")}</div>` : ""}
+  ${st.placedTrack === null && st.made!.some((m) => m.file) ? `<div class="btn mt" data-act="music-place">${t("music.place")}</div>` : ""}
   <div class="link mt" data-act="music-new">${t("music.newPlan")}</div>`;
 }
 
@@ -565,7 +575,7 @@ async function makeMusic(st: MusicState, ctx: MusicCtx, only?: string[]): Promis
 
 async function placeMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
   // busy before the first wait: a second click must not place the music on a second track
-  if (st.stage !== "listen" || !st.made) return;
+  if (st.stage !== "listen" || !st.made?.some((m) => m.file)) return;
   st.stage = "placing";
   const target = await ctx.readSequence();
   if (!target) {
