@@ -2073,7 +2073,7 @@ function providerDetail(id: string): string {
       id === "custom"
         ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
         : "";
-    body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>`;
+    body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
   return `<div class="pdetail">${body}${testLine(id)}</div>`;
 }
