@@ -968,14 +968,31 @@ export function createPremiereHost(
         tpf,
       );
       const byKey = new Map(read.map((r) => [r.info.plan.key, r]));
-      const item = (key: string) => (byKey.get(key) as ReadClip).item;
+      // a transaction may leave the clip objects read before it no longer valid ("The script object is no longer
+      // valid" on a clip trimmed in the step before, 11 Nov 2026): before each step the clips are read again
+      // and found by track and start frame, which are unique on a track
+      const where = (kind: string, track: number, startF: number) => `${kind}:${track}:${startF}`;
+      const readFresh = async () => {
+        const at = new Map<string, TrackItem>();
+        for (const r of await readItems(copy, tpf))
+          at.set(where(r.info.plan.kind, r.info.plan.track, r.info.plan.startF), r.item);
+        return (key: string, startF: number) => {
+          const p = (byKey.get(key) as ReadClip).info.plan;
+          const found = at.get(where(p.kind, p.track, startF));
+          if (!found) throw new Error(`${trackName(p.kind, p.track)}: no clip at frame ${startF}`);
+          return found;
+        };
+      };
+      const startOf = (key: string) => (byKey.get(key) as ReadClip).info.plan.startF;
 
       stage = "remove clips";
       // A: clips with nothing left. One selection per media type: an ANY removal may take a linked partner
       // that still has pieces. The selections live only inside their callbacks, nothing async in them
       if (plan.remove.length) {
         const of = (kind: PlanItem["kind"]) =>
-          plan.remove.filter((key) => byKey.get(key)?.info.plan.kind === kind).map(item);
+          plan.remove
+            .filter((key) => byKey.get(key)?.info.plan.kind === kind)
+            .map((key) => (byKey.get(key) as ReadClip).item);
         const video = of("video");
         const audio = of("audio");
         withSelection(video, (videoSel) =>
@@ -1007,13 +1024,16 @@ export function createPremiereHost(
 
       stage = "trim to the seed";
       // B: trim to the seed; the end first, so the clip only ever shrinks. A start trim moves the in point too
-      if (plan.trims.length)
+      if (plan.trims.length) {
+        const found = await readFresh();
+        const trims = plan.trims.map((tr) => ({ tr, it: found(tr.key, startOf(tr.key)) }));
         runStep(project, "trim clips", (c) => {
-          for (const tr of plan.trims) {
-            if (tr.endF !== null) c.addAction(item(tr.key).createSetEndAction(at(tr.endF)));
-            if (tr.startF !== null) c.addAction(item(tr.key).createSetStartAction(at(tr.startF)));
+          for (const { tr, it } of trims) {
+            if (tr.endF !== null) c.addAction(it.createSetEndAction(at(tr.endF)));
+            if (tr.startF !== null) c.addAction(it.createSetStartAction(at(tr.startF)));
           }
         });
+      }
       onProgress?.(3, TOTAL);
 
       stage = "copy the pieces";
@@ -1021,6 +1041,8 @@ export function createPremiereHost(
       // which lands the same way); an overwrite, but only over the clip's own emptied span
       if (plan.clones.length) {
         // each action is made outside the transaction first, so a refused one names its clip in the log
+        const found = await readFresh();
+        const seedStart = new Map(plan.trims.map((tr) => [tr.key, tr.startF]));
         const actions = plan.clones.map((cl) => {
           const seed = byKey.get(cl.key);
           const where = `${cl.key} at +${cl.offsetF} frames (${seed?.info.plan.startF}-${seed?.info.plan.endF})`;
@@ -1028,7 +1050,8 @@ export function createPremiereHost(
             throw new Error(`no seed or offset for ${where}`);
           const audio = seed.info.plan.kind === "audio";
           try {
-            return editor.createCloneTrackItemAction(seed.item, at(cl.offsetF), 0, 0, audio, false);
+            const it = found(cl.key, seedStart.get(cl.key) ?? startOf(cl.key));
+            return editor.createCloneTrackItemAction(it, at(cl.offsetF), 0, 0, audio, false);
           } catch (err) {
             throw new Error(`${err instanceof Error ? err.message : String(err)} for ${where}`, {
               cause: err,
@@ -1040,19 +1063,22 @@ export function createPremiereHost(
       onProgress?.(4, TOTAL);
 
       // seeds and copies are found again by track and start frame, unique on a track
-      const placed = new Map<string, TrackItem>();
       const atKey = (c: ClipAt) => `${c.kind}:${c.track}:${c.atF}`;
-      for (const r of await readItems(copy, tpf))
-        placed.set(atKey({ ...r.info.plan, atF: r.info.plan.startF }), r.item);
-      const find = (c: ClipAt) => {
-        const found = placed.get(atKey(c));
-        if (!found) throw new Error(`${trackName(c.kind, c.track)}: no clip at frame ${c.atF}`);
-        return found;
+      const placedNow = async () => {
+        const placed = new Map<string, TrackItem>();
+        for (const r of await readItems(copy, tpf))
+          placed.set(atKey({ ...r.info.plan, atF: r.info.plan.startF }), r.item);
+        return (c: ClipAt) => {
+          const found = placed.get(atKey(c));
+          if (!found) throw new Error(`${trackName(c.kind, c.track)}: no clip at frame ${c.atF}`);
+          return found;
+        };
       };
 
       stage = "set in points and ends";
       // D: each copy's in point, then every piece grows to its end into its own emptied span
       if (plan.fixes.length) {
+        const find = await placedNow();
         const fixes = plan.fixes.map((f) => ({ f, it: find(f) }));
         runStep(project, "set in and end points", (c) => {
           for (const { f, it } of fixes) {
@@ -1070,6 +1096,8 @@ export function createPremiereHost(
       // E: a move is a relative shift and does not overwrite; left to right, each piece only moves into
       // space already emptied
       if (plan.moves.length) {
+        // D's in points and ends leave each start where it was: found again at the same frames
+        const find = await placedNow();
         const moves = plan.moves.map((m) => ({ m, it: find(m) }));
         runStep(project, "close the pauses", (c) => {
           for (const { m, it } of moves) c.addAction(it.createMoveAction(at(m.byF)));

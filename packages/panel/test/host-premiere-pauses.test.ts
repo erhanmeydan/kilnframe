@@ -46,11 +46,17 @@ function fakePremiere(
     keepTransitions: false,
     /** getSequences does not list the copy the first time after the clone. */
     copyLate: false,
+    /**
+     * Clip objects read before a transaction are no longer valid after it (seen live on a long linked clip
+     * trimmed in one step and cloned in the next): a stale object throws when used.
+     */
+    stale: true,
   };
+  let generation = 0;
   /** Each removal: its media type and the names it was given. */
   const removals: { mediaType: number; names: string[] }[] = [];
   const log: string[] = [];
-  const wrappers = new WeakMap<Rec, object>();
+  let wrappers = new WeakMap<Rec, object>();
   type Seq = ReturnType<typeof makeSeq>;
   const seqs: Seq[] = [];
   let active: Seq;
@@ -62,36 +68,50 @@ function fakePremiere(
     audio: Rec[][],
     m: { markers: MarkerRec[]; inF: number | null; outF: number | null },
   ) {
+    const guard = (o: Record<string, unknown>) => {
+      const born = generation;
+      for (const [k, v] of Object.entries(o))
+        if (typeof v === "function")
+          o[k] = (...a: unknown[]) => {
+            if (quirks.stale && born !== generation)
+              throw new Error("The script object is no longer valid.");
+            return (v as (...x: unknown[]) => unknown)(...a);
+          };
+      return o;
+    };
     const wrap = (track: Rec[], r: Rec) => {
       if (!wrappers.has(r))
-        wrappers.set(r, {
-          rec: r,
-          getStartTime: async () => tick(r.start * TPF),
-          getEndTime: async () => tick(r.end * TPF),
-          getInPoint: async () => tick(r.inF * TPF),
-          getSpeed: async () => r.speed,
-          isSpeedReversed: async () => (r.reversed ? 1 : 0),
-          createSetStartAction: (t: { ticks: string }) => () => {
-            const f = ticksOf(t) / TPF;
-            r.inF += (f - r.start) * r.speed;
-            r.start = f;
-          },
-          createSetEndAction: (t: { ticks: string }) => () => {
-            r.end = ticksOf(t) / TPF;
-          },
-          createSetInPointAction: (t: { ticks: string }) => () => {
-            if (quirks.setInPoint === "throw") throw new Error("refused");
-            const inF = ticksOf(t) / TPF;
-            if (quirks.setInPoint === "trim") r.start += (inF - r.inF) / r.speed;
-            r.inF = inF;
-          },
-          createMoveAction: (t: { ticks: string }) => () => {
-            const by = ticksOf(t) / TPF;
-            r.start += by;
-            r.end += by;
-          },
-          track,
-        });
+        wrappers.set(
+          r,
+          guard({
+            rec: r,
+            getStartTime: async () => tick(r.start * TPF),
+            getEndTime: async () => tick(r.end * TPF),
+            getInPoint: async () => tick(r.inF * TPF),
+            getSpeed: async () => r.speed,
+            isSpeedReversed: async () => (r.reversed ? 1 : 0),
+            createSetStartAction: (t: { ticks: string }) => () => {
+              const f = ticksOf(t) / TPF;
+              r.inF += (f - r.start) * r.speed;
+              r.start = f;
+            },
+            createSetEndAction: (t: { ticks: string }) => () => {
+              r.end = ticksOf(t) / TPF;
+            },
+            createSetInPointAction: (t: { ticks: string }) => () => {
+              if (quirks.setInPoint === "throw") throw new Error("refused");
+              const inF = ticksOf(t) / TPF;
+              if (quirks.setInPoint === "trim") r.start += (inF - r.inF) / r.speed;
+              r.inF = inF;
+            },
+            createMoveAction: (t: { ticks: string }) => () => {
+              const by = ticksOf(t) / TPF;
+              r.start += by;
+              r.end += by;
+            },
+            track,
+          }),
+        );
       return wrappers.get(r);
     };
     const trackApi = (track: Rec[]) => ({
@@ -177,6 +197,10 @@ function fakePremiere(
       const queued: (() => void)[] = [];
       fn({ addAction: (a) => (queued.push(a), true) });
       for (const a of queued) a();
+      if (quirks.stale) {
+        generation++;
+        wrappers = new WeakMap();
+      }
       return true;
     },
     deleteSequence: vi.fn(async (s: Seq) => {
@@ -333,6 +357,25 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
     expect(f.active()).toBe(clone);
     expect(f.originalUntouched()).toBe(true);
     expect(progress.at(-1)).toBeGreaterThan(progress[0]);
+  });
+
+  it("reads the clips again after each step, as Premiere drops the objects read before one", async () => {
+    // a long linked clip trimmed in one step, its pieces copied in the next (failed live with stale objects)
+    const f = fakePremiere({ video: [[clip("v", 0, 250, 50)]], audio: [[clip("a", 0, 250, 50)]] });
+    f.quirks.stale = true;
+    await f.host.cutToNewSequence!(
+      f.seq,
+      [
+        { startS: 2, endS: 3 },
+        { startS: 8, endS: 9 },
+      ],
+      "Main Pauses Removed",
+    );
+    expect(sorted(f.seqs[1].video[0]).map((p) => p.slice(1, 3))).toEqual([
+      [0, 50],
+      [50, 175],
+      [175, 200],
+    ]);
   });
 
   it("removes a clip that lies wholly inside a pause and closes the gap", async () => {
