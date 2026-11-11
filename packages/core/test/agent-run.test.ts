@@ -38,7 +38,9 @@ describe("running an agent CLI", () => {
     expect((err as ProviderError).retryable).toBe(true);
     expect((err as ProviderError).message).toMatch(/did not finish/);
     await new Promise((r) => setTimeout(r, 100));
-    expect(proc.signalCode).toBe("SIGKILL");
+    // Windows ends the process tree with taskkill, which leaves an exit code and no signal
+    if (process.platform === "win32") expect(proc.exitCode !== null || proc.killed).toBe(true);
+    else expect(proc.signalCode).toBe("SIGKILL");
   });
 
   it("settles soon after exit when a child keeps the pipes open", async () => {
