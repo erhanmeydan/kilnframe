@@ -1019,16 +1019,24 @@ export function createPremiereHost(
       stage = "copy the pieces";
       // C: copies of each seed into its further pieces, on its own track (alignToVideo for an audio clip,
       // which lands the same way); an overwrite, but only over the clip's own emptied span
-      if (plan.clones.length)
-        runStep(project, "copy clips", (c) => {
-          for (const cl of plan.clones) {
-            const seed = byKey.get(cl.key) as ReadClip;
-            const audio = seed.info.plan.kind === "audio";
-            c.addAction(
-              editor.createCloneTrackItemAction(seed.item, at(cl.offsetF), 0, 0, audio, false),
-            );
+      if (plan.clones.length) {
+        // each action is made outside the transaction first, so a refused one names its clip in the log
+        const actions = plan.clones.map((cl) => {
+          const seed = byKey.get(cl.key);
+          const where = `${cl.key} at +${cl.offsetF} frames (${seed?.info.plan.startF}-${seed?.info.plan.endF})`;
+          if (!seed || !Number.isFinite(cl.offsetF))
+            throw new Error(`no seed or offset for ${where}`);
+          const audio = seed.info.plan.kind === "audio";
+          try {
+            return editor.createCloneTrackItemAction(seed.item, at(cl.offsetF), 0, 0, audio, false);
+          } catch (err) {
+            throw new Error(`${err instanceof Error ? err.message : String(err)} for ${where}`, {
+              cause: err,
+            });
           }
         });
+        runStep(project, "copy clips", (c) => actions.forEach((a) => c.addAction(a)));
+      }
       onProgress?.(4, TOTAL);
 
       // seeds and copies are found again by track and start frame, unique on a track
