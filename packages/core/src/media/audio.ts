@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { endianness } from "node:os";
 import { ffmpegPath } from "../config.js";
 
 export const WHISPER_SAMPLE_RATE = 16_000;
@@ -34,12 +35,24 @@ export function decodeAudio(path: string, sampleRate = WHISPER_SAMPLE_RATE): Pro
         reject(new Error(`FFmpeg could not read the audio file "${path}": ${stderr.trim()}`));
         return;
       }
-      const buf = Buffer.concat(chunks);
-      const samples = new Float32Array(buf.length / 4);
-      for (let i = 0; i < samples.length; i++) samples[i] = buf.readFloatLE(i * 4);
-      resolve(samples);
+      resolve(pcmSamples(chunks.splice(0)));
     });
   });
+}
+
+/**
+ * FFmpeg's f32le reads as samples. A two-hour recording is 461 MB at 16 kHz: the joined bytes are viewed where they
+ * lie, rather than copied a sample at a time into a third copy beside the reads and the join. A join small enough to
+ * come from Node's shared pool, or on a big-endian machine, is copied.
+ */
+export function pcmSamples(chunks: Buffer[]): Float32Array {
+  const buf = Buffer.concat(chunks);
+  const count = buf.length >> 2;
+  if (endianness() === "LE" && buf.byteOffset === 0 && buf.buffer.byteLength === buf.length)
+    return new Float32Array(buf.buffer, 0, count);
+  const samples = new Float32Array(count);
+  for (let i = 0; i < count; i++) samples[i] = buf.readFloatLE(i * 4);
+  return samples;
 }
 
 /** Cuts [startS, endS) out of an audio file into a 48 kHz WAV (the panel exports the whole sequence audio). */

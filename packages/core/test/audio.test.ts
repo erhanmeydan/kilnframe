@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { pcmSamples } from "../src/media/audio.js";
 import {
   WHISPER_SAMPLE_RATE,
   cutAudio,
@@ -64,6 +65,33 @@ describe.skipIf(!hasFfmpeg())("decodeAudio", () => {
 
   it("explains a file it cannot read", async () => {
     await expect(decodeAudio("/nonexistent/file.wav")).rejects.toThrow(/could not read/);
+  });
+});
+
+describe("pcmSamples", () => {
+  const floats = (values: number[]) => Buffer.from(new Float32Array(values).buffer);
+
+  it("reads float PCM split anywhere across reads, a small one and a large one alike", () => {
+    const small = floats([0.5, -0.25, 1]);
+    expect([...pcmSamples([small.subarray(0, 5), small.subarray(5)])]).toEqual([0.5, -0.25, 1]);
+    const values = Array.from({ length: 50_000 }, (_, i) => (i % 200) / 100 - 1);
+    const large = floats(values);
+    const read = pcmSamples([
+      large.subarray(0, 7),
+      large.subarray(7, 70_001),
+      large.subarray(70_001),
+    ]);
+    expect(read).toEqual(new Float32Array(values));
+  });
+
+  it("views a large decode where it lies instead of copying it again", () => {
+    const large = floats(Array.from({ length: 50_000 }, () => 0.5));
+    const read = pcmSamples([large.subarray(0, 100_000), large.subarray(100_000)]);
+    // one buffer of its own, the size of the samples: no second copy beside the joined bytes
+    expect(read.byteOffset).toBe(0);
+    expect(read.buffer.byteLength).toBe(200_000);
+    read[0] = 0.25;
+    expect(read[0]).toBe(0.25);
   });
 });
 
