@@ -164,4 +164,34 @@ describe("job errors in the panel's language", () => {
     ).toEqual({ key: "job.noAi", vars: {}, reasons: [] });
     expect(tr["job.noAi"]).not.toMatch(/terminal|export/);
   });
+
+  it("says Antigravity's account and setup problems in the panel's language", () => {
+    const cases: [string, string][] = [
+      [
+        "Plan failed: Your Google account is busy on this model: RESOURCE_EXHAUSTED (code 429) Wait a minute and try again, or use an API key.",
+        "job.agyBusy",
+      ],
+      [
+        "Google account usage limit reached: quota exceeded. Wait for it to reset or use an API key.",
+        "job.agyLimit",
+      ],
+      [
+        "Antigravity CLI is not signed in. Run `agy` in a terminal and sign in with Google, then try again.",
+        "job.agyNotSignedIn",
+      ],
+      [
+        "Antigravity CLI is not installed. Install it from antigravity.google, or use an API key.",
+        "job.agyNotInstalled",
+      ],
+      [
+        "Antigravity CLI could not reach Google. Check the internet connection and try again.",
+        "job.agyOffline",
+      ],
+    ];
+    for (const [message, key] of cases) {
+      expect(readableJobError(message)).toEqual({ key, vars: {}, reasons: [] });
+      expect(en).toHaveProperty(key);
+      expect(tr).toHaveProperty(key);
+    }
+  });
 });

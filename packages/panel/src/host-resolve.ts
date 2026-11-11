@@ -2,6 +2,7 @@
 // to the bridge in the Electron main process (resolve/bridge.ts) and to a few file and OS calls.
 import type { Host, HostSequence } from "./host";
 import { t } from "./i18n";
+import { JobStopped } from "./job-errors";
 import {
   CONNECTION_LOST,
   EXPORTS_STOPPED,
@@ -31,7 +32,8 @@ export function createResolveHost(
     } catch (err) {
       const m = err instanceof Error ? err.message : String(err);
       if (m.includes(NO_SEQUENCE)) throw new Error(t("seq.noSequence"), { cause: err });
-      if (m.includes(EXPORTS_STOPPED)) throw new Error(t("job.stopped"), { cause: err });
+      // the editor's own Stop: said as stopped, with no report link
+      if (m.includes(EXPORTS_STOPPED)) throw new JobStopped(t("job.stopped"), { cause: err });
       if (m.includes(NOT_RUNNING)) throw new Error(t("filmcraft.notRunning"), { cause: err });
       if (m.includes(CONNECTION_LOST))
         throw new Error(t("filmcraft.connectionLost"), { cause: err });

@@ -8,3 +8,10 @@ export function olderVersion(a: string, b: string): boolean {
   }
   return false;
 }
+
+/** The side that is older when the panel and the app differ; null when they match or the app is unknown. */
+export function versionGap(panel: string, app: string | null): "panel" | "app" | null {
+  if (!app) return null;
+  if (olderVersion(panel, app)) return "panel";
+  return olderVersion(app, panel) ? "app" : null;
+}
