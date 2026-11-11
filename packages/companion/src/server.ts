@@ -452,13 +452,17 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             else pendingReviews.clear();
             tellBusy();
             break;
-          case "review.load":
-            send({
-              type: "review",
-              outDir: msg.outDir,
-              review: o.loadReview ? await o.loadReview(msg.outDir) : null,
-            });
+          case "review.load": {
+            const review = o.loadReview ? await o.loadReview(msg.outDir) : null;
+            // a panel reloaded mid-review opens it again from its folder (a part's stills): it holds the app
+            // again, as the stills job did before the reload cleared it
+            if (review) {
+              pendingReviews.add(msg.outDir);
+              tellBusy();
+            }
+            send({ type: "review", outDir: msg.outDir, review });
             break;
+          }
           case "agent.update":
             if (o.updateAgent) await o.updateAgent(msg.agent);
             send({ type: "agent.update.opened", agent: msg.agent });

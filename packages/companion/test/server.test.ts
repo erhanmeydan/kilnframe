@@ -314,6 +314,31 @@ describe("companion server", () => {
       await settle();
       expect(busy).toEqual([true, false, true, false]);
     });
+
+    it("again when a reloaded panel opens a review from its folder", async () => {
+      const busy: boolean[] = [];
+      companion = await startCompanion({
+        token: TOKEN,
+        keys: new MemoryKeyStore(),
+        version: "test",
+        port: 0,
+        onBusy: (b) => busy.push(b),
+        runner: async () => ({}),
+        loadReview: async (outDir) => (outDir === "/tmp/none" ? null : { stillImages: [] }),
+      });
+      const c = await connect(companion.port);
+      c.send({ type: "hello", token: TOKEN });
+      await c.next((m) => m.type === "ready");
+      c.send({ type: "review.load", outDir: "/tmp/none" });
+      await c.next((m) => m.type === "review");
+      expect(busy).toEqual([]);
+      c.send({ type: "review.load", outDir: "/tmp/part-1" });
+      await c.next((m) => m.type === "review" && m.outDir === "/tmp/part-1");
+      expect(busy).toEqual([true]);
+      c.send({ type: "review.closed" });
+      await new Promise((r) => setTimeout(r, 60));
+      expect(busy).toEqual([true, false]);
+    });
   });
 
   describe("before the hello", () => {

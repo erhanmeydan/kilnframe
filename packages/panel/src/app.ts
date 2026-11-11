@@ -4559,6 +4559,8 @@ function runAction(el: HTMLElement) {
     if (state.review) state.screen = "review";
     else if (state.job) state.screen = "progress";
   } else if (act === "series-drop") {
+    // a part's review the app was holding for (opened again from its folder) is no longer waited for
+    if (!state.review || state.review.series) leaveReview();
     state.series = null;
     saveSeries();
     seriesStills.clear();
