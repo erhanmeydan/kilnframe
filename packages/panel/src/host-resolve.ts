@@ -5,6 +5,8 @@ import { t } from "./i18n";
 import { JobStopped } from "./job-errors";
 import {
   CONNECTION_LOST,
+  COPY_LEFT,
+  CUT_FAILED,
   CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
   NOT_RUNNING,
@@ -48,6 +50,19 @@ export function createResolveHost(
           `${t(kind === "filmcraft" ? "filmcraft.exportFailed" : "resolve.renderFailed")}${why ? ` (${editor}: ${why})` : ""}`,
           { cause: err },
         );
+      }
+      // before PLACE_FAILED: the reason a cut carries may name a failed placement of its own
+      if (m.includes(CUT_FAILED)) {
+        const left = new RegExp(`${COPY_LEFT}=("(?:[^"\\\\]|\\\\.)*")`).exec(m)?.[1];
+        let name: string | null = null;
+        try {
+          name = left ? String(JSON.parse(left)) : null;
+        } catch {
+          name = null;
+        }
+        throw new Error(name ? t("pauses.copyLeft", { name }) : t("premiere.cutFailed"), {
+          cause: err,
+        });
       }
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
       if (m.includes(CUT_UNSUPPORTED))

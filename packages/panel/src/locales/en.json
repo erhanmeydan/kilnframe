@@ -191,6 +191,7 @@
   "premiere.importMissing": "The imported file was not found in the bin: {path}",
   "premiere.placeFailed": "The animation could not be placed on the timeline.",
   "premiere.cutFailed": "The pause-free sequence could not be made. Your sequence is unchanged.",
+  "pauses.copyLeft": "The pause-free sequence could not be made. A copy named \"{name}\" was left in the project; you can delete it. Your sequence is unchanged.",
   "premiere.unmuteFailed": "Premiere could not unmute an audio track Kilnframe muted for the voice export. Unmute it by hand.",
   "premiere.sfxFailed": "The sound effects could not be placed on the timeline.",
   "premiere.undoBin": "Kilnframe: Bin",

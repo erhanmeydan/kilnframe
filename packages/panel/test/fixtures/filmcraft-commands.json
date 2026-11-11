@@ -1,6 +1,6 @@
 {
   "filmcraft": "0.16.0",
-  "note": "engine.commands entries the pause cut uses, read from FilmCraft on 2026-11-11. Measured: sequence.simplify with every remove/close option false makes a full copy and opens it (result.sequence is its id); markIn/markOut {seconds, target:'program'} then sequence.extract cut all six tracks of a 642-frame 23.976 sequence and closed the gap (642 -> 618 frames, a clip on Video 2 moved left too), cleared In and Out, and left the original sequence unchanged.",
+  "note": "engine.commands entries the pause cut uses, read from FilmCraft on 2026-11-11. Measured: sequence.simplify with every remove/close option false makes a full copy and opens it (result.sequence is its id); markIn/markOut {seconds, target:'program'} then sequence.extract cut all six tracks of a 642-frame 23.976 sequence and closed the gap (642 -> 618 frames, a clip on Video 2 moved left too), cleared In and Out, and left the original sequence unchanged. project.delete {items:[seqId]} deleted that sequence and returned {\"bins\":0,\"items\":1,\"offline\":0} (measured 2026-11-11).",
   "commands": [
     {
       "id": "edit.duplicate",
@@ -61,6 +61,12 @@
       "label": "Inspect Sequence",
       "params": "{\"item\":id?}",
       "enabled": true
+    },
+    {
+      "id": "project.delete",
+      "label": "Clear",
+      "params": "{\"items\":[id]?}",
+      "enabled": false
     }
   ]
 }

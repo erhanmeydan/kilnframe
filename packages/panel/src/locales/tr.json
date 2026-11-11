@@ -191,6 +191,7 @@
   "premiere.importMissing": "İçe aktarılan dosya klasörde bulunamadı: {path}",
   "premiere.placeFailed": "Animasyon timeline'a yerleştirilemedi.",
   "premiere.cutFailed": "Boşluksuz sekans yapılamadı. Kendi sekansınız olduğu gibi duruyor.",
+  "pauses.copyLeft": "Boşluksuz sekans yapılamadı. Projede \"{name}\" adında bir kopya kaldı, silebilirsiniz. Kendi sekansınız olduğu gibi duruyor.",
   "premiere.unmuteFailed": "Premiere, Kilnframe'in ses dışa aktarımı için susturduğu bir ses izini geri açamadı. İzi elle açın.",
   "premiere.sfxFailed": "Ses efektleri timeline'a yerleştirilemedi.",
   "premiere.undoBin": "Kilnframe: Klasör",

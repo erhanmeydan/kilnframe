@@ -9,6 +9,7 @@
 import {
   EXPORTS_STOPPED,
   NO_SEQUENCE,
+  CUT_FAILED,
   PLACE_FAILED,
   RENDER_BUSY,
   RENDER_FAILED,
@@ -18,7 +19,7 @@ import {
   type ResolveBridge,
   type ResolveSequence,
 } from "./api";
-import { frameCuts, piecesOf } from "../cut-plan";
+import { frameCuts, newEndF, piecesOf } from "../cut-plan";
 import { frameFor, insertScale } from "../frame";
 import { isOurAnimation, isOurInsert, isVoiceFixTake } from "../our-files";
 import { framesToTimecode, parseRate, rateString, type Rate } from "./timecode";
@@ -869,6 +870,7 @@ export function createResolveBridge(
       const rate = await rateOf(source);
       const start = (await source.GetStartFrame()) as number;
       const frames = frameCuts(cuts, rate.fps, ((await source.GetEndFrame()) as number) - start);
+      const sourceMark = markOf(await source.GetMarkInOut());
 
       // everything is read before anything is made
       const audioKinds: string[] = [];
@@ -908,10 +910,14 @@ export function createResolveBridge(
             // source frames count at the clip's own rate (50 fps B-roll on a 25 fps timeline runs two per
             // timeline frame); only a real speed change is left out. Within one frame: whether the source end
             // frame is inclusive is not documented
-            const ratio = (await clipRate(media, rate.fps)) / rate.fps;
             const sourceIn = (await item.GetSourceStartFrame()) as number;
             const sourceLength = ((await item.GetSourceEndFrame()) as number) - sourceIn;
-            if (Math.abs(sourceLength / ratio - (to - from)) > 1) {
+            const ratio = playRatio(
+              (await clipRate(media, rate.fps)) / rate.fps,
+              sourceLength,
+              to - from,
+            );
+            if (ratio === null) {
               leftOut++;
               continue;
             }
@@ -932,7 +938,7 @@ export function createResolveBridge(
 
       const pool = await p.GetMediaPool();
       const tl = await pool.CreateEmptyTimeline(name);
-      if (!tl) throw new Error(PLACE_FAILED);
+      if (!tl) throw new Error(`${CUT_FAILED}: CreateEmptyTimeline gave no timeline`);
       cutting = { done: 0, total: pieces.length };
       try {
         // appends act on the current timeline
@@ -961,16 +967,30 @@ export function createResolveBridge(
         // switched off after the appends, as on the original: whether Resolve appends onto a disabled track
         // is not measured
         for (const t of off) await tl.SetTrackEnable(t.type, t.index, false);
+        // the editor's In and Out follow their content (a mark inside a pause goes to its edge); relative to
+        // the timeline start, Out the last frame. Resolve takes an In alone but no Out alone
+        if (sourceMark.in !== undefined) {
+          const markIn = newEndF(sourceMark.in, frames);
+          const markOut =
+            sourceMark.out !== undefined
+              ? Math.max(markIn, newEndF(sourceMark.out + 1, frames) - 1)
+              : undefined;
+          await (
+            markOut !== undefined ? tl.SetMarkInOut(markIn, markOut) : tl.SetMarkInOut(markIn)
+          ).catch(() => false);
+        }
         return {
           id: (await tl.GetUniqueId()) as string,
           name: (await tl.GetName()) as string,
           leftOut,
           rebuilt: true,
         };
-      } catch {
+      } catch (err) {
         await pool.DeleteTimelines([tl]).catch(() => false);
         if (editorTimeline) await p.SetCurrentTimeline(editorTimeline).catch(() => false);
-        throw new Error(PLACE_FAILED);
+        // the reason in the message: a cause does not cross from the app to the panel window
+        const why = err instanceof Error ? err.message : String(err);
+        throw new Error(`${CUT_FAILED}: ${why}`, { cause: err });
       } finally {
         cutting = null;
       }
@@ -980,4 +1000,22 @@ export function createResolveBridge(
       return cutting && { ...cutting };
     },
   };
+}
+
+/**
+ * Source frames per timeline frame for a clip, or null when it is retimed (a real speed change). `rateRatio`
+ * is the clip's rate over the timeline's; Resolve may instead conform 29.97 footage on a 30 timeline (23.976
+ * on 24) frame for frame, so a long clip 0.1 % off the rate-converted length is not retimed. Within one
+ * frame either way: whether the source end frame is inclusive is not documented.
+ */
+export function playRatio(rateRatio: number, sourceLength: number, length: number): number | null {
+  if (Math.abs(sourceLength / rateRatio - length) <= 1) return rateRatio;
+  if (Math.abs(sourceLength - length) <= 1) return 1;
+  if (length > 0) {
+    // rounding on a long clip: the observed ratio within 0.2 % of either reading
+    const seen = sourceLength / length;
+    if (Math.abs(seen / rateRatio - 1) < 0.002) return rateRatio;
+    if (Math.abs(seen - 1) < 0.002) return 1;
+  }
+  return null;
 }
