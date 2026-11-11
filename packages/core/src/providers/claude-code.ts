@@ -1,6 +1,6 @@
 import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
 import { runAgentProcess, type AgentRunResult } from "./agent-run.js";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -102,25 +102,68 @@ export function claudeCodeStatus(): ClaudeCodeStatus {
   };
 }
 
-/** Folds a conversation into one prompt: claude -p takes a single message per call. */
-export function conversationPrompt(messages: ChatMessage[], imagePaths: string[][]): string {
-  const blocks = messages.map((m, i) => {
-    const text = m.content
-      .filter((p): p is { type: "text"; text: string } => p.type === "text")
-      .map((p) => p.text)
-      .join("\n");
-    const images = imagePaths[i] ?? [];
-    const imageNote = images.length
-      ? `Reference images for this message (open each with the Read tool before answering):\n${images.join("\n")}\n\n`
-      : "";
-    return { role: m.role, body: `${imageNote}${text}` };
-  });
-  if (blocks.length === 1) return blocks[0]?.body ?? "";
-  const history = blocks
-    .slice(0, -1)
-    .map((b) => `<${b.role}>\n${b.body}\n</${b.role}>`)
-    .join("\n\n");
-  return `This continues an earlier exchange in the same task:\n\n${history}\n\nNow answer this message:\n\n${blocks.at(-1)?.body ?? ""}`;
+/** A block of the one message claude -p is given (the Messages API's text and base64 image blocks). */
+export type CliBlock =
+  | { type: "text"; text: string }
+  | {
+      type: "image";
+      source: { type: "base64"; media_type: "image/png" | "image/jpeg"; data: string };
+    };
+
+/**
+ * Folds a conversation into one message: claude -p takes a single message per call. Each message's images
+ * stay at its place in the history, as image blocks.
+ */
+export function conversationContent(messages: ChatMessage[]): CliBlock[] {
+  const out: CliBlock[] = [];
+  const text = (t: string) => {
+    const last = out.at(-1);
+    if (last?.type === "text") last.text += t;
+    else out.push({ type: "text", text: t });
+  };
+  const body = (m: ChatMessage) => {
+    for (const p of m.content) {
+      if (p.type === "image")
+        out.push({
+          type: "image",
+          source: { type: "base64", media_type: p.mediaType, data: p.base64 },
+        });
+    }
+    text(
+      m.content
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join("\n"),
+    );
+  };
+  if (messages.length > 1) {
+    text("This continues an earlier exchange in the same task:\n\n");
+    messages.slice(0, -1).forEach((m, i) => {
+      text(`${i ? "\n\n" : ""}<${m.role}>\n`);
+      body(m);
+      text(`\n</${m.role}>`);
+    });
+    text("\n\nNow answer this message:\n\n");
+  }
+  const last = messages.at(-1);
+  if (last) body(last);
+  return out;
+}
+
+/** The conversation as one plain prompt, for a request without images. */
+export function conversationPrompt(messages: ChatMessage[]): string {
+  return conversationContent(messages)
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("");
+}
+
+/** The result line of `--output-format stream-json` output, as the plain json format would print it. */
+export function streamResult(stdout: string): string {
+  const line = stdout
+    .split("\n")
+    .reverse()
+    .find((l) => l.startsWith("{") && l.includes('"type":"result"'));
+  return line ?? stdout;
 }
 
 interface CliResult {
@@ -266,36 +309,31 @@ export class ClaudeCodeProvider implements TextProvider {
   async complete(req: TextRequest): Promise<TextResponse> {
     const work = mkdtempSync(join(tmpdir(), "mi-claude-"));
     try {
-      const imageDir = join(work, "images");
-      const imagePaths = req.messages.map((m, i) =>
-        m.content.flatMap((p, j) => {
-          if (p.type !== "image") return [];
-          mkdirSync(imageDir, { recursive: true });
-          const file = join(imageDir, `m${i}-${j}.${p.mediaType === "image/png" ? "png" : "jpg"}`);
-          writeFileSync(file, Buffer.from(p.base64, "base64"));
-          return [file];
-        }),
-      );
-      const hasImages = imagePaths.some((list) => list.length > 0);
+      // images go inside the message (stream-json input); pointing the model at files for its Read tool
+      // took three extra turns per call
+      const hasImages = req.messages.some((m) => m.content.some((p) => p.type === "image"));
       const args = [
         "-p",
         "--output-format",
-        "json",
+        hasImages ? "stream-json" : "json",
+        ...(hasImages ? ["--input-format", "stream-json", "--verbose"] : []),
         "--model",
         this.model,
         "--effort",
         this.effort,
         "--tools",
-        hasImages ? "Read" : "",
+        "",
         "--no-session-persistence",
         "--strict-mcp-config",
         "--system-prompt",
         req.system,
       ];
-      if (hasImages) args.push("--allowedTools", "Read", "--add-dir", imageDir);
-      const prompt = conversationPrompt(req.messages, imagePaths);
-      const out = await run(args, prompt, work, cliEnv(this.usePlan));
-      return readClaudeCodeResult(out, { model: this.model, purpose: req.purpose });
+      const input = hasImages
+        ? `${JSON.stringify({ type: "user", message: { role: "user", content: conversationContent(req.messages) } })}\n`
+        : conversationPrompt(req.messages);
+      const out = await run(args, input, work, cliEnv(this.usePlan));
+      const result = hasImages ? { ...out, stdout: streamResult(out.stdout) } : out;
+      return readClaudeCodeResult(result, { model: this.model, purpose: req.purpose });
     } finally {
       rmSync(work, { recursive: true, force: true });
     }
