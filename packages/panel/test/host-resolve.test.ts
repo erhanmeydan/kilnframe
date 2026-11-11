@@ -4,6 +4,7 @@ import { createResolveHost } from "../src/host-resolve";
 import { JobStopped } from "../src/job-errors";
 import {
   CONNECTION_LOST,
+  CUT_UNSUPPORTED,
   NOT_RUNNING,
   PLACE_FAILED,
   RENDER_FAILED,
@@ -253,6 +254,21 @@ describe("resolve host", () => {
       );
       const s = await h.currentSequence();
       await expect(h.cutToNewSequence!(s, cuts, "x")).rejects.toThrow(en["premiere.placeFailed"]);
+    });
+
+    it("names the editor to update when it lacks a command the cut needs", async () => {
+      setLang("en");
+      const api = fakeApi({
+        cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(CUT_UNSUPPORTED))),
+      });
+      const fc = createResolveHost(api, "filmcraft");
+      await expect(fc.cutToNewSequence!(await fc.currentSequence(), cuts, "x")).rejects.toThrow(
+        "Remove Pauses needs a newer FilmCraft.",
+      );
+      const dr = createResolveHost(api);
+      await expect(dr.cutToNewSequence!(await dr.currentSequence(), cuts, "x")).rejects.toThrow(
+        "Remove Pauses needs a newer DaVinci Resolve.",
+      );
     });
 
     it("asks for the progress every second while the bridge works, and stops asking after", async () => {

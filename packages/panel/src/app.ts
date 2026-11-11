@@ -41,6 +41,7 @@ import {
   voiceFixWriteFields,
   type VoiceFixCtx,
 } from "./voice-fix";
+import { newPauses, pausesAct, pausesBox, pausesWatches, type PausesCtx } from "./pauses";
 import { NOT_REPORTED, feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
@@ -257,7 +258,7 @@ interface Lightbox {
   index: number;
 }
 
-type Tab = "range" | "story" | "music" | "captions" | "voice";
+type Tab = "range" | "story" | "music" | "captions" | "voice" | "pauses";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
@@ -425,6 +426,7 @@ const state = {
   music: newMusic(),
   captions: newCaptions(),
   voiceFix: newVoiceFix(),
+  pauses: newPauses(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -585,8 +587,8 @@ const esc = (s: string | null | undefined) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-function seg<T extends string>(name: string, value: T, options: [T, string][]) {
-  return `<div class="seg">${options
+function seg<T extends string>(name: string, value: T, options: [T, string][], cls = "") {
+  return `<div class="seg${cls ? ` ${cls}` : ""}">${options
     .map(
       ([v, label]) =>
         `<div data-act="${name}" data-val="${v}" class="opt${v === value ? " on" : ""}">${label}</div>`,
@@ -930,13 +932,20 @@ function home(): string {
   const done = state.job?.placed ?? null;
   return `${header(`<span class="brand"><img src="icons/mark@2x.png" width="18" height="18" alt="">Kilnframe</span>`, `<div class="icon" data-act="settings" title="${t("home.settings")}">⚙</div>`)}
   ${connectionBox()}
-  ${seg("tab", state.tab, [
-    ["range", t("tab.range")],
-    ["story", t("tab.story")],
-    ["music", t("tab.music")],
-    ["captions", t("tab.captions")],
-    ["voice", t("tab.voice")],
-  ])}
+  ${seg(
+    "tab",
+    state.tab,
+    [
+      ["range", t("tab.range")],
+      ["story", t("tab.story")],
+      ["music", t("tab.music")],
+      ["captions", t("tab.captions")],
+      ["voice", t("tab.voice")],
+      ["pauses", t("tab.pauses")],
+    ],
+    // six labels do not fit one row of a 320 px panel: two rows of three
+    "tabs",
+  )}
   ${
     state.tab === "story"
       ? storyBox()
@@ -946,7 +955,9 @@ function home(): string {
           ? captionsBox(state.captions, captionsCtx)
           : state.tab === "voice"
             ? voiceFixBox(state.voiceFix, voiceFixCtx)
-            : rangeHome(done)
+            : state.tab === "pauses"
+              ? pausesBox(state.pauses, pausesCtx)
+              : rangeHome(done)
   }`;
 }
 
@@ -3013,6 +3024,38 @@ const voiceFixCtx: VoiceFixCtx = {
   forget: (key) => unstore(key),
 };
 
+/** What the Remove Pauses tab (pauses.ts) uses from the rest of the panel. */
+const pausesCtx: PausesCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  seg: (name, value, options) => seg(name, value, options),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: () => musicRangeLine("range"),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  speechTracksAt: (target, startS, endS) => host().speechTracksAt(target, startS, endS),
+  withOnlyAudioTrack: (target, track, fn) => host().withOnlyAudioTrack(target, track, fn),
+  exportAudio: (target, startS, endS, file) =>
+    host().exportRangeAudio(target, startS, endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  renderSettingsLost: async () => (await host().renderSettingsLost?.()) ?? false,
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  hostKind: () => host().kind,
+  // read each time: undefined in an editor (or an older Resolve bridge) that cannot cut
+  get cutToNewSequence() {
+    const h = host();
+    return h.cutToNewSequence?.bind(h);
+  },
+};
+
 /** What the Captions tab (captions.ts) uses from the rest of the panel. */
 const captionsCtx: CaptionsCtx = {
   esc: (s) => esc(s),
@@ -4072,6 +4115,9 @@ root.addEventListener("input", (event) => {
   const id = (event.target as HTMLElement | null)?.id ?? "";
   if (id.startsWith("cap-color-"))
     captionsColorInput(state.captions, captionsCtx, () => readColorFields());
+  // the Remove Pauses slider: its summary follows the move without a render, which would end the drag
+  else if (id === "pauses-strict")
+    pausesAct(state.pauses, pausesCtx, "pauses-strict", (event.target as HTMLInputElement).value);
   // a typed line is kept in the job folder once the typing pauses
   else if (id.startsWith("cap-line-"))
     captionsLineInput(state.captions, captionsCtx, () => captionsReadFields(state.captions));
@@ -4081,6 +4127,11 @@ root.addEventListener("input", (event) => {
     const line = document.getElementById("story-own-count");
     if (line) line.innerHTML = ownCountLine(text, state.story.language);
   }
+});
+// a slider that reports only where it was let go still updates the summary (the move is debounced anyway)
+root.addEventListener("change", (event) => {
+  const el = event.target as HTMLInputElement | null;
+  if (el?.id === "pauses-strict") pausesAct(state.pauses, pausesCtx, "pauses-strict", el.value);
 });
 root.addEventListener("pointermove", (event) => {
   if (!focusedField || Date.now() - lastTyped < 500) return;
@@ -4312,6 +4363,8 @@ function runAction(el: HTMLElement) {
     if (state.tab === "voice") void voiceFixOpened(state.voiceFix, voiceFixCtx);
   } else if (act && voiceFixAct(state.voiceFix, voiceFixCtx, act, val)) {
     /* handled by the Voice Fix tab */
+  } else if (act && pausesAct(state.pauses, pausesCtx, act, val)) {
+    /* handled by the Remove Pauses tab */
   } else if (act && musicAct(state.music, musicCtx, act, val)) {
     /* handled by the Music tab */
   } else if (act && captionsAct(state.captions, captionsCtx, act, val)) {
@@ -4735,7 +4788,8 @@ setInterval(() => {
     state.screen !== "home" ||
     !(
       watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
-      (state.tab === "voice" && voiceFixWatches(state.voiceFix))
+      (state.tab === "voice" && voiceFixWatches(state.voiceFix)) ||
+      (state.tab === "pauses" && pausesWatches(state.pauses))
     ) ||
     state.lightbox ||
     pressed
