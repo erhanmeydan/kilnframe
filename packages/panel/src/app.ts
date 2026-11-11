@@ -67,7 +67,7 @@ import {
   type PlannedScene,
 } from "./steps";
 import { formatMismatch } from "./format-check";
-import { readableJobError, readableJobText } from "./job-errors";
+import { ConnectionLost, JobStopped, readableJobError, readableJobText } from "./job-errors";
 import { olderVersion } from "./versions";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
@@ -880,6 +880,10 @@ function rangeBar(): string {
   const length = d
     ? `${formatDuration(d)}${d > LONG_RANGE_SECONDS ? ` · ${t("bar.inParts")}` : ""}`
     : "";
+  // a running job keeps the button off and offers its progress instead, so it is never started twice
+  if (rangeJobRunning())
+    return `<div class="actionbar"><div class="row small muted"><span>${t("bar.running")}</span><span class="link" data-act="open-progress">${t("bar.openProgress")}</span></div>
+  <div class="btn off" disabled>${t("home.generate")}</div></div>`;
   return `<div class="actionbar"><div class="row small muted"><span>${providerLabel()}</span><span>${length}</span></div>
   <div class="btn${ready ? "" : " off"}" data-act="generate" ${ready ? "" : "disabled"}>${
     state.style ? t("home.generate") : t("home.pickFirst")
@@ -1836,6 +1840,7 @@ function progress(): string {
         .join("<br>")}</div>`
     : "";
   return `${header(t("progress.title"), `${partTag()}<span class="muted">${Math.min(job.step + 1, STEP_COUNT)} / ${STEP_COUNT}</span>`)}
+  ${state.conn === "ok" ? "" : connectionBox()}
   <div class="box">${steps}</div>
   <div class="bar"><div style="width:${Math.round(((job.step + (job.sub ?? 0)) / STEP_COUNT) * 100)}%"></div></div>
   <div class="row small muted"><span id="elapsed">${elapsedText(job.startedAt)}</span><span>${esc(job.last)}</span></div>
@@ -1925,6 +1930,14 @@ async function refreshProviders() {
     setup.codex = r.codex as typeof setup.codex;
     setup.grok = r.grok as typeof setup.grok;
     setup.antigravity = (r.antigravity ?? null) as typeof setup.antigravity;
+    // signed in since the settings opened: its model list can be asked for now
+    if (!setup.antigravity?.loggedIn) delete setup.servedError.antigravity;
+    else if (
+      state.settings.provider === "antigravity" &&
+      state.screen === "settings" &&
+      !setup.served.antigravity
+    )
+      void loadServed("antigravity");
     setup.updates = (r.updates ?? {}) as typeof setup.updates;
     const custom = await session.request<ServerMessage>(
       { type: "keys.has", provider: "custom" },
@@ -1941,6 +1954,15 @@ async function refreshProviders() {
     if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
   }
   render();
+}
+
+/**
+ * Whether the settings ask the companion for this provider's model list. Antigravity only once signed in:
+ * before that its check fails in English under the panel's own install or sign-in block.
+ */
+function listsServedModels(id: string): boolean {
+  if (id === "antigravity") return Boolean(setup.antigravity?.loggedIn);
+  return LOCAL_PROVIDERS.has(id) || id === "openrouter" || SERVED_AGENTS.has(id);
 }
 
 async function loadServed(id: string) {
@@ -2198,7 +2220,7 @@ function modelList(): string {
       ...(setup.served.antigravity ?? []).map((m) => [m.id, ""] as [string, string]),
     ];
     if (setup.servedError.antigravity)
-      note = `<div class="note warn-text">${esc(setup.servedError.antigravity)}</div>`;
+      note = `<div class="note warn-text">${esc(readableJobText(setup.servedError.antigravity) ?? setup.servedError.antigravity)}</div>`;
   } else if (id === "openrouter") {
     // the suggested models first; every other model that reads images behind All Models
     const seeing = (setup.served.openrouter ?? []).filter((m) => m.vision);
@@ -3072,6 +3094,9 @@ async function readSequence(): Promise<HostSequence | null> {
 }
 
 async function generate() {
+  // one paid run at a time: a second one would take over the first one's screen and messages
+  if (rangeJobRunning()) return render();
+  stopAsked = false;
   // a sign-in or key added since the panel last looked counts: ask again before saying it is missing
   if (aiMissing()) await refreshProviders();
   state.aiBlocked = Boolean(aiMissing());
@@ -3102,6 +3127,7 @@ async function generate() {
       },
       "job.prepared",
     );
+    stopIfAsked();
     const jobDir = String(prepared.jobDir);
     // a story sequence holds its narration from 0 on A1; under it is music, so read the voice alone
     const narration = await storyNarration(target.id, range.endS);
@@ -3175,6 +3201,8 @@ async function generate() {
         : {}),
       ...providerParams(),
     };
+    // Premiere's exports cannot be cancelled: a Stop pressed during them is honoured here, before paying
+    stopIfAsked();
     if (range.durationS > LONG_RANGE_SECONDS)
       return await startParts(target, params, jobDir, footage, audioOffset);
     await submitJob(
@@ -3184,8 +3212,19 @@ async function generate() {
       params,
     );
   } catch (err) {
-    failJob(err);
+    failJob(stoppedOr(err));
   }
+}
+
+/** After Stop, whatever a run ends with is said as stopped (an export cut short fails in its own words). */
+function stoppedOr(err: unknown): unknown {
+  return stopAsked && !(err instanceof ConnectionLost) ? new JobStopped(t("job.stopped")) : err;
+}
+
+/** A range job or a long range is running, in the background or on the progress screen. */
+function rangeJobRunning(): boolean {
+  const job = state.job;
+  return seriesBusy || Boolean(job && !job.placed && !job.error);
 }
 
 /** Runs a job that needs no review (the split) and resolves with its result; progress goes to the job. */
@@ -3200,9 +3239,11 @@ function runQuietJob(params: Record<string, unknown>): Promise<Record<string, un
       } else if (m.type === "job.done") {
         off();
         resolve(m.result as Record<string, unknown>);
-      } else if (m.type === "job.error") {
+      } else {
+        const end = jobEndError(m);
+        if (!end) return;
         off();
-        reject(new Error(jobErrorText(m)));
+        reject(end);
       }
     });
     session
@@ -3213,6 +3254,7 @@ function runQuietJob(params: Record<string, unknown>): Promise<Record<string, un
       .then((accepted) => {
         id = String(accepted.jobId);
         if (state.job) state.job.id = id;
+        cancelIfStopped(id);
       })
       .catch((err: unknown) => {
         off();
@@ -3240,8 +3282,38 @@ let seriesBusy = false;
 let seriesAt = 0;
 
 class JobLost extends Error {}
-/** The editor stopped the job; nothing is retried. */
-class JobStopped extends Error {}
+
+/**
+ * The editor pressed Stop for the run in progress (a range, its parts, or an approved render). Cleared when
+ * the editor starts a run; a run checks it before each paid step, since Stop before a job id exists has no
+ * job to cancel.
+ */
+let stopAsked = false;
+
+/** A job accepted after Stop was pressed is cancelled at once. */
+function cancelIfStopped(jobId: string) {
+  if (!stopAsked) return;
+  trace(`job: ${jobId} accepted after Stop, cancelling it`);
+  try {
+    session.send({ type: "job.cancel", jobId });
+  } catch (err) {
+    trace(`job: cancel failed ${String(err)}`);
+  }
+}
+
+/** Throws when the editor pressed Stop; the screen already says so. */
+function stopIfAsked() {
+  if (stopAsked) throw new JobStopped(t("job.stopped"));
+}
+
+/** The error a job's message ends it with: an error, a stop, a job the companion forgot, a lost connection. */
+function jobEndError(m: ServerMessage): Error | null {
+  if (m.type === "job.error")
+    return m.connectionLost ? new ConnectionLost(String(m.message)) : new Error(jobErrorText(m));
+  if (m.type === "job.cancelled") return new JobStopped(t("job.stopped"));
+  if (m.type === "job.state" && m.state === "unknown") return new JobLost(t("job.lost"));
+  return null;
+}
 
 /** Applies a progress line to the job view: step, the part of the step done, the plan, the detail. */
 function applyProgress(job: JobView, message: string) {
@@ -3276,19 +3348,21 @@ function awaitJob(
       } else if (m.type === "job.done") {
         off();
         resolve(m.result as JobResult);
-      } else if (m.type === "job.error") {
+      } else {
+        const end = jobEndError(m);
+        if (!end) return;
         off();
-        reject(new Error(jobErrorText(m)));
-      } else if (m.type === "job.state" && m.state === "unknown") {
-        off();
-        reject(new JobLost(t("job.lost")));
-      } else if (m.type === "job.cancelled") {
-        off();
-        reject(new JobStopped(t("job.stopped")));
+        reject(end);
       }
     });
     if (id) {
-      session.send({ type: "job.get", jobId: id });
+      try {
+        session.send({ type: "job.get", jobId: id });
+      } catch {
+        // not connected: the job may still run in the app, so it is kept to follow later
+        off();
+        reject(new ConnectionLost(t("job.connectionLost")));
+      }
       return;
     }
     session
@@ -3304,6 +3378,7 @@ function awaitJob(
         id = String(accepted.jobId);
         if (state.job) state.job.id = id;
         onId?.(id);
+        cancelIfStopped(id);
       })
       .catch((err: unknown) => {
         off();
@@ -3345,25 +3420,33 @@ function partParams(series: Series, i: number): Record<string, unknown> {
 async function runPartJob(i: number, extra: Record<string, unknown>): Promise<JobResult> {
   const series = state.series as Series;
   const part = series.parts[i] as SeriesPart;
-  if (part.jobId) {
-    try {
-      const r = await awaitJob({ jobId: part.jobId });
+  // a failed or stopped job is let go, or Continue would follow it and get its end again; only a lost
+  // connection keeps it, since the job may still be running in the app
+  let keep = false;
+  try {
+    if (part.jobId) {
+      try {
+        return await awaitJob({ jobId: part.jobId });
+      } catch (err) {
+        if (!(err instanceof JobLost)) throw err;
+        trace(`series: part ${i + 1} job lost, starting it again`);
+        part.jobId = null;
+      }
+    }
+    stopIfAsked();
+    return await awaitJob({ params: { ...partParams(series, i), ...extra } }, (id) => {
+      part.jobId = id;
+      saveSeries();
+    });
+  } catch (err) {
+    keep = err instanceof ConnectionLost;
+    throw err;
+  } finally {
+    if (!keep) {
       part.jobId = null;
       saveSeries();
-      return r;
-    } catch (err) {
-      if (!(err instanceof JobLost)) throw err;
-      trace(`series: part ${i + 1} job lost, starting it again`);
-      part.jobId = null;
     }
   }
-  const r = await awaitJob({ params: { ...partParams(series, i), ...extra } }, (id) => {
-    part.jobId = id;
-    saveSeries();
-  });
-  part.jobId = null;
-  saveSeries();
-  return r;
 }
 
 /** A part's stills, from memory or, after a restart, from its folder; false when there are none yet. */
@@ -3501,6 +3584,7 @@ async function runSeries() {
       for (const [i, part] of series.parts.entries()) {
         if (part.state === "placed") continue;
         if (part.state === "stills" && !part.jobId && (await ensureStills(i))) continue;
+        stopIfAsked();
         showPart(i, "stills");
         const r = await runPartJob(i, review ? { stillsOnly: true } : {});
         if (r.output) await placePart(i, r, target);
@@ -3516,6 +3600,7 @@ async function runSeries() {
     saveSeries();
     for (const [i, part] of series.parts.entries()) {
       if (part.state === "placed") continue;
+      stopIfAsked();
       showPart(i, "render");
       await placePart(i, await runPartJob(i, { action: "render" }), target);
     }
@@ -3531,7 +3616,9 @@ async function runSeries() {
     state.screen = "home";
     render();
   } catch (err) {
-    failJob(err);
+    // seriesBusy first, so the home screen failJob draws offers Continue
+    seriesBusy = false;
+    failJob(stoppedOr(err));
   } finally {
     seriesBusy = false;
   }
@@ -3624,6 +3711,7 @@ async function submitJob(
     if (state.job) state.job.id = String(accepted.jobId);
     // kept until the result is handled, so a reloaded or woken panel can ask for it again
     store("pending", JSON.stringify({ jobId: accepted.jobId, guid: target.id, range, baseParams }));
+    cancelIfStopped(String(accepted.jobId));
   } catch (err) {
     off();
     throw err;
@@ -3638,7 +3726,8 @@ function onJobMessage(
   off: () => void,
 ) {
   const job = state.job;
-  if (!job || (job.id && m.jobId !== job.id)) return;
+  // only the job this view started: before its id is known, every message is another job's
+  if (!job || !job.id || m.jobId !== job.id) return;
   if (m.type === "job.progress") {
     applyProgress(job, String(m.message));
     render();
@@ -3691,6 +3780,11 @@ function onJobMessage(
         render();
       })
       .catch(failJob);
+  } else if (m.type === "job.error" && m.connectionLost) {
+    // the job may still run in the app: the progress screen shows the connection box, and the pending
+    // job is followed again once the panel reconnects (resumePending)
+    trace("job: connection lost while following");
+    render();
   } else if (m.type === "job.error") {
     off();
     store("pending", "");
@@ -3767,6 +3861,7 @@ async function resumePending() {
 async function continueReview(action: "render" | "recompose") {
   const r = state.review;
   if (!r) return;
+  stopAsked = false;
   const note =
     (document.getElementById("scenenote") as HTMLTextAreaElement | null)?.value ?? r.note;
   if (r.series) {
@@ -3852,7 +3947,7 @@ function failJob(err: unknown) {
   state.job.confirmStop = false;
   state.job.retry = false;
   state.job.picture = null;
-  state.job.reportable = !(err instanceof JobStopped);
+  state.job.reportable = !(err instanceof JobStopped) && !(err instanceof ConnectionLost);
   state.job.error =
     series && !(err instanceof JobStopped)
       ? t("job.partFailed", { i: seriesAt + 1, n: series.parts.length, message })
@@ -4424,8 +4519,13 @@ function runAction(el: HTMLElement) {
     state.review = null;
     state.job = null;
     state.screen = "home";
-  } else if (act === "series-continue") return void runSeries();
-  else if (act === "series-drop") {
+  } else if (act === "series-continue") {
+    stopAsked = false;
+    return void runSeries();
+  } else if (act === "open-progress") {
+    if (state.review) state.screen = "review";
+    else if (state.job) state.screen = "progress";
+  } else if (act === "series-drop") {
     state.series = null;
     saveSeries();
     seriesStills.clear();
@@ -4443,8 +4543,7 @@ function runAction(el: HTMLElement) {
     store("settings", JSON.stringify(state.settings));
     setup.editingKey = null;
     setup.confirmDelete = null;
-    if (LOCAL_PROVIDERS.has(val) || val === "openrouter" || SERVED_AGENTS.has(val))
-      void loadServed(val);
+    if (listsServedModels(val)) void loadServed(val);
   } else if (act === "lm-thinking") {
     state.settings = {
       ...state.settings,
@@ -4498,21 +4597,27 @@ function runAction(el: HTMLElement) {
   } else if (act === "settings") {
     state.screen = "settings";
     void refreshProviders();
-    if (
-      LOCAL_PROVIDERS.has(state.settings.provider) ||
-      state.settings.provider === "openrouter" ||
-      SERVED_AGENTS.has(state.settings.provider)
-    )
-      void loadServed(state.settings.provider);
+    if (listsServedModels(state.settings.provider)) void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
   else if (act === "stop" && state.job) state.job.confirmStop = true;
   else if (act === "stop-no" && state.job) state.job.confirmStop = false;
   else if (act === "stop-yes" && state.job) {
     // the companion ends the job and everything it started; job.cancelled brings the panel home
     trace(`job: stopped by the editor (${state.job.id ?? "not started yet"})`);
+    // remembered for the run: a job accepted later is cancelled, and no further part or job starts
+    stopAsked = true;
     host().cancelExports?.();
-    if (state.job.id) session.send({ type: "job.cancel", jobId: state.job.id });
-    else failJob(new JobStopped(t("job.stopped")));
+    let sent = false;
+    if (state.job.id)
+      try {
+        session.send({ type: "job.cancel", jobId: state.job.id });
+        sent = true;
+      } catch (err) {
+        // not connected: nothing will say the job ended, so the panel says it
+        trace(`job: cancel not sent ${String(err)}`);
+        store("pending", "");
+      }
+    if (!sent) failJob(new JobStopped(t("job.stopped")));
   } else if (act === "reconnect") return void connectCompanion();
   else if (act === "app-update") {
     state.updateBusy = false;

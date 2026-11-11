@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { setLang } from "../src/i18n";
 import { createResolveHost } from "../src/host-resolve";
+import { JobStopped } from "../src/job-errors";
 import { CONNECTION_LOST, NOT_RUNNING, RENDER_FAILED, TIMED_OUT } from "../src/resolve/api";
 import en from "../src/locales/en.json";
 import tr from "../src/locales/tr.json";
@@ -136,6 +137,10 @@ describe("resolve host", () => {
     await expect(
       h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
     ).rejects.toThrow(/stopped/i);
+    // a stop, not an error: no report link
+    await expect(
+      h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
+    ).rejects.toBeInstanceOf(JobStopped);
   });
 
   it("lets the editor keep the panel window above Resolve or not", () => {
