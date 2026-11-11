@@ -1,3 +1,4 @@
+import { runAgentProcess, type AgentRunResult } from "./agent-run.js";
 import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -116,6 +117,17 @@ export interface CodexOptions {
   effort: string;
 }
 
+/**
+ * A passing error (429, too many requests, an overloaded or timed-out server) is tried again; the plan's usage
+ * limit is not, since it lasts hours or days.
+ */
+export function codexErrorRetryable(error: string): boolean {
+  if (/usage limit|hit your limit|quota|insufficient|credits/i.test(error)) return false;
+  return /\b429\b|\brate[ _-]?limit|too many requests|overloaded|timed? ?out|\b5\d\d\b|stream disconnected/i.test(
+    error,
+  );
+}
+
 export class CodexProvider implements TextProvider {
   readonly name = "codex";
   readonly model: string;
@@ -177,7 +189,7 @@ export class CodexProvider implements TextProvider {
         const unavailable = mentionsUnavailableModel(r.error);
         throw new ProviderError(
           `Codex: ${r.error}`,
-          /rate|limit|overloaded|timeout/i.test(r.error),
+          codexErrorRetryable(r.error),
           unavailable ? "model-unavailable" : undefined,
         );
       }
@@ -200,28 +212,11 @@ export class CodexProvider implements TextProvider {
     }
   }
 
-  private run(
-    args: string[],
-    prompt: string,
-    cwd: string,
-  ): Promise<{ code: number; stdout: string; stderr: string }> {
-    return new Promise((resolve, reject) => {
-      const proc = spawnAgent("codex", args, { cwd });
-      let stdout = "";
-      let stderr = "";
-      proc.stdout.on("data", (c: Buffer) => (stdout += c.toString()));
-      proc.stderr.on("data", (c: Buffer) => (stderr += c.toString()));
-      // a scene can take minutes; a stuck run must still end
-      const timer = setTimeout(() => proc.kill("SIGTERM"), 30 * 60_000);
-      proc.on("error", (err) => {
-        clearTimeout(timer);
-        reject(new ProviderError(`Could not start Codex: ${err.message}`, false));
-      });
-      proc.on("close", (code) => {
-        clearTimeout(timer);
-        resolve({ code: code ?? 1, stdout, stderr });
-      });
-      proc.stdin.end(prompt);
+  private run(args: string[], prompt: string, cwd: string): Promise<AgentRunResult> {
+    // a scene can take minutes; a stuck run must still end
+    return runAgentProcess(spawnAgent("codex", args, { cwd }), prompt, {
+      label: "Codex",
+      timeoutMs: 30 * 60_000,
     });
   }
 }

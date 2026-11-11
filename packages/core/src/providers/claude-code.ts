@@ -1,4 +1,5 @@
 import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
+import { runAgentProcess, type AgentRunResult } from "./agent-run.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -138,6 +139,73 @@ interface CliResult {
   modelUsage?: Record<string, unknown>;
 }
 
+/**
+ * The plan's own limit ("Claude AI usage limit reached", "You've hit your limit · resets 3pm"), which no retry
+ * fixes. A 429 rate limit or an overloaded API is passing and is tried again.
+ */
+export function isPlanLimit(detail: string): boolean {
+  if (/\b(429|529)\b|rate[_ ]limit|overloaded/i.test(detail)) return false;
+  return /usage limit|limit reached|hit your limit|limit will reset|\bresets?\b/i.test(detail);
+}
+
+/** The reply of `claude -p --output-format json`, or the error it stands for. */
+export function readClaudeCodeResult(
+  out: AgentRunResult,
+  ctx: { model: string; purpose: string },
+): TextResponse {
+  let parsed: CliResult;
+  try {
+    parsed = JSON.parse(out.stdout) as CliResult;
+  } catch {
+    throw new ProviderError(
+      `Claude Code did not return a result for ${ctx.purpose} (exit ${out.code}). ${out.stderr.trim().slice(0, 300)}`,
+      true,
+    );
+  }
+  if (parsed.is_error || parsed.subtype !== "success") {
+    const detail = (parsed.result ?? out.stderr).trim().slice(0, 300);
+    const limit = isPlanLimit(detail);
+    if (!limit && mentionsUnavailableModel(detail)) {
+      throw new ProviderError(
+        `Claude Code cannot use the model "${ctx.model}": ${detail}`,
+        false,
+        "model-unavailable",
+      );
+    }
+    throw new ProviderError(
+      limit
+        ? `Claude plan usage limit reached: ${detail}. Wait for the limit to reset or use an API key.`
+        : `Claude Code failed on ${ctx.purpose}: ${detail}`,
+      !limit,
+    );
+  }
+  if (parsed.stop_reason === "refusal") {
+    throw new ProviderError(
+      "The model declined this request. Try rewording the note or the content.",
+      false,
+    );
+  }
+  if (parsed.stop_reason === "max_tokens") {
+    throw new ProviderError(
+      `Claude Code's reply for ${ctx.purpose} was cut off at the output limit.`,
+      true,
+      "cut-off",
+    );
+  }
+  const u = parsed.usage ?? {};
+  return {
+    text: parsed.result ?? "",
+    model: Object.keys(parsed.modelUsage ?? {})[0] ?? ctx.model,
+    usage: {
+      inputTokens: u.input_tokens ?? 0,
+      outputTokens: u.output_tokens ?? 0,
+      cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
+      cacheReadTokens: u.cache_read_input_tokens ?? 0,
+      ...(parsed.total_cost_usd !== undefined ? { listPriceUsd: parsed.total_cost_usd } : {}),
+    },
+  };
+}
+
 export interface ClaudeCodeOptions {
   model: string;
   effort: string;
@@ -223,51 +291,8 @@ export class ClaudeCodeProvider implements TextProvider {
       ];
       if (hasImages) args.push("--allowedTools", "Read", "--add-dir", imageDir);
       const prompt = conversationPrompt(req.messages, imagePaths);
-      const { stdout, stderr, code } = await run(args, prompt, work, cliEnv(this.usePlan));
-      let parsed: CliResult;
-      try {
-        parsed = JSON.parse(stdout) as CliResult;
-      } catch {
-        throw new ProviderError(
-          `Claude Code did not return a result for ${req.purpose} (exit ${code}). ${stderr.trim().slice(0, 300)}`,
-          true,
-        );
-      }
-      if (parsed.is_error || parsed.subtype !== "success") {
-        const detail = (parsed.result ?? stderr).trim().slice(0, 300);
-        const limit = /limit|quota|usage/i.test(detail);
-        if (!limit && mentionsUnavailableModel(detail)) {
-          throw new ProviderError(
-            `Claude Code cannot use the model "${this.model}": ${detail}`,
-            false,
-            "model-unavailable",
-          );
-        }
-        throw new ProviderError(
-          limit
-            ? `Claude plan usage limit reached: ${detail}. Wait for the limit to reset or use an API key.`
-            : `Claude Code failed on ${req.purpose}: ${detail}`,
-          !limit,
-        );
-      }
-      if (parsed.stop_reason === "refusal") {
-        throw new ProviderError(
-          "The model declined this request. Try rewording the note or the content.",
-          false,
-        );
-      }
-      const u = parsed.usage ?? {};
-      return {
-        text: parsed.result ?? "",
-        model: Object.keys(parsed.modelUsage ?? {})[0] ?? this.model,
-        usage: {
-          inputTokens: u.input_tokens ?? 0,
-          outputTokens: u.output_tokens ?? 0,
-          cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
-          cacheReadTokens: u.cache_read_input_tokens ?? 0,
-          ...(parsed.total_cost_usd !== undefined ? { listPriceUsd: parsed.total_cost_usd } : {}),
-        },
-      };
+      const out = await run(args, prompt, work, cliEnv(this.usePlan));
+      return readClaudeCodeResult(out, { model: this.model, purpose: req.purpose });
     } finally {
       rmSync(work, { recursive: true, force: true });
     }
@@ -279,17 +304,10 @@ function run(
   input: string,
   cwd: string,
   env: NodeJS.ProcessEnv,
-): Promise<{ stdout: string; stderr: string; code: number }> {
-  return new Promise((resolve, reject) => {
-    const proc = spawnAgent("claude", args, { cwd, env });
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", (c: Buffer) => (stdout += c.toString()));
-    proc.stderr.on("data", (c: Buffer) => (stderr += c.toString()));
-    proc.on("error", (err) =>
-      reject(new ProviderError(`Could not start Claude Code: ${err.message}`, false)),
-    );
-    proc.on("close", (code) => resolve({ stdout, stderr, code: code ?? 1 }));
-    proc.stdin.end(input);
+): Promise<AgentRunResult> {
+  // a scene can take minutes; a CLI stuck on the network or a prompt must still end
+  return runAgentProcess(spawnAgent("claude", args, { cwd, env }), input, {
+    label: "Claude Code",
+    timeoutMs: 30 * 60_000,
   });
 }
