@@ -61,6 +61,28 @@ describe("isolated jobs", () => {
       await waitFor(() => !alive(childPid));
     },
   );
+
+  it.skipIf(process.platform === "win32")(
+    "frees the queue only once the stopped job's programs are gone",
+    { timeout: 15_000 },
+    async () => {
+      const controller = new AbortController();
+      let childPid = 0;
+      const run = isolatedRunner(slowWorker, { graceMs: 600 });
+      const done = run(params({ stubborn: true }), {
+        progress: (m) => (childPid = Number(m.replace("child ", ""))),
+        signal: controller.signal,
+      });
+      await waitFor(() => childPid > 0);
+      // let the program set up its TERM handler
+      await new Promise((r) => setTimeout(r, 300));
+      const at = Date.now();
+      controller.abort();
+      await expect(done).rejects.toThrow("stopped");
+      expect(Date.now() - at).toBeGreaterThanOrEqual(500);
+      expect(alive(childPid)).toBe(false);
+    },
+  );
 });
 
 describe("stopping a running job in the queue", () => {

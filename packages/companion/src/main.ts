@@ -56,9 +56,9 @@ import {
   styleCards,
   reviewFromDisk,
 } from "./panel-support.js";
-import { isolatedRunner, killAllJobs } from "./isolated.js";
+import { isolatedRunner, killAllJobs, killAllJobsNow } from "./isolated.js";
 import { startCompanion } from "./server.js";
-import { appUpdatesFromParent } from "./app-updates.js";
+import { appUpdatesFromParent, type ChildMessage } from "./app-updates.js";
 
 export const DEFAULT_PORT = 47615;
 // the app passes its own version; the companion run on its own (development) has none
@@ -105,7 +105,7 @@ async function main() {
     runner: isolatedRunner(),
     appUpdates: appUpdatesFromParent(),
     // the app holds off quitting (its Quit, an installer) while a job runs; absent when run on its own
-    onBusy: (busy) => process.send?.({ type: "job.busy", busy }),
+    onBusy: (busy) => tellParent({ type: "job.busy", busy }),
     version: VERSION,
     port: Number(process.env.KILNFRAME_PORT ?? DEFAULT_PORT),
     systemCheck: async () => {
@@ -284,15 +284,32 @@ async function main() {
     void agentUpdates().catch(() => {});
   }, 0);
   // a running job lives in its own process group and would outlive the companion
-  process.on("exit", killAllJobs);
+  process.on("exit", killAllJobsNow);
+  let stopping = false;
   const stop = async () => {
-    killAllJobs();
+    if (stopping) return;
+    stopping = true;
     rmSync(file, { force: true });
+    await killAllJobs();
     await companion.close();
     process.exit(0);
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+  if (process.send) {
+    // the app asks over IPC: on Windows a signal cannot be caught, it ends the process without clean-up
+    process.on("message", (m: { type?: string } | null) => {
+      if (m?.type === "quit") void stop();
+    });
+    // the app crashed or was force-quit: an orphan would hold the port the next app's companion needs
+    process.on("disconnect", () => void stop());
+  }
+}
+
+/** A message to the app, when it is there: a send on a closed channel would crash the companion. */
+function tellParent(message: ChildMessage): void {
+  if (!process.send || !process.connected) return;
+  process.send(message, undefined, {}, () => {});
 }
 
 main().catch((err: unknown) => {
