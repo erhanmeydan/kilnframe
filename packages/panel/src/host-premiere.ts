@@ -1,9 +1,9 @@
 // The Premiere Pro host: the UXP API (@adobe/premierepro 26.5) behind the panel's Host interface. Every call
 // here is written from the official type definitions; the probe panel confirms the behaviour inside Premiere.
 import type {
-  Action,
   AudioClipTrackItem,
   CompoundAction,
+  Marker,
   FolderItem,
   Project,
   ProjectItem,
@@ -1187,30 +1187,38 @@ export function createPremiereHost(
     if (!frames.length) return;
     const frameOf = (t: { ticks?: string; seconds: number }) => Math.round(ticksOf(t) / tpf);
     const at = (f: number) => ppro.TickTime.createWithTicks(String(Math.round(f * tpf)));
+    // Premiere takes an action only when it is made inside its transaction (one made before it read as "no
+    // longer valid", 11 Nov 2026): what to do is worked out first, the actions are made in the step
     const markers = await ppro.Markers.getMarkers(await live());
-    const moves: Action[] = [];
+    const plan: { marker: Marker; toF: number | null }[] = [];
     for (const m of markers.getMarkers()) {
       const f = frameOf(m.getStart());
-      if (frames.some((c) => f >= c.startF && f < c.endF))
-        moves.push(markers.createRemoveMarkerAction(m));
-      else if (shiftAt(frames, f) > 0)
-        moves.push(markers.createMoveMarkerAction(m, at(newEndF(f, frames))));
+      if (frames.some((c) => f >= c.startF && f < c.endF)) plan.push({ marker: m, toF: null });
+      else if (shiftAt(frames, f) > 0) plan.push({ marker: m, toF: newEndF(f, frames) });
     }
-    if (moves.length) runStep(project, "move markers", (c) => moves.forEach((a) => c.addAction(a)));
+    if (plan.length)
+      runStep(project, "move markers", (c) => {
+        for (const p of plan)
+          c.addAction(
+            p.toF === null
+              ? markers.createRemoveMarkerAction(p.marker)
+              : markers.createMoveMarkerAction(p.marker, at(p.toF)),
+          );
+      });
     // an unset In or Out reads far before the start (range.ts); the sequence is fetched again after the
     // marker step, which leaves the object read before it no longer valid
-    const copy = await live();
-    const inPoint = await copy.getInPoint();
-    const outPoint = await copy.getOutPoint();
+    const seq = await live();
+    const inPoint = await seq.getInPoint();
+    const outPoint = await seq.getOutPoint();
     const inF = inPoint.seconds > -1000 ? frameOf(inPoint) : null;
     const outF = outPoint.seconds > -1000 ? frameOf(outPoint) : null;
-    const marks: Action[] = [];
-    if (inF !== null && shiftAt(frames, inF) > 0)
-      marks.push(copy.createSetInPointAction(at(newEndF(inF, frames))));
-    if (outF !== null && shiftAt(frames, outF) > 0)
-      marks.push(copy.createSetOutPointAction(at(newEndF(outF, frames))));
-    if (marks.length)
-      runStep(project, "move In and Out", (c) => marks.forEach((a) => c.addAction(a)));
+    const moveIn = inF !== null && shiftAt(frames, inF) > 0;
+    const moveOut = outF !== null && shiftAt(frames, outF) > 0;
+    if (moveIn || moveOut)
+      runStep(project, "move In and Out", (c) => {
+        if (moveIn) c.addAction(seq.createSetInPointAction(at(newEndF(inF, frames))));
+        if (moveOut) c.addAction(seq.createSetOutPointAction(at(newEndF(outF, frames))));
+      });
   }
 
   return {
