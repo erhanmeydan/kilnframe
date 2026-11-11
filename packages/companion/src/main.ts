@@ -392,9 +392,11 @@ let statusCache: { at: number; value: ReturnType<typeof readAgentStatuses> } | n
 /** Until then every request reads the agents again (a sign-in or update is under way). */
 let freshUntil = 0;
 async function readAgentStatuses() {
-  // Antigravity asks Google for its models, so it runs on its own while the others are read
-  const antigravity = antigravityStatus();
+  // the others are read synchronously and block the event loop; Antigravity's check runs on timers (10 s
+  // for --version), so it starts after them: started first, a slow Grok would make agy read as timed out
   const s = claudeCodeStatus();
+  const codex = codexStatus();
+  const grok = grokStatus();
   return {
     claudeCode: {
       installed: s.installed,
@@ -402,9 +404,9 @@ async function readAgentStatuses() {
       version: s.version,
       subscription: s.subscription,
     },
-    codex: codexStatus(),
-    grok: grokStatus(),
-    antigravity: await antigravity,
+    codex,
+    grok,
+    antigravity: await antigravityStatus(),
   };
 }
 function agentStatuses() {
