@@ -1,7 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { setLang } from "../src/i18n";
 import { createResolveHost } from "../src/host-resolve";
-import { CONNECTION_LOST, NOT_RUNNING, RENDER_FAILED, TIMED_OUT } from "../src/resolve/api";
+import { JobStopped } from "../src/job-errors";
+import {
+  CONNECTION_LOST,
+  COPY_LEFT,
+  CUT_FAILED,
+  CUT_UNSUPPORTED,
+  NOT_RUNNING,
+  PLACE_FAILED,
+  RENDER_FAILED,
+  TIMED_OUT,
+} from "../src/resolve/api";
 import en from "../src/locales/en.json";
 import tr from "../src/locales/tr.json";
 import type { KilnframeResolveApi, ResolveSequence } from "../src/resolve/api";
@@ -136,6 +146,10 @@ describe("resolve host", () => {
     await expect(
       h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
     ).rejects.toThrow(/stopped/i);
+    // a stop, not an error: no report link
+    await expect(
+      h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
+    ).rejects.toBeInstanceOf(JobStopped);
   });
 
   it("lets the editor keep the panel window above Resolve or not", () => {
@@ -214,6 +228,122 @@ describe("resolve host", () => {
     await expect(
       h.replaceCaptionClip(s, { path: "/a", atS: 0, durationS: 1 }, "/b", 0, 1, 0),
     ).rejects.toThrow("The animation could not be placed on the timeline.");
+  });
+
+  describe("cutToNewSequence", () => {
+    const cuts = [
+      { startS: 1, endS: 2 },
+      { startS: 4, endS: 5.5 },
+    ];
+    const made = { id: "tl-2", name: "Timeline 1 (No Pauses)", leftOut: 1, rebuilt: true };
+
+    it("is missing when the bridge cannot cut, so the tab says it is not available here", () => {
+      expect(createResolveHost(fakeApi()).cutToNewSequence).toBeUndefined();
+    });
+
+    it("passes the timeline, the cuts and the name to the bridge", async () => {
+      const api = fakeApi({ cutToNewTimeline: vi.fn(async () => made) });
+      const h = createResolveHost(api);
+      const s = await h.currentSequence();
+      expect(await h.cutToNewSequence!(s, cuts, made.name)).toEqual(made);
+      expect(api.cutToNewTimeline).toHaveBeenCalledWith("tl-1", cuts, made.name);
+    });
+
+    it("says a failed build as a failed cut, not a failed placement, and keeps the reason", async () => {
+      setLang("en");
+      const why = new Error(`${CUT_FAILED}: AppendToTimeline placed 3 of 4 clips`);
+      const h = createResolveHost(
+        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(why)) }),
+      );
+      const s = await h.currentSequence();
+      const err = await h.cutToNewSequence!(s, cuts, "x").catch((e: Error) => e);
+      expect((err as Error).message).toBe(en["premiere.cutFailed"]);
+      expect((err as Error).cause).toBe(why);
+      // an older bridge still says PLACE_FAILED
+      const old = createResolveHost(
+        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(PLACE_FAILED))) }),
+      );
+      await expect(old.cutToNewSequence!(s, cuts, "x")).rejects.toThrow(en["premiere.placeFailed"]);
+    });
+
+    it("names the copy a failed cut left in the project", async () => {
+      setLang("en");
+      const h = createResolveHost(
+        fakeApi({
+          cutToNewTimeline: vi.fn(async () =>
+            Promise.reject(
+              new Error(`${CUT_FAILED}: ${COPY_LEFT}="Talk (No Pauses)": extract failed`),
+            ),
+          ),
+        }),
+        "filmcraft",
+      );
+      await expect(h.cutToNewSequence!(await h.currentSequence(), cuts, "x")).rejects.toThrow(
+        'A copy named "Talk (No Pauses)" was left in the project',
+      );
+    });
+
+    it("names the editor to update when it lacks a command the cut needs", async () => {
+      setLang("en");
+      const api = fakeApi({
+        cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(CUT_UNSUPPORTED))),
+      });
+      const fc = createResolveHost(api, "filmcraft");
+      await expect(fc.cutToNewSequence!(await fc.currentSequence(), cuts, "x")).rejects.toThrow(
+        "Remove Pauses needs a newer FilmCraft.",
+      );
+      const dr = createResolveHost(api);
+      await expect(dr.cutToNewSequence!(await dr.currentSequence(), cuts, "x")).rejects.toThrow(
+        "Remove Pauses needs a newer DaVinci Resolve.",
+      );
+    });
+
+    it("asks for the progress every second while the bridge works, and stops asking after", async () => {
+      vi.useFakeTimers();
+      try {
+        let finish!: (r: typeof made) => void;
+        const progress = [{ done: 200, total: 600 }, null, { done: 400, total: 600 }];
+        const api = fakeApi({
+          cutToNewTimeline: vi.fn(() => new Promise<typeof made>((r) => (finish = r))),
+          cutProgress: vi.fn(async () => progress.shift() ?? null),
+        });
+        const h = createResolveHost(api);
+        const s = await h.currentSequence();
+        const onProgress = vi.fn();
+        const run = h.cutToNewSequence!(s, cuts, "x", onProgress);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(onProgress.mock.calls).toEqual([
+          [200, 600],
+          [400, 600],
+        ]);
+        finish(made);
+        expect(await run).toEqual(made);
+        const asked = vi.mocked(api.cutProgress!).mock.calls.length;
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(vi.mocked(api.cutProgress!).mock.calls.length).toBe(asked);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps cutting when a progress question fails", async () => {
+      vi.useFakeTimers();
+      try {
+        let finish!: (r: typeof made) => void;
+        const api = fakeApi({
+          cutToNewTimeline: vi.fn(() => new Promise<typeof made>((r) => (finish = r))),
+          cutProgress: vi.fn(async () => Promise.reject(new Error("ipc"))),
+        });
+        const h = createResolveHost(api);
+        const s = await h.currentSequence();
+        const run = h.cutToNewSequence!(s, cuts, "x", vi.fn());
+        await vi.advanceTimersByTimeAsync(2000);
+        finish(made);
+        expect(await run).toEqual(made);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
 

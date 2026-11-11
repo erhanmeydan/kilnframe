@@ -6,12 +6,14 @@ function fakeSession() {
   const session = new CompanionSession();
   const sent: Record<string, unknown>[] = [];
   const inner = session as unknown as {
-    client: { send(m: unknown): void };
-    listeners: Set<(m: ServerMessage) => void>;
+    client: { send(m: unknown): void } | null;
+    dispatch(m: ServerMessage): void;
+    closed(onClose: () => void): void;
   };
   inner.client = { send: (m) => sent.push(m as Record<string, unknown>) };
-  const reply = (m: ServerMessage) => [...inner.listeners].forEach((l) => l(m));
-  return { session, sent, reply };
+  const reply = (m: ServerMessage) => inner.dispatch(m);
+  const close = () => inner.closed(() => undefined);
+  return { session, sent, reply, close };
 }
 
 describe("companion session", () => {
@@ -58,5 +60,51 @@ describe("companion session", () => {
     reply({ type: "job.accepted", jobId: "job-2", ref: sent[1]!.ref });
     await expect(bad).rejects.toThrow("Invalid job");
     expect((await good).jobId).toBe("job-2");
+  });
+
+  it("leaves requests alone when an error names a plain send (a job.cancel on a finished job)", async () => {
+    const { session, sent, reply } = fakeSession();
+    const styles = session.request({ type: "styles.list" }, "styles");
+    session.send({ type: "job.cancel", jobId: "gone" });
+    const cancelRef = sent[1]!.ref as string;
+    expect(cancelRef).toBeTruthy();
+    expect(cancelRef).not.toBe(sent[0]!.ref);
+    reply({ type: "error", message: "This job has already finished.", ref: cancelRef });
+    reply({ type: "styles", styles: ["a"], ref: sent[0]!.ref });
+    expect((await styles).styles).toEqual(["a"]);
+  });
+
+  it("takes an error without a ref as the answer when only one request waits (an older app)", async () => {
+    const { session, sent, reply } = fakeSession();
+    const models = session.request({ type: "models.list", provider: "antigravity" }, "models");
+    reply({ type: "error", message: "Antigravity CLI could not reach Google." });
+    await expect(models).rejects.toThrow("could not reach Google");
+    // with two waiting, nobody can tell whose it is: both keep waiting for their own reply
+    const a = session.request({ type: "styles.list" }, "styles");
+    const b = session.request({ type: "styles.list" }, "styles");
+    reply({ type: "error", message: "Something failed" });
+    reply({ type: "styles", styles: ["a"], ref: sent[1]!.ref });
+    reply({ type: "styles", styles: ["b"], ref: sent[2]!.ref });
+    expect((await a).styles).toEqual(["a"]);
+    expect((await b).styles).toEqual(["b"]);
+  });
+
+  it("fails waiting requests and running jobs when the connection closes", async () => {
+    const { session, sent, reply, close } = fakeSession();
+    const seen: ServerMessage[] = [];
+    session.on((m) => seen.push(m));
+    const start = session.request({ type: "job.start", params: {} }, "job.accepted");
+    reply({ type: "job.accepted", jobId: "job-1", ref: sent[0]!.ref });
+    await start;
+    reply({ type: "job.progress", jobId: "job-2", message: "x" });
+    reply({ type: "job.done", jobId: "job-2", result: {} });
+    const waiting = session.request({ type: "styles.list" }, "styles");
+    close();
+    await expect(waiting).rejects.toThrow();
+    const lost = seen.filter((m) => m.type === "job.error");
+    // the finished job hears nothing more; the running one ends as lost
+    expect(lost.map((m) => m.jobId)).toEqual(["job-1"]);
+    expect(lost[0]!.connectionLost).toBe(true);
+    expect(session.connected).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
+import { planPauseCuts } from "@kilnframe/core";
 import { WebSocketServer, type WebSocket } from "ws";
 import { LISTEN_HOST, LISTEN_HOST_V6, isLoopbackAddress } from "./loopback.js";
 import type { KeyStore } from "./keys.js";
@@ -129,6 +130,36 @@ export interface Companion {
   close(): Promise<void>;
 }
 
+/** Before the hello only this much is read: a hello with a 64-character token is about 80 bytes. */
+const MAX_HELLO_BYTES = 1024;
+
+/**
+ * Browsers send the page's Origin with a WebSocket. The panels send none, `null`, `file://`, a host's own
+ * scheme, or (the panel demo) a loopback page; a page on a web site can be none of ours.
+ */
+export function foreignOrigin(origin: string | undefined): boolean {
+  if (!origin || !/^https?:/i.test(origin)) return false;
+  try {
+    const host = new URL(origin).hostname;
+    return !["localhost", "127.0.0.1", "[::1]"].includes(host);
+  } catch {
+    return true;
+  }
+}
+
+/** Requests whose failure is said only by name: they carry a key, or the keychain's error may name one. */
+const SECRET_REQUESTS = new Set(["keys.set", "keys.has", "keys.delete"]);
+
+/** The token of a well-formed hello, or null: nothing else is parsed for a client that has not signed in. */
+function helloToken(raw: string): string | null {
+  try {
+    const m = JSON.parse(raw) as { type?: unknown; token?: unknown } | null;
+    return m?.type === "hello" && typeof m.token === "string" ? m.token : null;
+  } catch {
+    return null;
+  }
+}
+
 function sameToken(a: string, b: string): boolean {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
@@ -203,6 +234,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       ws.close(1008, "loopback only");
       return;
     }
+    // a web page open in a browser reaches 127.0.0.1 too; it still needs the token, but is turned away first
+    if (foreignOrigin(req.headers.origin)) {
+      ws.close(1008, "origin");
+      return;
+    }
     let authed = false;
     const send = (msg: ServerMessage) => ws.send(JSON.stringify(msg));
     const timer = setTimeout(() => {
@@ -212,11 +248,28 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     ws.on("close", () => {
       clearTimeout(timer);
       clients.delete(ws);
-      // the last panel gone: a review left open no longer holds the app
+      // the last panel gone: a review left open no longer holds the app, now or after a later job
+      if (clients.size === 0) pendingReviews.clear();
       tellBusy();
     });
 
     ws.on("message", async (raw) => {
+      if (!authed) {
+        // only a small hello is read before the token is known: no JSON or schema work for anyone else
+        const bytes = Array.isArray(raw) ? raw.reduce((n, b) => n + b.length, 0) : raw.byteLength;
+        const token = bytes <= MAX_HELLO_BYTES ? helloToken(raw.toString()) : null;
+        if (token === null || !sameToken(token, o.token)) {
+          ws.close(1008, "unauthorized");
+          return;
+        }
+        authed = true;
+        clearTimeout(timer);
+        clients.add(ws);
+        send({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
+        const update = o.appUpdates?.state();
+        if (update) send({ type: "app.update", update });
+        return;
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(raw.toString());
@@ -235,19 +288,6 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
         return;
       }
       const msg = result.data;
-      if (!authed) {
-        if (msg.type !== "hello" || !sameToken(msg.token, o.token)) {
-          ws.close(1008, "unauthorized");
-          return;
-        }
-        authed = true;
-        clearTimeout(timer);
-        clients.add(ws);
-        send({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
-        const update = o.appUpdates?.state();
-        if (update) send({ type: "app.update", update });
-        return;
-      }
       try {
         switch (msg.type) {
           case "hello":
@@ -306,6 +346,17 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             send({
               type: "captions.previews",
               dir: await o.captionPreviews(),
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "pauses.cuts":
+            send({
+              type: "pauses.cuts",
+              ...planPauseCuts(msg.speech, msg.durationS, {
+                strictness: msg.strictness,
+                keepLongS: msg.keepLongS,
+                rangeEdges: msg.rangeEdges ?? false,
+              }),
               ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
@@ -402,20 +453,28 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           }
           case "job.cancel":
             if (!queue.cancel(msg.jobId))
-              send({ type: "error", message: "This job has already finished." });
+              send({
+                type: "error",
+                message: "This job has already finished.",
+                ...(msg.ref ? { ref: msg.ref } : {}),
+              });
             break;
           case "review.closed":
             if (msg.outDir) pendingReviews.delete(msg.outDir);
             else pendingReviews.clear();
             tellBusy();
             break;
-          case "review.load":
-            send({
-              type: "review",
-              outDir: msg.outDir,
-              review: o.loadReview ? await o.loadReview(msg.outDir) : null,
-            });
+          case "review.load": {
+            const review = o.loadReview ? await o.loadReview(msg.outDir) : null;
+            // a panel reloaded mid-review opens it again from its folder (a part's stills): it holds the app
+            // again, as the stills job did before the reload cleared it
+            if (review) {
+              pendingReviews.add(msg.outDir);
+              tellBusy();
+            }
+            send({ type: "review", outDir: msg.outDir, review });
             break;
+          }
           case "agent.update":
             if (o.updateAgent) await o.updateAgent(msg.agent);
             send({ type: "agent.update.opened", agent: msg.agent });
@@ -474,13 +533,17 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
         }
       } catch (err) {
-        // never echo request contents back: a keys.set failure must not leak the key
-        send({
-          type: "error",
-          message: `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`,
-          // the request's own ref, so the panel fails that request and no other
-          ...("ref" in msg && msg.ref ? { ref: msg.ref } : {}),
-        });
+        // never echo request contents back: a keys.* failure (the keychain's own text) must not leak a key;
+        // every other request carries no key, so its reason ("Antigravity CLI could not reach Google") is
+        // what the panel needs to say
+        const reason =
+          !SECRET_REQUESTS.has(msg.type) && err instanceof Error && err.message
+            ? err.message
+            : `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`;
+        // the ref is read from the raw message: the schema strips it from requests that do not declare it,
+        // and the panel fails only the request that names it
+        const ref = (parsed as { ref?: unknown } | null)?.ref;
+        send({ type: "error", message: reason, ...(typeof ref === "string" ? { ref } : {}) });
       }
     });
   };

@@ -260,6 +260,44 @@ describe("music panel", () => {
     expect(st.settingsNote).toBeNull();
   });
 
+  it("makes the music for the In/Out whenever the sequence has one, with no choice to make", async () => {
+    const exported: unknown[] = [];
+    const ctx = {
+      readSequence: async () => ({ name: "Talk", projectPath: "/p/a.prproj", endSeconds: 60 }),
+      inOut: () => ({ startS: 10, endS: 30, durationS: 20, source: "inout", warning: null }),
+      request: async (m: { type: string }) =>
+        m.type === "job.prepare" ? { jobDir: "/j" } : { jobId: "j1" },
+      withoutOurInserts: async (_t: unknown, _r: unknown, fn: () => Promise<unknown>) => fn(),
+      exportAudio: async (_t: unknown, range: unknown) => {
+        exported.push(range);
+        return { ok: true, offsetSeconds: 0 };
+      },
+      frames: async () => [],
+      renderSettingsLost: async () => false,
+      on: () => () => undefined,
+      render: () => undefined,
+      trace: () => undefined,
+    } as never;
+    const st = newMusic();
+    musicAct(st, ctx, "music-plan", "");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(exported[0]).toMatchObject({ startS: 10, endS: 30 });
+    const idle = musicBox(newMusic(), {
+      esc: (x: string) => x,
+      reportLink: () => "",
+      inOut: () => ({ startS: 10, endS: 30, durationS: 20, source: "inout", warning: null }),
+      connected: () => true,
+      keySet: () => true,
+      rangeLine: (scope: string) => `[range line ${scope}]`,
+      seg: (name: string, value: string) => `[${name}=${value}]`,
+      provider: () => "gemini",
+      price: () => ({ perSection: 0, currency: "USD" }),
+      slider: () => -21,
+    } as never);
+    expect(idle).toContain("[range line range]");
+    expect(idle).not.toContain("music-scope");
+  });
+
   it("sends the chosen AI with a music plan: the companion uses it only when there is no Gemini key", async () => {
     const sent: { type: string; params?: Record<string, unknown> }[] = [];
     const ctx = {

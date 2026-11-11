@@ -14,6 +14,7 @@ import {
   codexStatus,
   grokStatus,
   antigravityStatus,
+  forgetAgyModels,
   agentUpdate,
   updateCommand,
   loadProviderCatalog,
@@ -31,11 +32,19 @@ import {
   speechModelFor,
   narrate,
   downloadSpeechModel,
+  downloadVadModel,
   systemReport,
   speechModelCached,
   vendorDir,
 } from "@kilnframe/core";
-import { AGENT_BINARY, type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
+import {
+  AGENT_BINARY,
+  type Agent,
+  appleScriptString,
+  loginCommand,
+  loginEnv,
+  logoutArgs,
+} from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
 import { makeCloneVoice } from "./clone-voice.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
@@ -56,9 +65,9 @@ import {
   styleCards,
   reviewFromDisk,
 } from "./panel-support.js";
-import { isolatedRunner, killAllJobs } from "./isolated.js";
+import { isolatedRunner, killAllJobs, killAllJobsNow } from "./isolated.js";
 import { startCompanion } from "./server.js";
-import { appUpdatesFromParent } from "./app-updates.js";
+import { appUpdatesFromParent, type ChildMessage } from "./app-updates.js";
 
 export const DEFAULT_PORT = 47615;
 // the app passes its own version; the companion run on its own (development) has none
@@ -105,7 +114,7 @@ async function main() {
     runner: isolatedRunner(),
     appUpdates: appUpdatesFromParent(),
     // the app holds off quitting (its Quit, an installer) while a job runs; absent when run on its own
-    onBusy: (busy) => process.send?.({ type: "job.busy", busy }),
+    onBusy: (busy) => tellParent({ type: "job.busy", busy }),
     version: VERSION,
     port: Number(process.env.KILNFRAME_PORT ?? DEFAULT_PORT),
     systemCheck: async () => {
@@ -210,11 +219,13 @@ async function main() {
           slowModels: p.slowModels ?? [],
         })),
       );
-      return { providers, ...agentStatuses(), updates: await agentUpdates() };
+      return { providers, ...(await agentStatuses()), updates: await agentUpdates() };
     },
     loginAgent: async (agent) => {
       // the panel watches for the sign-in to finish in the terminal: no cached state meanwhile
       freshUntil = Date.now() + 5 * 60_000;
+      // a kept Antigravity model list belongs to the account before this sign-in
+      if (agent === "antigravity") forgetAgyModels();
       openInTerminal(loginCommand(agent, process.env), loginEnv(agent, process.env));
     },
     logoutAgent: async (agent) => {
@@ -256,6 +267,8 @@ async function main() {
         model: providerPreset(provider)?.models[0] ?? "list",
         apiKey: await keys.get(provider),
       });
+      // Antigravity's preflight reads the status found here (its check goes over the network)
+      if (provider === "antigravity") await antigravityStatus();
       p.preflight?.();
       const catalog = loadModelCatalog();
       return ((await p.listModels?.()) ?? []).map((m) => ({
@@ -266,6 +279,7 @@ async function main() {
     prepareModels: async (onProgress) => {
       const defaults = loadDefaults();
       await downloadSpeechModel(defaults, onProgress);
+      await downloadVadModel(defaults.pauses.vadModel, onProgress);
       await ensureOcrData(defaults.ocr, onProgress);
     },
   });
@@ -280,19 +294,36 @@ async function main() {
   process.stderr.write(`kilnframe companion listening on 127.0.0.1:${companion.port}\n`);
   // ready before the panel asks: its first settings screen should not wait for the agents
   setTimeout(() => {
-    agentStatuses();
+    void agentStatuses();
     void agentUpdates().catch(() => {});
   }, 0);
   // a running job lives in its own process group and would outlive the companion
-  process.on("exit", killAllJobs);
+  process.on("exit", killAllJobsNow);
+  let stopping = false;
   const stop = async () => {
-    killAllJobs();
+    if (stopping) return;
+    stopping = true;
     rmSync(file, { force: true });
+    await killAllJobs();
     await companion.close();
     process.exit(0);
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+  if (process.send) {
+    // the app asks over IPC: on Windows a signal cannot be caught, it ends the process without clean-up
+    process.on("message", (m: { type?: string } | null) => {
+      if (m?.type === "quit") void stop();
+    });
+    // the app crashed or was force-quit: an orphan would hold the port the next app's companion needs
+    process.on("disconnect", () => void stop());
+  }
+}
+
+/** A message to the app, when it is there: a send on a closed channel would crash the companion. */
+function tellParent(message: ChildMessage): void {
+  if (!process.send || !process.connected) return;
+  process.send(message, undefined, {}, () => {});
 }
 
 main().catch((err: unknown) => {
@@ -327,12 +358,21 @@ function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
 /** A command in a terminal window the editor sees: the official CLI does the work, this app only starts it. */
 function openInTerminal(command: string, env: Record<string, string> = {}): void {
   if (process.platform === "darwin") {
-    spawnSync("osascript", [
-      "-e",
-      `tell application "Terminal" to do script "${command}"`,
-      "-e",
-      'tell application "Terminal" to activate',
-    ]);
+    const r = spawnSync(
+      "osascript",
+      [
+        "-e",
+        `tell application "Terminal" to do script ${appleScriptString(command)}`,
+        "-e",
+        'tell application "Terminal" to activate',
+      ],
+      { encoding: "utf8", timeout: 30_000 },
+    );
+    // the panel waits for a sign-in in that window: say so when no window opened
+    if (r.error || r.status !== 0)
+      throw new Error(
+        `Could not open Terminal: ${(r.stderr || r.error?.message || "").trim().slice(0, 200)}`,
+      );
   } else if (process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", command], {
       // the companion's own PATH is the one of sign-in time: an agent installed since would not be found
@@ -353,8 +393,12 @@ function openInTerminal(command: string, env: Record<string, string> = {}): void
 let statusCache: { at: number; value: ReturnType<typeof readAgentStatuses> } | null = null;
 /** Until then every request reads the agents again (a sign-in or update is under way). */
 let freshUntil = 0;
-function readAgentStatuses() {
+async function readAgentStatuses() {
+  // the others are read synchronously and block the event loop; Antigravity's check runs on timers (10 s
+  // for --version), so it starts after them: started first, a slow Grok would make agy read as timed out
   const s = claudeCodeStatus();
+  const codex = codexStatus();
+  const grok = grokStatus();
   return {
     claudeCode: {
       installed: s.installed,
@@ -362,9 +406,9 @@ function readAgentStatuses() {
       version: s.version,
       subscription: s.subscription,
     },
-    codex: codexStatus(),
-    grok: grokStatus(),
-    antigravity: antigravityStatus(),
+    codex,
+    grok,
+    antigravity: await antigravityStatus(),
   };
 }
 function agentStatuses() {

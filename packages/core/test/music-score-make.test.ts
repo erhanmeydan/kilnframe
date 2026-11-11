@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SR, readAudio, writeAudio } from "../src/music/score/audio-io.js";
 import { meterLevelDb } from "../src/music/score/levels.js";
-import { makeScore } from "../src/music/score/make.js";
+import { makeScore, retryWaitMs } from "../src/music/score/make.js";
 import type { MusicPlan } from "../src/music/score/plan.js";
 
 /** A fake Lyria: answers with a WAV of `seconds` of tone, a hit near the end when the prompt asks for one. */
@@ -317,5 +317,13 @@ describe("making the score", { timeout: 30_000 }, () => {
     const r = await makeScore(base(out, flaky));
     expect(r.sections[1]!.error).toBeTruthy();
     expect(r.sections[0]!.durationS).toBeCloseTo(40, 3);
+  });
+});
+
+describe("waiting before a piece is asked again", () => {
+  it("waits as the provider says, but never more than a minute", () => {
+    expect(retryWaitMs(1)).toBe(2000);
+    expect(retryWaitMs(1, 20)).toBe(20_000);
+    expect(retryWaitMs(2, 3600)).toBe(60_000);
   });
 });

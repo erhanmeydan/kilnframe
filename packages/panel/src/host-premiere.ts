@@ -1,17 +1,30 @@
 // The Premiere Pro host: the UXP API (@adobe/premierepro 26.5) behind the panel's Host interface. Every call
 // here is written from the official type definitions; the probe panel confirms the behaviour inside Premiere.
 import type {
+  AudioClipTrackItem,
+  CompoundAction,
+  Marker,
   FolderItem,
   Project,
   ProjectItem,
   Sequence,
   TrackItemSelection,
+  VideoClipTrackItem,
   premierepro,
 } from "@adobe/premierepro";
+import {
+  frameCuts,
+  newEndF,
+  piecesOf,
+  seedLength,
+  shiftAt,
+  type FrameCut,
+  type PlanItem,
+} from "./cut-plan";
 import { frameFor, insertScale } from "./frame";
 import { formatRational, rationalFps } from "./fps";
 import { withoutLongPathPrefix } from "./home";
-import type { Host, HostSequence, PlaceResult } from "./host";
+import type { CutSequenceResult, Host, HostSequence, PlaceResult, TimelineCut } from "./host";
 import { exportError } from "./export-cancel";
 import { premiereCall } from "./premiere-version";
 import { t } from "./i18n";
@@ -100,6 +113,170 @@ const samePathFor = (os: OsModule, a: string, b: string) => {
   const norm = (p: string) => p.replace(/\//g, "\\").toLowerCase();
   return norm(a) === norm(b);
 };
+
+/** A clip of the sequence being cut, as the cut plan needs it. */
+export interface CutClipInfo {
+  plan: PlanItem;
+  /** Its in point in its media, in ticks; null when it could not be read. */
+  inTicks: number | null;
+  speed: number;
+  reversed: boolean;
+}
+
+/** Where a clip is found after the copies are made: its kind, track and start frame name it. */
+interface ClipAt {
+  kind: PlanItem["kind"];
+  track: number;
+  atF: number;
+}
+
+/** A clip as the finished sequence should hold it; inTicks null when it is not checked. */
+export interface ExpectedClip {
+  kind: PlanItem["kind"];
+  track: number;
+  startF: number;
+  endF: number;
+  inTicks: number | null;
+}
+
+/** The edits of a cut, phase by phase; each phase is one transaction on the copy of the sequence. */
+export interface PremiereCutPlan {
+  /** A: clips with nothing left. */
+  remove: string[];
+  /** B: every clip with pieces trimmed to its seed (null: that edge stays). */
+  trims: { key: string; startF: number | null; endF: number | null }[];
+  /** C: copies of a seed, at its start plus offsetF. */
+  clones: { key: string; offsetF: number }[];
+  /** D: a seed or copy, found at atF, gets its in point and grows to its piece's end. */
+  fixes: (ClipAt & { inTicks: number | null; endF: number | null })[];
+  /** E: a piece, found at atF, shifts by byF; per track from left to right. */
+  moves: (ClipAt & { byF: number })[];
+  expected: ExpectedClip[];
+  /** Clips that could only keep their first piece (reversed, or an in point that could not be read). */
+  leftOut: number;
+}
+
+/**
+ * The cut of a copy of a sequence through Premiere's public track item actions, as measured in Premiere 26.5:
+ * set start trims (the in point follows), set end shrinks and grows into free space, a cloned track item lands
+ * at the item's start plus an offset on its own track with the same in point and length and overwrites what
+ * lies under it, a move is a relative shift that never overwrites, and a video clip's linked audio is not
+ * touched by its edits, so every clip is planned on its own. Each clip is trimmed to a seed as long as its
+ * shortest piece; the seed is cloned into each further piece (inside the clip's own old span, so a clone can
+ * never overwrite a neighbour), every copy gets its in point and end, and the pieces shift left in order, only
+ * ever into space already emptied.
+ */
+export function planPremiereCut(
+  clips: CutClipInfo[],
+  cuts: FrameCut[],
+  ticksPerFrame: number,
+): PremiereCutPlan {
+  const plan: PremiereCutPlan = {
+    remove: [],
+    trims: [],
+    clones: [],
+    fixes: [],
+    moves: [],
+    expected: [],
+    leftOut: 0,
+  };
+  for (const c of clips) {
+    const { key, kind, track, startF, endF } = c.plan;
+    let pieces = piecesOf(c.plan, cuts);
+    if (!pieces.length) {
+      plan.remove.push(key);
+      continue;
+    }
+    const splittable = !c.reversed && c.inTicks !== null;
+    if (!splittable && pieces.length > 1) {
+      // a copy's in point cannot be set right without the source's direction and start: keep the first piece
+      pieces = [pieces[0]];
+      plan.leftOut++;
+    }
+    const inAt = (f: number) =>
+      splittable
+        ? (c.inTicks as number) + Math.round((f - startF) * ticksPerFrame * c.speed)
+        : null;
+    const first = pieces[0];
+    const trimStart = first.fromF > startF ? first.fromF : null;
+    if (pieces.length === 1) {
+      const trimEnd = first.toF < endF ? first.toF : null;
+      if (trimStart !== null || trimEnd !== null)
+        plan.trims.push({ key, startF: trimStart, endF: trimEnd });
+    } else {
+      const d = seedLength(pieces);
+      plan.trims.push({ key, startF: trimStart, endF: first.fromF + d });
+      // the seed's in point is right already: the start trim moved it
+      if (first.fromF + d < first.toF)
+        plan.fixes.push({ kind, track, atF: first.fromF, inTicks: null, endF: first.toF });
+      for (const p of pieces.slice(1)) {
+        plan.clones.push({ key, offsetF: p.fromF - first.fromF });
+        plan.fixes.push({
+          kind,
+          track,
+          atF: p.fromF,
+          inTicks: inAt(p.fromF),
+          endF: p.toF > p.fromF + d ? p.toF : null,
+        });
+      }
+    }
+    for (const p of pieces) {
+      if (p.newStartF !== p.fromF)
+        plan.moves.push({ kind, track, atF: p.fromF, byF: p.newStartF - p.fromF });
+      plan.expected.push({
+        kind,
+        track,
+        startF: p.newStartF,
+        endF: p.newStartF + p.toF - p.fromF,
+        inTicks: inAt(p.fromF),
+      });
+    }
+  }
+  plan.moves.sort((a, b) => a.kind.localeCompare(b.kind) || a.track - b.track || a.atF - b.atF);
+  return plan;
+}
+
+/** "V1", "A2": a track as the editor sees it. */
+const trackName = (kind: PlanItem["kind"], track: number) =>
+  `${kind === "video" ? "V" : "A"}${track + 1}`;
+
+/**
+ * Why the cut sequence differs from the plan, in English for the log and the report, or null when every clip
+ * is where it should be: same frames, and the in point within half a frame of the source.
+ */
+export function cutMismatch(
+  expected: ExpectedClip[],
+  found: (ExpectedClip & { speed?: number })[],
+  ticksPerFrame: number,
+): string | null {
+  const group = <T extends ExpectedClip>(list: T[]) => {
+    const by = new Map<string, T[]>();
+    for (const c of list) {
+      const k = trackName(c.kind, c.track);
+      by.set(k, [...(by.get(k) ?? []), c]);
+    }
+    for (const l of by.values()) l.sort((a, b) => a.startF - b.startF);
+    return by;
+  };
+  const want = group(expected);
+  const have = group(found);
+  for (const k of new Set([...want.keys(), ...have.keys()])) {
+    const w = want.get(k) ?? [];
+    const h = have.get(k) ?? [];
+    for (let i = 0; i < Math.max(w.length, h.length); i++) {
+      const a = w[i];
+      const b = h[i];
+      if (!a) return `${k}: an extra clip at frames ${b.startF}-${b.endF}`;
+      if (!b) return `${k}: no clip at frames ${a.startF}-${a.endF}`;
+      if (a.startF !== b.startF || a.endF !== b.endF)
+        return `${k}: expected a clip at frames ${a.startF}-${a.endF}, found ${b.startF}-${b.endF}`;
+      const tol = (ticksPerFrame * Math.max(1, b.speed ?? 1)) / 2;
+      if (a.inTicks !== null && (b.inTicks === null || Math.abs(a.inTicks - b.inTicks) > tol))
+        return `${k}: the clip at frames ${a.startF}-${a.endF} starts at the wrong point of its media`;
+    }
+  }
+  return null;
+}
 
 export function createPremiereHost(
   ppro: premierepro,
@@ -197,6 +374,20 @@ export function createPremiereHost(
         ) as unknown as Clip[],
       );
     return tracks;
+  }
+
+  /** `seconds` moved to the nearest frame of the sequence. */
+  async function onFrame(sequence: Sequence, seconds: number): Promise<number> {
+    const settings = await sequence.getSettings();
+    const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
+      settings,
+      "getVideoFrameRate",
+    );
+    const frameS = rate.ticksPerFrame / ppro.TickTime.TIME_ONE_SECOND.ticksNumber;
+    return frameS > 0
+      ? (Math.round(seconds / frameS) * rate.ticksPerFrame) /
+          ppro.TickTime.TIME_ONE_SECOND.ticksNumber
+      : seconds;
   }
 
   /** The clips of `mediaPath` among `clips` that start at `atS` and last `durationS`, each within a frame. */
@@ -535,6 +726,9 @@ export function createPremiereHost(
     durationSeconds: number,
     tracks?: PlaceResult,
   ): Promise<PlaceResult> {
+    // a long range's parts start at sentence ends in milliseconds; off the frame grid they could leave a
+    // frame's gap or overlap between parts (Resolve and FilmCraft round to frames in their bridges)
+    at = await onFrame(sequence, at);
     const { videoTrack, audioTrack } = tracks ?? (await freeTracks(sequence));
     const trim = (item: ProjectItem) => {
       const clip = ppro.ClipProjectItem.cast(item);
@@ -606,6 +800,425 @@ export function createPremiereHost(
     }
     await project.openSequence(sequence);
     await project.setActiveSequence(sequence);
+  }
+
+  type TrackItem = VideoClipTrackItem | AudioClipTrackItem;
+  interface ReadClip {
+    item: TrackItem;
+    info: CutClipInfo;
+  }
+
+  const ticksOf = (time: { ticks?: string; seconds: number }) =>
+    time.ticks !== undefined
+      ? Number(time.ticks)
+      : time.seconds * ppro.TickTime.TIME_ONE_SECOND.ticksNumber;
+
+  /** Runs one transaction (one undo step); throws, naming the step, when Premiere refuses it. */
+  function runStep(project: Project, step: string, add: (c: CompoundAction) => void): void {
+    let ok = false;
+    project.lockedAccess(() => {
+      // new key for the tab's locale files; until it is there t() shows the key itself
+      ok = project.executeTransaction(add, t("premiere.undoPauses"));
+    });
+    if (!ok) throw new Error(`Premiere refused the step "${step}"`);
+  }
+
+  /** A copy of `sequence`: the sequence whose guid was not there before the clone action. */
+  async function cloneSequence(project: Project, sequence: Sequence): Promise<Sequence> {
+    const before = new Set((await project.getSequences()).map((s) => s.guid.toString()));
+    const added = async () =>
+      (await project.getSequences()).filter((s) => !before.has(s.guid.toString()));
+    runStep(project, "copy the sequence", (c) => c.addAction(sequence.createCloneAction()));
+    const clone = (await added())[0];
+    if (!clone) {
+      // the transaction went through: whatever it made is the copy, and must not stay behind
+      for (const s of await added()) await project.deleteSequence(s).catch(() => false);
+      throw new Error("The copy of the sequence was not found");
+    }
+    return clone;
+  }
+
+  /**
+   * Transitions on `sequence` that touch a cut (an edge a pause is cut at, or a clip that goes): a trim or a
+   * move next to one may be refused, so they come off the copy first.
+   */
+  async function transitionsAtCuts(sequence: Sequence, cuts: FrameCut[], tpf: number) {
+    const TRANSITION = ppro.Constants.TrackItemType.TRANSITION;
+    const frameOf = (t: { ticks?: string; seconds: number }) => Math.round(ticksOf(t) / tpf);
+    const found: TrackItem[] = [];
+    const scan = async (items: TrackItem[]) => {
+      for (const item of items) {
+        const a = frameOf(await item.getStartTime());
+        const b = frameOf(await item.getEndTime());
+        if (cuts.some((c) => a <= c.endF && b >= c.startF)) found.push(item);
+      }
+    };
+    for (let i = 0; i < (await sequence.getVideoTrackCount()); i++)
+      await scan((await sequence.getVideoTrack(i)).getTrackItems(TRANSITION, false));
+    for (let i = 0; i < (await sequence.getAudioTrackCount()); i++)
+      await scan((await sequence.getAudioTrack(i)).getTrackItems(TRANSITION, false));
+    return found;
+  }
+
+  /** Every clip of every track of `sequence`, in sequence frames. */
+  async function readItems(sequence: Sequence, ticksPerFrame: number): Promise<ReadClip[]> {
+    const frameOf = (t: { ticks?: string; seconds: number }) =>
+      Math.round(ticksOf(t) / ticksPerFrame);
+    const CLIP = ppro.Constants.TrackItemType.CLIP;
+    const out: ReadClip[] = [];
+    const read = async (kind: PlanItem["kind"], track: number, items: TrackItem[]) => {
+      for (const [i, item] of items.entries()) {
+        const inTicks = await item.getInPoint().then(ticksOf, () => null);
+        out.push({
+          item,
+          info: {
+            plan: {
+              key: `${kind}:${track}:${i}`,
+              kind,
+              track,
+              startF: frameOf(await item.getStartTime()),
+              endF: frameOf(await item.getEndTime()),
+            },
+            inTicks,
+            // a title or a graphic may not say: it has no speed
+            speed: await item.getSpeed().catch(() => 1),
+            reversed: Boolean(await item.isSpeedReversed().catch(() => 0)),
+          },
+        });
+      }
+    };
+    for (let i = 0; i < (await sequence.getVideoTrackCount()); i++)
+      await read("video", i, (await sequence.getVideoTrack(i)).getTrackItems(CLIP, false));
+    for (let i = 0; i < (await sequence.getAudioTrackCount()); i++)
+      await read("audio", i, (await sequence.getAudioTrack(i)).getTrackItems(CLIP, false));
+    return out;
+  }
+
+  /** A cut refused for a reason the editor can act on: its own words reach the panel. */
+  class CutRefused extends Error {}
+
+  /**
+   * Remove Pauses: a copy of the sequence with every track cut at the pauses and closed up, made the active
+   * sequence. The editor's sequence is never touched; the copy is deleted again when any step fails or the cut
+   * does not read back as planned (a locked track, say: Premiere does not tell a plugin about locks).
+   */
+  async function cutToNewSequence(
+    project: Project,
+    sequence: Sequence,
+    cuts: TimelineCut[],
+    name: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<CutSequenceResult> {
+    const TOTAL = 7;
+    const settings = await sequence.getSettings();
+    const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
+      settings,
+      "getVideoFrameRate",
+    );
+    const tpf = rate.ticksPerFrame;
+    // whole ticks: seconds at 29.97 fps would land a hair off the frame
+    const at = (frames: number) => ppro.TickTime.createWithTicks(String(Math.round(frames * tpf)));
+    let clone: Sequence | null = null;
+    // the step a failure came from, for the log
+    let stage = "copy the sequence";
+    try {
+      clone = await cloneSequence(project, sequence);
+      onProgress?.(1, TOTAL);
+      const copy = clone;
+      // the sequence and its editor are fetched again before each step too: an object read before a transaction
+      // may no longer be valid after it, and the copy is found by its guid
+      const guid = copy.guid.toString();
+      const live = async () => {
+        const now = (await project.getSequences()).find((x) => x.guid.toString() === guid);
+        if (!now) throw new Error("The copy of the sequence is gone");
+        return now;
+      };
+      const editorNow = async () => ppro.SequenceEditor.getEditor(await live());
+      const endF = Math.round(ticksOf(await copy.getEndTime()) / tpf);
+      const frames = frameCuts(cuts, ppro.TickTime.TIME_ONE_SECOND.ticksNumber / tpf, endF);
+      stage = "name the copy";
+      // a sequence is renamed through its project item
+      const projectItem = await copy.getProjectItem();
+      runStep(project, "name the copy", (c) => c.addAction(projectItem.createSetNameAction(name)));
+
+      // a transaction leaves the clip objects read before it no longer valid ("The script object is no longer
+      // valid", 11 Nov 2026): the transitions come off first, the clips are read after
+      stage = "remove transitions";
+      // 0: transitions at the cuts come off the copy (the pieces meet in hard cuts there); when Premiere will
+      // not take them off, the cut is refused before any clip is touched
+      const transitions = await transitionsAtCuts(await live(), frames, tpf);
+      if (transitions.length) {
+        const editor = await editorNow();
+        try {
+          withSelection(transitions, (selection) =>
+            runStep(project, "remove transitions", (c) =>
+              c.addAction(
+                editor.createRemoveItemsAction(
+                  selection,
+                  false,
+                  ppro.Constants.MediaType.ANY,
+                  false,
+                ),
+              ),
+            ),
+          );
+        } catch {
+          /* checked below */
+        }
+        if ((await transitionsAtCuts(await live(), frames, tpf)).length)
+          throw new CutRefused(t("pauses.transitions"));
+      }
+
+      stage = "read the clips";
+      const read = await readItems(await live(), tpf);
+      const plan = planPremiereCut(
+        read.map((r) => r.info),
+        frames,
+        tpf,
+      );
+      const byKey = new Map(read.map((r) => [r.info.plan.key, r]));
+      // a transaction may leave the clip objects read before it no longer valid ("The script object is no longer
+      // valid" on a clip trimmed in the step before, 11 Nov 2026): before each step the clips are read again
+      // and found by track and start frame, which are unique on a track
+      const where = (kind: string, track: number, startF: number) => `${kind}:${track}:${startF}`;
+      const readFresh = async () => {
+        const at = new Map<string, TrackItem>();
+        for (const r of await readItems(await live(), tpf))
+          at.set(where(r.info.plan.kind, r.info.plan.track, r.info.plan.startF), r.item);
+        return (key: string, startF: number) => {
+          const p = (byKey.get(key) as ReadClip).info.plan;
+          const found = at.get(where(p.kind, p.track, startF));
+          if (!found) throw new Error(`${trackName(p.kind, p.track)}: no clip at frame ${startF}`);
+          return found;
+        };
+      };
+      const startOf = (key: string) => (byKey.get(key) as ReadClip).info.plan.startF;
+
+      stage = "remove clips";
+      // A: clips with nothing left. One selection per media type: an ANY removal may take a linked partner
+      // that still has pieces. The selections live only inside their callbacks, nothing async in them
+      if (plan.remove.length) {
+        const of = (kind: PlanItem["kind"]) =>
+          plan.remove
+            .filter((key) => byKey.get(key)?.info.plan.kind === kind)
+            .map((key) => (byKey.get(key) as ReadClip).item);
+        const video = of("video");
+        const audio = of("audio");
+        const editor = await editorNow();
+        withSelection(video, (videoSel) =>
+          withSelection(audio, (audioSel) =>
+            runStep(project, "remove clips", (c) => {
+              if (video.length)
+                c.addAction(
+                  editor.createRemoveItemsAction(
+                    videoSel,
+                    false,
+                    ppro.Constants.MediaType.VIDEO,
+                    false,
+                  ),
+                );
+              if (audio.length)
+                c.addAction(
+                  editor.createRemoveItemsAction(
+                    audioSel,
+                    false,
+                    ppro.Constants.MediaType.AUDIO,
+                    false,
+                  ),
+                );
+            }),
+          ),
+        );
+      }
+      onProgress?.(2, TOTAL);
+
+      stage = "trim to the seed";
+      // B: trim to the seed; the end first, so the clip only ever shrinks. A start trim moves the in point too
+      if (plan.trims.length) {
+        const found = await readFresh();
+        const trims = plan.trims.map((tr) => ({ tr, it: found(tr.key, startOf(tr.key)) }));
+        runStep(project, "trim clips", (c) => {
+          for (const { tr, it } of trims) {
+            if (tr.endF !== null) c.addAction(it.createSetEndAction(at(tr.endF)));
+            if (tr.startF !== null) c.addAction(it.createSetStartAction(at(tr.startF)));
+          }
+        });
+      }
+      onProgress?.(3, TOTAL);
+
+      stage = "copy the pieces";
+      // C: copies of each seed into its further pieces, on its own track (alignToVideo for an audio clip,
+      // which lands the same way); an overwrite, but only over the clip's own emptied span
+      if (plan.clones.length) {
+        // made inside the transaction, as Premiere wants its actions; a refused one names its clip in the log
+        const found = await readFresh();
+        const editor = await editorNow();
+        const seedStart = new Map(plan.trims.map((tr) => [tr.key, tr.startF]));
+        const seeds = plan.clones.map((cl) => {
+          const seed = byKey.get(cl.key);
+          const where = `${cl.key} at +${cl.offsetF} frames (${seed?.info.plan.startF}-${seed?.info.plan.endF})`;
+          if (!seed || !Number.isFinite(cl.offsetF))
+            throw new Error(`no seed or offset for ${where}`);
+          const it = found(cl.key, seedStart.get(cl.key) ?? startOf(cl.key));
+          return { cl, it, where, audio: seed.info.plan.kind === "audio" };
+        });
+        runStep(project, "copy clips", (c) => {
+          for (const { cl, it, where, audio } of seeds) {
+            try {
+              const copyAt = (align: boolean) =>
+                c.addAction(
+                  editor.createCloneTrackItemAction(it, at(cl.offsetF), 0, 0, align, false),
+                );
+              try {
+                copyAt(audio);
+              } catch (first) {
+                // an audio clip linked to video was refused with alignToVideo ("Illegal Parameter type",
+                // 11 Nov 2026), a lone one took it (probe): the other setting before giving up
+                if (!audio) throw first;
+                copyAt(false);
+              }
+            } catch (err) {
+              throw new Error(`${err instanceof Error ? err.message : String(err)} for ${where}`, {
+                cause: err,
+              });
+            }
+          }
+        });
+      }
+      onProgress?.(4, TOTAL);
+
+      // seeds and copies are found again by track and start frame, unique on a track
+      const atKey = (c: ClipAt) => `${c.kind}:${c.track}:${c.atF}`;
+      const placedNow = async () => {
+        const placed = new Map<string, TrackItem>();
+        for (const r of await readItems(await live(), tpf))
+          placed.set(atKey({ ...r.info.plan, atF: r.info.plan.startF }), r.item);
+        return (c: ClipAt) => {
+          const found = placed.get(atKey(c));
+          if (!found) throw new Error(`${trackName(c.kind, c.track)}: no clip at frame ${c.atF}`);
+          return found;
+        };
+      };
+
+      stage = "set in points and ends";
+      // D: each copy's in point, then every piece grows to its end into its own emptied span
+      if (plan.fixes.length) {
+        const find = await placedNow();
+        const fixes = plan.fixes.map((f) => ({ f, it: find(f) }));
+        runStep(project, "set in and end points", (c) => {
+          for (const { f, it } of fixes) {
+            if (f.inTicks !== null)
+              c.addAction(
+                it.createSetInPointAction(ppro.TickTime.createWithTicks(String(f.inTicks))),
+              );
+            if (f.endF !== null) c.addAction(it.createSetEndAction(at(f.endF)));
+          }
+        });
+      }
+      onProgress?.(5, TOTAL);
+
+      stage = "move the pieces";
+      // E: a move is a relative shift and does not overwrite; left to right, each piece only moves into
+      // space already emptied
+      if (plan.moves.length) {
+        // D's in points and ends leave each start where it was: found again at the same frames
+        const find = await placedNow();
+        const moves = plan.moves.map((m) => ({ m, it: find(m) }));
+        runStep(project, "close the pauses", (c) => {
+          for (const { m, it } of moves) c.addAction(it.createMoveAction(at(m.byF)));
+        });
+      }
+      onProgress?.(6, TOTAL);
+
+      const after = (await readItems(await live(), tpf)).map((r) => ({
+        ...r.info.plan,
+        inTicks: r.info.inTicks,
+        speed: r.info.speed,
+      }));
+      stage = "check the cut";
+      const why = cutMismatch(plan.expected, after, tpf);
+      if (why) throw new Error(`The cut sequence differs from the plan: ${why}`);
+
+      // the copy's markers and In/Out were cloned at their old times: they follow their content
+      stage = "move markers, In and Out";
+      await followMarks(project, live, frames, tpf);
+      onProgress?.(TOTAL, TOTAL);
+
+      const done = await live();
+      await project.openSequence(done);
+      await project.setActiveSequence(done);
+      known.set(guid, { project, sequence: done });
+      const id = guid;
+      return { id, name, leftOut: plan.leftOut, rebuilt: false };
+    } catch (err) {
+      if (clone) await project.deleteSequence(clone).catch(() => false);
+      if (err instanceof CutRefused) throw new Error(err.message, { cause: err });
+      // the reason (which clip, which frames) goes with it for the log; the editor reads that nothing was lost
+      // the step goes on the reason, which the tab logs from `cause`
+      if (err instanceof Error) err.message = `${stage}: ${err.message}`;
+      throw new Error(t("premiere.cutFailed"), { cause: err });
+    }
+  }
+
+  /** Runs `fn` with a selection of `items`; it is valid only inside the callback. Rethrows what `fn` threw. */
+  function withSelection(items: TrackItem[], fn: (selection: TrackItemSelection) => void): void {
+    let failure: unknown = null;
+    ppro.TrackItemSelection.createEmptySelection((selection) => {
+      try {
+        for (const it of items) selection.addItem(it, true);
+        fn(selection);
+      } catch (err) {
+        failure = err;
+      }
+    });
+    if (failure) throw failure;
+  }
+
+  /**
+   * Sequence markers and the In/Out on the cut copy: each moves left by the frames cut before it; a marker
+   * inside a cut goes with it, an In or Out inside one goes to its edge.
+   */
+  async function followMarks(
+    project: Project,
+    live: () => Promise<Sequence>,
+    frames: FrameCut[],
+    tpf: number,
+  ): Promise<void> {
+    if (!frames.length) return;
+    const frameOf = (t: { ticks?: string; seconds: number }) => Math.round(ticksOf(t) / tpf);
+    const at = (f: number) => ppro.TickTime.createWithTicks(String(Math.round(f * tpf)));
+    // Premiere takes an action only when it is made inside its transaction (one made before it read as "no
+    // longer valid", 11 Nov 2026): what to do is worked out first, the actions are made in the step
+    const markers = await ppro.Markers.getMarkers(await live());
+    const plan: { marker: Marker; toF: number | null }[] = [];
+    for (const m of markers.getMarkers()) {
+      const f = frameOf(m.getStart());
+      if (frames.some((c) => f >= c.startF && f < c.endF)) plan.push({ marker: m, toF: null });
+      else if (shiftAt(frames, f) > 0) plan.push({ marker: m, toF: newEndF(f, frames) });
+    }
+    if (plan.length)
+      runStep(project, "move markers", (c) => {
+        for (const p of plan)
+          c.addAction(
+            p.toF === null
+              ? markers.createRemoveMarkerAction(p.marker)
+              : markers.createMoveMarkerAction(p.marker, at(p.toF)),
+          );
+      });
+    // an unset In or Out reads far before the start (range.ts); the sequence is fetched again after the
+    // marker step, which leaves the object read before it no longer valid
+    const seq = await live();
+    const inPoint = await seq.getInPoint();
+    const outPoint = await seq.getOutPoint();
+    const inF = inPoint.seconds > -1000 ? frameOf(inPoint) : null;
+    const outF = outPoint.seconds > -1000 ? frameOf(outPoint) : null;
+    const moveIn = inF !== null && shiftAt(frames, inF) > 0;
+    const moveOut = outF !== null && shiftAt(frames, outF) > 0;
+    if (moveIn || moveOut)
+      runStep(project, "move In and Out", (c) => {
+        if (moveIn) c.addAction(seq.createSetInPointAction(at(newEndF(inF, frames))));
+        if (moveOut) c.addAction(seq.createSetOutPointAction(at(newEndF(outF, frames))));
+      });
   }
 
   return {
@@ -780,6 +1393,10 @@ export function createPremiereHost(
     async createStorySequence(template, name, narration, music, format) {
       const { project, sequence } = await sequenceOf(template);
       await createStorySequence(project, sequence, name, narration, music, format);
+    },
+    async cutToNewSequence(seq, cuts, name, onProgress) {
+      const { project, sequence } = await sequenceOf(seq);
+      return cutToNewSequence(project, sequence, cuts, name, onProgress);
     },
     async pickImages(types) {
       const picked = await uxp.storage.localFileSystem.getFileForOpening({

@@ -7,6 +7,7 @@ import { audioRangeParams } from "./audio-range";
 import { host, type Host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
+import { cleanProviderSettings, offersAddress, presetModel } from "./provider-settings";
 import {
   musicAct,
   musicBox,
@@ -40,6 +41,7 @@ import {
   voiceFixWriteFields,
   type VoiceFixCtx,
 } from "./voice-fix";
+import { newPauses, pausesAct, pausesBox, pausesWatches, type PausesCtx } from "./pauses";
 import { NOT_REPORTED, feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
@@ -66,8 +68,8 @@ import {
   type PlannedScene,
 } from "./steps";
 import { formatMismatch } from "./format-check";
-import { readableJobError, readableJobText } from "./job-errors";
-import { olderVersion } from "./versions";
+import { ConnectionLost, JobStopped, readableJobError, readableJobText } from "./job-errors";
+import { versionGap } from "./versions";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
@@ -256,7 +258,7 @@ interface Lightbox {
   index: number;
 }
 
-type Tab = "range" | "story" | "music" | "captions" | "voice";
+type Tab = "range" | "story" | "music" | "captions" | "voice" | "pauses";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
@@ -424,6 +426,7 @@ const state = {
   music: newMusic(),
   captions: newCaptions(),
   voiceFix: newVoiceFix(),
+  pauses: newPauses(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -584,8 +587,8 @@ const esc = (s: string | null | undefined) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-function seg<T extends string>(name: string, value: T, options: [T, string][]) {
-  return `<div class="seg">${options
+function seg<T extends string>(name: string, value: T, options: [T, string][], cls = "") {
+  return `<div class="seg${cls ? ` ${cls}` : ""}">${options
     .map(
       ([v, label]) =>
         `<div data-act="${name}" data-val="${v}" class="opt${v === value ? " on" : ""}">${label}</div>`,
@@ -631,8 +634,17 @@ function updateBox(): string {
   // the app was updated but the editor still runs the old panel: said on the home screen, not only in the
   // settings (1 Nov 2026: Premiere kept loading 0.4.1 next to an installed 0.4.2 until it was reinstalled)
   const app = state.appVersion;
-  if (app && olderVersion(panelVersion(), app))
+  const gap = versionGap(panelVersion(), app);
+  if (gap === "panel")
     return `<div class="box warn">${t("home.panelOlder", { panel: esc(panelVersion()), app: esc(app) })} ${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`;
+  // a new panel on an old app (same protocol): the app silently drops the fields it does not know yet.
+  // When the app offers its own update, the update box below has the button.
+  if (gap === "app" && (u?.store || !offered)) {
+    const line = t("home.appOlder", { panel: esc(panelVersion()), app: esc(app) });
+    return u?.store
+      ? `<div class="box warn"><div>${line}</div><div class="btn2 mt" data-act="app-update">${t("mismatch.openStore")}</div></div>`
+      : `<div class="box warn"><div>${line}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
+  }
   if (!u || !offered) return "";
   const v = esc(u.version ?? "");
   // the site's changelog, in the editor's language: GitHub's release page made people download by hand
@@ -778,7 +790,7 @@ function styleTile(s: StyleCard, width: number): string {
   const sel = s.name === state.style;
   const { thumb } = styleStills(s);
   const size = `style="width:${width}px;height:${h169(width)}px"`;
-  return `<div class="tile${sel ? " sel" : ""}" style="width:${width}px" data-act="style" data-val="${s.name}">${
+  return `<div class="tile${sel ? " sel" : ""}" style="width:${width}px" data-act="style" data-val="${esc(s.name)}">${
     thumb
       ? imgSlot(`thumb:${lang()}:${s.name}`, thumb, width, h169(width), "", "tile-img")
       : `<div class="tile-img" ${size}></div>`
@@ -879,6 +891,10 @@ function rangeBar(): string {
   const length = d
     ? `${formatDuration(d)}${d > LONG_RANGE_SECONDS ? ` · ${t("bar.inParts")}` : ""}`
     : "";
+  // a running job keeps the button off and offers its progress instead, so it is never started twice
+  if (rangeJobRunning())
+    return `<div class="actionbar"><div class="row small muted"><span>${t("bar.running")}</span><span class="link" data-act="open-progress">${t("bar.openProgress")}</span></div>
+  <div class="btn off" disabled>${t("home.generate")}</div></div>`;
   return `<div class="actionbar"><div class="row small muted"><span>${providerLabel()}</span><span>${length}</span></div>
   <div class="btn${ready ? "" : " off"}" data-act="generate" ${ready ? "" : "disabled"}>${
     state.style ? t("home.generate") : t("home.pickFirst")
@@ -916,13 +932,20 @@ function home(): string {
   const done = state.job?.placed ?? null;
   return `${header(`<span class="brand"><img src="icons/mark@2x.png" width="18" height="18" alt="">Kilnframe</span>`, `<div class="icon" data-act="settings" title="${t("home.settings")}">⚙</div>`)}
   ${connectionBox()}
-  ${seg("tab", state.tab, [
-    ["range", t("tab.range")],
-    ["story", t("tab.story")],
-    ["music", t("tab.music")],
-    ["captions", t("tab.captions")],
-    ["voice", t("tab.voice")],
-  ])}
+  ${seg(
+    "tab",
+    state.tab,
+    [
+      ["range", t("tab.range")],
+      ["story", t("tab.story")],
+      ["music", t("tab.music")],
+      ["captions", t("tab.captions")],
+      ["voice", t("tab.voice")],
+      ["pauses", t("tab.pauses")],
+    ],
+    // one row: the panel is at least 360 px wide (its style keeps every label whole)
+    "tabs",
+  )}
   ${
     state.tab === "story"
       ? storyBox()
@@ -932,7 +955,9 @@ function home(): string {
           ? captionsBox(state.captions, captionsCtx)
           : state.tab === "voice"
             ? voiceFixBox(state.voiceFix, voiceFixCtx)
-            : rangeHome(done)
+            : state.tab === "pauses"
+              ? pausesBox(state.pauses, pausesCtx)
+              : rangeHome(done)
   }`;
 }
 
@@ -1213,7 +1238,7 @@ function storyBox(): string {
   if (st.stage === "writing" || st.stage === "voicing")
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
-    return `<div class="box ok mt">${t("story.done", { name: st.done.name, duration: formatDuration(st.done.durationS) })}</div>
+    return `<div class="box ok mt">${t("story.done", { name: esc(st.done.name), duration: formatDuration(st.done.durationS) })}</div>
   ${st.done.musicNote ? `<div class="box mt">${esc(st.done.musicNote)}</div>` : ""}
   <div class="btn2 mt" data-act="story-new">${t("story.restart")}</div>`;
   if (st.stage === "script") {
@@ -1291,7 +1316,9 @@ function storyBox(): string {
       ? `<div class="note muted">${
           state.styles.find((s) => s.name === state.style)
             ? t("story.musicStyle", {
-                style: localized(state.styles.find((s) => s.name === state.style)!.displayName),
+                style: esc(
+                  localized(state.styles.find((s) => s.name === state.style)!.displayName),
+                ),
                 maker: musicMaker(),
               })
             : t("story.musicTone", { maker: musicMaker() })
@@ -1396,7 +1423,9 @@ const CLONE_MIN_S = 30;
 /** Clone a voice from the In/Out range: the range, a name, noise removal and the editor's consent. */
 function cloneBox(): string {
   const c = state.story.clone;
-  const done = c.done ? `<div class="box ok mt">${t("clone.done", { name: c.done })}</div>` : "";
+  const done = c.done
+    ? `<div class="box ok mt">${t("clone.done", { name: esc(c.done) })}</div>`
+    : "";
   if (!c.open)
     return `${done}<div class="link more" data-act="clone-open">+ ${t("clone.open")}</div>`;
   if (c.running) return `<div class="box mt">${t("clone.running")}</div>`;
@@ -1582,9 +1611,10 @@ async function makeStorySequence() {
       {
         kind: "story-voice",
         title: (st.title || "Story").slice(0, 200),
-        text: st.script.trim(),
+        // the app's limits: an overflow would come back as a raw "Invalid message"
+        text: st.script.trim().slice(0, 20000),
         voice: st.voice,
-        style: st.voiceStyle || undefined,
+        style: st.voiceStyle.slice(0, 300) || undefined,
         outDir: String(prepared.jobDir),
         speechProvider: st.speechProvider,
         language: st.language,
@@ -1673,9 +1703,12 @@ function modelFor(id: string): string {
   // empty: the model the Google account uses by default
   if (id === "antigravity") return state.settings.models.antigravity ?? "";
   const chosen = state.settings.models[id];
-  if (chosen) return chosen;
-  if (LOCAL_PROVIDERS.has(id)) return lmStudioDefault(setup.served[id] ?? []);
-  return setup.list.find((p) => p.id === id)?.models[0] ?? "";
+  if (LOCAL_PROVIDERS.has(id)) return chosen || lmStudioDefault(setup.served[id] ?? []);
+  return presetModel(
+    id,
+    chosen,
+    setup.list.find((p) => p.id === id),
+  );
 }
 
 /**
@@ -1690,7 +1723,13 @@ function providerParams(): {
 } {
   const id = state.settings.provider;
   const model = modelFor(id);
-  const baseURL = state.settings.baseURLs[id]?.trim();
+  // an address only where the settings offer one: a stray one would send this provider's key elsewhere
+  const baseURL = offersAddress(
+    id,
+    setup.list.find((p) => p.id === id),
+  )
+    ? state.settings.baseURLs[id]?.trim()
+    : undefined;
   return {
     provider: id,
     ...(model ? { model } : {}),
@@ -1826,6 +1865,7 @@ function progress(): string {
         .join("<br>")}</div>`
     : "";
   return `${header(t("progress.title"), `${partTag()}<span class="muted">${Math.min(job.step + 1, STEP_COUNT)} / ${STEP_COUNT}</span>`)}
+  ${state.conn === "ok" ? "" : connectionBox()}
   <div class="box">${steps}</div>
   <div class="bar"><div style="width:${Math.round(((job.step + (job.sub ?? 0)) / STEP_COUNT) * 100)}%"></div></div>
   <div class="row small muted"><span id="elapsed">${elapsedText(job.startedAt)}</span><span>${esc(job.last)}</span></div>
@@ -1906,10 +1946,23 @@ async function refreshProviders() {
   try {
     const r = await session.request<ServerMessage>({ type: "providers.list" }, "providers", 30_000);
     setup.list = r.providers as ProviderEntry[];
+    const cleaned = cleanProviderSettings(state.settings, setup.list);
+    if (JSON.stringify(cleaned) !== JSON.stringify(state.settings)) {
+      state.settings = cleaned;
+      store("settings", JSON.stringify(state.settings));
+    }
     setup.claudeCode = r.claudeCode as typeof setup.claudeCode;
     setup.codex = r.codex as typeof setup.codex;
     setup.grok = r.grok as typeof setup.grok;
     setup.antigravity = (r.antigravity ?? null) as typeof setup.antigravity;
+    // signed in since the settings opened: its model list can be asked for now
+    if (!setup.antigravity?.loggedIn) delete setup.servedError.antigravity;
+    else if (
+      state.settings.provider === "antigravity" &&
+      state.screen === "settings" &&
+      !setup.served.antigravity
+    )
+      void loadServed("antigravity");
     setup.updates = (r.updates ?? {}) as typeof setup.updates;
     const custom = await session.request<ServerMessage>(
       { type: "keys.has", provider: "custom" },
@@ -1926,6 +1979,15 @@ async function refreshProviders() {
     if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
   }
   render();
+}
+
+/**
+ * Whether the settings ask the companion for this provider's model list. Antigravity only once signed in:
+ * before that its check fails in English under the panel's own install or sign-in block.
+ */
+function listsServedModels(id: string): boolean {
+  if (id === "antigravity") return Boolean(setup.antigravity?.loggedIn);
+  return LOCAL_PROVIDERS.has(id) || id === "openrouter" || SERVED_AGENTS.has(id);
 }
 
 async function loadServed(id: string) {
@@ -2111,11 +2173,11 @@ function providerDetail(id: string): string {
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
-      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
+      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" data-provider="${esc(id)}" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
       : "";
     const model =
       id === "custom"
-        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
+        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" data-provider="custom" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
         : "";
     body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
@@ -2183,7 +2245,7 @@ function modelList(): string {
       ...(setup.served.antigravity ?? []).map((m) => [m.id, ""] as [string, string]),
     ];
     if (setup.servedError.antigravity)
-      note = `<div class="note warn-text">${esc(setup.servedError.antigravity)}</div>`;
+      note = `<div class="note warn-text">${esc(readableJobText(setup.servedError.antigravity) ?? setup.servedError.antigravity)}</div>`;
   } else if (id === "openrouter") {
     // the suggested models first; every other model that reads images behind All Models
     const seeing = (setup.served.openrouter ?? []).filter((m) => m.vision);
@@ -2558,9 +2620,12 @@ function versionLine(): string {
   const differ = Boolean(app && app !== panel);
   const notes = changelogUrl();
   return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackPage({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
-    differ
-      ? `<div class="small warn-text">${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`
-      : ""
+    // reinstalling the panel helps only when the panel is the older side
+    versionGap(panel, app) === "app"
+      ? `<div class="small warn-text">${t("home.appOlder", { panel: esc(panel), app: esc(app) })}</div>`
+      : differ
+        ? `<div class="small warn-text">${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`
+        : ""
   }`;
 }
 
@@ -2587,11 +2652,11 @@ function reviewScreen(): string {
             st.image,
             width,
             height,
-            `data-act="zoom" data-val="${st.sceneId}"`,
+            `data-act="zoom" data-val="${esc(st.sceneId)}"`,
             "still-img",
           )
         : `<div class="still-empty" style="width:${width}px;height:${height}px"></div>`
-    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${st.sceneId}">${label} ${redo ? t("review.redoMark") : "✓"}</div>${
+    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${esc(st.sceneId)}">${label} ${redo ? t("review.redoMark") : "✓"}</div>${
       st.edgeCut ? `<div class="small warn-text">${t("review.edgeCut")}</div>` : ""
     }</div>`;
   };
@@ -2642,7 +2707,7 @@ function lightboxScreen(): string {
     lb.kind === "still" && state.review ? Math.round(width / state.review.aspect) : h169(width);
   const many = lb.images.length > 1;
   const redoing = lb.kind === "still" && state.review?.redo === item.sceneId;
-  return `${header(item.caption, many ? `<span class="tag2">${lb.index + 1} / ${lb.images.length}</span>` : "")}
+  return `${header(esc(item.caption), many ? `<span class="tag2">${lb.index + 1} / ${lb.images.length}</span>` : "")}
   ${imgSlot(`big:${lb.kind}:${item.caption}:${lb.index}`, item.src, width, height, "", "big-img")}
   ${
     many
@@ -2651,7 +2716,7 @@ function lightboxScreen(): string {
   }
   ${
     lb.kind === "still" && item.sceneId
-      ? `<div class="btn2 mt" data-act="lb-redo" data-val="${item.sceneId}">${
+      ? `<div class="btn2 mt" data-act="lb-redo" data-val="${esc(item.sceneId)}">${
           redoing ? t("lightbox.unmark") : redoLabel(item.sceneId)
         }</div>`
       : ""
@@ -2659,7 +2724,43 @@ function lightboxScreen(): string {
   <div class="btn mt" data-act="lb-close">${t("lightbox.close")}</div>`;
 }
 
+/**
+ * The address and model fields belong to the provider whose detail was drawn: read them under that id, or
+ * the custom endpoint's address would be saved under the next provider (and its key sent there).
+ */
+function readProviderFields() {
+  const baseField = document.getElementById("base-input") as HTMLInputElement | null;
+  const modelField = document.getElementById("model-input") as HTMLInputElement | null;
+  if (!baseField && !modelField) return;
+  const id = (baseField ?? modelField)?.getAttribute("data-provider") ?? state.settings.provider;
+  state.settings = {
+    ...state.settings,
+    ...(baseField ? { baseURLs: { ...state.settings.baseURLs, [id]: baseField.value ?? "" } } : {}),
+    ...(modelField ? { models: { ...state.settings.models, [id]: modelField.value ?? "" } } : {}),
+  };
+  store("settings", JSON.stringify(state.settings));
+}
+
+/**
+ * The Remove Pauses slider is held: a full render (a progress line, the sequence watcher) would replace the
+ * slider and end the drag, so it waits for the release. The tab redraws its summary in place meanwhile.
+ */
+let sliderHeld = false;
+let renderHeld = false;
+function releaseSlider() {
+  if (!sliderHeld) return;
+  sliderHeld = false;
+  if (renderHeld) {
+    renderHeld = false;
+    render();
+  }
+}
+
 function render() {
+  if (sliderHeld) {
+    renderHeld = true;
+    return;
+  }
   const sceneNote = document.getElementById("scenenote") as HTMLTextAreaElement | null;
   if (sceneNote && state.review) state.review.note = sceneNote.value ?? "";
   const note = document.getElementById("note") as HTMLTextAreaElement | null;
@@ -2690,19 +2791,7 @@ function render() {
   voiceFixReadFields(state.voiceFix);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
-  const baseField = document.getElementById("base-input") as HTMLInputElement | null;
-  const modelField = document.getElementById("model-input") as HTMLInputElement | null;
-  if (baseField || modelField) {
-    const id = state.settings.provider;
-    state.settings = {
-      ...state.settings,
-      ...(baseField
-        ? { baseURLs: { ...state.settings.baseURLs, [id]: baseField.value ?? "" } }
-        : {}),
-      ...(modelField ? { models: { ...state.settings.models, [id]: modelField.value ?? "" } } : {}),
-    };
-    store("settings", JSON.stringify(state.settings));
-  }
+  readProviderFields();
   if (state.own) {
     const desc = document.getElementById("own-desc") as HTMLTextAreaElement | null;
     if (desc) state.own.description = desc.value ?? "";
@@ -2954,6 +3043,38 @@ const voiceFixCtx: VoiceFixCtx = {
   forget: (key) => unstore(key),
 };
 
+/** What the Remove Pauses tab (pauses.ts) uses from the rest of the panel. */
+const pausesCtx: PausesCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  seg: (name, value, options) => seg(name, value, options),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: () => musicRangeLine("range"),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  speechTracksAt: (target, startS, endS) => host().speechTracksAt(target, startS, endS),
+  withOnlyAudioTrack: (target, track, fn) => host().withOnlyAudioTrack(target, track, fn),
+  exportAudio: (target, startS, endS, file) =>
+    host().exportRangeAudio(target, startS, endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  renderSettingsLost: async () => (await host().renderSettingsLost?.()) ?? false,
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  hostKind: () => host().kind,
+  // read each time: undefined in an editor (or an older Resolve bridge) that cannot cut
+  get cutToNewSequence() {
+    const h = host();
+    return h.cutToNewSequence?.bind(h);
+  },
+};
+
 /** What the Captions tab (captions.ts) uses from the rest of the panel. */
 const captionsCtx: CaptionsCtx = {
   esc: (s) => esc(s),
@@ -3052,6 +3173,9 @@ async function readSequence(): Promise<HostSequence | null> {
 }
 
 async function generate() {
+  // one paid run at a time: a second one would take over the first one's screen and messages
+  if (rangeJobRunning()) return render();
+  const run = startRun();
   // a sign-in or key added since the panel last looked counts: ask again before saying it is missing
   if (aiMissing()) await refreshProviders();
   state.aiBlocked = Boolean(aiMissing());
@@ -3082,6 +3206,7 @@ async function generate() {
       },
       "job.prepared",
     );
+    stopIfAsked(run);
     const jobDir = String(prepared.jobDir);
     // a story sequence holds its narration from 0 on A1; under it is music, so read the voice alone
     const narration = await storyNarration(target.id, range.endS);
@@ -3155,6 +3280,9 @@ async function generate() {
         : {}),
       ...providerParams(),
     };
+    // Premiere's exports cannot be cancelled: a Stop pressed during them is honoured here, before paying,
+    // also when the editor has started another run since
+    stopIfAsked(run);
     if (range.durationS > LONG_RANGE_SECONDS)
       return await startParts(target, params, jobDir, footage, audioOffset);
     await submitJob(
@@ -3164,8 +3292,21 @@ async function generate() {
       params,
     );
   } catch (err) {
-    failJob(err);
+    // a run stopped and followed by a new one: the screen and the job are the new run's now
+    if (run !== runId) return trace(`job: an earlier run ended after Stop (${String(err)})`);
+    failJob(stoppedOr(err));
   }
+}
+
+/** After Stop, whatever a run ends with is said as stopped (an export cut short fails in its own words). */
+function stoppedOr(err: unknown): unknown {
+  return stopAsked && !(err instanceof ConnectionLost) ? new JobStopped(t("job.stopped")) : err;
+}
+
+/** A range job or a long range is running, in the background or on the progress screen. */
+function rangeJobRunning(): boolean {
+  const job = state.job;
+  return seriesBusy || Boolean(job && !job.placed && !job.error);
 }
 
 /** Runs a job that needs no review (the split) and resolves with its result; progress goes to the job. */
@@ -3180,9 +3321,11 @@ function runQuietJob(params: Record<string, unknown>): Promise<Record<string, un
       } else if (m.type === "job.done") {
         off();
         resolve(m.result as Record<string, unknown>);
-      } else if (m.type === "job.error") {
+      } else {
+        const end = jobEndError(m);
+        if (!end) return;
         off();
-        reject(new Error(jobErrorText(m)));
+        reject(end);
       }
     });
     session
@@ -3193,6 +3336,7 @@ function runQuietJob(params: Record<string, unknown>): Promise<Record<string, un
       .then((accepted) => {
         id = String(accepted.jobId);
         if (state.job) state.job.id = id;
+        cancelIfStopped(id);
       })
       .catch((err: unknown) => {
         off();
@@ -3220,8 +3364,51 @@ let seriesBusy = false;
 let seriesAt = 0;
 
 class JobLost extends Error {}
-/** The editor stopped the job; nothing is retried. */
-class JobStopped extends Error {}
+
+/**
+ * The editor pressed Stop for the run in progress (a range, its parts, or an approved render). Cleared when
+ * the editor starts a run; a run checks it before each paid step, since Stop before a job id exists has no
+ * job to cancel.
+ */
+let stopAsked = false;
+
+/**
+ * The run the panel is on. A run that awaits Premiere's exports (which Stop cannot cut short) can still be
+ * waiting when the editor stopped it and pressed Create again, which clears stopAsked; its own number, no
+ * longer the current one, keeps it from submitting a paid job.
+ */
+let runId = 0;
+
+/** Starts a run: Stop is forgotten and every earlier run counts as stopped. */
+function startRun(): number {
+  stopAsked = false;
+  return ++runId;
+}
+
+/** A job accepted after Stop was pressed is cancelled at once. */
+function cancelIfStopped(jobId: string) {
+  if (!stopAsked) return;
+  trace(`job: ${jobId} accepted after Stop, cancelling it`);
+  try {
+    session.send({ type: "job.cancel", jobId });
+  } catch (err) {
+    trace(`job: cancel failed ${String(err)}`);
+  }
+}
+
+/** Throws when the editor pressed Stop, or (given its run) a newer run has started; the screen says so. */
+function stopIfAsked(run?: number) {
+  if (stopAsked || (run !== undefined && run !== runId)) throw new JobStopped(t("job.stopped"));
+}
+
+/** The error a job's message ends it with: an error, a stop, a job the companion forgot, a lost connection. */
+function jobEndError(m: ServerMessage): Error | null {
+  if (m.type === "job.error")
+    return m.connectionLost ? new ConnectionLost(String(m.message)) : new Error(jobErrorText(m));
+  if (m.type === "job.cancelled") return new JobStopped(t("job.stopped"));
+  if (m.type === "job.state" && m.state === "unknown") return new JobLost(t("job.lost"));
+  return null;
+}
 
 /** Applies a progress line to the job view: step, the part of the step done, the plan, the detail. */
 function applyProgress(job: JobView, message: string) {
@@ -3256,19 +3443,21 @@ function awaitJob(
       } else if (m.type === "job.done") {
         off();
         resolve(m.result as JobResult);
-      } else if (m.type === "job.error") {
+      } else {
+        const end = jobEndError(m);
+        if (!end) return;
         off();
-        reject(new Error(jobErrorText(m)));
-      } else if (m.type === "job.state" && m.state === "unknown") {
-        off();
-        reject(new JobLost(t("job.lost")));
-      } else if (m.type === "job.cancelled") {
-        off();
-        reject(new JobStopped(t("job.stopped")));
+        reject(end);
       }
     });
     if (id) {
-      session.send({ type: "job.get", jobId: id });
+      try {
+        session.send({ type: "job.get", jobId: id });
+      } catch {
+        // not connected: the job may still run in the app, so it is kept to follow later
+        off();
+        reject(new ConnectionLost(t("job.connectionLost")));
+      }
       return;
     }
     session
@@ -3284,6 +3473,7 @@ function awaitJob(
         id = String(accepted.jobId);
         if (state.job) state.job.id = id;
         onId?.(id);
+        cancelIfStopped(id);
       })
       .catch((err: unknown) => {
         off();
@@ -3325,25 +3515,33 @@ function partParams(series: Series, i: number): Record<string, unknown> {
 async function runPartJob(i: number, extra: Record<string, unknown>): Promise<JobResult> {
   const series = state.series as Series;
   const part = series.parts[i] as SeriesPart;
-  if (part.jobId) {
-    try {
-      const r = await awaitJob({ jobId: part.jobId });
+  // a failed or stopped job is let go, or Continue would follow it and get its end again; only a lost
+  // connection keeps it, since the job may still be running in the app
+  let keep = false;
+  try {
+    if (part.jobId) {
+      try {
+        return await awaitJob({ jobId: part.jobId });
+      } catch (err) {
+        if (!(err instanceof JobLost)) throw err;
+        trace(`series: part ${i + 1} job lost, starting it again`);
+        part.jobId = null;
+      }
+    }
+    stopIfAsked();
+    return await awaitJob({ params: { ...partParams(series, i), ...extra } }, (id) => {
+      part.jobId = id;
+      saveSeries();
+    });
+  } catch (err) {
+    keep = err instanceof ConnectionLost;
+    throw err;
+  } finally {
+    if (!keep) {
       part.jobId = null;
       saveSeries();
-      return r;
-    } catch (err) {
-      if (!(err instanceof JobLost)) throw err;
-      trace(`series: part ${i + 1} job lost, starting it again`);
-      part.jobId = null;
     }
   }
-  const r = await awaitJob({ params: { ...partParams(series, i), ...extra } }, (id) => {
-    part.jobId = id;
-    saveSeries();
-  });
-  part.jobId = null;
-  saveSeries();
-  return r;
 }
 
 /** A part's stills, from memory or, after a restart, from its folder; false when there are none yet. */
@@ -3481,6 +3679,7 @@ async function runSeries() {
       for (const [i, part] of series.parts.entries()) {
         if (part.state === "placed") continue;
         if (part.state === "stills" && !part.jobId && (await ensureStills(i))) continue;
+        stopIfAsked();
         showPart(i, "stills");
         const r = await runPartJob(i, review ? { stillsOnly: true } : {});
         if (r.output) await placePart(i, r, target);
@@ -3496,6 +3695,7 @@ async function runSeries() {
     saveSeries();
     for (const [i, part] of series.parts.entries()) {
       if (part.state === "placed") continue;
+      stopIfAsked();
       showPart(i, "render");
       await placePart(i, await runPartJob(i, { action: "render" }), target);
     }
@@ -3511,7 +3711,9 @@ async function runSeries() {
     state.screen = "home";
     render();
   } catch (err) {
-    failJob(err);
+    // seriesBusy first, so the home screen failJob draws offers Continue
+    seriesBusy = false;
+    failJob(stoppedOr(err));
   } finally {
     seriesBusy = false;
   }
@@ -3604,6 +3806,7 @@ async function submitJob(
     if (state.job) state.job.id = String(accepted.jobId);
     // kept until the result is handled, so a reloaded or woken panel can ask for it again
     store("pending", JSON.stringify({ jobId: accepted.jobId, guid: target.id, range, baseParams }));
+    cancelIfStopped(String(accepted.jobId));
   } catch (err) {
     off();
     throw err;
@@ -3618,7 +3821,8 @@ function onJobMessage(
   off: () => void,
 ) {
   const job = state.job;
-  if (!job || (job.id && m.jobId !== job.id)) return;
+  // only the job this view started: before its id is known, every message is another job's
+  if (!job || !job.id || m.jobId !== job.id) return;
   if (m.type === "job.progress") {
     applyProgress(job, String(m.message));
     render();
@@ -3671,6 +3875,11 @@ function onJobMessage(
         render();
       })
       .catch(failJob);
+  } else if (m.type === "job.error" && m.connectionLost) {
+    // the job may still run in the app: the progress screen shows the connection box, and the pending
+    // job is followed again once the panel reconnects (resumePending)
+    trace("job: connection lost while following");
+    render();
   } else if (m.type === "job.error") {
     off();
     store("pending", "");
@@ -3747,6 +3956,7 @@ async function resumePending() {
 async function continueReview(action: "render" | "recompose") {
   const r = state.review;
   if (!r) return;
+  startRun();
   const note =
     (document.getElementById("scenenote") as HTMLTextAreaElement | null)?.value ?? r.note;
   if (r.series) {
@@ -3832,7 +4042,7 @@ function failJob(err: unknown) {
   state.job.confirmStop = false;
   state.job.retry = false;
   state.job.picture = null;
-  state.job.reportable = !(err instanceof JobStopped);
+  state.job.reportable = !(err instanceof JobStopped) && !(err instanceof ConnectionLost);
   state.job.error =
     series && !(err instanceof JobStopped)
       ? t("job.partFailed", { i: seriesAt + 1, n: series.parts.length, message })
@@ -3888,9 +4098,21 @@ for (const name of ["pointerleave", "mouseleave"])
   });
 
 root.addEventListener("pointerdown", (event) => {
+  if ((event.target as HTMLElement | null)?.id === "pauses-strict") sliderHeld = true;
   pressed = actionTarget(event.target);
   pressedSeen = true;
 });
+// the release may land outside the panel's root: listened for on the document, and any move with no button
+// down ends a hold whose release was missed
+document.addEventListener("pointerup", () => releaseSlider(), true);
+document.addEventListener("pointercancel", () => releaseSlider(), true);
+document.addEventListener(
+  "pointermove",
+  (event) => {
+    if (sliderHeld && (event as PointerEvent).buttons === 0) releaseSlider();
+  },
+  true,
+);
 root.addEventListener("pointerup", (event) => {
   const el = actionTarget(event.target);
   // while a text field has focus UXP sends no pointerdown for the next click, only pointerup, so a lone
@@ -3924,6 +4146,9 @@ root.addEventListener("input", (event) => {
   const id = (event.target as HTMLElement | null)?.id ?? "";
   if (id.startsWith("cap-color-"))
     captionsColorInput(state.captions, captionsCtx, () => readColorFields());
+  // the Remove Pauses slider: its summary follows the move without a render, which would end the drag
+  else if (id === "pauses-strict")
+    pausesAct(state.pauses, pausesCtx, "pauses-strict", (event.target as HTMLInputElement).value);
   // a typed line is kept in the job folder once the typing pauses
   else if (id.startsWith("cap-line-"))
     captionsLineInput(state.captions, captionsCtx, () => captionsReadFields(state.captions));
@@ -3932,6 +4157,14 @@ root.addEventListener("input", (event) => {
     const text = (event.target as HTMLTextAreaElement).value ?? "";
     const line = document.getElementById("story-own-count");
     if (line) line.innerHTML = ownCountLine(text, state.story.language);
+  }
+});
+// a slider that reports only where it was let go still updates the summary (the move is debounced anyway)
+root.addEventListener("change", (event) => {
+  const el = event.target as HTMLInputElement | null;
+  if (el?.id === "pauses-strict") {
+    pausesAct(state.pauses, pausesCtx, "pauses-strict", el.value);
+    releaseSlider();
   }
 });
 root.addEventListener("pointermove", (event) => {
@@ -4164,6 +4397,8 @@ function runAction(el: HTMLElement) {
     if (state.tab === "voice") void voiceFixOpened(state.voiceFix, voiceFixCtx);
   } else if (act && voiceFixAct(state.voiceFix, voiceFixCtx, act, val)) {
     /* handled by the Voice Fix tab */
+  } else if (act && pausesAct(state.pauses, pausesCtx, act, val)) {
+    /* handled by the Remove Pauses tab */
   } else if (act && musicAct(state.music, musicCtx, act, val)) {
     /* handled by the Music tab */
   } else if (act && captionsAct(state.captions, captionsCtx, act, val)) {
@@ -4404,8 +4639,15 @@ function runAction(el: HTMLElement) {
     state.review = null;
     state.job = null;
     state.screen = "home";
-  } else if (act === "series-continue") return void runSeries();
-  else if (act === "series-drop") {
+  } else if (act === "series-continue") {
+    startRun();
+    return void runSeries();
+  } else if (act === "open-progress") {
+    if (state.review) state.screen = "review";
+    else if (state.job) state.screen = "progress";
+  } else if (act === "series-drop") {
+    // a part's review the app was holding for (opened again from its folder) is no longer waited for
+    if (!state.review || state.review.series) leaveReview();
     state.series = null;
     saveSeries();
     seriesStills.clear();
@@ -4418,12 +4660,12 @@ function runAction(el: HTMLElement) {
   } else if (act === "ontop") {
     host().onTop?.set(val === "on");
   } else if (act === "provider") {
+    readProviderFields();
     state.settings = { ...state.settings, provider: val };
     store("settings", JSON.stringify(state.settings));
     setup.editingKey = null;
     setup.confirmDelete = null;
-    if (LOCAL_PROVIDERS.has(val) || val === "openrouter" || SERVED_AGENTS.has(val))
-      void loadServed(val);
+    if (listsServedModels(val)) void loadServed(val);
   } else if (act === "lm-thinking") {
     state.settings = {
       ...state.settings,
@@ -4477,21 +4719,27 @@ function runAction(el: HTMLElement) {
   } else if (act === "settings") {
     state.screen = "settings";
     void refreshProviders();
-    if (
-      LOCAL_PROVIDERS.has(state.settings.provider) ||
-      state.settings.provider === "openrouter" ||
-      SERVED_AGENTS.has(state.settings.provider)
-    )
-      void loadServed(state.settings.provider);
+    if (listsServedModels(state.settings.provider)) void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
   else if (act === "stop" && state.job) state.job.confirmStop = true;
   else if (act === "stop-no" && state.job) state.job.confirmStop = false;
   else if (act === "stop-yes" && state.job) {
     // the companion ends the job and everything it started; job.cancelled brings the panel home
     trace(`job: stopped by the editor (${state.job.id ?? "not started yet"})`);
+    // remembered for the run: a job accepted later is cancelled, and no further part or job starts
+    stopAsked = true;
     host().cancelExports?.();
-    if (state.job.id) session.send({ type: "job.cancel", jobId: state.job.id });
-    else failJob(new JobStopped(t("job.stopped")));
+    let sent = false;
+    if (state.job.id)
+      try {
+        session.send({ type: "job.cancel", jobId: state.job.id });
+        sent = true;
+      } catch (err) {
+        // not connected: nothing will say the job ended, so the panel says it
+        trace(`job: cancel not sent ${String(err)}`);
+        store("pending", "");
+      }
+    if (!sent) failJob(new JobStopped(t("job.stopped")));
   } else if (act === "reconnect") return void connectCompanion();
   else if (act === "app-update") {
     state.updateBusy = false;
@@ -4574,7 +4822,8 @@ setInterval(() => {
     state.screen !== "home" ||
     !(
       watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
-      (state.tab === "voice" && voiceFixWatches(state.voiceFix))
+      (state.tab === "voice" && voiceFixWatches(state.voiceFix)) ||
+      (state.tab === "pauses" && pausesWatches(state.pauses))
     ) ||
     state.lightbox ||
     pressed

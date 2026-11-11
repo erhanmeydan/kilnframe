@@ -12,7 +12,7 @@ import {
   Tray,
   type BrowserWindow,
 } from "electron";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, uptime } from "node:os";
@@ -32,7 +32,7 @@ import {
   replacesSameVersion,
 } from "./plugin.js";
 import { LOGIN_FLAG, announceText, startedAtLogin } from "./announce.js";
-import { markBusy, onQuitRequest } from "./quit.js";
+import { markBusy, onQuitRequest, stopCompanion } from "./quit.js";
 import { gpuSandboxMarker, gpuSandboxOff, markGpuSandboxOff, onChildGone } from "./gpu-sandbox.js";
 import {
   bundledResolvePanel,
@@ -159,6 +159,9 @@ let companion: ChildProcess | null = null;
 let updates: Updates | null = null;
 const appVersion = app.getVersion();
 let quitting = false;
+/** Windows: the companion was asked to quit (stopCompanion), and has. */
+let stoppingCompanion = false;
+let companionStopped = false;
 /** A job runs or waits in the companion (job.busy); quitting then asks first (quit.ts). */
 let busy = false;
 let quitWhenDone = false;
@@ -570,6 +573,24 @@ else {
       return;
     }
     quitting = true;
+    if (process.platform === "win32" && companion && !companionStopped) {
+      // kill() is TerminateProcess here, which leaves the job running: the companion is asked over IPC and
+      // the app quits once it is gone (or its tree was ended with taskkill). A shutdown is not held up.
+      if (shuttingDown) {
+        spawnSync("taskkill", ["/pid", String(companion.pid), "/T", "/F"]);
+        return;
+      }
+      event.preventDefault();
+      if (stoppingCompanion) return;
+      stoppingCompanion = true;
+      void stopCompanion(companion, {
+        killTree: (pid) => spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"]),
+      }).then(() => {
+        companionStopped = true;
+        app.quit();
+      });
+      return;
+    }
     // the companion ends its running job and everything that job started (isolated.ts)
     companion?.kill("SIGTERM");
   });
@@ -619,6 +640,7 @@ else {
       updates = startUpdates({
         current: appVersion,
         log: logLine,
+        busy: () => busy,
         feedUrl: process.env.KILNFRAME_UPDATE_URL,
         onState: (state) => {
           if (companion?.connected) companion.send({ type: "update.state", state });

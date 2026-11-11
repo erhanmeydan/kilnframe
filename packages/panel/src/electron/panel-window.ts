@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath, sep } from "node:path";
 import { kilnframeFile, saveCopy } from "../resolve/paths";
-import type { ResolveBridge } from "../resolve/api";
+import { CUT_UNSUPPORTED, type ResolveBridge } from "../resolve/api";
 
 export type Editor = "resolve" | "filmcraft";
 
@@ -57,6 +57,8 @@ const BRIDGE_CALLS = [
   "replaceCaptionClip",
   "isRendering",
   "cancelExports",
+  "cutToNewTimeline",
+  "cutProgress",
 ] as const;
 
 // window size, place and always-on-top, kept between sessions
@@ -68,16 +70,25 @@ interface WindowState {
   height: number;
   onTop: boolean;
 }
+/** The panel's width when it first opens; the tab bar holds every tab on one line from here. */
+export const PANEL_WIDTH = 580;
+export const PANEL_MIN_WIDTH = 360;
+
+/**
+ * The saved size, widened once to the new width: a window saved before the panel grew more tabs was 380 wide,
+ * and its tab names broke over two lines. `sized: 3` marks a size kept since the panel opens 580 wide, which stays as the editor left it.
+ */
+export function windowStateFrom(saved: Partial<WindowState> & { sized?: number }): WindowState {
+  const s = { width: PANEL_WIDTH, height: 760, onTop: true, ...saved };
+  if (saved.sized !== 3) s.width = Math.max(s.width, PANEL_WIDTH);
+  return { ...s, width: Math.max(s.width, PANEL_MIN_WIDTH) };
+}
+
 function readWindowState(): WindowState {
   try {
-    return {
-      width: 380,
-      height: 760,
-      onTop: true,
-      ...JSON.parse(readFileSync(windowFile(), "utf8")),
-    };
+    return windowStateFrom(JSON.parse(readFileSync(windowFile(), "utf8")));
   } catch {
-    return { width: 380, height: 760, onTop: true };
+    return windowStateFrom({});
   }
 }
 
@@ -123,7 +134,13 @@ export function registerPanelIpc(
   for (const m of BRIDGE_CALLS)
     ipcMain.handle(`kilnframe:${m}`, async (_e, ...args: unknown[]) => {
       const b = await currentOptions().bridge();
-      return (b[m] as (...a: unknown[]) => Promise<unknown>)(...args);
+      const call = b[m] as ((...a: unknown[]) => Promise<unknown>) | undefined;
+      // the cut is optional on a bridge: one without it says so in a code the host can read
+      if (!call) {
+        if (m === "cutProgress") return null;
+        throw new Error(CUT_UNSUPPORTED);
+      }
+      return call.apply(b, args);
     });
   ipcMain.handle("kilnframe:setOnTop", (_e, on: boolean) => {
     liveWindow()?.setAlwaysOnTop(Boolean(on));
@@ -178,7 +195,7 @@ export function openPanelWindow(o: PanelWindowOptions, dir: string): BrowserWind
     ...(s.x !== undefined && s.y !== undefined ? { x: s.x, y: s.y } : {}),
     width: s.width,
     height: s.height,
-    minWidth: 320,
+    minWidth: PANEL_MIN_WIDTH,
     minHeight: 480,
     title: o.title,
     // Windows shows it on the taskbar
@@ -199,7 +216,7 @@ export function openPanelWindow(o: PanelWindowOptions, dir: string): BrowserWind
   win.on("close", () => {
     try {
       const b = win.getBounds();
-      writeFileSync(windowFile(), JSON.stringify({ ...b, onTop: win.isAlwaysOnTop() }));
+      writeFileSync(windowFile(), JSON.stringify({ ...b, onTop: win.isAlwaysOnTop(), sized: 3 }));
     } catch {
       // the window state is a convenience
     }

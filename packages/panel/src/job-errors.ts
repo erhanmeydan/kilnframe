@@ -43,10 +43,34 @@ export type ReadableError =
   | { key: "job.geminiFreeTier"; vars: { limit: number; hours: number }; reasons: [] }
   | { key: "job.geminiFreeTierNoWait"; vars: { limit: number }; reasons: [] }
   | {
-      key: "job.lyriaFreeTier" | "job.ollamaContextUnknown" | "music.noKey" | "job.noAi";
+      key:
+        | "job.lyriaFreeTier"
+        | "job.ollamaContextUnknown"
+        | "music.noKey"
+        | "job.noAi"
+        | "job.agyBusy"
+        | "job.agyLimit"
+        | "job.agyNotSignedIn"
+        | "job.agyNotInstalled"
+        | "job.agyOffline";
       vars: Record<string, never>;
       reasons: [];
     };
+
+/** The editor stopped the job; nothing is retried and there is nothing to report. */
+export class JobStopped extends Error {}
+
+/** The connection to the companion closed while a job ran; the job may still be running there. */
+export class ConnectionLost extends Error {}
+
+/** Antigravity CLI's own problems (core providers/antigravity.ts), by the start of the core's sentence. */
+const ANTIGRAVITY_TEXT: [string, ReadableError["key"]][] = [
+  ["Your Google account is busy on this model", "job.agyBusy"],
+  ["Google account usage limit reached", "job.agyLimit"],
+  ["Antigravity CLI is not signed in", "job.agyNotSignedIn"],
+  ["Antigravity CLI is not installed", "job.agyNotInstalled"],
+  ["Antigravity CLI could not reach Google", "job.agyOffline"],
+];
 
 /**
  * A job error the panel can say in its own language instead of the core's English: the composition that
@@ -62,6 +86,8 @@ export function readableJobError(message: string): ReadableError | null {
     return { key: "job.noAi", vars: {}, reasons: [] };
   if (message.includes("Music needs a Google Gemini key"))
     return { key: "music.noKey", vars: {}, reasons: [] };
+  const agy = ANTIGRAVITY_TEXT.find(([start]) => message.includes(start));
+  if (agy) return { key: agy[1], vars: {}, reasons: [] } as ReadableError;
   // an account out of credits, or a key over its spending limit (OpenRouter's 402); Z.ai says a key with
   // no balance behind it with a 429
   const credits =

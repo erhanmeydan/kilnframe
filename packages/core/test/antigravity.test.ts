@@ -51,3 +51,30 @@ describe("Antigravity CLI", () => {
     expect(prompt).toContain("/t/images/image-1.png");
   });
 });
+
+describe("Antigravity capacity", () => {
+  it("reads how long a capacity error says to wait", async () => {
+    const { capacityWaitMs } = await import("../src/providers/antigravity.js");
+    const msg =
+      "API error (attempt 1): RESOURCE_EXHAUSTED (code 429): You have exhausted your capacity on this model. Resets in 0s.";
+    // a short pause even when it says 0 s, so the next try does not hit the same moment
+    expect(capacityWaitMs(msg)).toBe(5_000);
+    expect(capacityWaitMs("RESOURCE_EXHAUSTED (code 429): Resets in 40s.")).toBe(45_000);
+    expect(capacityWaitMs("RESOURCE_EXHAUSTED (code 429): no time given")).toBe(30_000);
+    // a wait of hours is a quota for the day: not worth holding the job for
+    expect(capacityWaitMs("RESOURCE_EXHAUSTED: Resets in 3h20m.")).toBeNull();
+    expect(capacityWaitMs("some other error")).toBeNull();
+  });
+
+  it("reads signed in, signed out and not reachable from agy models", async () => {
+    const { readAgyModelsRun } = await import("../src/providers/antigravity.js");
+    expect(
+      readAgyModelsRun({ code: 0, text: "Fetching...\ngemini-3.8-flash\tGemini\n" }).state,
+    ).toBe("ok");
+    expect(
+      readAgyModelsRun({ code: 1, text: "Not authenticated. Run agy to sign in." }).state,
+    ).toBe("signed-out");
+    expect(readAgyModelsRun({ code: 1, text: "rpc error: Unavailable" }).state).toBe("unreachable");
+    expect(readAgyModelsRun(null).state).toBe("unreachable");
+  });
+});

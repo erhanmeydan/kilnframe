@@ -1,0 +1,72 @@
+{
+  "filmcraft": "0.16.0",
+  "note": "engine.commands entries the pause cut uses, read from FilmCraft on 2026-11-11. Measured: sequence.simplify with every remove/close option false makes a full copy and opens it (result.sequence is its id); markIn/markOut {seconds, target:'program'} then sequence.extract cut all six tracks of a 642-frame 23.976 sequence and closed the gap (642 -> 618 frames, a clip on Video 2 moved left too), cleared In and Out, and left the original sequence unchanged. project.delete {items:[seqId]} deleted that sequence and returned {\"bins\":0,\"items\":1,\"offline\":0} (measured 2026-11-11).",
+  "commands": [
+    {
+      "id": "edit.duplicate",
+      "label": "Duplicate",
+      "params": "{}",
+      "enabled": false
+    },
+    {
+      "id": "sequence.open",
+      "label": "Open in Timeline",
+      "params": "{\"item\":id}",
+      "enabled": true
+    },
+    {
+      "id": "sequence.addEditAllTracks",
+      "label": "Add Edit to All Tracks",
+      "params": "{\"time\":ticks?}",
+      "enabled": true
+    },
+    {
+      "id": "sequence.extract",
+      "label": "Extract",
+      "params": "{}",
+      "enabled": true
+    },
+    {
+      "id": "sequence.simplify",
+      "label": "Simplify Sequence…",
+      "params": "{\"name\":str?,\"removeDisabled\":bool=true,\"removeEmptyTracks\":bool=true,\"closeGaps\":bool=false,\"moveClipsDown\":bool=false,\"removeVideoEffects\":bool=false,\"removeAudioEffects\":bool=false,\"removeText\":bool=false,\"keep\":\"both|video|audio\"?}",
+      "enabled": true
+    },
+    {
+      "id": "markers.markIn",
+      "label": "Mark In",
+      "params": "{\"time\":ticks?,\"frame\":i64?,\"seconds\":f64?,\"timecode\":str?,\"target\":\"program|source\"}",
+      "enabled": true
+    },
+    {
+      "id": "markers.markOut",
+      "label": "Mark Out",
+      "params": "{\"time\":ticks?,\"frame\":i64?,\"seconds\":f64?,\"timecode\":str?,\"target\":\"program|source\"}",
+      "enabled": true
+    },
+    {
+      "id": "markers.clearInOut",
+      "label": "Clear In and Out",
+      "params": "{\"target\":\"program|source\"}",
+      "enabled": true
+    },
+    {
+      "id": "timeline.delete",
+      "label": "Delete Clips",
+      "params": "{\"clips\":[id]?,\"clip\":id?,\"ripple\":bool?} (deletes the named clips, else the selection; ripple closes the gap)",
+      "enabled": true
+    },
+    {
+      "id": "sequence.inspect",
+      "label": "Inspect Sequence",
+      "params": "{\"item\":id?}",
+      "enabled": true
+    },
+    {
+      "id": "project.delete",
+      "label": "Clear",
+      "params": "{\"items\":[id]?}",
+      "enabled": false
+    }
+  ]
+}

@@ -132,6 +132,20 @@ describe("speech", () => {
     });
   });
 
+  it("tries an answer without audio again and says why it came empty", async () => {
+    const empty = geminiProvider(
+      () =>
+        new Response(
+          JSON.stringify({
+            steps: [{ type: "model_output", finish_reason: "OTHER", content: [] }],
+          }),
+        ),
+    ).provider;
+    const err = await empty.synthesize({ text: "a", voice: "Kore" }).catch((e: unknown) => e);
+    expect(err).toMatchObject({ retryable: true });
+    expect((err as Error).message).toMatch(/no audio.*OTHER/);
+  });
+
   it("joins the pieces with a pause into a 48 kHz WAV and keeps their times", async () => {
     const fake: SpeechProvider = {
       id: "fake",

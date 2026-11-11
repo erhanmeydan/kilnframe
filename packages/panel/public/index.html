@@ -524,6 +524,45 @@
         background: #444;
         color: #fff;
       }
+      /* the home tabs: one row from the panel's 360 px minimum; each label as wide as its text, never
+         wrapped (six equal parts would cut "Remove Pauses" in two), a little smaller than other options */
+      .seg.tabs {
+        flex-wrap: nowrap;
+      }
+      .seg.tabs .opt {
+        flex: 1 1 auto;
+        padding: 6px 3px;
+        font-size: 10.5px;
+        white-space: nowrap;
+      }
+      /* Remove Pauses: the slider and the bar of kept speech and cut pauses */
+      .pause-slider {
+        width: 100%;
+        margin: 6px 0 2px;
+      }
+      /* about an audio track's height in the editor; kept speech in Kilnframe's clay orange, the cut pauses
+         as dark gaps edged in the darker clay */
+      .pause-bar {
+        display: flex;
+        flex-direction: row;
+        height: 72px;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid #c4683e;
+        background: #241c18;
+      }
+      .pause-keep {
+        height: 72px;
+        background: #d9875f;
+      }
+      .pause-cut {
+        box-sizing: border-box;
+        height: 72px;
+        /* plain colours: UXP's CSS has no repeating gradients to hatch with */
+        background: #1e1714;
+        border-left: 1px solid #c4683e;
+        border-right: 1px solid #c4683e;
+      }
       /* UXP ignores rows, so heights are set here */
       textarea {
         min-height: 48px;

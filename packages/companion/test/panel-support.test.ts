@@ -12,6 +12,7 @@ import {
   inspectImages,
   premiereDirsFrom,
   prepareJobDir,
+  insideFolder,
   withoutLongPathPrefix,
   safeName,
   styleCards,
@@ -86,6 +87,16 @@ describe("panel support", () => {
     expect(() =>
       prepareJobDir(undefined, "x", new Date(), { jobRoot: "/etc/kilnframe", home }),
     ).toThrow(/home folder/);
+  });
+
+  it("tells a folder inside the home folder, ignoring letter case on Windows", () => {
+    expect(insideFolder("c:\\Users\\Erhan\\Movies\\K", "C:\\Users\\Erhan", "win32")).toBe(true);
+    expect(insideFolder("C:\\Users\\Erhan", "C:\\Users\\Erhan", "win32")).toBe(false);
+    expect(insideFolder("C:\\Users\\Erhan2\\x", "C:\\Users\\Erhan", "win32")).toBe(false);
+    expect(insideFolder("D:\\Users\\Erhan\\x", "C:\\Users\\Erhan", "win32")).toBe(false);
+    expect(insideFolder("/Users/e/Movies", "/Users/e", "darwin")).toBe(true);
+    expect(insideFolder("/Users/e/../x", "/Users/e", "darwin")).toBe(false);
+    expect(insideFolder("/Users/ee", "/Users/e", "darwin")).toBe(false);
   });
 
   it("finds Premiere's own WAV preset in an install folder", () => {

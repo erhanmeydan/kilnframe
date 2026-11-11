@@ -205,3 +205,114 @@ button("btn-scale", async () => {
 });
 
 log("Hazır. Bir sekans aç, in/out işaretle ve butonları sırayla dene.");
+
+// 7. Pause removal spike (S1): what the public trim, clone, move and remove actions really do. Works only on a
+// clone of the active sequence, never on the original. Every answer goes to the log.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-pauses", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const source = await project.getActiveSequence();
+  if (!source) throw new Error("Önce bir sekans aç.");
+  const T = (s: number) => ppro.TickTime.createWithSeconds(s);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const run = (what: string, add: (c: any) => void): boolean => {
+    let ok = false;
+    project.lockedAccess(() => {
+      ok = project.executeTransaction(add, `probe: ${what}`);
+    });
+    return ok;
+  };
+  const r = (t: any) => +Number(t?.seconds ?? NaN).toFixed(3);
+  const describe = async (item: any) => ({
+    name: await item.getName().catch(() => "?"),
+    track: await item.getTrackIndex().catch(() => -1),
+    start: r(await item.getStartTime()),
+    end: r(await item.getEndTime()),
+    in: r(await item.getInPoint()),
+    out: r(await item.getOutPoint()),
+    speed: await item.getSpeed().catch(() => null),
+  });
+  const items = async (seq: any, kind: "video" | "audio") => {
+    const n = kind === "video" ? await seq.getVideoTrackCount() : await seq.getAudioTrackCount();
+    const all: any[] = [];
+    for (let i = 0; i < n; i++) {
+      const track = kind === "video" ? await seq.getVideoTrack(i) : await seq.getAudioTrack(i);
+      all.push(...track.getTrackItems(CLIP, false));
+    }
+    return all;
+  };
+  const snapshot = async (seq: any) => ({
+    video: await Promise.all((await items(seq, "video")).map(describe)),
+    audio: await Promise.all((await items(seq, "audio")).map(describe)),
+  });
+  const out: Record<string, unknown> = {};
+
+  // 1. clone, found by the guid that was not there before, renamed
+  const before = new Set((await project.getSequences()).map((s: any) => s.guid.toString()));
+  out.cloneOk = run("clone", (c) => c.addAction(source.createCloneAction()));
+  const clone = (await project.getSequences()).find((s: any) => !before.has(s.guid.toString()));
+  out.cloneFound = !!clone;
+  if (!clone) return log("7. Boşluk denemesi", out);
+  try {
+    const pi = await clone.getProjectItem();
+    out.renameOk = run("rename", (c) =>
+      c.addAction(pi.createSetNameAction(`${source.name} probe`)),
+    );
+  } catch (err) {
+    out.rename = String(err);
+  }
+  await project.openSequence(clone);
+  await project.setActiveSequence(clone);
+  out.sourceItems = await snapshot(source);
+  out.cloneItems = await snapshot(clone);
+
+  const video = await items(clone, "video");
+  const v = video[0];
+  if (!v) return log("7. Boşluk denemesi (video klip yok)", out);
+  const v0 = await describe(v);
+  // 2 + 3. set start one second later: trim or slide, and does the linked audio follow?
+  out.setStartOk = run("set start", (c) => c.addAction(v.createSetStartAction(T(v0.start + 1))));
+  out.afterSetStart = await snapshot(clone);
+  // 5. end one second earlier, then back past it into the freed space
+  const v1 = await describe(v);
+  out.shrinkEndOk = run("shrink end", (c) => c.addAction(v.createSetEndAction(T(v1.end - 1))));
+  out.afterShrink = await describe(v);
+  out.growEndOk = run("grow end", (c) => c.addAction(v.createSetEndAction(T(v1.end - 0.5))));
+  out.afterGrow = await describe(v);
+  // 4. clone the item 0.25 s further on the same track, overwrite (isInsert false), for video and for audio
+  const editor = ppro.SequenceEditor.getEditor(clone);
+  out.cloneItemOk = run("clone item", (c) =>
+    c.addAction(editor.createCloneTrackItemAction(v, T(0.25), 0, 0, false, false)),
+  );
+  out.afterCloneItem = await snapshot(clone);
+  const a = (await items(clone, "audio"))[0];
+  if (a) {
+    out.cloneAudioAlignVideo = run("clone audio align", (c) =>
+      c.addAction(editor.createCloneTrackItemAction(a, T(0.5), 0, 0, true, false)),
+    );
+    out.afterCloneAudio = await snapshot(clone);
+  }
+  // 6. move to 2 s: absolute (start becomes 2) or a shift (start grows by 2)?
+  const m0 = await describe(v);
+  out.moveOk = run("move", (c) => c.addAction(v.createMoveAction(T(2))));
+  out.moveBefore = m0.start;
+  out.moveAfter = (await describe(v)).start;
+  // 7. speed of many actions in one transaction: 300 tiny moves back and forth
+  const t0 = Date.now();
+  out.manyOk = run("many", (c) => {
+    for (let i = 0; i < 300; i++) c.addAction(v.createMoveAction(T(i % 2 ? -0.04 : 0.04)));
+  });
+  out.manyMs = Date.now() - t0;
+  // remove with no ripple, then with ripple (a gap closes?)
+  out.final = await snapshot(clone);
+  // 8. the undocumented calls: only whether they are there
+  out.razor = {
+    createRazorAllTracksAction: typeof editor.createRazorAllTracksAction,
+    createRazorTrackAction: typeof editor.createRazorTrackAction,
+    createExtractActionInRange: typeof editor.createExtractActionInRange,
+    createLiftActionInRange: typeof editor.createLiftActionInRange,
+  };
+  log("7. Boşluk denemesi (S1)", out);
+});
+/* eslint-enable @typescript-eslint/no-explicit-any */

@@ -57,6 +57,10 @@ export const DefaultsSchema = z.object({
       languages: ["tur", "eng"],
       dataUrl: "https://github.com/tesseract-ocr/tessdata_fast/raw/main",
     }),
+  /** Remove Pauses: the voice activity model, downloaded into modelsDir() on first use. */
+  pauses: z
+    .object({ vadModel: z.string().min(1) })
+    .default({ vadModel: "onnx-community/silero-vad" }),
 });
 export type Defaults = z.infer<typeof DefaultsSchema>;
 

@@ -109,6 +109,11 @@ function levelOver(ch: Float32Array[], stretches: [number, number][]): number | 
   return v.length ? +(v.reduce((x, y) => x + y, 0) / v.length).toFixed(1) : null;
 }
 
+/** The pause before trying a piece again: the provider's own wait when it gives one, but at most a minute. */
+export function retryWaitMs(attempt: number, retryAfterS?: number): number {
+  return Math.max(2000 * attempt, Math.min(retryAfterS ?? 0, 60) * 1000);
+}
+
 export async function makeScore(
   o: MakeMusicOptions,
 ): Promise<{ sections: MadeSection[]; priceUsd: number; record: string }> {
@@ -177,7 +182,7 @@ export async function makeScore(
         }
         if (!(err instanceof MusicError) || !err.retryable || attempt >= 3) throw err;
         // a rate limit says how long to wait (ElevenLabs)
-        await sleep(Math.max(2000 * attempt, (err.retryAfterS ?? 0) * 1000));
+        await sleep(retryWaitMs(attempt, err.retryAfterS));
       }
     }
   }

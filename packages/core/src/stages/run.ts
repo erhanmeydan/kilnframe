@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Defaults } from "../config.js";
 import { checkProject, type CheckFinding } from "../hyperframes.js";
@@ -102,11 +102,32 @@ export async function isolateRuntimeErrors(
         assetsDir,
       });
       const check = await checkProject(dir);
+      // a browser that failed to start says nothing about this scene
+      if (check.environmentError) return;
       const runtime = check.errors.filter((e) => e.section === "runtime");
       if (runtime.length) found.set(s.id, runtime);
     }),
   );
   return found;
+}
+
+/**
+ * The check, run again once when it could not run at all (Chrome failed to start). A second
+ * failure ends the job with a readable message: it is the machine, and no scene repair would fix it.
+ */
+export async function checkOrEnvironmentError(
+  projectDir: string,
+  log: (message: string) => void,
+  check: typeof checkProject = checkProject,
+): Promise<Awaited<ReturnType<typeof checkProject>>> {
+  const first = await check(projectDir);
+  if (!first.environmentError) return first;
+  log(`The check could not run (${first.environmentError}); trying once more`);
+  const second = await check(projectDir);
+  if (!second.environmentError) return second;
+  throw new Error(
+    `The browser that checks the animation could not run on this computer: ${second.environmentError}\nClose other heavy apps or restart Kilnframe, then try again. No scene was sent for repair.`,
+  );
 }
 
 function writeJson(path: string, data: unknown) {
@@ -135,13 +156,15 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
   const projectDir = join(outDir, "project");
   const sceneIds = plan.scenes.map((s) => s.id);
   let round = 0;
+  let limit = maxRounds;
+  let pixelsFailed = false;
   // Static problems in a rejected repair reply, told to the model in the next round.
   const rejected = new Map<string, string[]>();
   for (;;) {
     const scenes = Object.fromEntries([...composed.values()].map((c) => [c.id, c.html]));
     assembleProject({ plan, scenes, projectDir, assetsDir: join(outDir, "assets") });
     log(round === 0 ? "Validating (hyperframes check)" : `Validating after repair round ${round}`);
-    const check = await checkProject(projectDir);
+    const check = await checkOrEnvironmentError(projectDir, log);
     writeJson(join(outDir, "check.json"), check.raw);
     // every round is kept, so a run shows what had to be repaired (the benchmark reads these)
     writeJson(join(outDir, "checks", `round-${round}.json`), check.raw);
@@ -149,26 +172,29 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
     if (check.ok) {
       // the code passed; an overlay may still lay a faint layer over the speaker, which only the pixels show
       const times = stillTimes(plan, ctx.transcript.words);
-      errors = await overlayHazeFindings(plan, projectDir, times, join(outDir, "checks", "haze"));
+      const hazeDir = join(outDir, "checks", "haze");
+      const emptyDir = join(outDir, "checks", "empty");
+      errors = await overlayHazeFindings(plan, projectDir, times, hazeDir);
       if (errors.length) writeJson(join(outDir, "checks", `haze-${round}.json`), errors);
       // and a scene may run cleanly yet show nothing: a camera looking past its objects
-      const empty = await emptySceneFindings(
-        plan,
-        projectDir,
-        times,
-        join(outDir, "checks", "empty"),
-      );
+      const empty = await emptySceneFindings(plan, projectDir, times, emptyDir);
       if (empty.length) writeJson(join(outDir, "checks", `empty-${round}.json`), empty);
       errors = [...errors, ...empty];
+      // the verdicts are in the JSON; the shots behind them are only work files
+      for (const dir of [hazeDir, emptyDir]) rmSync(dir, { recursive: true, force: true });
+      // the pixels are looked at only once the code passes, which can first happen in the last round:
+      // their findings then get one repair of their own instead of failing the job unrepaired
+      if (errors.length && !pixelsFailed && round >= limit) limit = round + 1;
+      if (errors.length) pixelsFailed = true;
     }
     if (!errors.length) break;
-    if (round >= maxRounds) {
+    if (round >= limit) {
       const list = errors.map((e) => `${e.code ?? "check"}: ${e.message}`).join("\n- ");
       // the panel shows where it went wrong (checks/failed.jpg), so the error reads as a check, not a crash
       await failurePicture(projectDir, errors, outDir, plan);
       a.onGiveUp?.();
       throw new Error(
-        `The composition still fails validation after ${maxRounds} repair rounds:\n- ${list}`,
+        `The composition still fails validation after ${round} repair rounds:\n- ${list}`,
       );
     }
     round++;
@@ -184,13 +210,19 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
     if (unattributed.length && byScene.size === 0) {
       log("Locating the failing scenes");
       const scenes = Object.fromEntries([...composed.values()].map((c) => [c.id, c.html]));
-      const isolated = await isolateRuntimeErrors(
-        plan,
-        scenes,
-        join(outDir, "isolate"),
-        join(outDir, "assets"),
-      );
-      for (const [id, findings] of isolated) byScene.set(id, findings);
+      const isolateDir = join(outDir, "isolate");
+      try {
+        const isolated = await isolateRuntimeErrors(
+          plan,
+          scenes,
+          isolateDir,
+          join(outDir, "assets"),
+        );
+        for (const [id, findings] of isolated) byScene.set(id, findings);
+      } finally {
+        // a small project per scene, each with its own copy of vendor/: not kept
+        rmSync(isolateDir, { recursive: true, force: true });
+      }
     }
     if (unattributed.length) {
       for (const target of byScene.size ? [...byScene.keys()] : sceneIds) {
@@ -270,7 +302,6 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
   const outDir = resolve(o.outDir);
   mkdirSync(outDir, { recursive: true });
   const usage = new UsageMeter();
-  /** Written on success and on failure, so a failed run still shows what it cost. */
   // a model models.json does not know may have its price in the provider's list (OpenRouter); looked up
   // in the background, it is there long before the job ends
   let listed: { model: string; price: Price | undefined } | undefined;
@@ -294,98 +325,109 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
       calls: usage.calls,
     });
   };
-  o.provider.preflight?.();
-  const provider = usage.wrap(o.provider);
-  const style = loadStyle(o.job.style);
+  let finished = false;
+  try {
+    o.provider.preflight?.();
+    const provider = usage.wrap(o.provider);
+    const style = loadStyle(o.job.style);
 
-  let audioPath = o.audioPath;
-  if (o.range) {
-    audioPath = join(outDir, "range.wav");
-    log(`Cutting audio ${o.range.startS.toFixed(2)}-${o.range.endS.toFixed(2)} s`);
-    await cutAudio(o.audioPath, audioPath, o.range.startS, o.range.endS);
-  }
-  const heard =
-    o.transcript ??
-    (await transcribe({
-      audioPath,
-      defaults: o.defaults,
-      language: o.language,
+    let audioPath = o.audioPath;
+    if (o.range) {
+      audioPath = join(outDir, "range.wav");
+      log(`Cutting audio ${o.range.startS.toFixed(2)}-${o.range.endS.toFixed(2)} s`);
+      await cutAudio(o.audioPath, audioPath, o.range.startS, o.range.endS);
+    }
+    const heard =
+      o.transcript ??
+      (await transcribe({
+        audioPath,
+        defaults: o.defaults,
+        language: o.language,
+        onProgress: log,
+      }));
+    const transcript = o.script && !o.transcript ? correctTranscript(heard, o.script, log) : heard;
+    writeJson(join(outDir, "transcript.json"), transcript);
+    // the review step (stages/review.ts) renders later from this folder and needs the speech for the preview
+    writeJson(join(outDir, "run.json"), { speechPath: resolve(audioPath), style: o.job.style });
+
+    const assets = prepareAssets(o.assets ?? [], outDir);
+    if (assets.length) {
+      log(`Images: ${assets.length} added by the editor`);
+      await readAssetText(assets, outDir, o.defaults.ocr, log);
+      const read = assets.filter((a) => a.lines?.length);
+      if (read.length)
+        log(`Text read: ${read.map((a) => `${a.id} ${a.lines?.length} line(s)`).join(", ")}`);
+    }
+    const frames = prepareFrames(o.frames ?? [], outDir);
+    if (frames.length) log(`Frames of the footage: ${frames.length}`);
+    const recipes = pipelineRecipes(o.recipes, o.defaults);
+    const plan = await planInsert({
+      provider,
+      transcript,
+      style,
+      job: { ...o.job, assets, frames },
       onProgress: log,
-    }));
-  const transcript = o.script && !o.transcript ? correctTranscript(heard, o.script, log) : heard;
-  writeJson(join(outDir, "transcript.json"), transcript);
-  // the review step (stages/review.ts) renders later from this folder and needs the speech for the preview
-  writeJson(join(outDir, "run.json"), { speechPath: resolve(audioPath), style: o.job.style });
+      recipes,
+    });
+    writeJson(join(outDir, "plan.json"), plan);
+    log(
+      `Plan: ${plan.scenes.length} scene(s): ${plan.scenes.map((s) => `${s.id} ${s.technique} ${sceneMode(plan, s)}`).join(", ")}${plan.speaker ? `, speaker ${plan.speaker.side}` : ""}`,
+    );
 
-  const assets = prepareAssets(o.assets ?? [], outDir);
-  if (assets.length) {
-    log(`Images: ${assets.length} added by the editor`);
-    await readAssetText(assets, outDir, o.defaults.ocr, log);
-    const read = assets.filter((a) => a.lines?.length);
-    if (read.length)
-      log(`Text read: ${read.map((a) => `${a.id} ${a.lines?.length} line(s)`).join(", ")}`);
+    const ctx: ComposeContext = {
+      provider,
+      plan,
+      transcript,
+      style,
+      assetPreviews: Object.fromEntries(assets.map((a) => [a.id, a.preview])),
+      frames,
+      rejectedDir: join(outDir, "rejected"),
+      recipes,
+    };
+    log(`Composing ${plan.scenes.length} scene(s)`);
+    const composed = new Map<string, ComposedScene>();
+    // one line per finished scene: composing takes minutes and the panel shows how far it is
+    let written = 0;
+    for (const result of await Promise.all(
+      plan.scenes.map((s) =>
+        composeScene(ctx, s).then((r) => {
+          log(
+            `Composed ${r.id}${r.recipe ? ` from recipe ${r.recipe}` : ""} (${++written}/${plan.scenes.length})`,
+          );
+          return r;
+        }),
+      ),
+    ))
+      composed.set(result.id, result);
+
+    const round = await validateAndRepair({
+      ctx,
+      plan,
+      composed,
+      outDir,
+      maxRounds: o.maxRepairRounds ?? 3,
+      log,
+    });
+
+    const render = await renderPlan({
+      plan,
+      scenes: Object.fromEntries([...composed.values()].map((c) => [c.id, c.html])),
+      outDir: outDir,
+      stillsOnly: o.stillsOnly ?? false,
+      prechecked: true,
+      speechPath: existsSync(audioPath) ? audioPath : undefined,
+      onProgress: log,
+    });
+    finished = true;
+    return { plan, render, usage, repairRounds: round };
+  } finally {
+    // a failed run still shows what it cost: plan, compose and repairs were paid for even if render fails
+    if (finished) writeUsage();
+    else if (usage.calls.length)
+      try {
+        writeUsage();
+      } catch {
+        // the job's own error matters more than its cost note
+      }
   }
-  const frames = prepareFrames(o.frames ?? [], outDir);
-  if (frames.length) log(`Frames of the footage: ${frames.length}`);
-  const recipes = pipelineRecipes(o.recipes, o.defaults);
-  const plan = await planInsert({
-    provider,
-    transcript,
-    style,
-    job: { ...o.job, assets, frames },
-    onProgress: log,
-    recipes,
-  });
-  writeJson(join(outDir, "plan.json"), plan);
-  log(
-    `Plan: ${plan.scenes.length} scene(s): ${plan.scenes.map((s) => `${s.id} ${s.technique} ${sceneMode(plan, s)}`).join(", ")}${plan.speaker ? `, speaker ${plan.speaker.side}` : ""}`,
-  );
-
-  const ctx: ComposeContext = {
-    provider,
-    plan,
-    transcript,
-    style,
-    assetPreviews: Object.fromEntries(assets.map((a) => [a.id, a.preview])),
-    frames,
-    rejectedDir: join(outDir, "rejected"),
-    recipes,
-  };
-  log(`Composing ${plan.scenes.length} scene(s)`);
-  const composed = new Map<string, ComposedScene>();
-  // one line per finished scene: composing takes minutes and the panel shows how far it is
-  let written = 0;
-  for (const result of await Promise.all(
-    plan.scenes.map((s) =>
-      composeScene(ctx, s).then((r) => {
-        log(
-          `Composed ${r.id}${r.recipe ? ` from recipe ${r.recipe}` : ""} (${++written}/${plan.scenes.length})`,
-        );
-        return r;
-      }),
-    ),
-  ))
-    composed.set(result.id, result);
-
-  const round = await validateAndRepair({
-    ctx,
-    plan,
-    composed,
-    outDir,
-    maxRounds: o.maxRepairRounds ?? 3,
-    log,
-    onGiveUp: writeUsage,
-  });
-
-  const render = await renderPlan({
-    plan,
-    scenes: Object.fromEntries([...composed.values()].map((c) => [c.id, c.html])),
-    outDir: outDir,
-    stillsOnly: o.stillsOnly ?? false,
-    prechecked: true,
-    speechPath: existsSync(audioPath) ? audioPath : undefined,
-    onProgress: log,
-  });
-  writeUsage();
-  return { plan, render, usage, repairRounds: round };
 }

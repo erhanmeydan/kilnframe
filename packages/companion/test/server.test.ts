@@ -300,6 +300,134 @@ describe("companion server", () => {
       await settle();
       expect(busy).toEqual([true, false]);
     });
+
+    it("and a review left open by a panel that went away does not hold a later job", async () => {
+      const { busy, c, job, settle } = await start();
+      await job({ stillsOnly: true });
+      c.ws.close();
+      await settle();
+      const again = await connect(companion!.port);
+      again.send({ type: "hello", token: TOKEN });
+      await again.next((m) => m.type === "ready");
+      again.send({ type: "job.start", params });
+      await again.next((m) => m.type === "job.done");
+      await settle();
+      expect(busy).toEqual([true, false, true, false]);
+    });
+
+    it("again when a reloaded panel opens a review from its folder", async () => {
+      const busy: boolean[] = [];
+      companion = await startCompanion({
+        token: TOKEN,
+        keys: new MemoryKeyStore(),
+        version: "test",
+        port: 0,
+        onBusy: (b) => busy.push(b),
+        runner: async () => ({}),
+        loadReview: async (outDir) => (outDir === "/tmp/none" ? null : { stillImages: [] }),
+      });
+      const c = await connect(companion.port);
+      c.send({ type: "hello", token: TOKEN });
+      await c.next((m) => m.type === "ready");
+      c.send({ type: "review.load", outDir: "/tmp/none" });
+      await c.next((m) => m.type === "review");
+      expect(busy).toEqual([]);
+      c.send({ type: "review.load", outDir: "/tmp/part-1" });
+      await c.next((m) => m.type === "review" && m.outDir === "/tmp/part-1");
+      expect(busy).toEqual([true]);
+      c.send({ type: "review.closed" });
+      await new Promise((r) => setTimeout(r, 60));
+      expect(busy).toEqual([true, false]);
+    });
+  });
+
+  describe("before the hello", () => {
+    const start = async () =>
+      (companion = await startCompanion({
+        token: TOKEN,
+        keys: new MemoryKeyStore(),
+        runner: async () => null,
+        version: "test",
+        port: 0,
+      }));
+    const open = (port: number, origin?: string) =>
+      new Promise<{ ws: WebSocket; closed: Promise<string> }>((resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}`, origin ? { origin } : {});
+        const closed = new Promise<string>((r) => ws.on("close", (_c, why) => r(why.toString())));
+        ws.once("open", () => resolve({ ws, closed }));
+        ws.once("error", reject);
+      });
+
+    it("closes on anything but a small hello, without answering it", async () => {
+      const { port } = await start();
+      const junk = await open(port);
+      const answers: string[] = [];
+      junk.ws.on("message", (m) => answers.push(m.toString()));
+      junk.ws.send("not json");
+      expect(await junk.closed).toBe("unauthorized");
+      const big = await open(port);
+      big.ws.send(JSON.stringify({ type: "hello", token: TOKEN, pad: "x".repeat(8000) }));
+      expect(await big.closed).toBe("unauthorized");
+      expect(answers).toEqual([]);
+    });
+
+    it("refuses a web page from elsewhere, and takes the panels' own origins", async () => {
+      const { port } = await start();
+      const web = await open(port, "https://example.com");
+      expect(await web.closed).toBe("origin");
+      for (const origin of ["file://", "null", "http://127.0.0.1:8091", "http://localhost:5173"]) {
+        const ok = await open(port, origin);
+        const ready = new Promise<string>((r) => ok.ws.once("message", (m) => r(m.toString())));
+        ok.ws.send(JSON.stringify({ type: "hello", token: TOKEN }));
+        expect(JSON.parse(await ready)).toMatchObject({ type: "ready" });
+        ok.ws.close();
+      }
+    });
+  });
+
+  it("answers a stop for a finished job with the request's ref", async () => {
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "job.cancel", jobId: "gone", ref: "r1" });
+    expect(await c.next((m) => m.type === "error")).toMatchObject({ ref: "r1" });
+  });
+
+  it("answers a failed request with its ref and readable reason, even where the schema has no ref", async () => {
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: {
+        get: async () => undefined,
+        set: async () => {
+          throw new Error("keychain locked: sk-secret-123");
+        },
+        delete: async () => false,
+      },
+      runner: async () => null,
+      listModels: async () => {
+        throw new Error("Antigravity CLI could not reach Google. Check the connection.");
+      },
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "models.list", provider: "antigravity", ref: "m1" });
+    const listed = await c.next((m) => m.type === "error" && m.ref === "m1");
+    expect(String((listed as { message: string }).message)).toContain(
+      "Antigravity CLI could not reach Google",
+    );
+    c.send({ type: "keys.set", provider: "openai", key: "sk-secret-123", ref: "k1" });
+    const keyed = await c.next((m) => m.type === "error" && m.ref === "k1");
+    expect(JSON.stringify(keyed)).not.toContain("sk-secret");
   });
 
   it("passes a failed job's kind along, also to a panel that asks again", async () => {
@@ -738,5 +866,52 @@ describe("companion server", () => {
     c.send({ type: "speech.preview", voice: "Kore", language: "tr" });
     expect(await c.next((m) => m.type === "speech.played")).toMatchObject({ voice: "Kore" });
     expect(played).toEqual(["Kore tr"]);
+  });
+
+  it("answers pauses.cuts with the cut plan, and refuses an unknown strictness", async () => {
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    const ask = {
+      type: "pauses.cuts",
+      speech: [
+        [1, 3],
+        [8, 10],
+        [40, 42],
+      ],
+      durationS: 45,
+      strictness: 0.5,
+    };
+    c.send({ ...ask, keepLongS: null, ref: "a" });
+    const all = await c.next((m) => m.type === "pauses.cuts" && m.ref === "a");
+    if (all.type !== "pauses.cuts") throw new Error("not pauses.cuts");
+    expect(all.cuts.length).toBeGreaterThan(0);
+    // the 30 s silent part is cut with the rest
+    expect(all.cuts.some((k) => k.startS < 20 && k.endS > 35)).toBe(true);
+    expect(all.longKept).toEqual([]);
+    expect(all.emptied).toBe(false);
+    expect(all.removedS + all.keptS).toBeCloseTo(45, 6);
+    c.send({ ...ask, keepLongS: 10, ref: "b" });
+    const kept = await c.next((m) => m.type === "pauses.cuts" && m.ref === "b");
+    if (kept.type !== "pauses.cuts") throw new Error("not pauses.cuts");
+    expect(kept.longKept).toHaveLength(1);
+    expect(kept.removedS).toBeLessThan(all.removedS);
+    // an In/Out part keeps a pad at its edges: the first cut no longer starts at 0
+    c.send({ ...ask, keepLongS: null, rangeEdges: true, ref: "r" });
+    const range = await c.next((m) => m.type === "pauses.cuts" && m.ref === "r");
+    if (range.type !== "pauses.cuts") throw new Error("not pauses.cuts");
+    expect(all.cuts[0]!.startS).toBe(0);
+    expect(range.cuts[0]!.startS).toBeGreaterThan(0);
+    c.send({ ...ask, keepLongS: null, strictness: 2, ref: "c" });
+    expect(await c.next((m) => m.type === "error" && m.ref === "c")).toMatchObject({
+      message: expect.stringMatching(/Invalid message/),
+    });
   });
 });

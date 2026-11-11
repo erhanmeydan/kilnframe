@@ -10,6 +10,7 @@ import {
   speechModelFor,
   voiceSampleSpans,
   createStyle,
+  findSpeech,
   loadPalette,
   makeMusic,
   createTextProvider,
@@ -59,6 +60,7 @@ import type {
   CaptionsTextJobParams,
   JobParams,
   MusicMakeJobParams,
+  PausesFindJobParams,
   StoryVoiceJobParams,
   StyleJobParams,
   VoiceFixReadJobParams,
@@ -129,6 +131,8 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
     if (params.kind === "captions-preview") return captionsPreviewJob(params, events.signal);
     if (params.kind === "story-voice") return storyVoiceJob(params, keys, events.progress);
     if (params.kind === "voice-fix-read") return voiceFixReadJob(params, defaults, events.progress);
+    if (params.kind === "pauses-find")
+      return pausesFindJob(params, defaults, events.progress, events.signal);
     if (params.kind === "voice-fix-say")
       return voiceFixSayJob(params, keys, defaults, events.progress);
     if (params.kind === "music-make")
@@ -246,23 +250,30 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
     }
     if (params.action === "recompose") {
       if (!params.sceneId) throw new Error("recompose needs a sceneId");
-      const r = await recomposeScene({
-        outDir: params.outDir,
-        sceneId: params.sceneId,
-        note: params.note ?? "",
-        provider,
-        defaults,
-        onProgress: events.progress,
-      });
-      // the scene made again is part of the job's cost
-      addUsage(params.outDir, {
-        model: provider.model,
-        billing: provider.billing ?? "api",
-        calls: r.usage.calls,
-        price:
-          loadModelCatalog().models[provider.model]?.price ??
-          (await provider.modelPrice?.().catch(() => undefined)),
-      });
+      const usage = new UsageMeter();
+      let r: Awaited<ReturnType<typeof recomposeScene>>;
+      try {
+        r = await recomposeScene({
+          outDir: params.outDir,
+          sceneId: params.sceneId,
+          note: params.note ?? "",
+          provider,
+          defaults,
+          onProgress: events.progress,
+          usage,
+        });
+      } finally {
+        // the scene made again is part of the job's cost, also when it failed or was cancelled
+        if (usage.calls.length)
+          addUsage(params.outDir, {
+            model: provider.model,
+            billing: provider.billing ?? "api",
+            calls: usage.calls,
+            price:
+              loadModelCatalog().models[provider.model]?.price ??
+              (await provider.modelPrice?.().catch(() => undefined)),
+          });
+      }
       return {
         ...panelResult(r.plan, r.render),
         usage: r.usage.total(),
@@ -479,6 +490,34 @@ async function voiceFixReadJob(
     sample: voiceSampleSpans(transcript.words, range),
     ...(windowPath ? { windowPath } : {}),
   };
+}
+
+/** Remove Pauses, step one: where the range holds speech; the cuts are asked for separately (pauses.cuts). */
+async function pausesFindJob(
+  params: PausesFindJobParams,
+  defaults: Defaults,
+  progress: (message: string) => void,
+  signal: AbortSignal,
+) {
+  mkdirSync(params.outDir, { recursive: true });
+  let said = -1;
+  const { speech, durationS } = await findSpeech({
+    audioPath: params.audioPath,
+    rangeStartS: params.rangeStartS,
+    rangeEndS: params.rangeEndS,
+    model: defaults.pauses.vadModel,
+    signal,
+    onProgress: (done) => {
+      const percent = Math.round(done * 100);
+      if (percent === said) return;
+      said = percent;
+      progress(`Listening to the speech, ${percent}%`);
+    },
+  });
+  const result = { kind: "pauses-find" as const, speech, durationS };
+  // kept with the job, so the tab can come back to it without listening again
+  writeFileSync(join(params.outDir, "speech.json"), JSON.stringify(result));
+  return result;
 }
 
 /** Voice Fix, step two: reads the edited text exactly as typed in the editor's clone; no style, no rewrite. */

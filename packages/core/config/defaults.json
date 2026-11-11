@@ -28,5 +28,8 @@
     "model": "lyria-3.5",
     "lufs": -24,
     "planner": { "provider": "gemini", "model": "gemini-3.8-flash" }
+  },
+  "pauses": {
+    "vadModel": "onnx-community/silero-vad"
   }
 }

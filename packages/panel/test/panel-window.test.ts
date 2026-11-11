@@ -75,6 +75,8 @@ const CALLS = [
   "replaceCaptionClip",
   "isRendering",
   "cancelExports",
+  "cutToNewTimeline",
+  "cutProgress",
 ];
 
 function options(over: Partial<PanelWindowOptions> = {}): PanelWindowOptions {
@@ -126,6 +128,14 @@ describe("registerPanelIpc", () => {
     await expect(handlers.get("kilnframe:currentSequence")!({})).rejects.toBe(boom);
   });
 
+  it("says a cut the editor's bridge cannot make as unsupported, and has no progress for it", async () => {
+    panel.registerPanelIpc(options(), "/x", () => null);
+    await expect(handlers.get("kilnframe:cutToNewTimeline")!({}, "tl", [], "x")).rejects.toThrow(
+      "CUT_UNSUPPORTED",
+    );
+    expect(await handlers.get("kilnframe:cutProgress")!({})).toBeNull();
+  });
+
   it("tells the page which editor it runs in and the version in <dir>/manifest.xml", () => {
     const dir = mkdtempSync(join(tmpdir(), "kf-panel-"));
     writeFileSync(join(dir, "manifest.xml"), "<Plugin><Version>9.8.7</Version></Plugin>");
@@ -172,5 +182,24 @@ describe("openPanelWindow", () => {
     panel.openPanelWindow(options({ editor: "filmcraft" }), "/b");
     windows[0].emit("closed");
     expect(info().editor).toBe("filmcraft");
+  });
+});
+
+describe("window size", () => {
+  it("opens wide enough for every tab, and widens a size saved before once", () => {
+    expect(panel.windowStateFrom({}).width).toBe(580);
+    // saved by an older panel: widened
+    expect(panel.windowStateFrom({ width: 380, height: 700, onTop: false })).toMatchObject({
+      width: 580,
+      height: 700,
+      onTop: false,
+    });
+    // saved since: the editor's own width stays, but never below the minimum
+    expect(
+      panel.windowStateFrom({ width: 400, height: 700, onTop: true, sized: 3 } as never).width,
+    ).toBe(400);
+    expect(
+      panel.windowStateFrom({ width: 300, height: 700, onTop: true, sized: 3 } as never).width,
+    ).toBe(360);
   });
 });

@@ -32,6 +32,22 @@ export interface PlaceResult {
   scaleByHand?: number;
 }
 
+/** A stretch to take out of a sequence, in sequence seconds. */
+export interface TimelineCut {
+  startS: number;
+  endS: number;
+}
+
+/** The sequence a cut made: it is open and active, the original untouched. */
+export interface CutSequenceResult {
+  id: string;
+  name: string;
+  /** Clips that could not be carried into the new sequence (no media file, retimed...). */
+  leftOut: number;
+  /** Built from source clips: effects, grades and titles are not on it. */
+  rebuilt: boolean;
+}
+
 export interface Host {
   kind: "premiere" | "resolve" | "filmcraft";
   /** The active sequence; throws a readable message when there is no project or sequence. */
@@ -138,6 +154,16 @@ export interface Host {
     music: string | null,
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
+  /**
+   * A new sequence, `name`, holding `seq` with `cuts` taken out of every track, which becomes the active one;
+   * `seq` itself is not edited. Missing where the editor cannot cut: the tab says it is not available here.
+   */
+  cutToNewSequence?(
+    seq: HostSequence,
+    cuts: TimelineCut[],
+    name: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<CutSequenceResult>;
   pickImages(types: string[]): Promise<string[]>;
   /**
    * A copy of the text file `source` (one the companion wrote, a caption job's SRT) where the editor picks in

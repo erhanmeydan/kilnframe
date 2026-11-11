@@ -53,6 +53,25 @@ describe("rootHtml", () => {
     expect(html).toContain('window.__timelines["main"]');
   });
 
+  it("ends each scene exactly where the next one starts", () => {
+    // at 29.97 fps the rounded start and duration of a scene could add up to just before the next start
+    const scenes = [0, 1, 5, 2001].map((f, i, all) => ({
+      ...plan.scenes[0]!,
+      id: `s${i + 1}`,
+      start_frame: f,
+      end_frame: all[i + 1] ?? 3000,
+    }));
+    const html = rootHtml({ ...plan, duration_frames: 3000, scenes });
+    const hosts = [...html.matchAll(/data-start="([\d.]+)" data-duration="([\d.]+)"/g)].map(
+      (m) => [m[1], m[2]] as [string, string],
+    );
+    const micro = (s: string) => Math.round(Number(s) * 1e6);
+    for (let i = 1; i < hosts.length; i++) {
+      const [start, dur] = hosts[i - 1]!;
+      expect(micro(start) + micro(dur)).toBe(micro(hosts[i]![0]));
+    }
+  });
+
   it("keeps the background transparent in overlay mode", () => {
     expect(rootHtml({ ...plan, mode: "overlay" })).toContain("background: transparent");
   });
@@ -127,11 +146,20 @@ describe("deliverArgs", () => {
 
   it("encodes fullscreen as capped H.264 with cloned handles", () => {
     const args = deliverArgs({ ...base, mode: "fullscreen" }).join(" ");
-    expect(args).toContain("tpad=start=20:stop=20:start_mode=clone:stop_mode=clone");
+    // 20 frames at 29.97 fps, in seconds
+    expect(args).toContain(
+      "tpad=start_duration=0.667333:stop_duration=0.667333:start_mode=clone:stop_mode=clone",
+    );
     expect(args).toContain("-c:v libx264");
     expect(args).toContain("-b:v 20M -maxrate 30M");
     expect(args).toContain("-r 30000/1001");
     expect(args).toContain("-an");
+  });
+
+  it("pads by time, so a sequence rate the master is not rendered at keeps its handle length", () => {
+    // 120 fps renders at 60: 96 sequence frames are 0.8 s, not 96 master frames (1.6 s)
+    const args = deliverArgs({ ...base, fps: "120", handlesFrames: 96, mode: "fullscreen" });
+    expect(args.join(" ")).toContain("tpad=start_duration=0.800000:stop_duration=0.800000");
   });
 
   it("encodes overlay as ProRes 4444 with alpha", () => {
