@@ -13,7 +13,10 @@ export interface AsrChunk {
 
 /**
  * Turns pipeline chunks into clean, time-ordered words. New words arrive with a leading space;
- * a chunk without one continues the previous word (Turkish suffixes such as "Prompt" + "'a").
+ * a chunk without one continues the previous word (Turkish suffixes such as "Prompt" + "'a"). Chinese,
+ * Japanese, Thai, Lao and Burmese are written without spaces, and transformers.js splits them on characters,
+ * so no chunk there starts with a space: a letter of those scripts, or a letter next to one, starts a word of
+ * its own (else a whole piece of speech became one word), while a stop ("。") stays on the word before.
  * Whisper sometimes leaves the last end time open or returns tokens that are only spaces; both are
  * repaired here. Words that start after the audio ends cannot have been spoken: Whisper invents them on
  * music or silence (in Turkish typically "Altyazı M.K."), so they are dropped.
@@ -35,18 +38,32 @@ export function chunksToWords(chunks: AsrChunk[], durationS: number): Word[] {
     ) {
       while (words.length && (words[words.length - 1]?.start ?? 0) >= start - 0.05) words.pop();
     }
+    const prev = words[words.length - 1];
+    // a word that steps back in time starts with the one before it, and ends no earlier than it starts
+    const from = prev ? Math.max(start, prev.start) : start;
     const nextStart = chunks[i + 1]?.timestamp[0];
     let end = chunk.timestamp[1] ?? nextStart ?? durationS;
-    end = Math.min(Math.max(end, start), durationS);
-    const prev = words[words.length - 1];
-    if (prev && !/^\s/.test(chunk.text)) {
+    end = Math.min(Math.max(end, from), durationS);
+    if (prev && !/^\s/.test(chunk.text) && !startsUnspacedWord(prev.text, text)) {
       prev.text += text;
       prev.end = Math.max(prev.end, end);
       return;
     }
-    words.push({ text, start: prev ? Math.max(start, prev.start) : start, end });
+    words.push({ text, start: from, end });
   });
   return words;
+}
+
+/** A letter of a script written without spaces between words (Han, kana, Thai, Lao, Burmese). */
+const UNSPACED =
+  /[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Thai}\p{scx=Lao}\p{scx=Myanmar}]/u;
+
+/** Whether a chunk without a leading space starts a word anyway: a letter of an unspaced script, or one after it. */
+function startsUnspacedWord(prev: string, text: string): boolean {
+  const first = [...text][0] ?? "";
+  const last = [...prev].at(-1) ?? "";
+  if (!/[\p{L}\p{N}]/u.test(first)) return false;
+  return UNSPACED.test(first) || UNSPACED.test(last);
 }
 
 /** The audio holds no speech, so there is nothing to animate. */
@@ -140,7 +157,11 @@ export async function loadSpeechModel(
         // lean on memory, for 8 GB computers: weights kept as they are in the file (not prepacked into a
         // second copy) and no memory arena held between runs. large-v3-turbo q8 peaks at 2.9 GB instead of
         // 4.6 GB, with the same words, about 7% slower
-        session_options: { enableCpuMemArena: false, enableMemPattern: false, extra: { session: { disable_prepacking: "1" } } } as never,
+        session_options: {
+          enableCpuMemArena: false,
+          enableMemPattern: false,
+          extra: { session: { disable_prepacking: "1" } },
+        } as never,
         progress_callback: downloadProgress((p) => onProgress?.(`Downloading speech model: ${p}%`)),
       });
     const asr = device ? await load(device).catch(() => load()) : await load();

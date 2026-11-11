@@ -102,6 +102,51 @@ describe("chunksToWords suffixes", () => {
   });
 });
 
+describe("chunksToWords in languages written without spaces", () => {
+  it("keeps each piece of Japanese, Chinese or Thai a word of its own, with its stop on the word before", () => {
+    // transformers.js splits these on characters, so no piece starts with a space
+    const words = chunksToWords(
+      [
+        { text: "こんにちは", timestamp: [0, 0.5] },
+        { text: "世界", timestamp: [0.5, 1] },
+        { text: "です", timestamp: [1, 1.4] },
+        { text: "。", timestamp: [1.4, 1.5] },
+        { text: "AI", timestamp: [1.6, 1.9] },
+        { text: "สวัสดี", timestamp: [2, 2.5] },
+      ],
+      30,
+    );
+    expect(words.map((w) => w.text)).toEqual(["こんにちは", "世界", "です。", "AI", "สวัสดี"]);
+    expect(words[1]).toEqual({ text: "世界", start: 0.5, end: 1 });
+  });
+});
+
+describe("chunksToWords times stepping back", () => {
+  it("never ends a word before it starts when a word steps back under half a second", () => {
+    const words = chunksToWords(
+      [
+        { text: " a", timestamp: [10, 10.3] },
+        { text: " b", timestamp: [10.4, 10.9] },
+        { text: " c", timestamp: [10, 10.2] },
+        { text: " d", timestamp: [11, 11.3] },
+      ],
+      30,
+    );
+    for (const w of words) expect(w.end).toBeGreaterThanOrEqual(w.start);
+    expect(words[2]).toEqual({ text: "c", start: 10.4, end: 10.4 });
+    expect(
+      TranscriptSchema.safeParse({
+        version: 1,
+        language: "en",
+        model: "m",
+        duration_s: 30,
+        text: "x",
+        words,
+      }).success,
+    ).toBe(true);
+  });
+});
+
 describe("TranscriptSchema", () => {
   it("rejects words out of order", () => {
     const r = TranscriptSchema.safeParse({
