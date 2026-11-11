@@ -925,7 +925,15 @@ export function createPremiereHost(
       clone = await cloneSequence(project, sequence);
       onProgress?.(1, TOTAL);
       const copy = clone;
-      const editor = ppro.SequenceEditor.getEditor(copy);
+      // the sequence and its editor are fetched again before each step too: an object read before a transaction
+      // may no longer be valid after it, and the copy is found by its guid
+      const guid = copy.guid.toString();
+      const live = async () => {
+        const now = (await project.getSequences()).find((x) => x.guid.toString() === guid);
+        if (!now) throw new Error("The copy of the sequence is gone");
+        return now;
+      };
+      const editorNow = async () => ppro.SequenceEditor.getEditor(await live());
       const endF = Math.round(ticksOf(await copy.getEndTime()) / tpf);
       const frames = frameCuts(cuts, ppro.TickTime.TIME_ONE_SECOND.ticksNumber / tpf, endF);
       stage = "name the copy";
@@ -938,8 +946,9 @@ export function createPremiereHost(
       stage = "remove transitions";
       // 0: transitions at the cuts come off the copy (the pieces meet in hard cuts there); when Premiere will
       // not take them off, the cut is refused before any clip is touched
-      const transitions = await transitionsAtCuts(copy, frames, tpf);
+      const transitions = await transitionsAtCuts(await live(), frames, tpf);
       if (transitions.length) {
+        const editor = await editorNow();
         try {
           withSelection(transitions, (selection) =>
             runStep(project, "remove transitions", (c) =>
@@ -956,12 +965,12 @@ export function createPremiereHost(
         } catch {
           /* checked below */
         }
-        if ((await transitionsAtCuts(copy, frames, tpf)).length)
+        if ((await transitionsAtCuts(await live(), frames, tpf)).length)
           throw new CutRefused(t("pauses.transitions"));
       }
 
       stage = "read the clips";
-      const read = await readItems(copy, tpf);
+      const read = await readItems(await live(), tpf);
       const plan = planPremiereCut(
         read.map((r) => r.info),
         frames,
@@ -974,7 +983,7 @@ export function createPremiereHost(
       const where = (kind: string, track: number, startF: number) => `${kind}:${track}:${startF}`;
       const readFresh = async () => {
         const at = new Map<string, TrackItem>();
-        for (const r of await readItems(copy, tpf))
+        for (const r of await readItems(await live(), tpf))
           at.set(where(r.info.plan.kind, r.info.plan.track, r.info.plan.startF), r.item);
         return (key: string, startF: number) => {
           const p = (byKey.get(key) as ReadClip).info.plan;
@@ -995,6 +1004,7 @@ export function createPremiereHost(
             .map((key) => (byKey.get(key) as ReadClip).item);
         const video = of("video");
         const audio = of("audio");
+        const editor = await editorNow();
         withSelection(video, (videoSel) =>
           withSelection(audio, (audioSel) =>
             runStep(project, "remove clips", (c) => {
@@ -1042,6 +1052,7 @@ export function createPremiereHost(
       if (plan.clones.length) {
         // each action is made outside the transaction first, so a refused one names its clip in the log
         const found = await readFresh();
+        const editor = await editorNow();
         const seedStart = new Map(plan.trims.map((tr) => [tr.key, tr.startF]));
         const actions = plan.clones.map((cl) => {
           const seed = byKey.get(cl.key);
@@ -1066,7 +1077,7 @@ export function createPremiereHost(
       const atKey = (c: ClipAt) => `${c.kind}:${c.track}:${c.atF}`;
       const placedNow = async () => {
         const placed = new Map<string, TrackItem>();
-        for (const r of await readItems(copy, tpf))
+        for (const r of await readItems(await live(), tpf))
           placed.set(atKey({ ...r.info.plan, atF: r.info.plan.startF }), r.item);
         return (c: ClipAt) => {
           const found = placed.get(atKey(c));
@@ -1105,7 +1116,7 @@ export function createPremiereHost(
       }
       onProgress?.(6, TOTAL);
 
-      const after = (await readItems(copy, tpf)).map((r) => ({
+      const after = (await readItems(await live(), tpf)).map((r) => ({
         ...r.info.plan,
         inTicks: r.info.inTicks,
         speed: r.info.speed,
@@ -1116,13 +1127,14 @@ export function createPremiereHost(
 
       // the copy's markers and In/Out were cloned at their old times: they follow their content
       stage = "move markers, In and Out";
-      await followMarks(project, copy, frames, tpf);
+      await followMarks(project, await live(), frames, tpf);
       onProgress?.(TOTAL, TOTAL);
 
-      await project.openSequence(copy);
-      await project.setActiveSequence(copy);
-      const id = copy.guid.toString();
-      known.set(id, { project, sequence: copy });
+      const done = await live();
+      await project.openSequence(done);
+      await project.setActiveSequence(done);
+      known.set(guid, { project, sequence: done });
+      const id = guid;
       return { id, name, leftOut: plan.leftOut, rebuilt: false };
     } catch (err) {
       if (clone) await project.deleteSequence(clone).catch(() => false);
