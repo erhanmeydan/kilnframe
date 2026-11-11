@@ -356,13 +356,13 @@ describe("filmcraft cut to a new sequence", () => {
     // [60, 89), [150, 194), [300, 329) at 29.97 fps: 102 frames out of 899
     expect(marks(f).map((l) => [l.command, l.params.frame])).toEqual([
       ["markers.markIn", 300],
-      ["markers.markOut", 329],
+      ["markers.markOut", 328],
       ["sequence.extract", undefined],
       ["markers.markIn", 150],
-      ["markers.markOut", 194],
+      ["markers.markOut", 193],
       ["sequence.extract", undefined],
       ["markers.markIn", 60],
-      ["markers.markOut", 89],
+      ["markers.markOut", 88],
       ["sequence.extract", undefined],
     ]);
     expect(

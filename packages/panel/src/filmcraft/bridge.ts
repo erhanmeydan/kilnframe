@@ -710,7 +710,9 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
         await fc.exec("sequence.open", { item: copy });
         for (const c of [...frames].reverse()) {
           await fc.exec("markers.markIn", { frame: c.startF, target: "program" });
-          await fc.exec("markers.markOut", { frame: c.endF, target: "program" });
+          // the Out frame is extracted too (In 48, Out 72 took 25 frames on 0.16.0): the last frame of the
+          // pause, not the first one kept
+          await fc.exec("markers.markOut", { frame: c.endF - 1, target: "program" });
           await fc.exec("sequence.extract", {});
           cutting.done++;
         }

@@ -287,12 +287,13 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
       s.out = null;
       return {};
     },
-    // measured on 0.16.0: In to Out out of every track, the gap closed, In and Out cleared
+    // measured on 0.16.0: In to Out out of every track, the gap closed, In and Out cleared. The Out frame
+    // itself goes too: In 48, Out 72 took 25 frames off a 642-frame sequence
     "sequence.extract": () => {
       const s = seqOf(undefined);
       if (s.in === null || s.out === null) throw new Error("set In and Out first");
       const from = framesOf(s.in);
-      const to = framesOf(s.out);
+      const to = framesOf(s.out) + 1;
       const gone = to - from;
       let copied = 0;
       for (const t of [...s.video, ...s.audio]) {
