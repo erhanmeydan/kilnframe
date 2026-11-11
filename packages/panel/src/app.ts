@@ -1639,6 +1639,14 @@ async function makeStorySequence() {
   }
 }
 
+/** The agent CLIs the editor installs and signs in to with their own account. */
+const AGENT_IDS = new Set(["claude-code", "codex", "grok", "antigravity"]);
+function isAgent(id: string): id is AgentId {
+  return AGENT_IDS.has(id);
+}
+/** Agents whose model list is read from the CLI itself. */
+const SERVED_AGENTS = new Set(["antigravity"]);
+
 /** The Claude providers share the Claude model setting. */
 const CLAUDE_KINDS = new Set(["auto", "claude-code", "anthropic"]);
 /** Servers on this computer: no key, their own model list, a model that may think. */
@@ -1649,6 +1657,7 @@ function providerName(id: string): string {
   if (id === "claude-code") return t("prov.plan");
   if (id === "codex") return t("prov.chatgptPlan");
   if (id === "grok") return t("prov.grokPlan");
+  if (id === "antigravity") return t("prov.googlePlan");
   if (id === "anthropic") return t("prov.claudeApi");
   if (id === "custom") return t("prov.custom");
   if (id === "lmstudio") return t("prov.lmstudio");
@@ -1661,6 +1670,8 @@ function modelFor(id: string): string {
   if (CLAUDE_KINDS.has(id)) return state.settings.model;
   // empty: the model set in Codex itself
   if (id === "codex") return state.settings.models.codex ?? "";
+  // empty: the model the Google account uses by default
+  if (id === "antigravity") return state.settings.models.antigravity ?? "";
   const chosen = state.settings.models[id];
   if (chosen) return chosen;
   if (LOCAL_PROVIDERS.has(id)) return lmStudioDefault(setup.served[id] ?? []);
@@ -1701,7 +1712,10 @@ const CLAUDE_MODEL_NAMES: Record<string, string> = {
 };
 
 function modelLabel(model: string): string {
-  if (model === "") return t("prov.codexDefault");
+  if (model === "")
+    return state.settings.provider === "antigravity"
+      ? t("prov.agyDefault")
+      : t("prov.codexDefault");
   if (CLAUDE_MODEL_NAMES[model]) return CLAUDE_MODEL_NAMES[model];
   // a local server's own name for the model (LM Studio: "Qwen3.8 27B" for qwen/qwen3.8-27b)
   for (const list of Object.values(setup.served)) {
@@ -1753,7 +1767,7 @@ function aiMissing(): string | null {
     if (!cc || !key) return null;
     return (cc.installed && cc.loggedIn) || key.keySet ? null : t("home.aiNone");
   }
-  if (id === "claude-code" || id === "codex" || id === "grok") {
+  if (AGENT_IDS.has(id)) {
     const a = agentState(id);
     if (!a) return null;
     return a.installed && a.loggedIn ? null : t("home.aiSignIn", { name: providerName(id) });
@@ -1863,6 +1877,7 @@ const setup = {
     method: "chatgpt" | "api_key" | null;
   },
   grok: null as null | { installed: boolean; loggedIn: boolean; version: string | null },
+  antigravity: null as null | { installed: boolean; loggedIn: boolean; version: string | null },
   /** Whether a newer agent CLI is out: { current, latest, available } per agent. */
   updates: {} as Record<
     string,
@@ -1894,6 +1909,7 @@ async function refreshProviders() {
     setup.claudeCode = r.claudeCode as typeof setup.claudeCode;
     setup.codex = r.codex as typeof setup.codex;
     setup.grok = r.grok as typeof setup.grok;
+    setup.antigravity = (r.antigravity ?? null) as typeof setup.antigravity;
     setup.updates = (r.updates ?? {}) as typeof setup.updates;
     const custom = await session.request<ServerMessage>(
       { type: "keys.has", provider: "custom" },
@@ -1935,7 +1951,7 @@ function tierTag(tier: ProviderEntry["tier"] | null): string {
 }
 
 function keyStatus(entry: ProviderEntry | undefined, id: string): string {
-  if (id === "claude-code" || id === "codex" || id === "grok") {
+  if (AGENT_IDS.has(id)) {
     const a = agentState(id);
     if (!a) return `<span class="pkey"></span>`;
     if (a.installed && setup.updates[id]?.available)
@@ -1952,7 +1968,7 @@ function keyStatus(entry: ProviderEntry | undefined, id: string): string {
     : `<span class="pkey">${t("prov.noKey")}</span>`;
 }
 
-/** The sign-in state of an agent CLI (Claude Code, Codex, Grok). */
+/** The sign-in state of an agent CLI (Claude Code, Codex, Grok, Antigravity). */
 function agentState(id: string): { installed: boolean; loggedIn: boolean } | null {
   return id === "claude-code"
     ? setup.claudeCode
@@ -1960,7 +1976,9 @@ function agentState(id: string): { installed: boolean; loggedIn: boolean } | nul
       ? setup.codex
       : id === "grok"
         ? setup.grok
-        : null;
+        : id === "antigravity"
+          ? setup.antigravity
+          : null;
 }
 
 /** Whether a key is saved for the custom endpoint; it is not one of the presets. */
@@ -2024,14 +2042,16 @@ function providerDetail(id: string): string {
         ? `<div class="ptest ok-text">${t("prov.nowKey")}</div>`
         : `<div class="ptest warn-text">${t("prov.nowNothing")}</div>`;
     body = `<div class="small">${t("prov.autoNote")}</div>${now}`;
-  } else if (id === "claude-code" || id === "codex" || id === "grok") {
+  } else if (isAgent(id)) {
     const a = agentState(id);
     const install =
       id === "claude-code"
         ? "https://code.claude.com/docs/en/quickstart"
         : id === "codex"
           ? "https://learn.chatgpt.com/docs/codex/cli"
-          : "https://docs.x.ai/build/overview";
+          : id === "antigravity"
+            ? "https://antigravity.google"
+            : "https://docs.x.ai/build/overview";
     const okLine =
       id === "claude-code"
         ? t("prov.planOk", { plan: planName(cc?.subscription ?? null), version: cc?.version ?? "" })
@@ -2040,14 +2060,16 @@ function providerDetail(id: string): string {
               method: setup.codex?.method === "api_key" ? t("prov.codexKey") : "ChatGPT",
               version: setup.codex?.version ?? "",
             })
-          : t("prov.grokOk", { version: setup.grok?.version ?? "" });
-    body = `<div class="small">${id === "claude-code" ? t("prov.planNote") : id === "codex" ? t("prov.codexNote") : t("prov.grokNote")}</div>`;
+          : id === "antigravity"
+            ? t("prov.agyOk", { version: setup.antigravity?.version ?? "" })
+            : t("prov.grokOk", { version: setup.grok?.version ?? "" });
+    body = `<div class="small">${id === "claude-code" ? t("prov.planNote") : id === "codex" ? t("prov.codexNote") : id === "antigravity" ? t("prov.agyNote") : t("prov.grokNote")}</div>`;
     const upd = setup.updates[id];
     if (a?.installed && upd?.available)
       body +=
         setup.updating === id
           ? `<div class="ptest muted">${t("prov.updating")}</div>`
-          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : "grok update" })}</div>`;
+          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : id === "antigravity" ? "agy update" : "grok update" })}</div>`;
     if (!a?.installed)
       body += `<div class="ptest warn-text">${t("prov.agentMissing")}</div>${agentInstallHelp(id)}<div class="pbtns"><div class="pbtn primary" data-act="open-url" data-val="${install}">${t("prov.howInstall")} ↗</div><div class="pbtn" data-act="agent-recheck">${t("prov.recheck")}</div></div>`;
     else if (!a.loggedIn)
@@ -2062,7 +2084,9 @@ function providerDetail(id: string): string {
                     ? "claude auth login"
                     : id === "codex"
                       ? "codex login"
-                      : "grok login --oauth",
+                      : id === "antigravity"
+                        ? "agy"
+                        : "grok login --oauth",
               },
             )}</div>`;
     else if (setup.signingOut === id)
@@ -2070,7 +2094,11 @@ function providerDetail(id: string): string {
     else if (setup.confirmLogout === id)
       body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="pbtns"><div class="pbtn" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="pbtn" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
     else {
-      const signOut = `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
+      // Antigravity CLI signs out only from its own screen
+      const signOut =
+        id === "antigravity"
+          ? ""
+          : `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
       body +=
         id === "grok"
           ? // its image reading could not be checked yet (only models that read images)
@@ -2095,7 +2123,15 @@ function providerDetail(id: string): string {
 }
 
 function providerList(compact = false): string {
-  const all = ["auto", "claude-code", "codex", "grok", ...setup.list.map((p) => p.id), "custom"];
+  const all = [
+    "auto",
+    "claude-code",
+    "codex",
+    "antigravity",
+    "grok",
+    ...setup.list.map((p) => p.id),
+    "custom",
+  ];
   // the setup guide shows the usual choices and the chosen one; the rest behind Others
   const few = ["auto", "claude-code", "codex", "anthropic", state.settings.provider];
   const ids = compact && !onboard.allProviders ? all.filter((id) => few.includes(id)) : all;
@@ -2107,9 +2143,11 @@ function providerList(compact = false): string {
       const tier =
         id === "auto" || id === "claude-code" || id === "codex"
           ? "recommended"
-          : id === "grok" || id === "custom"
-            ? null
-            : (entry?.tier ?? null);
+          : id === "antigravity"
+            ? "experimental"
+            : id === "grok" || id === "custom"
+              ? null
+              : (entry?.tier ?? null);
       return `<div class="prow${on ? " on" : ""}" data-act="provider" data-val="${esc(id)}"><span class="pdot"></span><span class="pname">${esc(providerName(id))}</span>${tierTag(tier)}${keyStatus(entry, id)}</div>${on ? providerDetail(id) : ""}`;
     })
     .join("")}${
@@ -2138,7 +2176,15 @@ function modelList(): string {
         (m) => [m, ""] as [string, string],
       ),
     ];
-  else if (id === "openrouter") {
+  else if (id === "antigravity") {
+    // the models the Google account may use that read images, as the CLI lists them
+    options = [
+      ["", t("prov.agyDefaultNote")],
+      ...(setup.served.antigravity ?? []).map((m) => [m.id, ""] as [string, string]),
+    ];
+    if (setup.servedError.antigravity)
+      note = `<div class="note warn-text">${esc(setup.servedError.antigravity)}</div>`;
+  } else if (id === "openrouter") {
     // the suggested models first; every other model that reads images behind All Models
     const seeing = (setup.served.openrouter ?? []).filter((m) => m.vision);
     const suggested = entry?.models ?? [];
@@ -2189,7 +2235,9 @@ function modelList(): string {
     .join("");
   // local providers say it in their own note (prov.localLimits)
   const experimental =
-    (entry?.tier === "experimental" && id !== "lmstudio" && id !== "ollama") || id === "codex"
+    (entry?.tier === "experimental" && id !== "lmstudio" && id !== "ollama") ||
+    id === "codex" ||
+    id === "antigravity"
       ? `<div class="note muted">${t("prov.experimentalNote")}</div>`
       : "";
   return `<div class="lbl">${t("settings.model")}</div><div class="mlist">${rows}</div>${note}${experimental}`;
@@ -3967,7 +4015,13 @@ async function updateAgent(id: string) {
 }
 
 function agentName(id: string): string {
-  return id === "claude-code" ? "Claude Code" : id === "codex" ? "Codex" : "Grok";
+  return id === "claude-code"
+    ? "Claude Code"
+    : id === "codex"
+      ? "Codex"
+      : id === "antigravity"
+        ? "Antigravity CLI"
+        : "Grok";
 }
 
 /** Runs the agent's own sign-out, then reads the sign-in states again; Sign In then takes another account. */
@@ -4368,7 +4422,8 @@ function runAction(el: HTMLElement) {
     store("settings", JSON.stringify(state.settings));
     setup.editingKey = null;
     setup.confirmDelete = null;
-    if (LOCAL_PROVIDERS.has(val) || val === "openrouter") void loadServed(val);
+    if (LOCAL_PROVIDERS.has(val) || val === "openrouter" || SERVED_AGENTS.has(val))
+      void loadServed(val);
   } else if (act === "lm-thinking") {
     state.settings = {
       ...state.settings,
@@ -4422,7 +4477,11 @@ function runAction(el: HTMLElement) {
   } else if (act === "settings") {
     state.screen = "settings";
     void refreshProviders();
-    if (LOCAL_PROVIDERS.has(state.settings.provider) || state.settings.provider === "openrouter")
+    if (
+      LOCAL_PROVIDERS.has(state.settings.provider) ||
+      state.settings.provider === "openrouter" ||
+      SERVED_AGENTS.has(state.settings.provider)
+    )
       void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
   else if (act === "stop" && state.job) state.job.confirmStop = true;
@@ -4556,7 +4615,7 @@ connectCompanion().catch((e: unknown) => trace(`connectCompanion threw: ${String
  */
 function agentInstallHelp(id: AgentId): string {
   const win = isWindows();
-  const signIn = { "claude-code": "claude", codex: "codex", grok: "grok" };
+  const signIn = { "claude-code": "claude", codex: "codex", grok: "grok", antigravity: "agy" };
   const copy = setup.copied === id ? t("prov.copied") : t("prov.copy");
   return `<div class="note">${t(`prov.cliOnly.${id}`)}</div>
   <div class="note muted">${t("prov.installPaste", { terminal: win ? "PowerShell" : "Terminal" })}</div>
@@ -4564,7 +4623,7 @@ function agentInstallHelp(id: AgentId): string {
   <div class="note muted">${t("prov.installThen", { command: signIn[id] })}</div>`;
 }
 
-type AgentId = "claude-code" | "codex" | "grok";
+type AgentId = "claude-code" | "codex" | "grok" | "antigravity";
 
 function installCommand(id: AgentId): string {
   const win = isWindows();
@@ -4578,6 +4637,9 @@ function installCommand(id: AgentId): string {
     grok: win
       ? "irm https://x.ai/cli/install.ps1 | iex"
       : "curl -fsSL https://x.ai/cli/install.sh | bash",
+    antigravity: win
+      ? "irm https://antigravity.google/cli/install.ps1 | iex"
+      : "curl -fsSL https://antigravity.google/cli/install.sh | bash",
   };
   return commands[id];
 }

@@ -449,11 +449,20 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("assets.inspect"), paths: z.array(z.string().min(1)).max(12) }),
   z.object({ type: z.literal("providers.list") }),
   /** Opens the official sign-in of an agent CLI in a terminal window the editor sees. */
-  z.object({ type: z.literal("agent.login"), agent: z.enum(["claude-code", "codex", "grok"]) }),
+  z.object({
+    type: z.literal("agent.login"),
+    agent: z.enum(["claude-code", "codex", "grok", "antigravity"]),
+  }),
   /** Runs an agent CLI's official sign-out on this computer, e.g. to sign in with another account. */
-  z.object({ type: z.literal("agent.logout"), agent: z.enum(["claude-code", "codex", "grok"]) }),
+  z.object({
+    type: z.literal("agent.logout"),
+    agent: z.enum(["claude-code", "codex", "grok", "antigravity"]),
+  }),
   /** Opens an agent CLI's own update in a terminal window. */
-  z.object({ type: z.literal("agent.update"), agent: z.enum(["claude-code", "codex", "grok"]) }),
+  z.object({
+    type: z.literal("agent.update"),
+    agent: z.enum(["claude-code", "codex", "grok", "antigravity"]),
+  }),
   z.object({ type: z.literal("review.load"), outDir: z.string().min(1) }),
   /** The editor left a review without rendering it (none: every review), so the app may quit again. */
   z.object({ type: z.literal("review.closed"), outDir: z.string().min(1).optional() }),
@@ -564,6 +573,7 @@ export type ServerMessage =
       claudeCode: unknown;
       codex: unknown;
       grok: unknown;
+      antigravity: unknown;
       updates: unknown;
     }
   | { type: "agent.login.opened"; agent: string }

@@ -13,6 +13,7 @@ import {
   claudeCodeStatus,
   codexStatus,
   grokStatus,
+  antigravityStatus,
   agentUpdate,
   updateCommand,
   loadProviderCatalog,
@@ -34,7 +35,7 @@ import {
   speechModelCached,
   vendorDir,
 } from "@kilnframe/core";
-import { type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
+import { AGENT_BINARY, type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
 import { makeCloneVoice } from "./clone-voice.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
@@ -306,7 +307,9 @@ main().catch((err: unknown) => {
  * touches a credential. It signs that CLI out on this computer, not just in Kilnframe.
  */
 function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
-  const r = spawnAgentSync(agent === "claude-code" ? "claude" : agent, logoutArgs(agent), {
+  const args = logoutArgs(agent);
+  if (!args) return { ok: false, error: "This CLI signs out only from its own screen." };
+  const r = spawnAgentSync(AGENT_BINARY[agent], args, {
     encoding: "utf8",
     timeout: 30_000,
     env: withoutHostSession(process.env),
@@ -343,7 +346,7 @@ function openInTerminal(command: string, env: Record<string, string> = {}): void
 }
 
 /**
- * Sign-in state of the three agents. Asking them takes about a second (Grok goes over the network) and
+ * Sign-in state of the agents. Asking them takes about a second (Grok goes over the network) and
  * blocks the companion meanwhile, so it is kept for a short while: opening the settings again is instant,
  * and a sign-in in the terminal still shows within seconds.
  */
@@ -361,6 +364,7 @@ function readAgentStatuses() {
     },
     codex: codexStatus(),
     grok: grokStatus(),
+    antigravity: antigravityStatus(),
   };
 }
 function agentStatuses() {
@@ -370,11 +374,11 @@ function agentStatuses() {
   return statusCache.value;
 }
 
-/** Update news for the three agents, read at most once an hour (a registry call per agent). */
+/** Update news for the agents, read at most once an hour (a registry call per agent). */
 let updateCache: { at: number; value: Record<string, unknown> } | null = null;
 async function agentUpdates(): Promise<Record<string, unknown>> {
   if (updateCache && Date.now() - updateCache.at < 60 * 60_000) return updateCache.value;
-  const ids = ["claude-code", "codex", "grok"] as const;
+  const ids = ["claude-code", "codex", "grok", "antigravity"] as const;
   const list = await Promise.all(ids.map((id) => agentUpdate(id)));
   const value = Object.fromEntries(ids.map((id, i) => [id, list[i]]));
   updateCache = { at: Date.now(), value };

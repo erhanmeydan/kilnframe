@@ -10,14 +10,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { win32 } from "node:path";
 
 /**
- * Finding the editor's agent CLIs (claude, codex, grok). On macOS the plain name is enough. On Windows it is
+ * Finding the editor's agent CLIs (claude, codex, grok, agy). On macOS the plain name is enough. On Windows it is
  * not: an npm install is a .cmd shim, which a shell-less spawn never finds (libuv looks for .exe and .com only),
  * and the companion starts at sign-in with the PATH of that moment, so an agent installed later stays unseen.
  * So on Windows every lookup reads PATH fresh from the registry, also looks in the installers' own folders, and
  * runs an npm shim's script with Node directly instead of through cmd (a long system prompt with quotes and line
  * breaks cannot pass through cmd's quoting).
  */
-export type AgentName = "claude" | "codex" | "grok";
+export type AgentName = "claude" | "codex" | "grok" | "agy";
 
 export interface AgentCommand {
   /** The program to start. */
@@ -43,6 +43,7 @@ const OVERRIDE: Record<AgentName, string> = {
   claude: "KILNFRAME_CLAUDE",
   codex: "KILNFRAME_CODEX",
   grok: "KILNFRAME_GROK",
+  agy: "KILNFRAME_AGY",
 };
 
 /** "%USERPROFILE%\\x" with the environment's values; unknown names stay as they are. */
@@ -85,6 +86,8 @@ export function windowsSearchDirs(env: NodeJS.ProcessEnv, registryPaths: string[
     // xAI's install.ps1 (GROK_BIN_DIR, else %USERPROFILE%\.grok\bin)
     env.GROK_BIN_DIR,
     home && win32.join(home, ".grok", "bin"),
+    // Antigravity CLI's install.ps1 (macOS: ~/.local/bin)
+    env.LOCALAPPDATA && win32.join(env.LOCALAPPDATA, "agy", "bin"),
     // OpenAI's Codex install.ps1
     env.LOCALAPPDATA && win32.join(env.LOCALAPPDATA, "Programs", "OpenAI", "Codex", "bin"),
     // winget and Scoop

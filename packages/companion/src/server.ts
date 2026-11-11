@@ -37,16 +37,17 @@ export interface CompanionOptions {
     claudeCode: unknown;
     codex: unknown;
     grok: unknown;
+    antigravity: unknown;
     updates: unknown;
   }>;
   /** Opens an agent CLI's own sign-in (claude auth login, codex login) in a terminal window. */
-  loginAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
+  loginAgent?: (agent: "claude-code" | "codex" | "grok" | "antigravity") => Promise<void>;
   /** Runs an agent CLI's own sign-out (claude auth logout, codex logout, grok logout). */
   logoutAgent?: (
-    agent: "claude-code" | "codex" | "grok",
+    agent: "claude-code" | "codex" | "grok" | "antigravity",
   ) => Promise<{ ok: boolean; error?: string }>;
   /** Opens an agent CLI's own update (claude update, codex update, grok update) in a terminal window. */
-  updateAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
+  updateAgent?: (agent: "claude-code" | "codex" | "grok" | "antigravity") => Promise<void>;
   /** One short request with a picture through a provider (the settings' connection test). */
   testProvider?: (
     provider: string,
@@ -436,7 +437,14 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           case "providers.list": {
             const r = o.listProviders
               ? await o.listProviders()
-              : { providers: [], claudeCode: null, codex: null, grok: null, updates: null };
+              : {
+                  providers: [],
+                  claudeCode: null,
+                  codex: null,
+                  grok: null,
+                  antigravity: null,
+                  updates: null,
+                };
             send({ type: "providers", ...r });
             break;
           }

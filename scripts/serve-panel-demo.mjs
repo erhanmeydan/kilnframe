@@ -48,7 +48,13 @@ function copyInto(src, dest) {
 
 const routes = {
   "/demo/companion": () =>
-    JSON.parse(readFileSync(join(homedir(), ".kilnframe", "companion.json"), "utf8")),
+    // KILNFRAME_HOME: a development companion beside the installed one
+    JSON.parse(
+      readFileSync(
+        join(process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"), "companion.json"),
+        "utf8",
+      ),
+    ),
   "/demo/exists": ({ path }) => ({ exists: existsSync(path) }),
   "/demo/read": ({ path }) => {
     if (!inside(path)) throw new Error("read outside the project folder");
