@@ -66,19 +66,15 @@ describe("Antigravity capacity", () => {
     expect(capacityWaitMs("some other error")).toBeNull();
   });
 
-  it("sends one request at a time", async () => {
-    const { oneAtATime } = await import("../src/providers/antigravity.js");
-    const run = oneAtATime();
-    let running = 0;
-    let most = 0;
-    const task = () =>
-      run(async () => {
-        running++;
-        most = Math.max(most, running);
-        await new Promise((r) => setTimeout(r, 10));
-        running--;
-      });
-    await Promise.all([task(), task(), task()]);
-    expect(most).toBe(1);
+  it("reads signed in, signed out and not reachable from agy models", async () => {
+    const { readAgyModelsRun } = await import("../src/providers/antigravity.js");
+    expect(
+      readAgyModelsRun({ code: 0, text: "Fetching...\ngemini-3.8-flash\tGemini\n" }).state,
+    ).toBe("ok");
+    expect(
+      readAgyModelsRun({ code: 1, text: "Not authenticated. Run agy to sign in." }).state,
+    ).toBe("signed-out");
+    expect(readAgyModelsRun({ code: 1, text: "rpc error: Unavailable" }).state).toBe("unreachable");
+    expect(readAgyModelsRun(null).state).toBe("unreachable");
   });
 });

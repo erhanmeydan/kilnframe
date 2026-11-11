@@ -14,6 +14,7 @@ import {
   codexStatus,
   grokStatus,
   antigravityStatus,
+  forgetAgyModels,
   agentUpdate,
   updateCommand,
   loadProviderCatalog,
@@ -210,11 +211,13 @@ async function main() {
           slowModels: p.slowModels ?? [],
         })),
       );
-      return { providers, ...agentStatuses(), updates: await agentUpdates() };
+      return { providers, ...(await agentStatuses()), updates: await agentUpdates() };
     },
     loginAgent: async (agent) => {
       // the panel watches for the sign-in to finish in the terminal: no cached state meanwhile
       freshUntil = Date.now() + 5 * 60_000;
+      // a kept Antigravity model list belongs to the account before this sign-in
+      if (agent === "antigravity") forgetAgyModels();
       openInTerminal(loginCommand(agent, process.env), loginEnv(agent, process.env));
     },
     logoutAgent: async (agent) => {
@@ -256,6 +259,8 @@ async function main() {
         model: providerPreset(provider)?.models[0] ?? "list",
         apiKey: await keys.get(provider),
       });
+      // Antigravity's preflight reads the status found here (its check goes over the network)
+      if (provider === "antigravity") await antigravityStatus();
       p.preflight?.();
       const catalog = loadModelCatalog();
       return ((await p.listModels?.()) ?? []).map((m) => ({
@@ -280,7 +285,7 @@ async function main() {
   process.stderr.write(`kilnframe companion listening on 127.0.0.1:${companion.port}\n`);
   // ready before the panel asks: its first settings screen should not wait for the agents
   setTimeout(() => {
-    agentStatuses();
+    void agentStatuses();
     void agentUpdates().catch(() => {});
   }, 0);
   // a running job lives in its own process group and would outlive the companion
@@ -353,7 +358,9 @@ function openInTerminal(command: string, env: Record<string, string> = {}): void
 let statusCache: { at: number; value: ReturnType<typeof readAgentStatuses> } | null = null;
 /** Until then every request reads the agents again (a sign-in or update is under way). */
 let freshUntil = 0;
-function readAgentStatuses() {
+async function readAgentStatuses() {
+  // Antigravity asks Google for its models, so it runs on its own while the others are read
+  const antigravity = antigravityStatus();
   const s = claudeCodeStatus();
   return {
     claudeCode: {
@@ -364,7 +371,7 @@ function readAgentStatuses() {
     },
     codex: codexStatus(),
     grok: grokStatus(),
-    antigravity: antigravityStatus(),
+    antigravity: await antigravity,
   };
 }
 function agentStatuses() {
