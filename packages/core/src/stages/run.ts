@@ -263,6 +263,7 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
           prev.messages,
           problems,
           `repair ${id} round ${round}`,
+          prev.html,
         );
         try {
           const html = extractHtml(reply);

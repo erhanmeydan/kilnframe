@@ -11,6 +11,7 @@ import { sceneMode, type Plan, type Scene } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
 import type { StyleFont, StyleInfo } from "../styles.js";
 import { sceneWords } from "./plan.js";
+import { applyEdits, parseEdits } from "./repair-edits.js";
 import { loadsFromNetwork, sceneCode } from "./scene-code.js";
 
 /** Cheap checks before HyperFrames: things that would break determinism or the scene contract. */
@@ -141,6 +142,8 @@ export interface ComposeContext {
   rejectedDir?: string;
   /** Scene recipes; a scene the plan gave a recipe is filled from it instead of being written. */
   recipes?: RecipeInfo[];
+  /** Repairs ask for the whole scene again instead of edits (for comparing the two). */
+  repairWhole?: boolean;
 }
 
 /** Keeps a turned-down reply next to the job (<job>/rejected/<scene>-<n>.txt). */
@@ -503,7 +506,14 @@ export async function composeScene(
       throw new Error(
         `Scene ${scene.id} still has problems after ${maxAttempts} attempts:\n- ${problems.join("\n- ")}`,
       );
-    reply = await repairScene(ctx, scene, messages, problems, `repair ${scene.id}`);
+    reply = await repairScene(
+      ctx,
+      scene,
+      messages,
+      problems,
+      `repair ${scene.id}`,
+      html || undefined,
+    );
   }
 }
 
@@ -513,10 +523,32 @@ export async function composeScene(
  */
 export const COMPACT_REPAIRS_BELOW = 100_000;
 
+/** The scene HTML a reply holds, or null. */
+function htmlOf(text: string): string | null {
+  try {
+    return extractHtml(text);
+  } catch {
+    return null;
+  }
+}
+
+/** The text of a message's text parts. */
+function messageText(m: ChatMessage | undefined): string {
+  return (m?.content ?? []).map((p) => (p.type === "text" ? p.text : "")).join("");
+}
+
+/** A whole scene as a reply, for callers that read the repaired scene out of the reply's html fence. */
+function asReply(html: string): string {
+  return `\`\`\`html\n${html.trimEnd()}\n\`\`\``;
+}
+
 /**
- * Sends validation problems back into the scene's conversation and returns the new reply. A provider with a
- * small loaded context (a local model) gets the conversation cut down to the request and the latest reply
- * first; the others keep the whole of it.
+ * Sends validation problems back into the scene's conversation and returns the repaired scene as a reply
+ * holding the whole file. The model answers with search/replace edits to `current` (a fraction of the output
+ * of rewriting the scene); when an edit does not match, it is asked once for the whole file. Without
+ * `current` (the last reply held no scene) or with `ctx.repairWhole`, the whole file is asked for at once.
+ * A provider with a small loaded context (a local model) gets the conversation cut down to the request and
+ * the latest reply first; the others keep the whole of it.
  */
 export async function repairScene(
   ctx: ComposeContext,
@@ -524,15 +556,45 @@ export async function repairScene(
   messages: ChatMessage[],
   problems: string[],
   purpose: string,
+  current?: string,
 ): Promise<string> {
   const context = await ctx.provider.loadedContext?.();
   if (context !== undefined && context < COMPACT_REPAIRS_BELOW) {
     const latest = messages.findLast((m) => m.role === "assistant");
     messages.splice(1, messages.length - 1, ...(latest ? [latest] : []));
   }
+  const edits = current !== undefined && !ctx.repairWhole;
+  // edits are made to the scene as it stands; after a repair made by edits the conversation's last whole
+  // file is older than that, so the current one is shown
+  const latest = htmlOf(messageText(messages.findLast((m) => m.role === "assistant")));
+  const shown =
+    edits && latest?.trim() !== current.trim()
+      ? `The current file, with your earlier fixes applied:\n${asReply(current)}\n\n`
+      : "";
   messages.push({
     role: "user",
-    content: [{ type: "text", text: `${loadPrompt("repair")}- ${problems.join("\n- ")}` }],
+    content: [
+      {
+        type: "text",
+        text: `${shown}${loadPrompt(edits ? "repair" : "repair-whole")}- ${problems.join("\n- ")}`,
+      },
+    ],
   });
-  return ask(ctx, scene, messages, purpose);
+  const reply = await ask(ctx, scene, messages, purpose);
+  if (!edits) return reply;
+  const blocks = parseEdits(reply);
+  if (!blocks.length) return reply;
+  const applied = applyEdits(current, blocks);
+  if (applied.ok) return asReply(applied.html);
+  keepRejected(ctx.rejectedDir, `${scene.id}-edits`, reply, applied.problems);
+  messages.push({
+    role: "user",
+    content: [
+      {
+        type: "text",
+        text: `Your edits could not be applied: ${applied.problems.join("; ")}. Return the complete corrected file in a single \`\`\`html code fence instead.`,
+      },
+    ],
+  });
+  return ask(ctx, scene, messages, `${purpose} whole`);
 }
