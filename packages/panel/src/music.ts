@@ -38,7 +38,6 @@ export interface MadeSection {
 }
 
 export interface MusicState {
-  scope: "all" | "range";
   note: string;
   stage: "idle" | "planning" | "plan" | "making" | "listen" | "placing" | "done";
   last: string;
@@ -64,7 +63,6 @@ export interface MusicState {
 
 export function newMusic(): MusicState {
   return {
-    scope: "all",
     note: "",
     stage: "idle",
     last: "",
@@ -305,14 +303,10 @@ export function musicBox(st: MusicState, ctx: MusicCtx): string {
     return `${err}${busyBox(st)}`;
   if (st.stage === "plan" && st.plan) return err + planScreen(st, ctx);
   if ((st.stage === "listen" || st.stage === "done") && st.made) return err + listenScreen(st, ctx);
-  const range = ctx.inOut();
-  const scopes: ["all" | "range", string][] = [["all", t("music.scopeAll")]];
-  if (range) scopes.push(["range", t("music.scopeRange")]);
   const ready = ctx.connected();
+  // the In/Out when the sequence has one, else the whole timeline: the line says which
   return `${err}
-  ${ctx.rangeLine(range ? st.scope : "all")}
-  <div class="lbl">${t("music.scope")}</div>
-  ${ctx.seg("music-scope", range ? st.scope : "all", scopes)}
+  ${ctx.rangeLine("range")}
   <div class="lbl">${t("music.note")}</div>
   <textarea id="music-note" placeholder="${t("music.notePlaceholder")}"></textarea>
   ${providerChoice(ctx)}
@@ -460,16 +454,15 @@ async function planMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
     return ctx.render();
   }
   const inOut = ctx.inOut();
-  const range: Range =
-    st.scope === "range" && inOut
-      ? inOut
-      : {
-          startS: 0,
-          endS: target.endSeconds,
-          durationS: target.endSeconds,
-          source: "sequence",
-          warning: null,
-        };
+  const range: Range = inOut
+    ? inOut
+    : {
+        startS: 0,
+        endS: target.endSeconds,
+        durationS: target.endSeconds,
+        source: "sequence",
+        warning: null,
+      };
   st.stage = "planning";
   st.last = "";
   st.settingsNote = null;
@@ -602,7 +595,6 @@ async function placeMusic(st: MusicState, ctx: MusicCtx): Promise<void> {
 /** The tab's clicks. Returns true when it handled `act`. */
 /** The Music tab's own actions; any other (the settings' music-level) is the panel's. */
 const MUSIC_ACTS = new Set([
-  "music-scope",
   "music-provider",
   "music-cancel",
   "music-terms",
@@ -620,9 +612,7 @@ const MUSIC_ACTS = new Set([
 export function musicAct(st: MusicState, ctx: MusicCtx, act: string, val: string): boolean {
   if (!MUSIC_ACTS.has(act)) return false;
   const plan = st.plan;
-  if (act === "music-scope") st.scope = val === "range" ? "range" : "all";
-  else if (act === "music-provider")
-    ctx.setProvider(val === "elevenlabs" ? "elevenlabs" : "gemini");
+  if (act === "music-provider") ctx.setProvider(val === "elevenlabs" ? "elevenlabs" : "gemini");
   else if (act === "music-cancel") {
     if (st.jobId) ctx.send({ type: "job.cancel", jobId: st.jobId });
   } else if (act === "music-terms") ctx.openTerms();
@@ -649,7 +639,7 @@ export function musicAct(st: MusicState, ctx: MusicCtx, act: string, val: string
     ctx.send({ type: "speech.stop" });
   } else if (act === "music-place") void placeMusic(st, ctx);
   else if (act === "music-new") {
-    Object.assign(st, newMusic(), { scope: st.scope, note: st.note });
+    Object.assign(st, newMusic(), { note: st.note });
   }
   return true;
 }

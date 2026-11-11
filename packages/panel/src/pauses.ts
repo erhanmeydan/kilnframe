@@ -244,17 +244,12 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
   }
 }
 
-function idleScreen(st: PausesState, ctx: PausesCtx): string {
-  const range = ctx.inOut();
-  const scope = range ? st.scope : "all";
+/** The part listened to: the In/Out when the sequence has one, else the whole sequence (no choice to make). */
+function idleScreen(_st: PausesState, ctx: PausesCtx): string {
   const can = Boolean(ctx.cutToNewSequence);
-  const options: [string, string][] = [["all", t("pauses.scopeAll")]];
-  if (range) options.push(["range", t("pauses.scopeRange")]);
   return `<div class="note muted">${t("pauses.intro")}</div>
   ${can ? "" : `<div class="box warn">${t("pauses.unsupported")}</div>`}
-  <div class="lbl">${t("pauses.scope")}</div>
-  ${ctx.seg("pauses-scope", scope, options)}
-  ${scope === "range" ? ctx.rangeLine() : ""}
+  ${ctx.rangeLine()}
   ${can ? `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="pauses-find">${t("pauses.find")}</div>` : ""}`;
 }
 
@@ -333,7 +328,7 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
     return ctx.render();
   }
   const range = ctx.inOut();
-  const scope = range ? st.scope : "all";
+  const scope = range ? "range" : "all";
   Object.assign(st, newPauses(), { scope, stage: "listening", run: ++runs });
   const run = st.run;
   ctx.render();
@@ -619,7 +614,6 @@ async function apply(st: PausesState, ctx: PausesCtx): Promise<void> {
 }
 
 const ACTS = new Set([
-  "pauses-scope",
   "pauses-find",
   "pauses-track",
   "pauses-strict",
@@ -631,9 +625,7 @@ const ACTS = new Set([
 /** The tab's clicks (and the slider's moves). Returns true when it handled `act`. */
 export function pausesAct(st: PausesState, ctx: PausesCtx, act: string, val = ""): boolean {
   if (!ACTS.has(act)) return false;
-  if (act === "pauses-scope") {
-    if (st.stage === "idle" || st.stage === "done") st.scope = val === "range" ? "range" : "all";
-  } else if (act === "pauses-find") void find(st, ctx);
+  if (act === "pauses-find") void find(st, ctx);
   else if (act === "pauses-track") void pickTrack(st, ctx, Number(val));
   else if (act === "pauses-strict") strictMoved(st, ctx, val);
   else if (act === "pauses-apply") void apply(st, ctx);
@@ -647,7 +639,7 @@ export function pausesAct(st: PausesState, ctx: PausesCtx, act: string, val = ""
       st.error = t("job.stopped");
     }
   } else if (act === "pauses-again" && st.stage !== "listening" && st.stage !== "applying") {
-    Object.assign(st, newPauses(), { scope: st.scope });
+    Object.assign(st, newPauses());
   }
   return true;
 }

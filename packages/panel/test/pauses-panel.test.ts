@@ -163,11 +163,12 @@ afterEach(() => {
 });
 
 describe("remove pauses panel", () => {
-  it("offers In/Out only when the sequence has a range", () => {
-    expect(pausesBox(newPauses(), fakeCtx().ctx)).toContain('data-val="range"');
-    const html = pausesBox(newPauses(), fakeCtx({ range: false }).ctx);
-    expect(html).not.toContain('data-val="range"');
-    expect(html).toContain("Whole Sequence");
+  it("offers no scope choice: the range line shows which part is listened to", () => {
+    const f = fakeCtx();
+    (f.ctx as unknown as Record<string, unknown>).rangeLine = () => "[range line]";
+    const html = pausesBox(newPauses(), f.ctx);
+    expect(html).not.toContain("pauses-scope");
+    expect(html).toContain("[range line]");
     expect(html).toContain('data-act="pauses-find"');
   });
 
@@ -190,7 +191,7 @@ describe("remove pauses panel", () => {
     expect(st.stage).toBe("listening");
     expect(st.track).toBe(2);
 
-    const one = fakeCtx();
+    const one = fakeCtx({ range: false });
     const st1 = newPauses();
     pausesAct(st1, one.ctx, "pauses-find");
     await tick();
@@ -204,14 +205,13 @@ describe("remove pauses panel", () => {
         outDir: "/j/pauses",
       },
     ]);
-    // the whole sequence by default
+    // no In/Out: the whole sequence
     expect(one.exports[0]).toEqual([0, 760, "/j/export.wav"]);
   });
 
-  it("listens to the In/Out range only when that scope is chosen", async () => {
+  it("listens to the In/Out range whenever the sequence has one", async () => {
     const f = fakeCtx();
     const st = newPauses();
-    pausesAct(st, f.ctx, "pauses-scope", "range");
     pausesAct(st, f.ctx, "pauses-find");
     await tick();
     expect(f.exports[0]).toEqual([100, 200, "/j/export.wav"]);
@@ -232,7 +232,7 @@ describe("remove pauses panel", () => {
   });
 
   it("enters the preview with the job's speech and asks for the cuts", async () => {
-    const f = fakeCtx();
+    const f = fakeCtx({ range: false });
     const st = newPauses();
     pausesAct(st, f.ctx, "pauses-find");
     await tick();
