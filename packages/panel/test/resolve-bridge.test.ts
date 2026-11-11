@@ -677,6 +677,23 @@ describe("resolve bridge", () => {
       expect(await b.speechTracks(seq.id, 0, 5)).toEqual([0, 1]);
     });
 
+    it("keeps several audio tracks on when asked", async () => {
+      const f = withAudio();
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, [0, 2]);
+      expect(hidden).toEqual([
+        { type: "audio", index: 2 },
+        { type: "audio", index: 4 },
+      ]);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        true,
+        false,
+        true,
+        false,
+      ]);
+    });
+
     it("switches off every other enabled audio track and the same ones back on", async () => {
       const f = withAudio();
       f.project.timeline.tracks.audio[3]!.enabled = false;

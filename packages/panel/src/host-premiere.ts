@@ -494,9 +494,10 @@ export function createPremiereHost(
    */
   async function withOnlyAudioTrack<T>(
     sequence: Sequence,
-    index: number,
+    index: number | number[],
     fn: () => Promise<T>,
   ): Promise<{ result: T; isolated: boolean }> {
+    const keep = new Set(Array.isArray(index) ? index : [index]);
     const hidden: Mutable[] = [];
     let isolated = true;
     /** Unmutes every track muted here; the first failure, after trying them all. */
@@ -513,7 +514,7 @@ export function createPremiereHost(
     let result: T;
     try {
       for (let i = 0; i < (await sequence.getAudioTrackCount()); i++) {
-        if (i === index) continue;
+        if (keep.has(i)) continue;
         let track: Mutable | undefined;
         try {
           track = (await sequence.getAudioTrack(i)) as unknown as Mutable;

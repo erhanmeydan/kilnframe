@@ -463,12 +463,13 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
     },
 
     soloAudioTrack(id, track) {
+      const keep = new Set(Array.isArray(track) ? track : [track]);
       return onSequence(id, async (s) => {
         const hidden: HiddenTrack[] = [];
         const off: number[] = [];
         try {
           for (const [i, t] of s.audio.entries()) {
-            if (i === track || !t.enabled) continue;
+            if (keep.has(i) || !t.enabled) continue;
             await fc.exec("timeline.setTrack", { track: t.id, enabled: false });
             off.push(t.id);
             hidden.push({ type: "audio", index: i + 1 });

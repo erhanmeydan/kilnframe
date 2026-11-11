@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   barSegments,
   cutName,
+  unheardNote,
   newPauses,
   pausesAct,
   previewTotals,
@@ -58,6 +59,7 @@ function fakeCtx(
 ) {
   const sent: Msg[] = [];
   const exports: unknown[][] = [];
+  const soloed: (number | number[])[] = [];
   const cutCalls: unknown[][] = [];
   const store: Record<string, string> = {};
   let renders = 0;
@@ -94,10 +96,10 @@ function fakeCtx(
     send: (m: Msg) => sent.push(m),
     on: (fn: typeof listener) => ((listener = fn), () => undefined),
     speechTracksAt: async () => o.tracks ?? [0],
-    withOnlyAudioTrack: async (_s: unknown, _t: number, fn: () => Promise<unknown>) => ({
-      result: await fn(),
-      isolated: true,
-    }),
+    withOnlyAudioTrack: async (_s: unknown, t: number | number[], fn: () => Promise<unknown>) => {
+      soloed.push(t);
+      return { result: await fn(), isolated: true };
+    },
     exportAudio: async (...args: unknown[]) => {
       exports.push(args.slice(1));
       if (o.exportGate) await o.exportGate;
@@ -116,6 +118,7 @@ function fakeCtx(
       return { id: "seq-2", name: String(args[2]), leftOut: 0, rebuilt: false, ...o.cutReply };
     };
   return {
+    soloed,
     ctx: ctx as never,
     sent,
     exports,
@@ -138,7 +141,8 @@ function atPreview(extra: Partial<PausesState> = {}): PausesState {
     tracksSeen: { video: 1, audio: 2 },
     scope: "range",
     rangeStartS: 100,
-    track: 0,
+    tracks: [0],
+    listened: [0],
     speech: [
       [0, 1],
       [3, 10],
@@ -173,24 +177,38 @@ describe("remove pauses panel", () => {
     expect(html).toContain('data-act="pauses-find"');
   });
 
+  it("says when a track with sound was not listened to, and nothing when all were", () => {
+    const st = { ...newPauses(), tracks: [0, 1], listened: [0] };
+    expect(unheardNote(st)).toContain("Only Audio 1 was listened to. Audio 2 has sound too");
+    expect(unheardNote({ ...st, listened: [0, 1] })).toBe("");
+    expect(unheardNote({ ...st, tracks: [0] })).toBe("");
+  });
+
   it("says so in an editor that cannot cut yet, and offers no Find", () => {
     const html = pausesBox(newPauses(), fakeCtx({ cut: false }).ctx);
     expect(html).toContain("not available in this editor yet");
     expect(html).not.toMatch(/class="btn mt" data-act="pauses-find"/);
   });
 
-  it("asks for the track when several have sound, and goes straight on with one", async () => {
+  it("marks every track with sound, listens to the marked ones together, and goes straight on with one", async () => {
     const many = fakeCtx({ tracks: [0, 2] });
     const st = newPauses();
     pausesAct(st, many.ctx, "pauses-find");
     await tick();
     expect(st.stage).toBe("track");
-    expect(pausesBox(st, many.ctx)).toContain("Which one holds your voice?");
+    expect(st.picked).toEqual([0, 2]);
+    expect(pausesBox(st, many.ctx)).toContain("Mark the ones with speech");
     expect(jobs(many.sent)).toHaveLength(0);
+    // unmarking one, then listening: only the marked track is heard
     pausesAct(st, many.ctx, "pauses-track", "2");
+    expect(st.picked).toEqual([0]);
+    pausesAct(st, many.ctx, "pauses-track", "2");
+    expect(st.picked).toEqual([0, 2]);
+    pausesAct(st, many.ctx, "pauses-listen");
     await tick();
     expect(st.stage).toBe("listening");
-    expect(st.track).toBe(2);
+    expect(st.listened).toEqual([0, 2]);
+    expect(many.soloed.at(-1)).toEqual([0, 2]);
 
     const one = fakeCtx({ range: false });
     const st1 = newPauses();

@@ -282,6 +282,18 @@ describe("filmcraft bridge", () => {
       expect(await b.speechTracks(seq.id, 2, 9)).toEqual([0, 1]);
     });
 
+    it("keeps several audio tracks on when asked", async () => {
+      const f = withAudio();
+      const b = bridgeOf(f);
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, [0, 2]);
+      expect(hidden).toEqual([
+        { type: "audio", index: 2 },
+        { type: "audio", index: 4 },
+      ]);
+      expect(f.sequence.audio.map((t) => t.enabled)).toEqual([true, false, true, false]);
+    });
+
     it("switches off every other enabled audio track and the same ones back on", async () => {
       const f = withAudio();
       f.sequence.audio[3]!.enabled = false;

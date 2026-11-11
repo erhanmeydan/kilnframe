@@ -93,14 +93,15 @@ export function createResolveBridge(
   }
 
   /** Switches off every enabled audio track but the 1-based `keep`; off the Deliver page. All or none. */
-  function soloOn(id: string, keep: number): Promise<HiddenTrack[]> {
+  /** Every audio track but the 1-based ones in `keep` off. */
+  function soloOn(id: string, keep: Set<number>): Promise<HiddenTrack[]> {
     return onTimeline(id, async (tl) => {
       await leaveDeliver();
       const hidden: HiddenTrack[] = [];
       try {
         const count = (await tl.GetTrackCount("audio")) as number;
         for (let i = 1; i <= count; i++) {
-          if (i === keep || !(await tl.GetIsTrackEnabled("audio", i))) continue;
+          if (keep.has(i) || !(await tl.GetIsTrackEnabled("audio", i))) continue;
           // a refused switch would leave that track in the export: the switch fails as a whole
           if (!(await tl.SetTrackEnable("audio", i, false))) throw new Error(PLACE_FAILED);
           hidden.push({ type: "audio", index: i });
@@ -597,7 +598,10 @@ export function createResolveBridge(
     },
     async soloAudioTrack(id, track) {
       try {
-        return await soloOn(id, track + 1);
+        return await soloOn(
+          id,
+          new Set((Array.isArray(track) ? track : [track]).map((t) => t + 1)),
+        );
       } catch (err) {
         // no showTracks follows a failed switch: the page it left comes back now
         await restorePage();
