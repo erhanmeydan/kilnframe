@@ -68,7 +68,7 @@ import {
 } from "./steps";
 import { formatMismatch } from "./format-check";
 import { ConnectionLost, JobStopped, readableJobError, readableJobText } from "./job-errors";
-import { olderVersion } from "./versions";
+import { versionGap } from "./versions";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
@@ -632,8 +632,17 @@ function updateBox(): string {
   // the app was updated but the editor still runs the old panel: said on the home screen, not only in the
   // settings (1 Nov 2026: Premiere kept loading 0.4.1 next to an installed 0.4.2 until it was reinstalled)
   const app = state.appVersion;
-  if (app && olderVersion(panelVersion(), app))
+  const gap = versionGap(panelVersion(), app);
+  if (gap === "panel")
     return `<div class="box warn">${t("home.panelOlder", { panel: esc(panelVersion()), app: esc(app) })} ${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`;
+  // a new panel on an old app (same protocol): the app silently drops the fields it does not know yet.
+  // When the app offers its own update, the update box below has the button.
+  if (gap === "app" && (u?.store || !offered)) {
+    const line = t("home.appOlder", { panel: esc(panelVersion()), app: esc(app) });
+    return u?.store
+      ? `<div class="box warn"><div>${line}</div><div class="btn2 mt" data-act="app-update">${t("mismatch.openStore")}</div></div>`
+      : `<div class="box warn"><div>${line}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
+  }
   if (!u || !offered) return "";
   const v = esc(u.version ?? "");
   // the site's changelog, in the editor's language: GitHub's release page made people download by hand
@@ -779,7 +788,7 @@ function styleTile(s: StyleCard, width: number): string {
   const sel = s.name === state.style;
   const { thumb } = styleStills(s);
   const size = `style="width:${width}px;height:${h169(width)}px"`;
-  return `<div class="tile${sel ? " sel" : ""}" style="width:${width}px" data-act="style" data-val="${s.name}">${
+  return `<div class="tile${sel ? " sel" : ""}" style="width:${width}px" data-act="style" data-val="${esc(s.name)}">${
     thumb
       ? imgSlot(`thumb:${lang()}:${s.name}`, thumb, width, h169(width), "", "tile-img")
       : `<div class="tile-img" ${size}></div>`
@@ -1218,7 +1227,7 @@ function storyBox(): string {
   if (st.stage === "writing" || st.stage === "voicing")
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
-    return `<div class="box ok mt">${t("story.done", { name: st.done.name, duration: formatDuration(st.done.durationS) })}</div>
+    return `<div class="box ok mt">${t("story.done", { name: esc(st.done.name), duration: formatDuration(st.done.durationS) })}</div>
   ${st.done.musicNote ? `<div class="box mt">${esc(st.done.musicNote)}</div>` : ""}
   <div class="btn2 mt" data-act="story-new">${t("story.restart")}</div>`;
   if (st.stage === "script") {
@@ -1296,7 +1305,9 @@ function storyBox(): string {
       ? `<div class="note muted">${
           state.styles.find((s) => s.name === state.style)
             ? t("story.musicStyle", {
-                style: localized(state.styles.find((s) => s.name === state.style)!.displayName),
+                style: esc(
+                  localized(state.styles.find((s) => s.name === state.style)!.displayName),
+                ),
                 maker: musicMaker(),
               })
             : t("story.musicTone", { maker: musicMaker() })
@@ -1401,7 +1412,9 @@ const CLONE_MIN_S = 30;
 /** Clone a voice from the In/Out range: the range, a name, noise removal and the editor's consent. */
 function cloneBox(): string {
   const c = state.story.clone;
-  const done = c.done ? `<div class="box ok mt">${t("clone.done", { name: c.done })}</div>` : "";
+  const done = c.done
+    ? `<div class="box ok mt">${t("clone.done", { name: esc(c.done) })}</div>`
+    : "";
   if (!c.open)
     return `${done}<div class="link more" data-act="clone-open">+ ${t("clone.open")}</div>`;
   if (c.running) return `<div class="box mt">${t("clone.running")}</div>`;
@@ -1587,9 +1600,10 @@ async function makeStorySequence() {
       {
         kind: "story-voice",
         title: (st.title || "Story").slice(0, 200),
-        text: st.script.trim(),
+        // the app's limits: an overflow would come back as a raw "Invalid message"
+        text: st.script.trim().slice(0, 20000),
         voice: st.voice,
-        style: st.voiceStyle || undefined,
+        style: st.voiceStyle.slice(0, 300) || undefined,
         outDir: String(prepared.jobDir),
         speechProvider: st.speechProvider,
         language: st.language,
@@ -2595,9 +2609,12 @@ function versionLine(): string {
   const differ = Boolean(app && app !== panel);
   const notes = changelogUrl();
   return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackPage({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
-    differ
-      ? `<div class="small warn-text">${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`
-      : ""
+    // reinstalling the panel helps only when the panel is the older side
+    versionGap(panel, app) === "app"
+      ? `<div class="small warn-text">${t("home.appOlder", { panel: esc(panel), app: esc(app) })}</div>`
+      : differ
+        ? `<div class="small warn-text">${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`
+        : ""
   }`;
 }
 
@@ -2624,11 +2641,11 @@ function reviewScreen(): string {
             st.image,
             width,
             height,
-            `data-act="zoom" data-val="${st.sceneId}"`,
+            `data-act="zoom" data-val="${esc(st.sceneId)}"`,
             "still-img",
           )
         : `<div class="still-empty" style="width:${width}px;height:${height}px"></div>`
-    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${st.sceneId}">${label} ${redo ? t("review.redoMark") : "✓"}</div>${
+    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${esc(st.sceneId)}">${label} ${redo ? t("review.redoMark") : "✓"}</div>${
       st.edgeCut ? `<div class="small warn-text">${t("review.edgeCut")}</div>` : ""
     }</div>`;
   };
@@ -2679,7 +2696,7 @@ function lightboxScreen(): string {
     lb.kind === "still" && state.review ? Math.round(width / state.review.aspect) : h169(width);
   const many = lb.images.length > 1;
   const redoing = lb.kind === "still" && state.review?.redo === item.sceneId;
-  return `${header(item.caption, many ? `<span class="tag2">${lb.index + 1} / ${lb.images.length}</span>` : "")}
+  return `${header(esc(item.caption), many ? `<span class="tag2">${lb.index + 1} / ${lb.images.length}</span>` : "")}
   ${imgSlot(`big:${lb.kind}:${item.caption}:${lb.index}`, item.src, width, height, "", "big-img")}
   ${
     many
@@ -2688,7 +2705,7 @@ function lightboxScreen(): string {
   }
   ${
     lb.kind === "still" && item.sceneId
-      ? `<div class="btn2 mt" data-act="lb-redo" data-val="${item.sceneId}">${
+      ? `<div class="btn2 mt" data-act="lb-redo" data-val="${esc(item.sceneId)}">${
           redoing ? t("lightbox.unmark") : redoLabel(item.sceneId)
         }</div>`
       : ""
