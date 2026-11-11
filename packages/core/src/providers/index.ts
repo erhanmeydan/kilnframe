@@ -4,12 +4,14 @@ import { fileURLToPath } from "node:url";
 import type { Defaults } from "../config.js";
 import { AnthropicProvider, type Effort } from "./anthropic.js";
 import { ClaudeCodeProvider, claudeCodeStatus } from "./claude-code.js";
+import { AntigravityProvider } from "./antigravity.js";
 import { CodexProvider } from "./codex.js";
 import { OpenAICompatibleProvider } from "./openai-compatible.js";
 import { ProviderError, type TextProvider } from "./types.js";
 
 export * from "./anthropic.js";
 export * from "./claude-code.js";
+export * from "./antigravity.js";
 export * from "./codex.js";
 export * from "./openai-compatible.js";
 export * from "./types.js";
@@ -168,6 +170,8 @@ export function createTextProvider(defaults: Defaults, o: ProviderOverrides = {}
   // the user's ChatGPT plan through Codex; no model named means the one set in Codex itself
   if (kind === "codex")
     return new CodexProvider({ model: o.model ?? "", effort: o.effort ?? defaults.text.effort });
+  // the user's Google account or Gemini plan through Antigravity CLI; the effort is part of the model id
+  if (kind === "antigravity") return new AntigravityProvider({ model: o.model ?? "" });
   const preset = kind === "anthropic" ? undefined : providerPreset(kind);
   const baseURL =
     kind === "openai-compatible" || kind === "custom"
