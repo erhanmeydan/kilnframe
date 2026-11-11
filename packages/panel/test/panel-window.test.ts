@@ -184,3 +184,22 @@ describe("openPanelWindow", () => {
     expect(info().editor).toBe("filmcraft");
   });
 });
+
+describe("window size", () => {
+  it("opens wide enough for every tab, and widens a size saved before once", () => {
+    expect(panel.windowStateFrom({}).width).toBe(440);
+    // saved by an older panel: widened
+    expect(panel.windowStateFrom({ width: 380, height: 700, onTop: false })).toMatchObject({
+      width: 440,
+      height: 700,
+      onTop: false,
+    });
+    // saved since: the editor's own width stays, but never below the minimum
+    expect(
+      panel.windowStateFrom({ width: 400, height: 700, onTop: true, sized: 2 } as never).width,
+    ).toBe(400);
+    expect(
+      panel.windowStateFrom({ width: 300, height: 700, onTop: true, sized: 2 } as never).width,
+    ).toBe(360);
+  });
+});
