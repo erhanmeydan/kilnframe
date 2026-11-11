@@ -141,7 +141,7 @@ export interface CheckReport {
   warnings: CheckFinding[];
   raw: Record<string, unknown>;
   /**
-   * The check itself could not run (Chrome did not start or crashed, the linter crashed): a problem of the
+   * The check itself could not run (Chrome did not start, the linter crashed): a problem of the
    * machine, not of any scene, so no model is asked to repair it.
    */
   environmentError: string | null;
@@ -149,8 +149,13 @@ export interface CheckReport {
 
 const SECTIONS = ["lint", "runtime", "layout", "motion", "contrast"] as const;
 
-/** Codes HyperFrames gives a check that failed as a whole, reported against index.html. */
-const CHECK_FAILURE_CODES = ["check_runtime_failure", "check_lint_failure"];
+/**
+ * HyperFrames' words for a Chrome that could not start (puppeteer's launch error, its own system Chrome
+ * fallback, a missing or unrunnable binary). Any other check_runtime_failure is an exception the page threw
+ * (a goto timeout, a seek that throws, a crashed tab), which a scene can cause.
+ */
+const BROWSER_LAUNCH_FAILURE =
+  /Failed to launch|System Chrome fallback|Could not find (Chrome|Chromium|browser)|Browser was not found|\bspawn\b|ENOENT|EACCES/i;
 
 /** Parses `hyperframes check --json` output into errors and warnings across all sections. */
 export function parseCheckJson(json: string): CheckReport {
@@ -170,7 +175,14 @@ function checkReport(raw: Record<string, unknown>): CheckReport {
       else if (f.severity === "warning") warnings.push({ ...f, section: name });
     }
   }
-  const failed = errors.find((e) => e.code && CHECK_FAILURE_CODES.includes(e.code));
+  // the linter crashing is never a scene's doing; a runtime failure is the machine's only when Chrome
+  // did not start
+  const failed = errors.find(
+    (e) =>
+      e.code === "check_lint_failure" ||
+      (e.code === "check_runtime_failure" && BROWSER_LAUNCH_FAILURE.test(e.message)),
+  );
+  const pageFailed = errors.some((e) => e.code === "check_runtime_failure");
   const lintErrors = errors.some((e) => e.section === "lint");
   if (raw.browserSkipped === true) {
     errors.push({
@@ -179,10 +191,11 @@ function checkReport(raw: Record<string, unknown>): CheckReport {
       message: "The browser checks did not run (layout, motion, contrast).",
     });
   }
-  // the browser is skipped on purpose when lint finds errors; without them, it failed to start
+  // the browser is skipped on purpose when lint finds errors, and after a page that threw (its finding goes
+  // to the scenes); with neither, it failed to start
   const environmentError = failed
     ? failed.message
-    : raw.browserSkipped === true && !lintErrors
+    : raw.browserSkipped === true && !lintErrors && !pageFailed
       ? "The browser for the checks did not start."
       : null;
   return { ok: raw.ok === true && errors.length === 0, errors, warnings, raw, environmentError };

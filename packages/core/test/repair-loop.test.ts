@@ -166,6 +166,25 @@ describe("recomposeScene", () => {
     expect(readFileSync(compositionFile(), "utf8")).toBe(original);
   });
 
+  it("repairs the scene that alone reproduces a runtime failure the page threw", async () => {
+    const pageThrew: CheckFinding = {
+      code: "check_runtime_failure",
+      severity: "error",
+      section: "runtime",
+      message: "Navigation timeout of 30000 ms exceeded",
+      sourceFile: "index.html",
+    };
+    hf.checks = [
+      { errors: [pageThrew], environmentError: null }, // the whole project
+      { errors: [pageThrew], environmentError: null }, // s1 alone
+      { ok: true, errors: [], environmentError: null },
+    ];
+    const provider = fakeProvider([scene("new")]);
+    const r = await recomposeScene({ outDir: dir, sceneId: "s1", note: "", provider, defaults });
+    expect(r.repairRounds).toBe(1);
+    expect(provider.calls).toBe(2); // the compose and one repair
+  });
+
   it("gives a pixel finding first seen in the last round one repair of its own", async () => {
     hf.checks = [
       { errors: [sceneError], environmentError: null },

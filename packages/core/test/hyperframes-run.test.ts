@@ -54,6 +54,49 @@ describe("parseCheckJson", () => {
     expect(r.environmentError).toContain("Failed to launch");
   });
 
+  it("leaves a runtime failure the page threw to the scenes: the scene may cause it", () => {
+    for (const message of [
+      "Navigation timeout of 30000 ms exceeded",
+      "Protocol error (Runtime.callFunctionOn): Target crashed",
+      "Cannot read properties of undefined (reading 'seek')",
+    ]) {
+      const r = parseCheckJson(
+        JSON.stringify({
+          ok: false,
+          browserSkipped: true,
+          lint: { ok: true, errorCount: 0, findings: [] },
+          runtime: {
+            ok: false,
+            errorCount: 1,
+            findings: [{ ...atRoot("check_runtime_failure"), message }],
+          },
+        }),
+      );
+      expect(r.environmentError).toBeNull();
+      expect(r.ok).toBe(false);
+    }
+  });
+
+  it("reads Chrome that could not start, by HyperFrames' own words, as the machine", () => {
+    for (const message of [
+      "System Chrome fallback also failed: no such file",
+      "spawn /Applications/Chrome ENOENT",
+    ]) {
+      const r = parseCheckJson(
+        JSON.stringify({
+          ok: false,
+          browserSkipped: true,
+          runtime: {
+            ok: false,
+            errorCount: 1,
+            findings: [{ ...atRoot("check_runtime_failure"), message }],
+          },
+        }),
+      );
+      expect(r.environmentError).toBe(message);
+    }
+  });
+
   it("reads a skipped browser without lint errors as a browser that did not start", () => {
     const r = parseCheckJson(
       JSON.stringify({ ok: false, browserSkipped: true, lint: { ok: true, errorCount: 0 } }),

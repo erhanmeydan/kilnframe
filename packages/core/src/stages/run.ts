@@ -112,7 +112,7 @@ export async function isolateRuntimeErrors(
 }
 
 /**
- * The check, run again once when it could not run at all (Chrome failed to start or crashed). A second
+ * The check, run again once when it could not run at all (Chrome failed to start). A second
  * failure ends the job with a readable message: it is the machine, and no scene repair would fix it.
  */
 export async function checkOrEnvironmentError(
