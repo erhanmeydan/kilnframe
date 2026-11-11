@@ -16,6 +16,14 @@ interface Rec {
   inF: number;
   speed: number;
   reversed?: boolean;
+  /** A transition, not a clip: listed for TrackItemType.TRANSITION only. */
+  transition?: boolean;
+}
+
+/** A sequence marker at a frame. */
+interface MarkerRec {
+  name: string;
+  f: number;
 }
 
 /**
@@ -25,18 +33,35 @@ interface Rec {
  * overwrites, and every clip is edited on its own. Set in point is assumed to slip the content (start and end
  * stay): the one behaviour still to be confirmed live.
  */
-function fakePremiere(tracks: { video: Rec[][]; audio: Rec[][] }) {
+function fakePremiere(
+  tracks: { video: Rec[][]; audio: Rec[][] },
+  marks: { markers?: MarkerRec[]; inF?: number | null; outF?: number | null } = {},
+) {
   const tick = (ticks: number) => ({ ticks: String(Math.round(ticks)), seconds: ticks / TPS });
   const ticksOf = (t: { ticks: string }) => Number(t.ticks);
   /** Optional sabotage: what set in point does instead (to test the failure paths). */
-  const quirks = { setInPoint: "slip" as "slip" | "trim" | "throw" };
+  const quirks = {
+    setInPoint: "slip" as "slip" | "trim" | "throw",
+    /** Removing a transition is refused (a selection takes clips only). */
+    keepTransitions: false,
+    /** getSequences does not list the copy the first time after the clone. */
+    copyLate: false,
+  };
+  /** Each removal: its media type and the names it was given. */
+  const removals: { mediaType: number; names: string[] }[] = [];
   const log: string[] = [];
   const wrappers = new WeakMap<Rec, object>();
   type Seq = ReturnType<typeof makeSeq>;
   const seqs: Seq[] = [];
   let active: Seq;
 
-  function makeSeq(guid: string, name: string, video: Rec[][], audio: Rec[][]) {
+  function makeSeq(
+    guid: string,
+    name: string,
+    video: Rec[][],
+    audio: Rec[][],
+    m: { markers: MarkerRec[]; inF: number | null; outF: number | null },
+  ) {
     const wrap = (track: Rec[], r: Rec) => {
       if (!wrappers.has(r))
         wrappers.set(r, {
@@ -70,18 +95,41 @@ function fakePremiere(tracks: { video: Rec[][]; audio: Rec[][] }) {
       return wrappers.get(r);
     };
     const trackApi = (track: Rec[]) => ({
-      getTrackItems: () => [...track].sort((a, b) => a.start - b.start).map((r) => wrap(track, r)),
+      getTrackItems: (type: number) =>
+        [...track]
+          .filter((r) => Boolean(r.transition) === (type === 2))
+          .sort((a, b) => a.start - b.start)
+          .map((r) => wrap(track, r)),
     });
+    // unset In and Out read far before the start, as in Premiere
+    const point = (f: number | null) => tick(f === null ? -400000 * TPS : f * TPF);
     const seq = {
       guid: { toString: () => guid },
       name,
       video,
       audio,
+      marks: m,
+      getInPoint: async () => point(m.inF),
+      getOutPoint: async () => point(m.outF),
+      createSetInPointAction: (t: { ticks: string }) => () => {
+        m.inF = ticksOf(t) / TPF;
+      },
+      createSetOutPointAction: (t: { ticks: string }) => () => {
+        m.outF = ticksOf(t) / TPF;
+      },
       getSettings: async () => ({
         getVideoFrameRate: async () => ({ ticksPerFrame: TPF, value: FPS }),
       }),
       getEndTime: async () =>
-        tick(Math.max(0, ...[...video, ...audio].flat().map((r) => r.end)) * TPF),
+        tick(
+          Math.max(
+            0,
+            ...[...video, ...audio]
+              .flat()
+              .filter((r) => !r.transition)
+              .map((r) => r.end),
+          ) * TPF,
+        ),
       getVideoTrackCount: async () => video.length,
       getAudioTrackCount: async () => audio.length,
       getVideoTrack: async (i: number) => trackApi(video[i]),
@@ -93,19 +141,36 @@ function fakePremiere(tracks: { video: Rec[][]; audio: Rec[][] }) {
       }),
       createCloneAction: () => () => {
         const copy = (t: Rec[][]) => t.map((tr) => tr.map((r) => ({ ...r })));
-        seqs.push(makeSeq(`guid-${seqs.length + 1}`, `${seq.name} Copy`, copy(video), copy(audio)));
+        seqs.push(
+          makeSeq(`guid-${seqs.length + 1}`, `${seq.name} Copy`, copy(video), copy(audio), {
+            markers: m.markers.map((x) => ({ ...x })),
+            inF: m.inF,
+            outF: m.outF,
+          }),
+        );
       },
     };
     return seq;
   }
 
-  active = makeSeq("guid-1", "Main", tracks.video, tracks.audio);
+  active = makeSeq("guid-1", "Main", tracks.video, tracks.audio, {
+    markers: marks.markers ?? [],
+    inF: marks.inF ?? null,
+    outF: marks.outF ?? null,
+  });
   seqs.push(active);
-  const original = JSON.stringify(tracks);
+  const original = JSON.stringify({ tracks, marks });
+  let late = false;
 
   const project = {
     getActiveSequence: async () => active,
-    getSequences: async () => [...seqs],
+    getSequences: async () => {
+      if (quirks.copyLate && seqs.length > 1 && !late) {
+        late = true;
+        return seqs.slice(0, 1);
+      }
+      return [...seqs];
+    },
     lockedAccess: (fn: () => void) => fn(),
     executeTransaction: (fn: (c: { addAction(a: () => void): boolean }) => void, label: string) => {
       log.push(label);
@@ -132,7 +197,25 @@ function fakePremiere(tracks: { video: Rec[][]; audio: Rec[][] }) {
       createWithTicks: (s: string) => tick(Number(s)),
       createWithSeconds: (s: number) => tick(s * TPS),
     },
-    Constants: { TrackItemType: { CLIP: 1 }, MediaType: { ANY: 0 } },
+    Constants: {
+      TrackItemType: { CLIP: 1, TRANSITION: 2 },
+      MediaType: { ANY: 0, VIDEO: 1, AUDIO: 2 },
+    },
+    Markers: {
+      getMarkers: async (s: Seq) => {
+        type W = { rec: MarkerRec; getStart: () => unknown };
+        return {
+          getMarkers: () =>
+            s.marks.markers.map((rec) => ({ rec, getStart: () => tick(rec.f * TPF) })),
+          createMoveMarkerAction: (w: W, t: { ticks: string }) => () => {
+            w.rec.f = ticksOf(t) / TPF;
+          },
+          createRemoveMarkerAction: (w: W) => () => {
+            s.marks.markers.splice(s.marks.markers.indexOf(w.rec), 1);
+          },
+        };
+      },
+    },
     TrackItemSelection: {
       createEmptySelection: (cb: (s: unknown) => void) => {
         const items: Item[] = [];
@@ -142,9 +225,13 @@ function fakePremiere(tracks: { video: Rec[][]; audio: Rec[][] }) {
     },
     SequenceEditor: {
       getEditor: () => ({
-        createRemoveItemsAction: (sel: { items: Item[] }) => () => {
-          for (const it of sel.items) it.track.splice(it.track.indexOf(it.rec), 1);
-        },
+        createRemoveItemsAction:
+          (sel: { items: Item[] }, _ripple: boolean, mediaType: number) => () => {
+            if (quirks.keepTransitions && sel.items.some((it) => it.rec.transition))
+              throw new Error("not a clip");
+            removals.push({ mediaType, names: sel.items.map((it) => it.rec.name) });
+            for (const it of sel.items) it.track.splice(it.track.indexOf(it.rec), 1);
+          },
         createCloneTrackItemAction:
           (
             it: Item,
@@ -196,7 +283,8 @@ function fakePremiere(tracks: { video: Rec[][]; audio: Rec[][] }) {
     project,
     quirks,
     log,
-    originalUntouched: () => JSON.stringify(tracks) === original,
+    removals,
+    originalUntouched: () => JSON.stringify({ tracks, marks }) === original,
     active: () => active,
   };
 }
@@ -314,6 +402,87 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
     // clone, rename, trim to the seed, clone the seed, set its in point and end, move left
     expect(f.log).toHaveLength(6);
+  });
+
+  it("moves the copy's markers and In/Out with their content; a marker inside a cut goes", async () => {
+    const f = fakePremiere(
+      { video: [[clip("v", 0, 250)]], audio: [[clip("a", 0, 250)]] },
+      {
+        markers: [
+          { name: "before", f: 10 },
+          { name: "inside", f: 60 },
+          { name: "after", f: 200 },
+        ],
+        inF: 100,
+        outF: 70,
+      },
+    );
+    await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
+    const copy = f.seqs[1]!;
+    expect(copy.marks.markers).toEqual([
+      { name: "before", f: 10 },
+      { name: "after", f: 175 },
+    ]);
+    // In after the cut moves left; an Out inside it goes to its edge
+    expect(copy.marks.inF).toBe(75);
+    expect(copy.marks.outF).toBe(50);
+    expect(f.originalUntouched()).toBe(true);
+  });
+
+  it("leaves an unset In and Out unset", async () => {
+    const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
+    await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
+    expect(f.seqs[1]!.marks).toEqual({ markers: [], inF: null, outF: null });
+  });
+
+  it("takes transitions at the cuts off the copy and keeps the others", async () => {
+    const tr = (name: string, start: number, end: number): Rec => ({
+      ...clip(name, start, end),
+      transition: true,
+    });
+    const f = fakePremiere({
+      video: [[clip("v1", 0, 100), clip("v2", 100, 250), tr("at-cut", 45, 55), tr("far", 95, 105)]],
+      audio: [[clip("a", 0, 250)]],
+    });
+    await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
+    const left = f.seqs[1]!.video[0]!.filter((r) => r.transition).map((r) => r.name);
+    expect(left).toEqual(["far"]);
+    expect(f.removals[0]).toEqual({ mediaType: 0, names: ["at-cut"] });
+  });
+
+  it("refuses with the editor's words when Premiere keeps the transitions, and deletes the copy", async () => {
+    const f = fakePremiere({
+      video: [[clip("v", 0, 250), { ...clip("t", 45, 55), transition: true }]],
+      audio: [[]],
+    });
+    f.quirks.keepTransitions = true;
+    await expect(f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X")).rejects.toThrow(
+      "Remove those transitions and try again",
+    );
+    expect(f.seqs).toHaveLength(1);
+    expect(f.originalUntouched()).toBe(true);
+  });
+
+  it("removes video and audio clips in separate selections of their own media type", async () => {
+    const f = fakePremiere({
+      video: [[clip("v1", 0, 50), clip("vgone", 50, 75), clip("v3", 75, 150)]],
+      audio: [[clip("a1", 0, 50), clip("agone", 50, 75), clip("a3", 75, 150)]],
+    });
+    await f.host.cutToNewSequence!(f.seq, [{ startS: s(50), endS: s(75) }], "X");
+    expect(f.removals).toEqual([
+      { mediaType: 1, names: ["vgone"] },
+      { mediaType: 2, names: ["agone"] },
+    ]);
+  });
+
+  it("deletes a copy found only on a second look, before saying it was not found", async () => {
+    const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
+    f.quirks.copyLate = true;
+    const err = await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X").catch(
+      (e: Error) => e,
+    );
+    expect(String((err as Error).cause)).toMatch(/not found/);
+    expect(f.seqs).toHaveLength(1);
   });
 
   it("changes nothing but the copy's name when there are no pauses", async () => {
