@@ -119,6 +119,19 @@ export interface PausesCtx {
   cutToNewSequence?: Host["cutToNewSequence"];
 }
 
+/**
+ * The new sequence's name: one "(No Pauses)" however often pauses are removed again, so a second pass on
+ * "Talk (No Pauses)" makes "Talk (No Pauses) 2", not "Talk (No Pauses) (No Pauses)".
+ */
+export function cutName(seqName: string, suffix: string): string {
+  const tail = ` (${suffix})`;
+  const m = new RegExp(`^(.*)${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: (\\d+))?$`).exec(
+    seqName,
+  );
+  if (!m) return `${seqName}${tail}`;
+  return `${m[1]}${tail} ${Number(m[2] ?? 1) + 1}`;
+}
+
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 let runs = 0;
 const strictKey = (seqId: string) => `pauses-strict:${seqId}`;
@@ -593,7 +606,7 @@ async function apply(st: PausesState, ctx: PausesCtx): Promise<void> {
       startS: c.startS + st.rangeStartS,
       endS: c.endS + st.rangeStartS,
     }));
-    const name = `${st.seqName} (${t("pauses.suffix")})`;
+    const name = cutName(st.seqName, t("pauses.suffix"));
     const result = await cut(target, cuts, name, (done, total) => {
       st.progress = { done, total };
       ctx.render();

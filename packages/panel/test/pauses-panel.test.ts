@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   barSegments,
+  cutName,
   newPauses,
   pausesAct,
   previewTotals,
@@ -480,5 +481,14 @@ describe("remove pauses panel", () => {
     expect(keys(en).length).toBeGreaterThan(20);
     expect(keys(tr)).toEqual(keys(en));
     for (const k of keys(tr)) expect(tr[k]).not.toMatch(/[—–]/);
+  });
+});
+
+describe("the cut sequence's name", () => {
+  it("keeps one suffix and counts later passes", () => {
+    expect(cutName("Talk", "No Pauses")).toBe("Talk (No Pauses)");
+    expect(cutName("Talk (No Pauses)", "No Pauses")).toBe("Talk (No Pauses) 2");
+    expect(cutName("Talk (No Pauses) 2", "No Pauses")).toBe("Talk (No Pauses) 3");
+    expect(cutName("V2 (Boşluksuz)", "Boşluksuz")).toBe("V2 (Boşluksuz) 2");
   });
 });
