@@ -65,25 +65,37 @@ export function splitIntoParts(transcript: Transcript, o: PartOptions = {}): Par
         best = i;
       }
     }
+    const limit = start + maxS;
     if (best < 0) {
       // no gap in the window (one very long word run): cut at the limit
-      const limit = start + maxS;
       const idx = words.findIndex((w, k) => k >= first && w.end >= limit);
-      best = Math.max(first, (idx < 0 ? words.length - 1 : idx) - 1);
+      best = idx < 0 ? -1 : Math.max(first, idx - 1);
     }
-    const w = words[best] as Transcript["words"][number];
-    const next = words[best + 1] as Transcript["words"][number];
-    const cut = +((w.end + next.start) / 2).toFixed(3);
+    const w = words[best];
+    const next = words[best + 1];
+    let cut = w && next ? +((w.end + next.start) / 2).toFixed(3) : limit;
+    let last = best;
+    if (!w || !next || cut <= start || cut > limit) {
+      // no word boundary to cut at (the rest is silence, or one word runs past the limit): cut on time,
+      // the words that start before the cut going with this part
+      cut = +limit.toFixed(3);
+      last = first - 1;
+      while (
+        last + 1 < words.length &&
+        (words[last + 1] as Transcript["words"][number]).start < cut
+      )
+        last++;
+    }
     parts.push({
       startS: start,
       endS: cut,
       text: words
-        .slice(first, best + 1)
+        .slice(first, last + 1)
         .map((x) => x.text)
         .join(" "),
     });
     start = cut;
-    first = best + 1;
+    first = last + 1;
   }
   parts.push({
     startS: start,
