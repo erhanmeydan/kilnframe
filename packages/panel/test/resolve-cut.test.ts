@@ -79,6 +79,39 @@ describe("resolve cut to a new timeline", () => {
     ]);
   });
 
+  it.each([
+    // 30 fps phone footage: 271 timeline frames hold 325.2 source frames
+    ["30", 30 / 25],
+    // 50 fps B-roll played at normal speed
+    ["50", 2],
+  ])("carries a %s fps clip on a 25 fps timeline in its own frames", async (fps, ratio) => {
+    const f = makeFakeResolve();
+    const v1 = f.project.timeline.tracks.video[0]!.items[0]!;
+    Object.assign(v1, { fps, sourceIn: 1000, sourceOut: 1000 + Math.round(271 * ratio) });
+    const r = await bridge(f).cutToNewTimeline!("tl-1", [{ startS: 2, endS: 3 }], "Cut");
+    expect(r.leftOut).toBe(0);
+    const made = f.project.current;
+    const s = (n: number) => 1000 + Math.round(n * ratio);
+    // the same timeline frames as the audio, the source frames counted at the clip's rate
+    expect(rows(made.tracks.video[0]!.items)).toEqual([
+      [90000, 90050, s(0), s(50)],
+      [90050, 90246, s(75), s(271)],
+    ]);
+    expect(made.tracks.audio[0]!.items.map((i) => [i.start, i.end])).toEqual([
+      [90000, 90050],
+      [90050, 90246],
+    ]);
+  });
+
+  it("leaves out a 25 fps clip slowed to 50 %", async () => {
+    const f = makeFakeResolve();
+    // 271 timeline frames show only 135 frames of the file
+    Object.assign(f.project.timeline.tracks.video[0]!.items[0]!, { fps: "25", sourceOut: 135 });
+    const r = await bridge(f).cutToNewTimeline!("tl-1", [{ startS: 2, endS: 3 }], "Cut");
+    expect(r.leftOut).toBe(1);
+    expect(f.project.current.tracks.video[0]!.items).toEqual([]);
+  });
+
   it("appends in batches of 200 and reports how far it got", async () => {
     const seen: unknown[] = [];
     const opts: FakeOptions = {};

@@ -316,6 +316,12 @@ export function createResolveBridge(
       if (!(await tl.DeleteTrack("audio", n))) throw new Error(PLACE_FAILED);
   }
 
+  /** A media pool item's own frame rate ("29.97", "50"); the timeline's when it says none. */
+  async function clipRate(media: R, fallback: number): Promise<number> {
+    const fps = Number(parseRate(String((await media.GetClipProperty("FPS")) ?? "")).fps);
+    return Number.isFinite(fps) && fps > 0 ? fps : fallback;
+  }
+
   /** How far the running cut got, for cutProgress; null when none runs. */
   let cutting: { done: number; total: number } | null = null;
 
@@ -899,20 +905,23 @@ export function createResolveBridge(
               leftOut++;
               continue;
             }
-            // a retimed clip (or one of another frame rate) does not map frame for frame. Within one frame:
-            // whether the source end frame is inclusive is not documented
+            // source frames count at the clip's own rate (50 fps B-roll on a 25 fps timeline runs two per
+            // timeline frame); only a real speed change is left out. Within one frame: whether the source end
+            // frame is inclusive is not documented
+            const ratio = (await clipRate(media, rate.fps)) / rate.fps;
             const sourceIn = (await item.GetSourceStartFrame()) as number;
             const sourceLength = ((await item.GetSourceEndFrame()) as number) - sourceIn;
-            if (Math.abs(sourceLength - (to - from)) > 1) {
+            if (Math.abs(sourceLength / ratio - (to - from)) > 1) {
               leftOut++;
               continue;
             }
+            const sourceAt = (f: number) => sourceIn + Math.round((f - from) * ratio);
             for (const piece of kept)
               pieces.push({
                 media,
-                startFrame: sourceIn + (piece.fromF - from),
+                startFrame: sourceAt(piece.fromF),
                 // exclusive, as measured for AppendToTimeline
-                endFrame: sourceIn + (piece.toF - from),
+                endFrame: sourceAt(piece.toF),
                 mediaType: type === "audio" ? 2 : 1,
                 trackIndex: i,
                 at: piece.newStartF,
