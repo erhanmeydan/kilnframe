@@ -98,10 +98,17 @@ const ProviderChoice = {
   thinking: z.enum(["off", "on"]).optional(),
 };
 
+/** A speech provider of config/speech.json. */
+export const SpeechProviderId = z.enum(["gemini", "elevenlabs"]);
+
+/** A music provider of config/music.json: Lyria (a Gemini key) or ElevenLabs. */
+export const MusicProviderId = z.enum(["gemini", "elevenlabs"]);
+
 /** Story mode, step one: write the narration from a brief, or revise it with a note. */
 export const StoryWriteJobParamsSchema = z.object({
   kind: z.literal("story-write"),
-  brief: z.string().max(4000).default(""),
+  /** As long as a narration may be: editors paste whole articles to tell as a story. */
+  brief: z.string().max(20000).default(""),
   durationS: z.number().min(10).max(600),
   language: z.string().min(2).max(10),
   tone: z.string().max(300).optional(),
@@ -126,12 +133,16 @@ export const StoryVoiceJobParamsSchema = z.object({
   voice: z.string().min(1),
   style: z.string().max(300).optional(),
   outDir: z.string().min(1),
+  speechProvider: SpeechProviderId.optional(),
   speechModel: z.string().optional(),
-  /** A Lyria music bed under the narration, in the chosen style's mood when there is one. */
+  /** The narration's language, for providers that take it. */
+  language: z.string().max(10).optional(),
+  /** A music bed under the narration, in the chosen style's mood when there is one. */
   music: z
     .object({
       style: z.string().optional(),
       subject: z.string().max(400).optional(),
+      provider: MusicProviderId.optional(),
     })
     .optional(),
 });
@@ -178,8 +189,10 @@ export const MusicMakeJobParamsSchema = z.object({
   slider: z.number().min(-30).max(-12),
   only: z.array(z.string().min(1)).optional(),
   speechFile: z.string().min(1).optional(),
-  /** The editor's notes per section: each rewrites that section's Lyria text before it is made. */
+  /** The editor's notes per section: each rewrites that section's music text before it is made. */
   notes: z.record(z.string(), z.string().max(500)).optional(),
+  /** Who makes the music; the defaults' provider (Lyria) when left out. */
+  musicProvider: MusicProviderId.optional(),
   ...ProviderChoice,
 });
 
@@ -226,6 +239,45 @@ const CaptionColorsSchema = z.object({
   text: z.string().min(1),
   accent: z.string().min(1),
   box: z.string().min(1).optional(),
+});
+
+/**
+ * Voice Fix, step one: Whisper reads the exported window; the fixed range's words, the sentences around it and
+ * the stretches the voice clone can learn from (never the range itself) come back. Times count from the
+ * window file's start.
+ */
+export const VoiceFixReadJobParamsSchema = z
+  .object({
+    kind: z.literal("voice-fix-read"),
+    audioPath: z.string().min(1),
+    fixStartS: z.number().min(0),
+    fixEndS: z.number().positive(),
+    outDir: z.string().min(1),
+    /**
+     * The window around the fix inside `audioPath` (an export of the whole sequence, say): cut to
+     * `<outDir>/window.wav`, and only that is read. The result's times then count from the window's start.
+     */
+    windowStartS: z.number().min(0).optional(),
+    windowEndS: z.number().positive().optional(),
+  })
+  .refine(
+    (p) =>
+      (p.windowStartS === undefined) === (p.windowEndS === undefined) &&
+      (p.windowStartS === undefined || p.windowEndS! > p.windowStartS),
+    { message: "Give both window ends, the end after the start, or neither." },
+  );
+
+/** Voice Fix, step two: the edited text read in the editor's cloned voice, one numbered take at a time. */
+export const VoiceFixSayJobParamsSchema = z.object({
+  kind: z.literal("voice-fix-say"),
+  text: z.string().min(1).max(5000),
+  voice: z.string().min(1),
+  /** The sentences just before and after the fix, as delivery context only (never read aloud). */
+  before: z.string().max(2000).optional(),
+  after: z.string().max(2000).optional(),
+  language: z.string().max(10).optional(),
+  outDir: z.string().min(1),
+  take: z.number().int().min(1),
 });
 
 /** The Captions tab, step 1: the range's words from Whisper, corrected by the user's text model. */
@@ -275,7 +327,28 @@ export const CaptionsPreviewJobParamsSchema = z.object({
   frame: z.string().min(1).optional(),
 });
 
+/**
+ * Remove Pauses, step one: where the range holds speech, from the voice activity model (no transcript). The
+ * result's times count from the range start: `{ kind, speech: [startS, endS][], durationS }`.
+ */
+export const PausesFindJobParamsSchema = z
+  .object({
+    kind: z.literal("pauses-find"),
+    audioPath: z.string().min(1),
+    /** The part of `audioPath` to listen to (Premiere exports the whole sequence). */
+    rangeStartS: z.number().min(0).optional(),
+    rangeEndS: z.number().positive().optional(),
+    outDir: z.string().min(1),
+  })
+  .refine((p) => p.rangeEndS === undefined || p.rangeEndS > (p.rangeStartS ?? 0), {
+    message: "The range must end after it starts.",
+  });
+export type PausesFindJobParams = z.infer<typeof PausesFindJobParamsSchema>;
+
 export const JobParamsSchema = z.union([
+  PausesFindJobParamsSchema,
+  VoiceFixReadJobParamsSchema,
+  VoiceFixSayJobParamsSchema,
   CaptionsTextJobParamsSchema,
   CaptionsRenderJobParamsSchema,
   CaptionsPreviewJobParamsSchema,
@@ -287,6 +360,8 @@ export const JobParamsSchema = z.union([
   MusicMakeJobParamsSchema,
   RenderJobParamsSchema,
 ]);
+export type VoiceFixReadJobParams = z.infer<typeof VoiceFixReadJobParamsSchema>;
+export type VoiceFixSayJobParams = z.infer<typeof VoiceFixSayJobParamsSchema>;
 export type CaptionsTextJobParams = z.infer<typeof CaptionsTextJobParamsSchema>;
 export type CaptionsRenderJobParams = z.infer<typeof CaptionsRenderJobParamsSchema>;
 export type CaptionsPreviewJobParams = z.infer<typeof CaptionsPreviewJobParamsSchema>;
@@ -326,6 +401,22 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   /** The folder the Captions tab exports its previews' footage frames into (the app's own, not the project's). */
   z.object({ type: z.literal("captions.previews"), ref: z.string().optional() }),
+  /**
+   * Remove Pauses, step two: the cuts for a strictness, from the speech pauses-find returned. Asked again as
+   * the slider moves, so it is a request, not a job; the curves live in core only.
+   */
+  z.object({
+    type: z.literal("pauses.cuts"),
+    speech: z.array(z.tuple([z.number().min(0), z.number().min(0)])).max(20_000),
+    durationS: z.number().positive(),
+    strictness: z.number().min(0).max(1),
+    /** Pauses longer than this stay in (none: every pause is cut). */
+    keepLongS: z.number().positive().nullable(),
+    /** The audio is an In/Out part of a longer timeline: keep the pads at its edges (a word may straddle them). */
+    rangeEdges: z.boolean().optional(),
+    /** Echoed on the answer, so a late answer to an older slider position can be told apart. */
+    ref: z.string().optional(),
+  }),
   /** Keeps the Captions tab's lines and choices in its job folder's captions.json. */
   z.object({
     type: z.literal("captions.save"),
@@ -339,27 +430,75 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     jobDir: z.string().min(1),
     ref: z.string().optional(),
   }),
-  z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
+  /** `ref` comes back on the error for a job that has already finished. */
+  z.object({ type: z.literal("job.cancel"), jobId: z.string(), ref: z.string().optional() }),
   z.object({ type: z.literal("job.get"), jobId: z.string() }),
   z.object({ type: z.literal("styles.delete"), name: z.string().min(1) }),
-  z.object({ type: z.literal("speech.voices") }),
+  /** The voices of a speech provider (config/speech.json); the defaults' provider when none is named. */
+  z.object({ type: z.literal("speech.voices"), provider: SpeechProviderId.optional() }),
   z.object({
     type: z.literal("speech.preview"),
-    // part of a cache file name, so a plain voice name only
+    // part of a cache file name, so a plain voice name (or an ElevenLabs voice id) only
     voice: z.string().regex(/^[A-Za-z0-9_.-]{1,60}$/),
     language: z.string().regex(/^[A-Za-z-]{2,10}$/),
+    provider: SpeechProviderId.optional(),
+    /** The name the sample says, when the voice is an id. */
+    label: z.string().max(60).optional(),
   }),
   z.object({ type: z.literal("speech.stop") }),
-  /** Plays a music clip or its preview from a job folder; speech.stop stops it. */
+  /**
+   * Clones the editor's voice in their ElevenLabs account from a range exported to a job folder. The
+   * panel only sends it after the editor confirmed the voice is theirs or that they may clone it.
+   */
+  z
+    .object({
+      type: z.literal("speech.clone"),
+      audioPath: z.string().regex(/\.wav$/i),
+      /** Either one range of the file or several spans of it, never both. */
+      rangeStartS: z.number().min(0).optional(),
+      rangeEndS: z.number().positive().optional(),
+      spans: z
+        .array(z.object({ startS: z.number().min(0), endS: z.number().positive() }))
+        .min(1)
+        .max(200)
+        .optional(),
+      name: z.string().trim().min(1).max(60),
+      removeNoise: z.boolean().default(false),
+      /** Only cut the sample (so the editor can listen to it) and upload nothing. */
+      dryRun: z.boolean().optional(),
+      /** Required for a real clone; a dry run uploads nothing and needs none. */
+      consent: z.literal(true).optional(),
+    })
+    .refine((m) => m.dryRun === true || m.consent === true, {
+      message: "A voice is cloned only with the editor's consent.",
+    })
+    .refine(
+      (m) => {
+        const range = m.rangeStartS !== undefined || m.rangeEndS !== undefined;
+        const whole = m.rangeStartS !== undefined && m.rangeEndS !== undefined;
+        return m.spans !== undefined ? !range : whole;
+      },
+      { message: "Give either a range or spans, not both." },
+    ),
+  /** Plays a music clip or its preview, a Voice Fix take or the clone sample, from a job folder; speech.stop stops it. */
   z.object({ type: z.literal("audio.play"), file: z.string().min(1) }),
   z.object({ type: z.literal("assets.inspect"), paths: z.array(z.string().min(1)).max(12) }),
   z.object({ type: z.literal("providers.list") }),
   /** Opens the official sign-in of an agent CLI in a terminal window the editor sees. */
-  z.object({ type: z.literal("agent.login"), agent: z.enum(["claude-code", "codex", "grok"]) }),
+  z.object({
+    type: z.literal("agent.login"),
+    agent: z.enum(["claude-code", "codex", "grok", "antigravity"]),
+  }),
   /** Runs an agent CLI's official sign-out on this computer, e.g. to sign in with another account. */
-  z.object({ type: z.literal("agent.logout"), agent: z.enum(["claude-code", "codex", "grok"]) }),
+  z.object({
+    type: z.literal("agent.logout"),
+    agent: z.enum(["claude-code", "codex", "grok", "antigravity"]),
+  }),
   /** Opens an agent CLI's own update in a terminal window. */
-  z.object({ type: z.literal("agent.update"), agent: z.enum(["claude-code", "codex", "grok"]) }),
+  z.object({
+    type: z.literal("agent.update"),
+    agent: z.enum(["claude-code", "codex", "grok", "antigravity"]),
+  }),
   z.object({ type: z.literal("review.load"), outDir: z.string().min(1) }),
   /** The editor left a review without rendering it (none: every review), so the app may quit again. */
   z.object({ type: z.literal("review.closed"), outDir: z.string().min(1).optional() }),
@@ -401,6 +540,8 @@ export interface AppUpdateState {
   notes?: string | undefined;
   percent?: number | undefined;
   error?: string | undefined;
+  /** Installed from the Microsoft Store, which updates the app itself: the panel sends the editor there. */
+  store?: boolean | undefined;
 }
 
 export type ServerMessage =
@@ -420,16 +561,53 @@ export type ServerMessage =
   | { type: "job.prepared"; jobDir: string; ref?: string }
   | { type: "captions.previews"; dir: string; ref?: string }
   | { type: "captions.saved"; jobDir: string; ref?: string }
+  | {
+      type: "pauses.cuts";
+      cuts: { startS: number; endS: number }[];
+      removedS: number;
+      keptS: number;
+      longKept: { startS: number; endS: number }[];
+      emptied: boolean;
+      ref?: string;
+    }
   | { type: "captions.loaded"; jobDir: string; state: unknown; ref?: string }
   | { type: "job.progress"; jobId: string; message: string }
   | { type: "job.done"; jobId: string; result: unknown }
-  | { type: "job.error"; jobId: string; message: string; kind?: string | undefined }
+  | {
+      type: "job.error";
+      jobId: string;
+      message: string;
+      kind?: string | undefined;
+      /** The failed check's frame with the place marked, as a JPEG data URL (failurePictureFor). */
+      picture?: string | undefined;
+      pictureWidth?: number | undefined;
+      pictureHeight?: number | undefined;
+    }
   | { type: "job.cancelled"; jobId: string }
   | { type: "job.state"; jobId: string; state: JobState | "unknown" }
   | { type: "assets"; assets: unknown[] }
   | { type: "styles.deleted"; name: string }
-  | { type: "voices"; provider: string; model: string; voices: unknown[]; keySet: boolean }
+  | {
+      type: "voices";
+      provider: string;
+      model: string;
+      voices: unknown[];
+      keySet: boolean;
+      /** Whether there is a Gemini key for Lyria music (ElevenLabs music uses the ElevenLabs key). */
+      musicKeySet: boolean;
+      /** Why the voices could not be listed (a refused key, no connection). */
+      error?: string;
+    }
   | { type: "speech.played"; voice: string }
+  | {
+      type: "speech.cloned";
+      voice: string;
+      name: string;
+      durationS: number;
+      requiresVerification: boolean;
+      /** The cut sample file, in a dry run. */
+      sample?: string;
+    }
   /** The sample stopped: it finished, Stop was pressed, or another one started. */
   | { type: "speech.ended"; voice: string }
   | { type: "audio.played" }
@@ -440,6 +618,7 @@ export type ServerMessage =
       claudeCode: unknown;
       codex: unknown;
       grok: unknown;
+      antigravity: unknown;
       updates: unknown;
     }
   | { type: "agent.login.opened"; agent: string }

@@ -14,3 +14,7 @@ allowBuilds:
   tesseract.js: false
 minimumReleaseAgeExclude:
   - hyperframes@0.8.133
+# security fixes for build tools whose own ranges hold the old versions (issue #1, 2026-11-01)
+overrides:
+  undici@6: ^6.29.1
+  fast-uri@3: ^3.1.9

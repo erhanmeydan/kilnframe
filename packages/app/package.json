@@ -1,6 +1,6 @@
 {
   "name": "@kilnframe/app",
-  "version": "0.3.1",
+  "version": "0.5.0",
   "private": true,
   "description": "Kilnframe Helper: the companion as a menu bar / tray app, packaged with Node, FFmpeg and headless Chrome.",
   "license": "Apache-2.0",
@@ -15,7 +15,7 @@
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "electron": "^44.7.0",
+    "electron": "^44.10.1",
     "electron-builder": "26.15.3"
   }
 }

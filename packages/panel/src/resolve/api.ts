@@ -1,5 +1,12 @@
 // What the Resolve panel's page can ask the Electron main process for (over IPC, through preload.ts). The
 // bridge does the Resolve work; the rest are the file and OS calls a sandboxed page cannot make itself.
+import type { CutSequenceResult, TimelineCut } from "../host";
+
+/**
+ * A mark the editor did not set, as the panel's range reads it (range.ts): sending 0 and the timeline's end
+ * instead made every timeline look marked, so the "mark a range first" checks never fired.
+ */
+export const UNSET_MARK = -1000;
 
 export interface ResolveSequence {
   /** Timeline.GetUniqueId(). */
@@ -13,9 +20,9 @@ export interface ResolveSequence {
   height: number;
   /** Timeline.GetStartFrame(): 90000 for a 25 fps timeline starting at 01:00:00:00. */
   startFrame: number;
-  /** Relative to the timeline start; 0 when no In is set. */
+  /** Relative to the timeline start; UNSET_MARK when no In is set. */
   inSeconds: number;
-  /** Relative to the timeline start; the timeline's length when no Out is set. */
+  /** Relative to the timeline start; UNSET_MARK when no Out is set. */
   outSeconds: number;
   endSeconds: number;
   videoTracks: number;
@@ -32,6 +39,8 @@ export interface HiddenTrack {
 export interface PlacedTracks {
   videoTrack: number;
   audioTrack: number;
+  /** The clip could not be fitted to a timeline larger than 4K: the percent to set by hand. */
+  scaleByHand?: number;
 }
 
 export interface ResolveBridge {
@@ -51,6 +60,14 @@ export interface ResolveBridge {
   exportRangePicture(id: string, startS: number, endS: number, file: string): Promise<boolean>;
   hideOurInserts(id: string, startS: number, endS: number): Promise<HiddenTrack[]>;
   showTracks(id: string, tracks: HiddenTrack[]): Promise<void>;
+  /** 0-based audio tracks with a clip of the editor's own (not one of our inserts) over [startS, endS). */
+  speechTracks(id: string, startS: number, endS: number): Promise<number[]>;
+  /**
+   * Switches off every enabled audio track but the 0-based `track`, so an export hears that one alone; the
+   * tracks switched off, for showTracks to switch back on.
+   */
+  /** Every audio track but the 0-based `track` (or the ones listed) off; the ones switched off. */
+  soloAudioTrack(id: string, track: number | number[]): Promise<HiddenTrack[]>;
   placeInsert(
     id: string,
     files: { video: string; sfx: string | null },
@@ -96,6 +113,13 @@ export interface ResolveBridge {
     music: string | null,
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
+  /**
+   * A new timeline, `name`, holding timeline `id` with `cuts` taken out of every track; it becomes the current
+   * one. Optional: a bridge without it cannot cut.
+   */
+  cutToNewTimeline?(id: string, cuts: TimelineCut[], name: string): Promise<CutSequenceResult>;
+  /** Progress of a running cutToNewTimeline, asked while it runs (IPC has no callback); null when idle. */
+  cutProgress?(): Promise<{ done: number; total: number } | null>;
 }
 
 export interface KilnframeResolveApi extends ResolveBridge {
@@ -112,6 +136,8 @@ export interface KilnframeResolveApi extends ResolveBridge {
   pluginVersion(): string;
   /** Whether the panel window stays above Resolve, as it opened. */
   onTop(): boolean;
+  /** Which editor the window belongs to; absent in an older app, which only hosts Resolve. */
+  editor?(): "resolve" | "filmcraft" | undefined;
   setOnTop(on: boolean): Promise<void>;
 }
 
@@ -121,3 +147,18 @@ export const RENDER_BUSY = "RENDER_BUSY";
 export const PLACE_FAILED = "PLACE_FAILED";
 export const RENDER_FAILED = "RENDER_FAILED";
 export const EXPORTS_STOPPED = "EXPORTS_STOPPED";
+/** FilmCraft is not running with its control channel open, or the app no longer has its port and token. */
+export const NOT_RUNNING = "FILMCRAFT_NOT_RUNNING";
+/** The connection to FilmCraft closed after a request went out: FilmCraft may or may not have done it. */
+export const CONNECTION_LOST = "FILMCRAFT_CONNECTION_LOST";
+/** FilmCraft did not reply in time. */
+export const TIMED_OUT = "FILMCRAFT_TIMED_OUT";
+/** Remove Pauses could not make its new sequence; the editor's own is unchanged. `CUT_FAILED: <reason>`. */
+export const CUT_FAILED = "CUT_FAILED";
+/**
+ * A failed cut left its copy in the project (the editor lists no way to delete it): `COPY_LEFT=<JSON name>`
+ * rides in a CUT_FAILED message.
+ */
+export const COPY_LEFT = "COPY_LEFT";
+/** The editor lacks a command the cut needs (an older FilmCraft). */
+export const CUT_UNSUPPORTED = "CUT_UNSUPPORTED";

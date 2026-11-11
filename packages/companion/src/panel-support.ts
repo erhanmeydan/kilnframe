@@ -10,9 +10,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve as resolvePath, sep } from "node:path";
+import { basename, dirname, extname, join, posix, resolve as resolvePath, win32 } from "node:path";
 import {
   ASSET_EXTENSIONS,
+  FAILURE_PICTURE,
   ffmpegPath,
   listStyles,
   loadStyle,
@@ -119,6 +120,17 @@ export function styleCards(cacheDir: string, dir?: string): StyleCard[] {
   });
 }
 
+/**
+ * Where speech.clone writes its sample: next to the audio in a `voice-fix` folder, else in a `voice-fix`
+ * folder beside it, so audio.play may play it.
+ */
+export function voiceSampleFile(audioPath: string): string {
+  const dir = dirname(audioPath);
+  return basename(dir) === "voice-fix"
+    ? join(dir, "voice-sample.wav")
+    : join(dir, "voice-fix", "voice-sample.wav");
+}
+
 /** Folder-safe text: keeps letters (Turkish too), digits, dash and underscore. */
 export function safeName(text: string): string {
   return (
@@ -128,6 +140,20 @@ export function safeName(text: string): string {
       .replace(/^-+|-+$/g, "")
       .slice(0, 60) || "sequence"
   );
+}
+
+/**
+ * True when `child` lies inside `parent` (not the folder itself). Windows paths ignore letter case: Resolve
+ * may give c:\Users\… for a home folder of C:\Users\….
+ */
+export function insideFolder(
+  child: string,
+  parent: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  const path = platform === "win32" ? win32 : posix;
+  const rel = path.relative(parent, child);
+  return rel !== "" && rel !== ".." && !rel.startsWith(".." + path.sep) && !path.isAbsolute(rel);
 }
 
 /**
@@ -144,7 +170,7 @@ export function prepareJobDir(
   const projectPath = projectPathIn && withoutLongPathPrefix(projectPathIn);
   const home = resolvePath(opts.home ?? homedir());
   const root = opts.jobRoot ? resolvePath(opts.jobRoot) : null;
-  if (root && !root.startsWith(home + sep))
+  if (root && !insideFolder(root, home))
     throw new Error(`The job folder root must be inside the home folder: ${opts.jobRoot}`);
   const base = root
     ? root
@@ -165,16 +191,55 @@ const PRESET = join(
 );
 
 /**
- * Premiere ships a 48 kHz WAV export preset (checked in 26.5.2, docs/premiere-uxp.md). Looks for it in the
- * installed Premiere versions, newest first.
+ * Where a running Premiere keeps its files (on macOS the .app's Contents folder, on Windows the folder of the
+ * .exe), from the process list: `ps -axo comm=` on macOS, the paths PowerShell gives on Windows. Premiere can
+ * be installed anywhere, e.g. in the Documents folder, where the usual places miss it (2 Nov 2026).
  */
-/** A preset that ships inside Premiere (MediaIO/systempresets/...), newest Premiere first. */
-function findPremierePreset(preset: string, platform: NodeJS.Platform): string | null {
+export function premiereDirsFrom(list: string, platform: NodeJS.Platform): string[] {
+  const dirs: string[] = [];
+  for (const line of list.split(/\r?\n/).map((l) => l.trim())) {
+    if (platform === "win32") {
+      if (/[\\/]Adobe Premiere Pro[^\\/]*\.exe$/i.test(line)) dirs.push(win32.dirname(line));
+    } else {
+      const at = line.indexOf(".app/Contents/MacOS/");
+      if (at > 0 && /\/Adobe Premiere Pro[^/]*\.app$/.test(line.slice(0, at + 4)))
+        dirs.push(line.slice(0, at + ".app/Contents".length));
+    }
+  }
+  return [...new Set(dirs)];
+}
+
+/** The running Premieres' folders (premiereDirsFrom); none when Premiere is not running or the list fails. */
+export function runningPremiereDirs(platform = process.platform): string[] {
+  const r =
+    platform === "win32"
+      ? spawnSync(
+          "powershell",
+          [
+            "-NoProfile",
+            "-Command",
+            "(Get-Process -Name 'Adobe Premiere Pro*' -ErrorAction SilentlyContinue).Path",
+          ],
+          { encoding: "utf8", windowsHide: true, timeout: 10_000 },
+        )
+      : spawnSync("ps", ["-axo", "comm="], { encoding: "utf8", timeout: 10_000 });
+  return r.status === 0 ? premiereDirsFrom(r.stdout, platform) : [];
+}
+
+/**
+ * A preset that ships inside Premiere (MediaIO/systempresets/...): first in the running Premiere, then in
+ * the installed Premiere versions in the usual places, newest first.
+ */
+function findPremierePreset(
+  preset: string,
+  platform: NodeJS.Platform,
+  running: string[],
+): string | null {
+  const candidates = running.map((dir) => join(dir, preset));
   const roots =
     platform === "win32"
       ? [join(process.env.ProgramFiles ?? "C:\\Program Files", "Adobe")]
       : ["/Applications"];
-  const candidates: string[] = [];
   for (const root of roots) {
     if (!existsSync(root)) continue;
     for (const name of readdirSync(root)
@@ -196,8 +261,12 @@ function findPremierePreset(preset: string, platform: NodeJS.Platform): string |
   return candidates.find((c) => existsSync(c)) ?? null;
 }
 
-export function findWavPreset(platform = process.platform): string | null {
-  return findPremierePreset(PRESET, platform);
+/** Premiere's 48 kHz WAV export preset (checked in 26.5.2). */
+export function findWavPreset(
+  platform = process.platform,
+  running: string[] = runningPremiereDirs(platform),
+): string | null {
+  return findPremierePreset(PRESET, platform, running);
 }
 
 /**
@@ -211,8 +280,11 @@ const PREVIEW_PRESET = join(
   "02 - Match Source - Low bitrate.epr",
 );
 
-export function findPreviewPreset(platform = process.platform): string | null {
-  return findPremierePreset(PREVIEW_PRESET, platform);
+export function findPreviewPreset(
+  platform = process.platform,
+  running: string[] = runningPremiereDirs(platform),
+): string | null {
+  return findPremierePreset(PREVIEW_PRESET, platform, running);
 }
 
 /** The review screen's stills as small JPEG data URLs, one per scene in plan order. */
@@ -538,6 +610,33 @@ export function loadCaptionsState(jobDir: string): Record<string, unknown> | nul
     return read && typeof read === "object" && !Array.isArray(read)
       ? (read as Record<string, unknown>)
       : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The frame a failed check points at, marked (core failure-picture.ts), as a data URL for the panel's error;
+ * only for the check failure that made it, so a picture left from an earlier attempt is never shown.
+ */
+export function failurePictureFor(
+  outDir: string | undefined,
+  message: string,
+): { picture: string; pictureWidth: number; pictureHeight: number } | null {
+  if (!outDir || !message.includes("still fails validation")) return null;
+  const file = join(outDir, FAILURE_PICTURE);
+  if (!existsSync(file)) return null;
+  try {
+    // the frame's shape, so the panel can make room for it before the image loads
+    const plan = JSON.parse(readFileSync(join(outDir, "plan.json"), "utf8")) as {
+      width: number;
+      height: number;
+    };
+    return {
+      picture: `data:image/jpeg;base64,${readFileSync(file).toString("base64")}`,
+      pictureWidth: plan.width,
+      pictureHeight: plan.height,
+    };
   } catch {
     return null;
   }

@@ -29,11 +29,18 @@ export function formatOf(size: Size): OutputFormat {
 const even = (n: number) => Math.round(n / 2) * 2;
 
 /**
- * Output size for a chosen format, derived from the sequence's short edge:
- * a 1080p sequence gives 1920x1080, 1080x1920 or 1080x1080.
+ * The largest short edge an insert is rendered at: 4K. A 6K or 8K sequence gets a 4K insert that the editor
+ * scales up to fill the frame (the panel's hosts, frame.ts insertScale): render time and file size grow with
+ * the pixels, 8K has four times 4K's, and code-drawn graphics scaled up from 4K hold up on such a timeline.
+ */
+export const MAX_SHORT_EDGE = 2160;
+
+/**
+ * Output size for a chosen format, derived from the sequence's short edge (at most MAX_SHORT_EDGE):
+ * a 1080p sequence gives 1920x1080, 1080x1920 or 1080x1080, an 8K one 3840x2160, 2160x3840 or 2160x2160.
  */
 export function outputSize(sequence: Size, format: OutputFormat): Size {
-  const short = Math.min(sequence.width, sequence.height);
+  const short = Math.min(sequence.width, sequence.height, MAX_SHORT_EDGE);
   const long = even((short * 16) / 9);
   switch (format) {
     case "landscape":

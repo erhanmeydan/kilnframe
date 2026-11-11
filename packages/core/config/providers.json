@@ -8,14 +8,14 @@
       "displayName": "Claude (Anthropic)",
       "adapter": "anthropic",
       "baseURL": null,
-      "models": ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5"],
+      "models": ["claude-opus-5-5", "claude-fable-5-2", "claude-sonnet-5-5"],
       "capabilities": {
         "vision": true,
         "structuredOutput": true,
         "contextWindow": 1000000
       },
       "tier": "recommended",
-      "verified": "SDK and model IDs from the claude-api reference bundled with Claude Code, 2026-09-25; claude-fable-5-1 (10/50 USD per MTok, adaptive thinking only, refusal fallbacks) added from the same reference, 2026-10-28",
+      "verified": "SDK and model IDs from the claude-api reference bundled with Claude Code, 2026-09-25; claude-fable-5-1 (10/50 USD per MTok, adaptive thinking only, refusal fallbacks) added from the same reference, 2026-10-28; claude-fable-5-2 (8/40 USD per MTok, cache reads 2.5% of input) from platform.claude.com/docs/en/about-claude/models/overview, 2026-11-09",
       "keyUrl": "https://console.anthropic.com/settings/keys"
     },
     {
@@ -115,7 +115,8 @@
       "notes": [
         "whiteboard benchmark through Z.ai (15 Oct 2026): low thinking finished in 1.8 min for about $0.01 with no repair; high took 16.5 min and failed its checks (an overlay left a faint layer three times); Z.ai's own default (max) took 18 to 28 min",
         "glm-5.3 itself reads no images and is left out",
-        "Z.ai's GLM Coding Plan is for its listed coding tools only: Kilnframe uses an API key"
+        "Z.ai's GLM Coding Plan is for its listed coding tools only: Kilnframe uses an API key",
+        "since 16 Oct 2026 Z.ai keeps Standard keys (account balance) and Coding Plan keys apart; a Standard key with no balance gets a 429 'Insufficient balance or no resource package'; the panel explains both kinds and leaves the choice to the user (docs.z.ai/devpack/notice/api-key-management, checked 2026-11-09)"
       ],
       "unverified": [
         "context window (128000 is a placeholder)",
@@ -173,7 +174,7 @@
         "structuredOutput": false,
         "contextWindow": 32000
       },
-      "tier": "works",
+      "tier": "experimental",
       "slowModels": ["*"],
       "verified": "lmstudio.ai/docs/developer/openai-compat, core/authentication, rest/endpoints (GET /api/v0/models reports type \"vlm\" for vision models)",
       "notes": [
@@ -193,7 +194,7 @@
         "structuredOutput": false,
         "contextWindow": 32000
       },
-      "tier": "works",
+      "tier": "experimental",
       "slowModels": ["*"],
       "verified": "docs.ollama.com/api (tags, ps with context_length), docs.ollama.com/api/openai-compatibility (base URL, base64 image_url parts, reasoning_effort none), github.com/ollama/ollama/blob/main/docs/api.md (show: capabilities, model_info <arch>.context_length), checked 2026-10-29",
       "notes": [

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
+import { planPauseCuts } from "@kilnframe/core";
 import { WebSocketServer, type WebSocket } from "ws";
 import { LISTEN_HOST, LISTEN_HOST_V6, isLoopbackAddress } from "./loopback.js";
 import type { KeyStore } from "./keys.js";
@@ -11,6 +12,7 @@ import {
   type AppUpdateState,
   type ServerMessage,
 } from "./protocol.js";
+import { failurePictureFor } from "./panel-support.js";
 import { JobQueue, type JobRunner } from "./queue.js";
 
 export interface CompanionOptions {
@@ -36,16 +38,17 @@ export interface CompanionOptions {
     claudeCode: unknown;
     codex: unknown;
     grok: unknown;
+    antigravity: unknown;
     updates: unknown;
   }>;
   /** Opens an agent CLI's own sign-in (claude auth login, codex login) in a terminal window. */
-  loginAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
+  loginAgent?: (agent: "claude-code" | "codex" | "grok" | "antigravity") => Promise<void>;
   /** Runs an agent CLI's own sign-out (claude auth logout, codex logout, grok logout). */
   logoutAgent?: (
-    agent: "claude-code" | "codex" | "grok",
+    agent: "claude-code" | "codex" | "grok" | "antigravity",
   ) => Promise<{ ok: boolean; error?: string }>;
   /** Opens an agent CLI's own update (claude update, codex update, grok update) in a terminal window. */
-  updateAgent?: (agent: "claude-code" | "codex" | "grok") => Promise<void>;
+  updateAgent?: (agent: "claude-code" | "codex" | "grok" | "antigravity") => Promise<void>;
   /** One short request with a picture through a provider (the settings' connection test). */
   testProvider?: (
     provider: string,
@@ -56,14 +59,37 @@ export interface CompanionOptions {
   /** Style cards (name, display name, summary, thumbnail) for the panel's style picker. */
   listStyles?: () => Promise<unknown[]>;
   /** The speech provider's voices and whether its key is set, for story mode. */
-  listVoices?: () => Promise<{
+  listVoices?: (provider?: string) => Promise<{
     provider: string;
     model: string;
     voices: unknown[];
     keySet: boolean;
+    musicKeySet: boolean;
+    error?: string;
   }>;
   /** Says a short sample with a voice through the system's speakers; `onEnd` when it stops playing. */
-  previewVoice?: (voice: string, language: string, onEnd: () => void) => Promise<void>;
+  previewVoice?: (
+    voice: string,
+    language: string,
+    onEnd: () => void,
+    o?: { provider?: string | undefined; label?: string | undefined },
+  ) => Promise<void>;
+  /** Clones a voice in the editor's ElevenLabs account from an exported range. */
+  cloneVoice?: (o: {
+    audioPath: string;
+    rangeStartS?: number;
+    rangeEndS?: number;
+    spans?: { startS: number; endS: number }[];
+    name: string;
+    removeNoise: boolean;
+    dryRun?: boolean;
+  }) => Promise<{
+    voice: string;
+    name: string;
+    durationS: number;
+    requiresVerification: boolean;
+    sample?: string;
+  }>;
   /** Stops the sample that is playing. */
   stopVoice?: () => void;
   /** Plays a sound file (a music clip or preview); the server checks the file is one. */
@@ -104,6 +130,36 @@ export interface Companion {
   close(): Promise<void>;
 }
 
+/** Before the hello only this much is read: a hello with a 64-character token is about 80 bytes. */
+const MAX_HELLO_BYTES = 1024;
+
+/**
+ * Browsers send the page's Origin with a WebSocket. The panels send none, `null`, `file://`, a host's own
+ * scheme, or (the panel demo) a loopback page; a page on a web site can be none of ours.
+ */
+export function foreignOrigin(origin: string | undefined): boolean {
+  if (!origin || !/^https?:/i.test(origin)) return false;
+  try {
+    const host = new URL(origin).hostname;
+    return !["localhost", "127.0.0.1", "[::1]"].includes(host);
+  } catch {
+    return true;
+  }
+}
+
+/** Requests whose failure is said only by name: they carry a key, or the keychain's error may name one. */
+const SECRET_REQUESTS = new Set(["keys.set", "keys.has", "keys.delete"]);
+
+/** The token of a well-formed hello, or null: nothing else is parsed for a client that has not signed in. */
+function helloToken(raw: string): string | null {
+  try {
+    const m = JSON.parse(raw) as { type?: unknown; token?: unknown } | null;
+    return m?.type === "hello" && typeof m.token === "string" ? m.token : null;
+  } catch {
+    return null;
+  }
+}
+
 function sameToken(a: string, b: string): boolean {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
@@ -137,6 +193,13 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     if (p.action === "render") pendingReviews.delete(p.outDir);
     else if (done && (p.stillsOnly || p.action === "recompose")) pendingReviews.add(p.outDir);
   };
+  const pictureOf = (jobId: string, message: string) => {
+    const picture = failurePictureFor(
+      (queue.paramsOf(jobId) as { outDir?: string } | undefined)?.outDir,
+      message,
+    );
+    return picture ?? {};
+  };
   const queue = new JobQueue(
     o.runner,
     {
@@ -148,7 +211,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       },
       failed: (jobId, message, kind) => {
         reviewAfter(jobId, false);
-        broadcast({ type: "job.error", jobId, message, kind });
+        broadcast({ type: "job.error", jobId, message, kind, ...pictureOf(jobId, message) });
       },
       cancelled: (jobId) => {
         reviewAfter(jobId, false);
@@ -171,6 +234,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       ws.close(1008, "loopback only");
       return;
     }
+    // a web page open in a browser reaches 127.0.0.1 too; it still needs the token, but is turned away first
+    if (foreignOrigin(req.headers.origin)) {
+      ws.close(1008, "origin");
+      return;
+    }
     let authed = false;
     const send = (msg: ServerMessage) => ws.send(JSON.stringify(msg));
     const timer = setTimeout(() => {
@@ -180,11 +248,28 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     ws.on("close", () => {
       clearTimeout(timer);
       clients.delete(ws);
-      // the last panel gone: a review left open no longer holds the app
+      // the last panel gone: a review left open no longer holds the app, now or after a later job
+      if (clients.size === 0) pendingReviews.clear();
       tellBusy();
     });
 
     ws.on("message", async (raw) => {
+      if (!authed) {
+        // only a small hello is read before the token is known: no JSON or schema work for anyone else
+        const bytes = Array.isArray(raw) ? raw.reduce((n, b) => n + b.length, 0) : raw.byteLength;
+        const token = bytes <= MAX_HELLO_BYTES ? helloToken(raw.toString()) : null;
+        if (token === null || !sameToken(token, o.token)) {
+          ws.close(1008, "unauthorized");
+          return;
+        }
+        authed = true;
+        clearTimeout(timer);
+        clients.add(ws);
+        send({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
+        const update = o.appUpdates?.state();
+        if (update) send({ type: "app.update", update });
+        return;
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(raw.toString());
@@ -203,19 +288,6 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
         return;
       }
       const msg = result.data;
-      if (!authed) {
-        if (msg.type !== "hello" || !sameToken(msg.token, o.token)) {
-          ws.close(1008, "unauthorized");
-          return;
-        }
-        authed = true;
-        clearTimeout(timer);
-        clients.add(ws);
-        send({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
-        const update = o.appUpdates?.state();
-        if (update) send({ type: "app.update", update });
-        return;
-      }
       try {
         switch (msg.type) {
           case "hello":
@@ -277,6 +349,17 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
+          case "pauses.cuts":
+            send({
+              type: "pauses.cuts",
+              ...planPauseCuts(msg.speech, msg.durationS, {
+                strictness: msg.strictness,
+                keepLongS: msg.keepLongS,
+                rangeEdges: msg.rangeEdges ?? false,
+              }),
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
           case "captions.save":
             if (!o.saveCaptions) throw new Error("captions are not supported");
             await o.saveCaptions(msg.jobDir, msg.state);
@@ -296,24 +379,46 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
           case "speech.voices": {
             if (!o.listVoices) throw new Error("story mode is not supported");
-            send({ type: "voices", ...(await o.listVoices()) });
+            send({ type: "voices", ...(await o.listVoices(msg.provider)) });
             break;
           }
           case "speech.preview":
             if (!o.previewVoice) throw new Error("story mode is not supported");
-            await o.previewVoice(msg.voice, msg.language, () =>
-              broadcast({ type: "speech.ended", voice: msg.voice }),
+            await o.previewVoice(
+              msg.voice,
+              msg.language,
+              () => broadcast({ type: "speech.ended", voice: msg.voice }),
+              { provider: msg.provider, label: msg.label },
             );
             send({ type: "speech.played", voice: msg.voice });
             break;
           case "audio.play":
-            // only the Music tab's own clips: never any file a page names
-            if (!/[\\/]music[\\/](preview[\\/])?s\d+(-\d+)?\.wav$/.test(msg.file))
-              throw new Error("Only music clips can be played.");
+            // only the Music tab's clips and Voice Fix's takes and sample: never any file a page names
+            if (
+              !/[\\/]music[\\/](preview[\\/])?s\d+(-\d+)?\.wav$/.test(msg.file) &&
+              !/[\\/]voice-fix[\\/](take-\d+|voice-sample)\.wav$/.test(msg.file)
+            )
+              throw new Error("Only music clips and voice fix takes can be played.");
             if (!o.playAudio) throw new Error("playing music is not supported");
             o.playAudio(msg.file, () => broadcast({ type: "audio.ended" }));
             send({ type: "audio.played" });
             break;
+          case "speech.clone": {
+            if (!o.cloneVoice) throw new Error("voice cloning is not supported");
+            send({
+              type: "speech.cloned",
+              ...(await o.cloneVoice({
+                audioPath: msg.audioPath,
+                ...(msg.spans
+                  ? { spans: msg.spans }
+                  : { rangeStartS: msg.rangeStartS!, rangeEndS: msg.rangeEndS! }),
+                name: msg.name,
+                removeNoise: msg.removeNoise,
+                ...(msg.dryRun ? { dryRun: true } : {}),
+              })),
+            });
+            break;
+          }
           case "speech.stop":
             o.stopVoice?.();
             broadcast({ type: "speech.ended", voice: "" });
@@ -340,6 +445,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
                 jobId: msg.jobId,
                 message: job.error ?? "",
                 kind: job.errorKind,
+                ...pictureOf(msg.jobId, job.error ?? ""),
               });
             else if (job?.state === "cancelled") send({ type: "job.cancelled", jobId: msg.jobId });
             else send({ type: "job.state", jobId: msg.jobId, state: job?.state ?? "unknown" });
@@ -347,20 +453,28 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           }
           case "job.cancel":
             if (!queue.cancel(msg.jobId))
-              send({ type: "error", message: "This job has already finished." });
+              send({
+                type: "error",
+                message: "This job has already finished.",
+                ...(msg.ref ? { ref: msg.ref } : {}),
+              });
             break;
           case "review.closed":
             if (msg.outDir) pendingReviews.delete(msg.outDir);
             else pendingReviews.clear();
             tellBusy();
             break;
-          case "review.load":
-            send({
-              type: "review",
-              outDir: msg.outDir,
-              review: o.loadReview ? await o.loadReview(msg.outDir) : null,
-            });
+          case "review.load": {
+            const review = o.loadReview ? await o.loadReview(msg.outDir) : null;
+            // a panel reloaded mid-review opens it again from its folder (a part's stills): it holds the app
+            // again, as the stills job did before the reload cleared it
+            if (review) {
+              pendingReviews.add(msg.outDir);
+              tellBusy();
+            }
+            send({ type: "review", outDir: msg.outDir, review });
             break;
+          }
           case "agent.update":
             if (o.updateAgent) await o.updateAgent(msg.agent);
             send({ type: "agent.update.opened", agent: msg.agent });
@@ -382,7 +496,14 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           case "providers.list": {
             const r = o.listProviders
               ? await o.listProviders()
-              : { providers: [], claudeCode: null, codex: null, grok: null, updates: null };
+              : {
+                  providers: [],
+                  claudeCode: null,
+                  codex: null,
+                  grok: null,
+                  antigravity: null,
+                  updates: null,
+                };
             send({ type: "providers", ...r });
             break;
           }
@@ -412,13 +533,17 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
         }
       } catch (err) {
-        // never echo request contents back: a keys.set failure must not leak the key
-        send({
-          type: "error",
-          message: `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`,
-          // the request's own ref, so the panel fails that request and no other
-          ...("ref" in msg && msg.ref ? { ref: msg.ref } : {}),
-        });
+        // never echo request contents back: a keys.* failure (the keychain's own text) must not leak a key;
+        // every other request carries no key, so its reason ("Antigravity CLI could not reach Google") is
+        // what the panel needs to say
+        const reason =
+          !SECRET_REQUESTS.has(msg.type) && err instanceof Error && err.message
+            ? err.message
+            : `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`;
+        // the ref is read from the raw message: the schema strips it from requests that do not declare it,
+        // and the panel fails only the request that names it
+        const ref = (parsed as { ref?: unknown } | null)?.ref;
+        send({ type: "error", message: reason, ...(typeof ref === "string" ? { ref } : {}) });
       }
     });
   };

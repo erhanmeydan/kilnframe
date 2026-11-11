@@ -1,10 +1,13 @@
 // Every member a Host must have; a helper, not a test file (importing a test file would run its tests twice).
+// Optional members (cutToNewSequence, quickRange...) are not listed: a host without one shows "not available".
 export const HOST_MEMBERS = [
   "currentSequence",
   "exportFrame",
   "exportRangeAudio",
   "exportRangePicture",
   "withoutOurInserts",
+  "speechTracksAt",
+  "withOnlyAudioTrack",
   "placeInsert",
   "placeAudioClips",
   "ourInsertSpans",

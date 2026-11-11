@@ -136,6 +136,13 @@ export class AnthropicProvider implements TextProvider {
       if (err instanceof Anthropic.BadRequestError) {
         throw new ProviderError(`Anthropic rejected the request: ${err.message}`, false);
       }
+      // before APIError, which it extends
+      if (err instanceof Anthropic.APIConnectionError) {
+        throw new ProviderError(
+          "Could not reach the Anthropic API. Check the internet connection.",
+          true,
+        );
+      }
       if (err instanceof Anthropic.APIError) {
         throw new ProviderError(
           `Anthropic API error${err.status ? ` ${err.status}` : ""}: ${err.message}`,
@@ -147,12 +154,6 @@ export class AnthropicProvider implements TextProvider {
         err.message.startsWith("Could not resolve authentication method")
       ) {
         throw new ProviderError(NO_CREDENTIALS, false);
-      }
-      if (err instanceof Anthropic.APIConnectionError) {
-        throw new ProviderError(
-          "Could not reach the Anthropic API. Check the internet connection.",
-          true,
-        );
       }
       throw err;
     }

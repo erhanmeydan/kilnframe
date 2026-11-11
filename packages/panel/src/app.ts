@@ -4,9 +4,10 @@ import { PROTOCOL_VERSION, protocolMismatch } from "./companion";
 import { CompanionSession, type ServerMessage } from "./companion-session";
 import { homeDirNow, isWindows } from "./home";
 import { audioRangeParams } from "./audio-range";
-import { host, type HostSequence, type PlaceResult } from "./host";
+import { host, type Host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
+import { cleanProviderSettings, offersAddress, presetModel } from "./provider-settings";
 import {
   musicAct,
   musicBox,
@@ -15,6 +16,7 @@ import {
   newMusic,
   watchesSequence,
   type MusicCtx,
+  type MusicProvider,
 } from "./music";
 import {
   captionsAct,
@@ -29,6 +31,17 @@ import {
   newCaptions,
   type CaptionsCtx,
 } from "./captions";
+import {
+  newVoiceFix,
+  voiceFixAct,
+  voiceFixBox,
+  voiceFixOpened,
+  voiceFixReadFields,
+  voiceFixWatches,
+  voiceFixWriteFields,
+  type VoiceFixCtx,
+} from "./voice-fix";
+import { newPauses, pausesAct, pausesBox, pausesWatches, type PausesCtx } from "./pauses";
 import { NOT_REPORTED, feedbackPage, shouldReport } from "./feedback";
 import {
   LONG_RANGE_SECONDS,
@@ -55,7 +68,8 @@ import {
   type PlannedScene,
 } from "./steps";
 import { formatMismatch } from "./format-check";
-import { readableJobText } from "./job-errors";
+import { ConnectionLost, JobStopped, readableJobError, readableJobText } from "./job-errors";
+import { versionGap } from "./versions";
 import { isOtherVideo, videoBusy } from "./video-switch";
 import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
@@ -127,10 +141,29 @@ interface StoryState {
   music: "on" | "off";
   /** The new sequence's frame; "orijinal" keeps the open sequence's. */
   format: Format;
-  voices: { name: string; character: string }[];
+  /** Who reads the narration (config/speech.json). */
+  speechProvider: SpeechProvider;
+  /** `name` is what the provider reads with: a Gemini voice name or an ElevenLabs voice id. */
+  voices: { name: string; character: string; label?: string; own?: boolean }[];
+  /** Why the voices could not be listed (a refused ElevenLabs key, no connection). */
+  voicesError: string | null;
   /** The whole voice list is open. */
   allVoices: boolean;
   keySet: boolean;
+  /** Whether there is a Gemini key for Lyria music (ElevenLabs music uses the ElevenLabs key). */
+  musicKeySet: boolean;
+  /** Cloning the editor's voice from the timeline's In/Out range into their ElevenLabs account. */
+  clone: {
+    open: boolean;
+    noise: boolean;
+    /** The editor confirmed the voice is theirs or that they may clone it. */
+    consent: boolean;
+    running: boolean;
+    error: string | null;
+    /** The name of the voice just made. */
+    done: string | null;
+  };
+  cloneName: string;
   jobId: string | null;
   last: string;
   error: string | null;
@@ -153,14 +186,19 @@ function newStory(): StoryState {
     voiceStyle: "",
     script: "",
     note: "",
-    voice: stored("story-voice") ?? "Kore",
+    voice: storedVoice(storedSpeechProvider()),
     music: stored("story-music") === "off" ? "off" : "on",
     format:
       (["landscape", "portrait", "square"] as const).find((f) => f === stored("story-format")) ??
       "orijinal",
+    speechProvider: storedSpeechProvider(),
     voices: [],
+    voicesError: null,
     allVoices: false,
     keySet: true,
+    musicKeySet: true,
+    clone: { open: false, noise: false, consent: false, running: false, error: null, done: null },
+    cloneName: "",
     jobId: null,
     last: "",
     error: null,
@@ -168,6 +206,21 @@ function newStory(): StoryState {
     source: stored("story-source") === "own" ? "own" : "write",
     own: "",
   };
+}
+
+type SpeechProvider = "gemini" | "elevenlabs";
+
+function storedSpeechProvider(): SpeechProvider {
+  return stored("story-speech") === "elevenlabs" ? "elevenlabs" : "gemini";
+}
+
+/** Each provider keeps its own last voice: a Gemini name means nothing to ElevenLabs. */
+function voiceKey(provider: SpeechProvider): string {
+  return provider === "gemini" ? "story-voice" : `story-voice-${provider}`;
+}
+
+function storedVoice(provider: SpeechProvider): string {
+  return stored(voiceKey(provider)) ?? (provider === "gemini" ? "Kore" : "");
 }
 
 /** Voices that suit a narration, shown first (panel design, 8 Oct 2026). */
@@ -205,7 +258,7 @@ interface Lightbox {
   index: number;
 }
 
-type Tab = "range" | "story" | "music" | "captions";
+type Tab = "range" | "story" | "music" | "captions" | "voice" | "pauses";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
@@ -280,6 +333,10 @@ interface JobView {
   partsPlaced?: number;
   /** The editor pressed Stop and is asked to confirm. */
   confirmStop?: boolean;
+  /** The animation failed its checks: offer to create it again. */
+  retry?: boolean;
+  /** The failed check's frame with the place marked (a data URL) and the frame's size. */
+  picture?: { src: string; width: number; height: number } | null;
 }
 
 /**
@@ -368,6 +425,8 @@ const state = {
   story: newStory(),
   music: newMusic(),
   captions: newCaptions(),
+  voiceFix: newVoiceFix(),
+  pauses: newPauses(),
   /** Your Own Style: the form, the running job and the result to review. */
   own: null as null | OwnStyle,
   images: [] as PickedImage[],
@@ -380,6 +439,8 @@ const state = {
     version?: string;
     percent?: number;
     error?: string;
+    /** Installed from the Microsoft Store, which updates it. */
+    store?: boolean;
   },
   /** The voice whose sample is playing (story mode), so its row offers Stop. */
   voicePlaying: "",
@@ -387,6 +448,8 @@ const state = {
   updateBusy: false,
   /** Which side is out of date when the panel and the companion speak different protocols. */
   mismatch: null as null | "app" | "panel",
+  /** Create Animation was pressed with no AI set up (aiMissing); the box shows until it is. */
+  aiBlocked: false,
   /** The companion's version from its "ready", for the version line in the settings. */
   appVersion: null as string | null,
 };
@@ -400,6 +463,7 @@ session.on((m) => {
   } else if (m.type === "speech.ended" || m.type === "audio.ended") {
     state.voicePlaying = "";
     state.music.playing = null;
+    state.voiceFix.playing = null;
     render();
   } else if (m.type === "app.update.busy") {
     state.updateBusy = true;
@@ -409,11 +473,28 @@ session.on((m) => {
 
 // Steps and errors also go to ~/.kilnframe/panel-log.txt, so problems inside the editor can be read outside it.
 
-/** A story sequence's own narration, when it is still on disk: cleaner to transcribe than the mix. */
-async function storyNarration(guid: string): Promise<string | null> {
+/**
+ * A story sequence's own narration, when it is still on disk and holds the range: cleaner to transcribe than
+ * the mix. A range past the narration's end (the editor went on past it) is read from the sequence like any
+ * other: cut from the narration it was an empty file (1 Nov 2026, Resolve, 75 to 88 s of a 50 s narration).
+ */
+async function storyNarration(guid: string, endS: number): Promise<string | null> {
   const file = stored(`narration:${guid}`);
-  if (!file) return null;
-  return (await host().fileExists(file)) ? file : null;
+  if (!file || !(await host().fileExists(file))) return null;
+  try {
+    const info = JSON.parse(
+      await host().readTextFile(file.replace(/narration\.wav$/, "narration.json")),
+    ) as { durationS?: number };
+    if (typeof info.durationS === "number" && endS > info.durationS + 0.5) {
+      trace(
+        `job: the range ends after the story narration (${info.durationS} s), reading the sequence`,
+      );
+      return null;
+    }
+  } catch {
+    // no narration.json: the narration is taken as it is
+  }
+  return file;
 }
 const logLines: string[] = [];
 function trace(line: string) {
@@ -448,9 +529,19 @@ function store(key: string, value: string) {
     // ignore
   }
 }
+function unstore(key: string) {
+  try {
+    localStorage.removeItem(`kilnframe:${key}`);
+  } catch {
+    // ignore
+  }
+}
+/** Claude models the list no longer offers, moved to the one that took their place. */
+const CLAUDE_MODEL_SUCCESSORS: Record<string, string> = { "claude-fable-5-1": "claude-fable-5-2" };
+
 function loadSettings(): Settings {
   try {
-    return {
+    const settings: Settings = {
       provider: "auto",
       model: "claude-opus-5-5",
       models: {},
@@ -459,6 +550,7 @@ function loadSettings(): Settings {
       lang: "auto",
       ...JSON.parse(stored("settings") ?? "{}"),
     };
+    return { ...settings, model: CLAUDE_MODEL_SUCCESSORS[settings.model] ?? settings.model };
   } catch {
     return {
       provider: "auto",
@@ -495,8 +587,8 @@ const esc = (s: string | null | undefined) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-function seg<T extends string>(name: string, value: T, options: [T, string][]) {
-  return `<div class="seg">${options
+function seg<T extends string>(name: string, value: T, options: [T, string][], cls = "") {
+  return `<div class="seg${cls ? ` ${cls}` : ""}">${options
     .map(
       ([v, label]) =>
         `<div data-act="${name}" data-val="${v}" class="opt${v === value ? " on" : ""}">${label}</div>`,
@@ -517,24 +609,50 @@ function header(title: string, right: string) {
 }
 
 /** Where the app is downloaded; the release page always has the newest installers. */
+/** The value for the editor the panel runs in. */
+const editorText = <T>(by: Record<Host["kind"], T>): T => by[host().kind];
+
 const DOWNLOAD_URL = "https://github.com/erhanmeydan/kilnframe/releases/latest";
+
+/** The site's list of what changed in each version, in the panel's language. */
+const changelogUrl = () =>
+  lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
 
 /** The app's update, or the side to update when the panel and the app do not match. */
 function updateBox(): string {
   if (state.conn !== "ok") return "";
-  if (state.mismatch === "app")
+  const u = state.update;
+  const offered = Boolean(u && u.status !== "none" && u.status !== "checking");
+  // an app from the Microsoft Store is updated there: the button asks the app to open the Store
+  if (state.mismatch === "app" && u?.store)
+    return `<div class="box warn"><div>${t("mismatch.appStore")}</div><div class="btn2 mt" data-act="app-update">${t("mismatch.openStore")}</div></div>`;
+  // an app older than the panel that can update itself gets the Update button, not the download page
+  if (state.mismatch === "app" && !offered)
     return `<div class="box warn"><div>${t("mismatch.app")}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
   if (state.mismatch === "panel")
-    return `<div class="box warn">${t(host().kind === "resolve" ? "mismatch.panelResolve" : "mismatch.panel")}</div>`;
-  const u = state.update;
-  if (!u || u.status === "none" || u.status === "checking") return "";
+    return `<div class="box warn">${t(editorText({ premiere: "mismatch.panel", resolve: "mismatch.panelResolve", filmcraft: "mismatch.panelFilmcraft" }))}</div>`;
+  // the app was updated but the editor still runs the old panel: said on the home screen, not only in the
+  // settings (1 Nov 2026: Premiere kept loading 0.4.1 next to an installed 0.4.2 until it was reinstalled)
+  const app = state.appVersion;
+  const gap = versionGap(panelVersion(), app);
+  if (gap === "panel")
+    return `<div class="box warn">${t("home.panelOlder", { panel: esc(panelVersion()), app: esc(app) })} ${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`;
+  // a new panel on an old app (same protocol): the app silently drops the fields it does not know yet.
+  // When the app offers its own update, the update box below has the button.
+  if (gap === "app" && (u?.store || !offered)) {
+    const line = t("home.appOlder", { panel: esc(panelVersion()), app: esc(app) });
+    return u?.store
+      ? `<div class="box warn"><div>${line}</div><div class="btn2 mt" data-act="app-update">${t("mismatch.openStore")}</div></div>`
+      : `<div class="box warn"><div>${line}</div><div class="btn2 mt" data-act="open-url" data-val="${DOWNLOAD_URL}">${t("mismatch.download")} ↗</div></div>`;
+  }
+  if (!u || !offered) return "";
   const v = esc(u.version ?? "");
-  // the release page carries the notes of what changed
-  const notes = `https://github.com/erhanmeydan/kilnframe/releases/tag/v${encodeURIComponent(u.version ?? "")}`;
+  // the site's changelog, in the editor's language: GitHub's release page made people download by hand
+  const notes = changelogUrl();
   if (u.status === "available")
     return `<div class="box update"><div>${t("update.ready", { v })}</div>${
       state.updateBusy ? `<div class="small muted mt">${t("update.busy")}</div>` : ""
-    }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div><div class="btn2 mt" data-act="open-url" data-val="${notes}">${t("update.whatsNew")} ↗</div></div>`;
+    }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div><div class="small mt"><span class="link" data-act="open-url" data-val="${notes}">${t("update.whatsNew")} ↗</span></div></div>`;
   if (u.status === "downloading")
     return `<div class="box update">${t("update.downloading", { p: u.percent ?? 0 })}</div>`;
   if (u.status === "ready") return `<div class="box update">${t("update.restarting")}</div>`;
@@ -672,7 +790,7 @@ function styleTile(s: StyleCard, width: number): string {
   const sel = s.name === state.style;
   const { thumb } = styleStills(s);
   const size = `style="width:${width}px;height:${h169(width)}px"`;
-  return `<div class="tile${sel ? " sel" : ""}" style="width:${width}px" data-act="style" data-val="${s.name}">${
+  return `<div class="tile${sel ? " sel" : ""}" style="width:${width}px" data-act="style" data-val="${esc(s.name)}">${
     thumb
       ? imgSlot(`thumb:${lang()}:${s.name}`, thumb, width, h169(width), "", "tile-img")
       : `<div class="tile-img" ${size}></div>`
@@ -773,10 +891,40 @@ function rangeBar(): string {
   const length = d
     ? `${formatDuration(d)}${d > LONG_RANGE_SECONDS ? ` · ${t("bar.inParts")}` : ""}`
     : "";
+  // a running job keeps the button off and offers its progress instead, so it is never started twice
+  if (rangeJobRunning())
+    return `<div class="actionbar"><div class="row small muted"><span>${t("bar.running")}</span><span class="link" data-act="open-progress">${t("bar.openProgress")}</span></div>
+  <div class="btn off" disabled>${t("home.generate")}</div></div>`;
   return `<div class="actionbar"><div class="row small muted"><span>${providerLabel()}</span><span>${length}</span></div>
   <div class="btn${ready ? "" : " off"}" data-act="generate" ${ready ? "" : "disabled"}>${
     state.style ? t("home.generate") : t("home.pickFirst")
   }</div></div>`;
+}
+
+/** Most of the picture's box height; a portrait frame is shown smaller rather than filling the panel. */
+const PICTURE_MAX_H = 360;
+
+/**
+ * A failed job. When the animation failed its checks, the box says so as a check, not a crash: what was
+ * wrong, the frame with the place marked, and a button to create it again.
+ */
+function jobErrorBox(job: JobView): string {
+  const error = job.error ?? "";
+  let picture = "";
+  if (job.picture) {
+    const room = contentWidth() - 26;
+    let w = room;
+    let h = Math.round((w * job.picture.height) / job.picture.width);
+    if (h > PICTURE_MAX_H) {
+      h = PICTURE_MAX_H;
+      w = Math.round((h * job.picture.width) / job.picture.height);
+    }
+    picture = `<div class="small mt">${t("job.checksPicture")}</div><div class="mt">${imgSlot(`failed:${job.id ?? ""}`, job.picture.src, w, h)}</div>`;
+  }
+  const retry = job.retry
+    ? `<div class="small mt">${t("job.checksRetry")}</div><div class="btn2 mt" data-act="generate">${t("job.retry")}</div>`
+    : "";
+  return `<div class="box warn">${esc(error)}${picture}${retry}${job.reportable ? reportLink(error) : ""}</div>`;
 }
 
 function home(): string {
@@ -784,12 +932,20 @@ function home(): string {
   const done = state.job?.placed ?? null;
   return `${header(`<span class="brand"><img src="icons/mark@2x.png" width="18" height="18" alt="">Kilnframe</span>`, `<div class="icon" data-act="settings" title="${t("home.settings")}">⚙</div>`)}
   ${connectionBox()}
-  ${seg("tab", state.tab, [
-    ["range", t("tab.range")],
-    ["story", t("tab.story")],
-    ["music", t("tab.music")],
-    ["captions", t("tab.captions")],
-  ])}
+  ${seg(
+    "tab",
+    state.tab,
+    [
+      ["range", t("tab.range")],
+      ["story", t("tab.story")],
+      ["music", t("tab.music")],
+      ["captions", t("tab.captions")],
+      ["voice", t("tab.voice")],
+      ["pauses", t("tab.pauses")],
+    ],
+    // one row: the panel is at least 360 px wide (its style keeps every label whole)
+    "tabs",
+  )}
   ${
     state.tab === "story"
       ? storyBox()
@@ -797,7 +953,11 @@ function home(): string {
         ? musicBox(state.music, musicCtx)
         : state.tab === "captions"
           ? captionsBox(state.captions, captionsCtx)
-          : rangeHome(done)
+          : state.tab === "voice"
+            ? voiceFixBox(state.voiceFix, voiceFixCtx)
+            : state.tab === "pauses"
+              ? pausesBox(state.pauses, pausesCtx)
+              : rangeHome(done)
   }`;
 }
 
@@ -843,7 +1003,7 @@ function rangeHome(done: JobView["placed"]): string {
   const many = state.job?.partsPlaced;
   return `${done ? `<div class="box ok">${many ? t("home.placedParts", { n: many, v: done.videoTrack + 1, a: done.audioTrack + 1 }) : t("home.placed", { v: done.videoTrack + 1, a: done.audioTrack + 1 })}</div>` : ""}
   ${done && state.job?.cost ? `<div class="small muted">${esc(costLine(state.job.cost))}</div>` : ""}
-  ${state.job?.error ? `<div class="box warn">${esc(state.job.error)}${state.job.reportable ? reportLink(state.job.error) : ""}</div>` : ""}
+  ${state.job?.error ? jobErrorBox(state.job) : ""}
   ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   ${seriesBox()}
   ${rangeBox()}
@@ -870,6 +1030,7 @@ function rangeHome(done: JobView["placed"]): string {
   <div class="lbl">${t("home.note")}</div>
   <textarea id="note" rows="2" placeholder="${t("home.notePlaceholder")}">${esc(state.note)}</textarea>
   ${imagesBox("img")}
+  ${aiMissingBox()}
   ${slowNote()}
   ${
     state.conn === "ok" && state.system && !wavPresetOk()
@@ -1077,18 +1238,29 @@ function storyBox(): string {
   if (st.stage === "writing" || st.stage === "voicing")
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
-    return `<div class="box ok mt">${t("story.done", { name: st.done.name, duration: formatDuration(st.done.durationS) })}</div>
+    return `<div class="box ok mt">${t("story.done", { name: esc(st.done.name), duration: formatDuration(st.done.durationS) })}</div>
   ${st.done.musicNote ? `<div class="box mt">${esc(st.done.musicNote)}</div>` : ""}
   <div class="btn2 mt" data-act="story-new">${t("story.restart")}</div>`;
   if (st.stage === "script") {
-    // the narration voices first and the chosen one always; the rest behind All Voices
+    // the narration voices (Gemini) or the editor's own (ElevenLabs) first, and the chosen one always;
+    // the rest behind All Voices
+    const firstDefaults = new Set(
+      st.voices
+        .filter((v) => !v.own)
+        .slice(0, 4)
+        .map((v) => v.name),
+    );
     const shown = st.allVoices
       ? st.voices
-      : st.voices.filter((v) => NARRATION_VOICES.includes(v.name) || v.name === st.voice);
+      : st.voices.filter((v) =>
+          st.speechProvider === "gemini"
+            ? NARRATION_VOICES.includes(v.name) || v.name === st.voice
+            : v.own || firstDefaults.has(v.name) || v.name === st.voice,
+        );
     const voices = shown
       .map(
         (v) =>
-          `<div class="vrow${v.name === st.voice ? " on" : ""}"><div class="vname" data-act="story-voice" data-val="${esc(v.name)}">${v.name === st.voice ? "✓ " : ""}${esc(v.name)} <span class="small muted">${esc(voiceCharacter(v.character))}</span></div>${
+          `<div class="vrow${v.name === st.voice ? " on" : ""}"><div class="vname" data-act="story-voice" data-val="${esc(v.name)}">${v.name === st.voice ? "✓ " : ""}${esc(v.label ?? v.name)} <span class="small muted">${esc(voiceCharacter(v.character))}</span></div>${
             state.voicePlaying === v.name
               ? `<div class="link" data-act="story-stop">■ ${t("story.stopShort")}</div>`
               : `<div class="link" data-act="story-listen" data-val="${esc(v.name)}">▶ ${t("story.listenShort")}</div>`
@@ -1108,9 +1280,16 @@ function storyBox(): string {
   <div class="btn2 mt" data-act="story-rewrite">${t("story.rewrite")}</div>`
   }
   <div class="lbl">${t("story.voice")}</div>
-  ${st.keySet ? "" : `<div class="box warn">${t("story.noKey")}</div>`}
+  ${seg("story-speech", st.speechProvider, [
+    ["gemini", "Gemini"],
+    ["elevenlabs", "ElevenLabs"],
+  ])}
+  ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}</div>`}
+  ${st.voicesError ? `<div class="box warn">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
+  ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
-  <div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>
+  ${st.speechProvider === "elevenlabs" && st.keySet ? cloneBox() : ""}
+  ${shown.length < st.voices.length || st.allVoices ? `<div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>` : ""}
   <div class="lbl">${t("home.format")}</div>
   ${seg("story-format", st.format, [
     ["orijinal", t("format.original")],
@@ -1126,12 +1305,23 @@ function storyBox(): string {
   ])}
   ${
     st.music === "on"
+      ? `${seg("music-provider", storedMusicProvider(), [
+          ["gemini", "Lyria"],
+          ["elevenlabs", "ElevenLabs"],
+        ])}${musicKeyFor(storedMusicProvider()) ? "" : `<div class="box warn">${t("story.musicNoKey")}</div>`}`
+      : ""
+  }
+  ${
+    st.music === "on"
       ? `<div class="note muted">${
           state.styles.find((s) => s.name === state.style)
             ? t("story.musicStyle", {
-                style: localized(state.styles.find((s) => s.name === state.style)!.displayName),
+                style: esc(
+                  localized(state.styles.find((s) => s.name === state.style)!.displayName),
+                ),
+                maker: musicMaker(),
               })
-            : t("story.musicTone")
+            : t("story.musicTone", { maker: musicMaker() })
         }</div>`
       : ""
   }
@@ -1226,10 +1416,132 @@ async function storyJob(
   }
 }
 
+/** The longest sample a clone is made from (core VOICE_SAMPLE_MAX_S); a shorter range than this works too. */
+const CLONE_MAX_S = 180;
+const CLONE_MIN_S = 30;
+
+/** Clone a voice from the In/Out range: the range, a name, noise removal and the editor's consent. */
+function cloneBox(): string {
+  const c = state.story.clone;
+  const done = c.done
+    ? `<div class="box ok mt">${t("clone.done", { name: esc(c.done) })}</div>`
+    : "";
+  if (!c.open)
+    return `${done}<div class="link more" data-act="clone-open">+ ${t("clone.open")}</div>`;
+  if (c.running) return `<div class="box mt">${t("clone.running")}</div>`;
+  const range = state.seq?.range.source === "inout" ? state.seq.range : null;
+  const length = !range
+    ? `<div class="box warn">${t("clone.needRange")}</div>`
+    : range.durationS < CLONE_MIN_S
+      ? `<div class="box warn">${t("clone.short", { duration: formatDuration(range.durationS) })}</div>`
+      : range.durationS > CLONE_MAX_S
+        ? `<div class="note muted">${t("clone.long")}</div>`
+        : "";
+  const check = (act: string, on: boolean, text: string) =>
+    `<div class="check mt" data-act="${act}"><span class="box-mark${on ? " on" : ""}">${on ? "✓" : ""}</span><span>${text}</span></div>`;
+  return `<div class="box mt">
+  <div class="lbl">${t("clone.title")}</div>
+  <div class="note muted">${t("clone.hint")}</div>
+  ${musicRangeLine("range")}
+  ${length}
+  <div class="lbl">${t("clone.name")}</div>
+  <input class="img-note" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}">
+  ${check("clone-noise", c.noise, t("clone.noise"))}
+  ${check("clone-consent", c.consent, t("clone.consent"))}
+  ${c.error ? `<div class="box warn mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
+  <div class="pbtns mt"><div class="pbtn primary" data-act="clone-go">${t("clone.go")}</div><div class="pbtn" data-act="clone-close">${t("prov.cancel")}</div></div>
+</div>`;
+}
+
+/** Exports the In/Out range, has the companion cut a sample and clone it, then picks the new voice. */
+async function cloneVoice() {
+  const st = state.story;
+  const c = st.clone;
+  if (c.running) return;
+  const range = state.seq?.range.source === "inout" ? state.seq.range : null;
+  if (!range) {
+    c.error = t("clone.needRange");
+    return render();
+  }
+  if (!c.consent) {
+    c.error = t("clone.needConsent");
+    return render();
+  }
+  if (range.durationS < CLONE_MIN_S) {
+    c.error = t("clone.short", { duration: formatDuration(range.durationS) });
+    return render();
+  }
+  const name = st.cloneName.trim() || t("clone.namePlaceholder");
+  c.running = true;
+  c.error = null;
+  c.done = null;
+  render();
+  try {
+    const target = await readSequence();
+    if (!target) throw new Error(t("clone.needRange"));
+    const prepared = await session.request<ServerMessage>(
+      {
+        type: "job.prepare",
+        projectPath: target.projectPath,
+        sequenceName: "Voice",
+        ...(target.jobRoot ? { jobRoot: target.jobRoot } : {}),
+      },
+      "job.prepared",
+    );
+    const audioPath = `${String(prepared.jobDir)}/range.wav`;
+    // the editor's own speech: earlier Kilnframe inserts over the range are switched off for the export
+    const audio = await host().withoutOurInserts(target, range.startS, range.endS, () =>
+      host().exportRangeAudio(target, range.startS, range.endS, audioPath, {
+        wavPreset: state.system?.wavPreset ?? "",
+      }),
+    );
+    if (!audio.ok) throw new Error(t("job.exportFailed"));
+    const reply = await session.request<ServerMessage>(
+      {
+        type: "speech.clone",
+        audioPath,
+        rangeStartS: Math.max(0, range.startS - audio.offsetSeconds),
+        rangeEndS: range.endS - audio.offsetSeconds,
+        name,
+        removeNoise: c.noise,
+        consent: true,
+      },
+      "speech.cloned",
+      180_000,
+    );
+    trace(`clone: made ${String(reply.voice)} from ${String(reply.durationS)} s`);
+    st.voice = String(reply.voice);
+    store(voiceKey("elevenlabs"), st.voice);
+    c.open = false;
+    c.consent = false;
+    c.done = name;
+    st.cloneName = "";
+    await loadVoices();
+  } catch (err) {
+    c.error = t("clone.failed", { message: err instanceof Error ? err.message : String(err) });
+  } finally {
+    c.running = false;
+    render();
+  }
+}
+
 async function loadVoices() {
-  const reply = await session.request<ServerMessage>({ type: "speech.voices" }, "voices");
-  state.story.voices = reply.voices as StoryState["voices"];
-  state.story.keySet = Boolean(reply.keySet);
+  const st = state.story;
+  const provider = st.speechProvider;
+  const reply = await session.request<ServerMessage>(
+    { type: "speech.voices", provider },
+    "voices",
+    30_000,
+  );
+  // the editor switched provider while this list was on its way
+  if (st.speechProvider !== provider) return;
+  st.voices = reply.voices as StoryState["voices"];
+  st.keySet = Boolean(reply.keySet);
+  st.musicKeySet = Boolean(reply.musicKeySet ?? reply.keySet);
+  st.voicesError = reply.error ? String(reply.error) : null;
+  // an ElevenLabs voice deleted from the account, or none chosen yet: the first of the list
+  if (st.voices.length && !st.voices.some((v) => v.name === st.voice))
+    st.voice = st.voices[0]?.name ?? "";
 }
 
 function writeStoryJob(revise: boolean) {
@@ -1240,10 +1552,10 @@ function writeStoryJob(revise: boolean) {
   void storyJob(
     {
       kind: "story-write",
-      brief: st.brief.trim(),
+      brief: st.brief.trim().slice(0, 20000),
       durationS: st.durationS,
       language: st.language,
-      ...(st.tone.trim() ? { tone: st.tone.trim() } : {}),
+      ...(st.tone.trim() ? { tone: st.tone.trim().slice(0, 300) } : {}),
       ...(revise
         ? {
             revise: {
@@ -1255,7 +1567,7 @@ function writeStoryJob(revise: boolean) {
                   .map((p) => p.trim())
                   .filter(Boolean),
               },
-              note: st.note.trim(),
+              note: st.note.trim().slice(0, 1000),
             },
           }
         : {}),
@@ -1298,16 +1610,20 @@ async function makeStorySequence() {
     await storyJob(
       {
         kind: "story-voice",
-        title: st.title || "Story",
-        text: st.script.trim(),
+        title: (st.title || "Story").slice(0, 200),
+        // the app's limits: an overflow would come back as a raw "Invalid message"
+        text: st.script.trim().slice(0, 20000),
         voice: st.voice,
-        style: st.voiceStyle || undefined,
+        style: st.voiceStyle.slice(0, 300) || undefined,
         outDir: String(prepared.jobDir),
+        speechProvider: st.speechProvider,
+        language: st.language,
         ...(st.music === "on"
           ? {
               music: {
+                provider: storedMusicProvider(),
                 ...(state.style ? { style: state.style } : {}),
-                subject: st.title || st.brief,
+                subject: (st.title || st.brief).slice(0, 400),
               },
             }
           : {}),
@@ -1353,6 +1669,14 @@ async function makeStorySequence() {
   }
 }
 
+/** The agent CLIs the editor installs and signs in to with their own account. */
+const AGENT_IDS = new Set(["claude-code", "codex", "grok", "antigravity"]);
+function isAgent(id: string): id is AgentId {
+  return AGENT_IDS.has(id);
+}
+/** Agents whose model list is read from the CLI itself. */
+const SERVED_AGENTS = new Set(["antigravity"]);
+
 /** The Claude providers share the Claude model setting. */
 const CLAUDE_KINDS = new Set(["auto", "claude-code", "anthropic"]);
 /** Servers on this computer: no key, their own model list, a model that may think. */
@@ -1363,6 +1687,7 @@ function providerName(id: string): string {
   if (id === "claude-code") return t("prov.plan");
   if (id === "codex") return t("prov.chatgptPlan");
   if (id === "grok") return t("prov.grokPlan");
+  if (id === "antigravity") return t("prov.googlePlan");
   if (id === "anthropic") return t("prov.claudeApi");
   if (id === "custom") return t("prov.custom");
   if (id === "lmstudio") return t("prov.lmstudio");
@@ -1375,10 +1700,15 @@ function modelFor(id: string): string {
   if (CLAUDE_KINDS.has(id)) return state.settings.model;
   // empty: the model set in Codex itself
   if (id === "codex") return state.settings.models.codex ?? "";
+  // empty: the model the Google account uses by default
+  if (id === "antigravity") return state.settings.models.antigravity ?? "";
   const chosen = state.settings.models[id];
-  if (chosen) return chosen;
-  if (LOCAL_PROVIDERS.has(id)) return lmStudioDefault(setup.served[id] ?? []);
-  return setup.list.find((p) => p.id === id)?.models[0] ?? "";
+  if (LOCAL_PROVIDERS.has(id)) return chosen || lmStudioDefault(setup.served[id] ?? []);
+  return presetModel(
+    id,
+    chosen,
+    setup.list.find((p) => p.id === id),
+  );
 }
 
 /**
@@ -1393,7 +1723,13 @@ function providerParams(): {
 } {
   const id = state.settings.provider;
   const model = modelFor(id);
-  const baseURL = state.settings.baseURLs[id]?.trim();
+  // an address only where the settings offer one: a stray one would send this provider's key elsewhere
+  const baseURL = offersAddress(
+    id,
+    setup.list.find((p) => p.id === id),
+  )
+    ? state.settings.baseURLs[id]?.trim()
+    : undefined;
   return {
     provider: id,
     ...(model ? { model } : {}),
@@ -1407,6 +1743,7 @@ function localThinking(id: string): "off" | "on" {
 }
 
 const CLAUDE_MODEL_NAMES: Record<string, string> = {
+  "claude-fable-5-2": "Fable 5.2",
   "claude-fable-5-1": "Fable 5.1",
   "claude-opus-5-5": "Opus 5.5",
   "claude-sonnet-5-5": "Sonnet 5.5",
@@ -1414,7 +1751,10 @@ const CLAUDE_MODEL_NAMES: Record<string, string> = {
 };
 
 function modelLabel(model: string): string {
-  if (model === "") return t("prov.codexDefault");
+  if (model === "")
+    return state.settings.provider === "antigravity"
+      ? t("prov.agyDefault")
+      : t("prov.codexDefault");
   if (CLAUDE_MODEL_NAMES[model]) return CLAUDE_MODEL_NAMES[model];
   // a local server's own name for the model (LM Studio: "Qwen3.8 27B" for qwen/qwen3.8-27b)
   for (const list of Object.values(setup.served)) {
@@ -1449,6 +1789,38 @@ function providerLabel(): string {
         ? plan
         : providerName(id);
   return model ? `${who} · ${modelLabel(model)}` : who;
+}
+
+/**
+ * Why the chosen AI cannot make an animation, or null when it can or the panel does not know yet (the list
+ * has not come). Started anyway, the job only stopped at its first model call, with the core's English
+ * advice for the terminal (1 Nov 2026, Resolve, Automatic with neither Claude Code nor a key).
+ */
+function aiMissing(): string | null {
+  const id = state.settings.provider;
+  if (!setup.list.length) return null;
+  const entry = (p: string) => setup.list.find((e) => e.id === p);
+  if (id === "auto") {
+    const cc = setup.claudeCode;
+    const key = entry("anthropic");
+    if (!cc || !key) return null;
+    return (cc.installed && cc.loggedIn) || key.keySet ? null : t("home.aiNone");
+  }
+  if (AGENT_IDS.has(id)) {
+    const a = agentState(id);
+    if (!a) return null;
+    return a.installed && a.loggedIn ? null : t("home.aiSignIn", { name: providerName(id) });
+  }
+  const e = entry(id);
+  return e?.needsKey && !e.keySet ? t("home.aiNoKey", { name: e.displayName }) : null;
+}
+
+/** The AI is not set up: said above the button, with the way to the settings. */
+function aiMissingBox(): string {
+  const why = state.aiBlocked ? aiMissing() : null;
+  return why
+    ? `<div class="box warn">${esc(why)}<div class="btn2 mt" data-act="settings">${t("home.openSettings")}</div></div>`
+    : "";
 }
 
 /** A note above the button when the chosen model was slow in the comparison. */
@@ -1493,6 +1865,7 @@ function progress(): string {
         .join("<br>")}</div>`
     : "";
   return `${header(t("progress.title"), `${partTag()}<span class="muted">${Math.min(job.step + 1, STEP_COUNT)} / ${STEP_COUNT}</span>`)}
+  ${state.conn === "ok" ? "" : connectionBox()}
   <div class="box">${steps}</div>
   <div class="bar"><div style="width:${Math.round(((job.step + (job.sub ?? 0)) / STEP_COUNT) * 100)}%"></div></div>
   <div class="row small muted"><span id="elapsed">${elapsedText(job.startedAt)}</span><span>${esc(job.last)}</span></div>
@@ -1544,6 +1917,7 @@ const setup = {
     method: "chatgpt" | "api_key" | null;
   },
   grok: null as null | { installed: boolean; loggedIn: boolean; version: string | null },
+  antigravity: null as null | { installed: boolean; loggedIn: boolean; version: string | null },
   /** Whether a newer agent CLI is out: { current, latest, available } per agent. */
   updates: {} as Record<
     string,
@@ -1572,20 +1946,48 @@ async function refreshProviders() {
   try {
     const r = await session.request<ServerMessage>({ type: "providers.list" }, "providers", 30_000);
     setup.list = r.providers as ProviderEntry[];
+    const cleaned = cleanProviderSettings(state.settings, setup.list);
+    if (JSON.stringify(cleaned) !== JSON.stringify(state.settings)) {
+      state.settings = cleaned;
+      store("settings", JSON.stringify(state.settings));
+    }
     setup.claudeCode = r.claudeCode as typeof setup.claudeCode;
     setup.codex = r.codex as typeof setup.codex;
     setup.grok = r.grok as typeof setup.grok;
+    setup.antigravity = (r.antigravity ?? null) as typeof setup.antigravity;
+    // signed in since the settings opened: its model list can be asked for now
+    if (!setup.antigravity?.loggedIn) delete setup.servedError.antigravity;
+    else if (
+      state.settings.provider === "antigravity" &&
+      state.screen === "settings" &&
+      !setup.served.antigravity
+    )
+      void loadServed("antigravity");
     setup.updates = (r.updates ?? {}) as typeof setup.updates;
     const custom = await session.request<ServerMessage>(
       { type: "keys.has", provider: "custom" },
       "keys.has",
     );
     customKey = Boolean(custom.present);
+    const eleven = await session.request<ServerMessage>(
+      { type: "keys.has", provider: "elevenlabs" },
+      "keys.has",
+    );
+    elevenKey = Boolean(eleven.present);
   } catch (err) {
     // not connected: the settings show the app's own box instead (its text follows the panel language)
     if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
   }
   render();
+}
+
+/**
+ * Whether the settings ask the companion for this provider's model list. Antigravity only once signed in:
+ * before that its check fails in English under the panel's own install or sign-in block.
+ */
+function listsServedModels(id: string): boolean {
+  if (id === "antigravity") return Boolean(setup.antigravity?.loggedIn);
+  return LOCAL_PROVIDERS.has(id) || id === "openrouter" || SERVED_AGENTS.has(id);
 }
 
 async function loadServed(id: string) {
@@ -1604,14 +2006,14 @@ async function loadServed(id: string) {
 }
 
 function tierTag(tier: ProviderEntry["tier"] | null): string {
-  // "works" is the normal case and needs no label; only Recommended (and Experimental, if ever) shows
+  // "works" is the normal case and needs no label; only Recommended and Experimental show
   if (!tier || tier === "works") return `<span class="ptag none"></span>`;
   const label = tier === "recommended" ? t("tier.recommended") : t("tier.experimental");
   return `<span class="ptag ${tier}">${label}</span>`;
 }
 
 function keyStatus(entry: ProviderEntry | undefined, id: string): string {
-  if (id === "claude-code" || id === "codex" || id === "grok") {
+  if (AGENT_IDS.has(id)) {
     const a = agentState(id);
     if (!a) return `<span class="pkey"></span>`;
     if (a.installed && setup.updates[id]?.available)
@@ -1628,7 +2030,7 @@ function keyStatus(entry: ProviderEntry | undefined, id: string): string {
     : `<span class="pkey">${t("prov.noKey")}</span>`;
 }
 
-/** The sign-in state of an agent CLI (Claude Code, Codex, Grok). */
+/** The sign-in state of an agent CLI (Claude Code, Codex, Grok, Antigravity). */
 function agentState(id: string): { installed: boolean; loggedIn: boolean } | null {
   return id === "claude-code"
     ? setup.claudeCode
@@ -1636,11 +2038,16 @@ function agentState(id: string): { installed: boolean; loggedIn: boolean } | nul
       ? setup.codex
       : id === "grok"
         ? setup.grok
-        : null;
+        : id === "antigravity"
+          ? setup.antigravity
+          : null;
 }
 
 /** Whether a key is saved for the custom endpoint; it is not one of the presets. */
 let customKey = false;
+/** An ElevenLabs key is in the keychain (story narration only). */
+let elevenKey = false;
+const ELEVEN_KEY_URL = "https://elevenlabs.io/app/settings/api-keys";
 function customKeySet(): boolean {
   return customKey;
 }
@@ -1654,7 +2061,7 @@ function testLine(id: string): string {
   if (r.ok && r.vision)
     return `<div class="ptest ok-text">✓ ${t("prov.testOk", { s: (r.ms / 1000).toFixed(1).replace(".", lang() === "tr" ? "," : ".") })}</div>`;
   if (r.ok) return `<div class="ptest warn-text">${t("prov.testNoVision")}</div>`;
-  return `<div class="ptest warn-text">${esc(r.message ?? t("prov.testFailed"))}</div>`;
+  return `<div class="ptest warn-text">${esc((r.message && readableJobText(r.message)) ?? r.message ?? t("prov.testFailed"))}</div>`;
 }
 
 /** The key part of a provider's details: the stored key, or a field to enter one. */
@@ -1697,14 +2104,16 @@ function providerDetail(id: string): string {
         ? `<div class="ptest ok-text">${t("prov.nowKey")}</div>`
         : `<div class="ptest warn-text">${t("prov.nowNothing")}</div>`;
     body = `<div class="small">${t("prov.autoNote")}</div>${now}`;
-  } else if (id === "claude-code" || id === "codex" || id === "grok") {
+  } else if (isAgent(id)) {
     const a = agentState(id);
     const install =
       id === "claude-code"
         ? "https://code.claude.com/docs/en/quickstart"
         : id === "codex"
           ? "https://learn.chatgpt.com/docs/codex/cli"
-          : "https://docs.x.ai/build/overview";
+          : id === "antigravity"
+            ? "https://antigravity.google"
+            : "https://docs.x.ai/build/overview";
     const okLine =
       id === "claude-code"
         ? t("prov.planOk", { plan: planName(cc?.subscription ?? null), version: cc?.version ?? "" })
@@ -1713,14 +2122,16 @@ function providerDetail(id: string): string {
               method: setup.codex?.method === "api_key" ? t("prov.codexKey") : "ChatGPT",
               version: setup.codex?.version ?? "",
             })
-          : t("prov.grokOk", { version: setup.grok?.version ?? "" });
-    body = `<div class="small">${id === "claude-code" ? t("prov.planNote") : id === "codex" ? t("prov.codexNote") : t("prov.grokNote")}</div>`;
+          : id === "antigravity"
+            ? t("prov.agyOk", { version: setup.antigravity?.version ?? "" })
+            : t("prov.grokOk", { version: setup.grok?.version ?? "" });
+    body = `<div class="small">${id === "claude-code" ? t("prov.planNote") : id === "codex" ? t("prov.codexNote") : id === "antigravity" ? t("prov.agyNote") : t("prov.grokNote")}</div>`;
     const upd = setup.updates[id];
     if (a?.installed && upd?.available)
       body +=
         setup.updating === id
           ? `<div class="ptest muted">${t("prov.updating")}</div>`
-          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : "grok update" })}</div>`;
+          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : id === "antigravity" ? "agy update" : "grok update" })}</div>`;
     if (!a?.installed)
       body += `<div class="ptest warn-text">${t("prov.agentMissing")}</div>${agentInstallHelp(id)}<div class="pbtns"><div class="pbtn primary" data-act="open-url" data-val="${install}">${t("prov.howInstall")} ↗</div><div class="pbtn" data-act="agent-recheck">${t("prov.recheck")}</div></div>`;
     else if (!a.loggedIn)
@@ -1735,7 +2146,9 @@ function providerDetail(id: string): string {
                     ? "claude auth login"
                     : id === "codex"
                       ? "codex login"
-                      : "grok login --oauth",
+                      : id === "antigravity"
+                        ? "agy"
+                        : "grok login --oauth",
               },
             )}</div>`;
     else if (setup.signingOut === id)
@@ -1743,7 +2156,11 @@ function providerDetail(id: string): string {
     else if (setup.confirmLogout === id)
       body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="pbtns"><div class="pbtn" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="pbtn" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
     else {
-      const signOut = `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
+      // Antigravity CLI signs out only from its own screen
+      const signOut =
+        id === "antigravity"
+          ? ""
+          : `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
       body +=
         id === "grok"
           ? // its image reading could not be checked yet (only models that read images)
@@ -1756,19 +2173,27 @@ function providerDetail(id: string): string {
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
-      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
+      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" data-provider="${esc(id)}" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
       : "";
     const model =
       id === "custom"
-        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
+        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" data-provider="custom" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
         : "";
-    body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>`;
+    body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
   return `<div class="pdetail">${body}${testLine(id)}</div>`;
 }
 
 function providerList(compact = false): string {
-  const all = ["auto", "claude-code", "codex", "grok", ...setup.list.map((p) => p.id), "custom"];
+  const all = [
+    "auto",
+    "claude-code",
+    "codex",
+    "antigravity",
+    "grok",
+    ...setup.list.map((p) => p.id),
+    "custom",
+  ];
   // the setup guide shows the usual choices and the chosen one; the rest behind Others
   const few = ["auto", "claude-code", "codex", "anthropic", state.settings.provider];
   const ids = compact && !onboard.allProviders ? all.filter((id) => few.includes(id)) : all;
@@ -1780,9 +2205,11 @@ function providerList(compact = false): string {
       const tier =
         id === "auto" || id === "claude-code" || id === "codex"
           ? "recommended"
-          : id === "grok" || id === "custom"
-            ? null
-            : (entry?.tier ?? null);
+          : id === "antigravity"
+            ? "experimental"
+            : id === "grok" || id === "custom"
+              ? null
+              : (entry?.tier ?? null);
       return `<div class="prow${on ? " on" : ""}" data-act="provider" data-val="${esc(id)}"><span class="pdot"></span><span class="pname">${esc(providerName(id))}</span>${tierTag(tier)}${keyStatus(entry, id)}</div>${on ? providerDetail(id) : ""}`;
     })
     .join("")}${
@@ -1801,7 +2228,7 @@ function modelList(): string {
   if (CLAUDE_KINDS.has(id))
     options = [
       ["claude-opus-5-5", t("settings.opusNote")],
-      ["claude-fable-5-1", t("settings.fableNote")],
+      ["claude-fable-5-2", t("settings.fableNote")],
       ["claude-sonnet-5-5", t("settings.sonnetNote")],
     ];
   else if (id === "codex")
@@ -1811,7 +2238,15 @@ function modelList(): string {
         (m) => [m, ""] as [string, string],
       ),
     ];
-  else if (id === "openrouter") {
+  else if (id === "antigravity") {
+    // the models the Google account may use that read images, as the CLI lists them
+    options = [
+      ["", t("prov.agyDefaultNote")],
+      ...(setup.served.antigravity ?? []).map((m) => [m.id, ""] as [string, string]),
+    ];
+    if (setup.servedError.antigravity)
+      note = `<div class="note warn-text">${esc(readableJobText(setup.servedError.antigravity) ?? setup.servedError.antigravity)}</div>`;
+  } else if (id === "openrouter") {
     // the suggested models first; every other model that reads images behind All Models
     const seeing = (setup.served.openrouter ?? []).filter((m) => m.vision);
     const suggested = entry?.models ?? [];
@@ -1860,8 +2295,11 @@ function modelList(): string {
         `<div class="mrow${m === current ? " on" : ""}" data-act="pmodel" data-val="${esc(m)}"><span class="mname">${m === current ? "✓ " : ""}${esc(modelLabel(m))}</span><span class="small muted">${esc(info)}</span></div>`,
     )
     .join("");
+  // local providers say it in their own note (prov.localLimits)
   const experimental =
-    entry?.tier === "experimental" || id === "codex"
+    (entry?.tier === "experimental" && id !== "lmstudio" && id !== "ollama") ||
+    id === "codex" ||
+    id === "antigravity"
       ? `<div class="note muted">${t("prov.experimentalNote")}</div>`
       : "";
   return `<div class="lbl">${t("settings.model")}</div><div class="mlist">${rows}</div>${note}${experimental}`;
@@ -1875,8 +2313,17 @@ function speechKeys(): string {
     body = `<div class="small">${t("prov.speechSame")}</div>`;
   else if (gemini?.keySet && setup.editingKey !== "gemini-speech")
     body = `<div class="small">Google Gemini <span class="pkey set">● ${t("prov.keySaved")}</span></div>`;
+  else if (setup.editingKey === "elevenlabs")
+    body = `<div class="small">Google Gemini <span class="pkey">${t("prov.noKey")}</span></div>`;
   else body = keyBlock("gemini", gemini, false);
-  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div>`;
+  // ElevenLabs reads narration and makes music. One key field at a time on the screen (they share the
+  // draft), so its field opens with Add Key.
+  const elevenEntry = { keySet: elevenKey, keyUrl: ELEVEN_KEY_URL } as ProviderEntry;
+  const eleven =
+    elevenKey || setup.editingKey === "elevenlabs"
+      ? keyBlock("elevenlabs", elevenEntry, false)
+      : `<div class="pbtns"><div class="pbtn" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
+  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div><div class="note muted">${t("prov.elevenPermissions")}</div>`;
 }
 
 /** The first-run guide: companion, computer, speech model, AI, narration and a first try. */
@@ -2134,7 +2581,11 @@ function mailAbout() {
   return {
     app: state.appVersion ?? t("settings.unknown"),
     panel: panelVersion(),
-    editor: host().kind === "resolve" ? ("DaVinci Resolve" as const) : ("Premiere" as const),
+    editor: editorText({
+      premiere: "Premiere",
+      resolve: "DaVinci Resolve",
+      filmcraft: "FilmCraft",
+    } as const),
     os: host().platform(),
     lang: lang(),
     ai: reportProvider(),
@@ -2167,12 +2618,14 @@ function versionLine(): string {
   const panel = panelVersion();
   const app = state.appVersion;
   const differ = Boolean(app && app !== panel);
-  const notes =
-    lang() === "tr" ? "https://kilnframe.com/tr/changelog/" : "https://kilnframe.com/changelog/";
+  const notes = changelogUrl();
   return `<div class="small mt ${differ ? "warn-text" : "muted"}">Kilnframe ${esc(app ?? t("settings.unknown"))} · ${t("settings.panel")} ${esc(panel)} · <span class="link" data-act="open-url" data-val="${notes}">${t("settings.releaseNotes")} ↗</span></div><div class="small mt"><span class="link" data-act="open-url" data-val="${esc(feedbackPage({ kind: "feedback", ...mailAbout() }))}">${t("feedback.send")} ↗</span></div>${
-    differ
-      ? `<div class="small warn-text">${t(host().kind === "resolve" ? "settings.versionsDifferResolve" : "settings.versionsDiffer")}</div>`
-      : ""
+    // reinstalling the panel helps only when the panel is the older side
+    versionGap(panel, app) === "app"
+      ? `<div class="small warn-text">${t("home.appOlder", { panel: esc(panel), app: esc(app) })}</div>`
+      : differ
+        ? `<div class="small warn-text">${t(editorText({ premiere: "settings.versionsDiffer", resolve: "settings.versionsDifferResolve", filmcraft: "settings.versionsDifferFilmcraft" }))}</div>`
+        : ""
   }`;
 }
 
@@ -2199,11 +2652,11 @@ function reviewScreen(): string {
             st.image,
             width,
             height,
-            `data-act="zoom" data-val="${st.sceneId}"`,
+            `data-act="zoom" data-val="${esc(st.sceneId)}"`,
             "still-img",
           )
         : `<div class="still-empty" style="width:${width}px;height:${height}px"></div>`
-    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${st.sceneId}">${label} ${redo ? t("review.redoMark") : "✓"}</div>${
+    }<div class="small still-label ${redo ? "warn-text" : ""}" data-act="redo" data-val="${esc(st.sceneId)}">${label} ${redo ? t("review.redoMark") : "✓"}</div>${
       st.edgeCut ? `<div class="small warn-text">${t("review.edgeCut")}</div>` : ""
     }</div>`;
   };
@@ -2254,7 +2707,7 @@ function lightboxScreen(): string {
     lb.kind === "still" && state.review ? Math.round(width / state.review.aspect) : h169(width);
   const many = lb.images.length > 1;
   const redoing = lb.kind === "still" && state.review?.redo === item.sceneId;
-  return `${header(item.caption, many ? `<span class="tag2">${lb.index + 1} / ${lb.images.length}</span>` : "")}
+  return `${header(esc(item.caption), many ? `<span class="tag2">${lb.index + 1} / ${lb.images.length}</span>` : "")}
   ${imgSlot(`big:${lb.kind}:${item.caption}:${lb.index}`, item.src, width, height, "", "big-img")}
   ${
     many
@@ -2263,7 +2716,7 @@ function lightboxScreen(): string {
   }
   ${
     lb.kind === "still" && item.sceneId
-      ? `<div class="btn2 mt" data-act="lb-redo" data-val="${item.sceneId}">${
+      ? `<div class="btn2 mt" data-act="lb-redo" data-val="${esc(item.sceneId)}">${
           redoing ? t("lightbox.unmark") : redoLabel(item.sceneId)
         }</div>`
       : ""
@@ -2271,7 +2724,43 @@ function lightboxScreen(): string {
   <div class="btn mt" data-act="lb-close">${t("lightbox.close")}</div>`;
 }
 
+/**
+ * The address and model fields belong to the provider whose detail was drawn: read them under that id, or
+ * the custom endpoint's address would be saved under the next provider (and its key sent there).
+ */
+function readProviderFields() {
+  const baseField = document.getElementById("base-input") as HTMLInputElement | null;
+  const modelField = document.getElementById("model-input") as HTMLInputElement | null;
+  if (!baseField && !modelField) return;
+  const id = (baseField ?? modelField)?.getAttribute("data-provider") ?? state.settings.provider;
+  state.settings = {
+    ...state.settings,
+    ...(baseField ? { baseURLs: { ...state.settings.baseURLs, [id]: baseField.value ?? "" } } : {}),
+    ...(modelField ? { models: { ...state.settings.models, [id]: modelField.value ?? "" } } : {}),
+  };
+  store("settings", JSON.stringify(state.settings));
+}
+
+/**
+ * The Remove Pauses slider is held: a full render (a progress line, the sequence watcher) would replace the
+ * slider and end the drag, so it waits for the release. The tab redraws its summary in place meanwhile.
+ */
+let sliderHeld = false;
+let renderHeld = false;
+function releaseSlider() {
+  if (!sliderHeld) return;
+  sliderHeld = false;
+  if (renderHeld) {
+    renderHeld = false;
+    render();
+  }
+}
+
 function render() {
+  if (sliderHeld) {
+    renderHeld = true;
+    return;
+  }
   const sceneNote = document.getElementById("scenenote") as HTMLTextAreaElement | null;
   if (sceneNote && state.review) state.review.note = sceneNote.value ?? "";
   const note = document.getElementById("note") as HTMLTextAreaElement | null;
@@ -2281,13 +2770,17 @@ function render() {
       const input = document.getElementById(`${kind}-note-${i}`) as HTMLInputElement | null;
       if (input) img.note = input.value ?? "";
     });
-  const storyFields: [string, "brief" | "script" | "note" | "tone" | "customLength" | "own"][] = [
+  const storyFields: [
+    string,
+    "brief" | "script" | "note" | "tone" | "customLength" | "own" | "cloneName",
+  ][] = [
     ["story-own", "own"],
     ["story-length-input", "customLength"],
     ["story-brief", "brief"],
     ["story-script", "script"],
     ["story-note", "note"],
     ["story-tone", "tone"],
+    ["story-clone-name", "cloneName"],
   ];
   for (const [id, key] of storyFields) {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
@@ -2295,21 +2788,10 @@ function render() {
   }
   musicReadFields(state.music);
   captionsReadFields(state.captions);
+  voiceFixReadFields(state.voiceFix);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
-  const baseField = document.getElementById("base-input") as HTMLInputElement | null;
-  const modelField = document.getElementById("model-input") as HTMLInputElement | null;
-  if (baseField || modelField) {
-    const id = state.settings.provider;
-    state.settings = {
-      ...state.settings,
-      ...(baseField
-        ? { baseURLs: { ...state.settings.baseURLs, [id]: baseField.value ?? "" } }
-        : {}),
-      ...(modelField ? { models: { ...state.settings.models, [id]: modelField.value ?? "" } } : {}),
-    };
-    store("settings", JSON.stringify(state.settings));
-  }
+  readProviderFields();
   if (state.own) {
     const desc = document.getElementById("own-desc") as HTMLTextAreaElement | null;
     if (desc) state.own.description = desc.value ?? "";
@@ -2355,12 +2837,14 @@ function render() {
     ["story-script", "script"],
     ["story-note", "note"],
     ["story-tone", "tone"],
+    ["story-clone-name", "cloneName"],
   ] as const) {
     const el = document.getElementById(id) as HTMLTextAreaElement | null;
     if (el) el.value = state.story[key];
   }
   musicWriteFields(state.music);
   captionsWriteFields(state.captions);
+  voiceFixWriteFields(state.voiceFix);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
   if (state.own) {
@@ -2466,6 +2950,23 @@ async function exportFootageFrames(
 
 /** Lyria 3.5's price per piece (the companion's music catalog); shown before any money is spent. */
 const LYRIA_PRICE_USD = 0.08;
+/** ElevenLabs Music's price per minute of music (the companion's music catalog). */
+const ELEVEN_MUSIC_PRICE_PER_MINUTE_USD = 0.15;
+
+/** Who makes the music, in the Music tab and in story mode: the editor's last choice. */
+function storedMusicProvider(): MusicProvider {
+  return stored("music-provider") === "elevenlabs" ? "elevenlabs" : "gemini";
+}
+
+/** Who makes a story's music and about what it costs, for the line under the music choice. */
+function musicMaker(): string {
+  return t(storedMusicProvider() === "elevenlabs" ? "story.makerEleven" : "story.makerLyria");
+}
+
+/** Whether the chosen music provider has its key. */
+function musicKeyFor(p: MusicProvider): boolean {
+  return p === "elevenlabs" ? elevenKey : state.story.musicKeySet;
+}
 
 /** What the Music tab (music.ts) uses from the rest of the panel. */
 const musicCtx: MusicCtx = {
@@ -2476,7 +2977,7 @@ const musicCtx: MusicCtx = {
   render: () => render(),
   trace: (line) => trace(line),
   connected: () => state.conn === "ok" && wavPresetOk(),
-  keySet: () => state.story.keySet,
+  keySet: (p) => musicKeyFor(p ?? storedMusicProvider()),
   inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
   readSequence: () => readSequence(),
   request: (message, reply, timeoutMs) =>
@@ -2498,8 +2999,80 @@ const musicCtx: MusicCtx = {
   placeClips: (target, clips) => host().placeAudioClips(target, clips),
   rangeLine: (scope) => musicRangeLine(scope),
   slider: () => state.settings.musicLevel ?? -21,
-  pricePerSong: () => LYRIA_PRICE_USD,
-  openTerms: () => void host().openUrl("https://ai.google.dev/gemini-api/terms"),
+  provider: () => storedMusicProvider(),
+  setProvider: (p) => {
+    store("music-provider", p);
+  },
+  price: (p) =>
+    p === "elevenlabs"
+      ? { perMinute: ELEVEN_MUSIC_PRICE_PER_MINUTE_USD }
+      : { perSong: LYRIA_PRICE_USD },
+  openTerms: () =>
+    void host().openUrl(
+      storedMusicProvider() === "elevenlabs"
+        ? "https://elevenlabs.io/music-terms"
+        : "https://ai.google.dev/gemini-api/terms",
+    ),
+  providerParams: () => providerParams(),
+};
+
+/** What the Voice Fix tab (voice-fix.ts) uses from the rest of the panel. */
+const voiceFixCtx: VoiceFixCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: () => musicRangeLine("range"),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  speechTracksAt: (target, startS, endS) => host().speechTracksAt(target, startS, endS),
+  withOnlyAudioTrack: (target, track, fn) => host().withOnlyAudioTrack(target, track, fn),
+  exportAudio: (target, startS, endS, file) =>
+    host().exportRangeAudio(target, startS, endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  renderSettingsLost: async () => (await host().renderSettingsLost?.()) ?? false,
+  placeClips: (target, clips) => host().placeAudioClips(target, clips),
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  forget: (key) => unstore(key),
+};
+
+/** What the Remove Pauses tab (pauses.ts) uses from the rest of the panel. */
+const pausesCtx: PausesCtx = {
+  esc: (s) => esc(s),
+  reportLink: (error) => reportLink(error),
+  seg: (name, value, options) => seg(name, value, options),
+  render: () => render(),
+  trace: (line) => trace(line),
+  connected: () => state.conn === "ok" && wavPresetOk(),
+  inOut: () => (state.seq?.range.source === "inout" ? state.seq.range : null),
+  rangeLine: () => musicRangeLine("range"),
+  readSequence: () => readSequence(),
+  request: (message, reply, timeoutMs) =>
+    session.request<ServerMessage>(message as never, reply as never, timeoutMs),
+  send: (message) => session.send(message),
+  on: (listener) => session.on(listener),
+  speechTracksAt: (target, startS, endS) => host().speechTracksAt(target, startS, endS),
+  withOnlyAudioTrack: (target, track, fn) => host().withOnlyAudioTrack(target, track, fn),
+  exportAudio: (target, startS, endS, file) =>
+    host().exportRangeAudio(target, startS, endS, file, {
+      wavPreset: state.system?.wavPreset ?? "",
+    }),
+  renderSettingsLost: async () => (await host().renderSettingsLost?.()) ?? false,
+  stored: (key) => stored(key),
+  store: (key, value) => store(key, value),
+  hostKind: () => host().kind,
+  // read each time: undefined in an editor (or an older Resolve bridge) that cannot cut
+  get cutToNewSequence() {
+    const h = host();
+    return h.cutToNewSequence?.bind(h);
+  },
 };
 
 /** What the Captions tab (captions.ts) uses from the rest of the panel. */
@@ -2547,7 +3120,7 @@ const captionsCtx: CaptionsCtx = {
   // the HTML element list (https://developer.adobe.com/premiere-pro/uxp/) nor the Premiere samples say which
   // codecs or sources (a data: URL of an H.264 clip) it plays inside Premiere. Until that is tried there,
   // Premiere steps through stills; Resolve's panel is Chromium (Electron) and plays the clip.
-  playsVideo: () => host().kind === "resolve",
+  playsVideo: () => host().kind !== "premiere",
   img: (key, src, width, height) => imgSlot(key, src, width, height),
   refresh: (pictures) => {
     for (const [key, src] of Object.entries(pictures)) images.get(key)?.setAttribute("src", src);
@@ -2600,6 +3173,13 @@ async function readSequence(): Promise<HostSequence | null> {
 }
 
 async function generate() {
+  // one paid run at a time: a second one would take over the first one's screen and messages
+  if (rangeJobRunning()) return render();
+  const run = startRun();
+  // a sign-in or key added since the panel last looked counts: ask again before saying it is missing
+  if (aiMissing()) await refreshProviders();
+  state.aiBlocked = Boolean(aiMissing());
+  if (state.aiBlocked) return render();
   const target = await readSequence();
   if (!target || !state.seq || !wavPresetOk()) return render();
   const range = state.seq.range;
@@ -2626,9 +3206,10 @@ async function generate() {
       },
       "job.prepared",
     );
+    stopIfAsked(run);
     const jobDir = String(prepared.jobDir);
     // a story sequence holds its narration from 0 on A1; under it is music, so read the voice alone
-    const narration = await storyNarration(target.id);
+    const narration = await storyNarration(target.id, range.endS);
     // a story sequence has no speaker under the animation, so there is nothing to sit beside: fullscreen
     const mode = narration ? "fullscreen" : state.mode;
     const audioPath = narration ?? `${jobDir}/sequence.wav`;
@@ -2699,6 +3280,9 @@ async function generate() {
         : {}),
       ...providerParams(),
     };
+    // Premiere's exports cannot be cancelled: a Stop pressed during them is honoured here, before paying,
+    // also when the editor has started another run since
+    stopIfAsked(run);
     if (range.durationS > LONG_RANGE_SECONDS)
       return await startParts(target, params, jobDir, footage, audioOffset);
     await submitJob(
@@ -2708,8 +3292,21 @@ async function generate() {
       params,
     );
   } catch (err) {
-    failJob(err);
+    // a run stopped and followed by a new one: the screen and the job are the new run's now
+    if (run !== runId) return trace(`job: an earlier run ended after Stop (${String(err)})`);
+    failJob(stoppedOr(err));
   }
+}
+
+/** After Stop, whatever a run ends with is said as stopped (an export cut short fails in its own words). */
+function stoppedOr(err: unknown): unknown {
+  return stopAsked && !(err instanceof ConnectionLost) ? new JobStopped(t("job.stopped")) : err;
+}
+
+/** A range job or a long range is running, in the background or on the progress screen. */
+function rangeJobRunning(): boolean {
+  const job = state.job;
+  return seriesBusy || Boolean(job && !job.placed && !job.error);
 }
 
 /** Runs a job that needs no review (the split) and resolves with its result; progress goes to the job. */
@@ -2724,9 +3321,11 @@ function runQuietJob(params: Record<string, unknown>): Promise<Record<string, un
       } else if (m.type === "job.done") {
         off();
         resolve(m.result as Record<string, unknown>);
-      } else if (m.type === "job.error") {
+      } else {
+        const end = jobEndError(m);
+        if (!end) return;
         off();
-        reject(new Error(jobErrorText(m)));
+        reject(end);
       }
     });
     session
@@ -2737,6 +3336,7 @@ function runQuietJob(params: Record<string, unknown>): Promise<Record<string, un
       .then((accepted) => {
         id = String(accepted.jobId);
         if (state.job) state.job.id = id;
+        cancelIfStopped(id);
       })
       .catch((err: unknown) => {
         off();
@@ -2764,8 +3364,51 @@ let seriesBusy = false;
 let seriesAt = 0;
 
 class JobLost extends Error {}
-/** The editor stopped the job; nothing is retried. */
-class JobStopped extends Error {}
+
+/**
+ * The editor pressed Stop for the run in progress (a range, its parts, or an approved render). Cleared when
+ * the editor starts a run; a run checks it before each paid step, since Stop before a job id exists has no
+ * job to cancel.
+ */
+let stopAsked = false;
+
+/**
+ * The run the panel is on. A run that awaits Premiere's exports (which Stop cannot cut short) can still be
+ * waiting when the editor stopped it and pressed Create again, which clears stopAsked; its own number, no
+ * longer the current one, keeps it from submitting a paid job.
+ */
+let runId = 0;
+
+/** Starts a run: Stop is forgotten and every earlier run counts as stopped. */
+function startRun(): number {
+  stopAsked = false;
+  return ++runId;
+}
+
+/** A job accepted after Stop was pressed is cancelled at once. */
+function cancelIfStopped(jobId: string) {
+  if (!stopAsked) return;
+  trace(`job: ${jobId} accepted after Stop, cancelling it`);
+  try {
+    session.send({ type: "job.cancel", jobId });
+  } catch (err) {
+    trace(`job: cancel failed ${String(err)}`);
+  }
+}
+
+/** Throws when the editor pressed Stop, or (given its run) a newer run has started; the screen says so. */
+function stopIfAsked(run?: number) {
+  if (stopAsked || (run !== undefined && run !== runId)) throw new JobStopped(t("job.stopped"));
+}
+
+/** The error a job's message ends it with: an error, a stop, a job the companion forgot, a lost connection. */
+function jobEndError(m: ServerMessage): Error | null {
+  if (m.type === "job.error")
+    return m.connectionLost ? new ConnectionLost(String(m.message)) : new Error(jobErrorText(m));
+  if (m.type === "job.cancelled") return new JobStopped(t("job.stopped"));
+  if (m.type === "job.state" && m.state === "unknown") return new JobLost(t("job.lost"));
+  return null;
+}
 
 /** Applies a progress line to the job view: step, the part of the step done, the plan, the detail. */
 function applyProgress(job: JobView, message: string) {
@@ -2800,19 +3443,21 @@ function awaitJob(
       } else if (m.type === "job.done") {
         off();
         resolve(m.result as JobResult);
-      } else if (m.type === "job.error") {
+      } else {
+        const end = jobEndError(m);
+        if (!end) return;
         off();
-        reject(new Error(jobErrorText(m)));
-      } else if (m.type === "job.state" && m.state === "unknown") {
-        off();
-        reject(new JobLost(t("job.lost")));
-      } else if (m.type === "job.cancelled") {
-        off();
-        reject(new JobStopped(t("job.stopped")));
+        reject(end);
       }
     });
     if (id) {
-      session.send({ type: "job.get", jobId: id });
+      try {
+        session.send({ type: "job.get", jobId: id });
+      } catch {
+        // not connected: the job may still run in the app, so it is kept to follow later
+        off();
+        reject(new ConnectionLost(t("job.connectionLost")));
+      }
       return;
     }
     session
@@ -2828,6 +3473,7 @@ function awaitJob(
         id = String(accepted.jobId);
         if (state.job) state.job.id = id;
         onId?.(id);
+        cancelIfStopped(id);
       })
       .catch((err: unknown) => {
         off();
@@ -2869,25 +3515,33 @@ function partParams(series: Series, i: number): Record<string, unknown> {
 async function runPartJob(i: number, extra: Record<string, unknown>): Promise<JobResult> {
   const series = state.series as Series;
   const part = series.parts[i] as SeriesPart;
-  if (part.jobId) {
-    try {
-      const r = await awaitJob({ jobId: part.jobId });
+  // a failed or stopped job is let go, or Continue would follow it and get its end again; only a lost
+  // connection keeps it, since the job may still be running in the app
+  let keep = false;
+  try {
+    if (part.jobId) {
+      try {
+        return await awaitJob({ jobId: part.jobId });
+      } catch (err) {
+        if (!(err instanceof JobLost)) throw err;
+        trace(`series: part ${i + 1} job lost, starting it again`);
+        part.jobId = null;
+      }
+    }
+    stopIfAsked();
+    return await awaitJob({ params: { ...partParams(series, i), ...extra } }, (id) => {
+      part.jobId = id;
+      saveSeries();
+    });
+  } catch (err) {
+    keep = err instanceof ConnectionLost;
+    throw err;
+  } finally {
+    if (!keep) {
       part.jobId = null;
       saveSeries();
-      return r;
-    } catch (err) {
-      if (!(err instanceof JobLost)) throw err;
-      trace(`series: part ${i + 1} job lost, starting it again`);
-      part.jobId = null;
     }
   }
-  const r = await awaitJob({ params: { ...partParams(series, i), ...extra } }, (id) => {
-    part.jobId = id;
-    saveSeries();
-  });
-  part.jobId = null;
-  saveSeries();
-  return r;
 }
 
 /** A part's stills, from memory or, after a restart, from its folder; false when there are none yet. */
@@ -2944,6 +3598,15 @@ async function placePart(i: number, r: JobResult, target: HostSequence) {
     series.tracks ?? undefined,
   );
   trace(`series: part ${i + 1} placed on V${placed.videoTrack + 1} and A${placed.audioTrack + 1}`);
+  if (placed.scaleByHand && state.job)
+    state.job.note = t(
+      editorText({
+        premiere: "place.scaleByHand",
+        resolve: "place.scaleByHandResolve",
+        filmcraft: "place.scaleByHandFilmcraft",
+      }),
+      { pct: placed.scaleByHand },
+    );
   series.tracks ??= placed;
   part.state = "placed";
   series.cost = addCosts(series.cost ?? null, r.cost);
@@ -3016,6 +3679,7 @@ async function runSeries() {
       for (const [i, part] of series.parts.entries()) {
         if (part.state === "placed") continue;
         if (part.state === "stills" && !part.jobId && (await ensureStills(i))) continue;
+        stopIfAsked();
         showPart(i, "stills");
         const r = await runPartJob(i, review ? { stillsOnly: true } : {});
         if (r.output) await placePart(i, r, target);
@@ -3031,6 +3695,7 @@ async function runSeries() {
     saveSeries();
     for (const [i, part] of series.parts.entries()) {
       if (part.state === "placed") continue;
+      stopIfAsked();
       showPart(i, "render");
       await placePart(i, await runPartJob(i, { action: "render" }), target);
     }
@@ -3046,7 +3711,9 @@ async function runSeries() {
     state.screen = "home";
     render();
   } catch (err) {
-    failJob(err);
+    // seriesBusy first, so the home screen failJob draws offers Continue
+    seriesBusy = false;
+    failJob(stoppedOr(err));
   } finally {
     seriesBusy = false;
   }
@@ -3139,6 +3806,7 @@ async function submitJob(
     if (state.job) state.job.id = String(accepted.jobId);
     // kept until the result is handled, so a reloaded or woken panel can ask for it again
     store("pending", JSON.stringify({ jobId: accepted.jobId, guid: target.id, range, baseParams }));
+    cancelIfStopped(String(accepted.jobId));
   } catch (err) {
     off();
     throw err;
@@ -3153,7 +3821,8 @@ function onJobMessage(
   off: () => void,
 ) {
   const job = state.job;
-  if (!job || (job.id && m.jobId !== job.id)) return;
+  // only the job this view started: before its id is known, every message is another job's
+  if (!job || !job.id || m.jobId !== job.id) return;
   if (m.type === "job.progress") {
     applyProgress(job, String(m.message));
     render();
@@ -3190,6 +3859,15 @@ function onJobMessage(
       .then((placed) => {
         trace(`job: placed on V${placed.videoTrack + 1} and A${placed.audioTrack + 1}`);
         job.placed = placed;
+        if (placed.scaleByHand)
+          job.note = t(
+            editorText({
+              premiere: "place.scaleByHand",
+              resolve: "place.scaleByHandResolve",
+              filmcraft: "place.scaleByHandFilmcraft",
+            }),
+            { pct: placed.scaleByHand },
+          );
         job.cost = r.cost ?? null;
         job.step = 7;
         state.review = null;
@@ -3197,10 +3875,30 @@ function onJobMessage(
         render();
       })
       .catch(failJob);
+  } else if (m.type === "job.error" && m.connectionLost) {
+    // the job may still run in the app: the progress screen shows the connection box, and the pending
+    // job is followed again once the panel reconnects (resumePending)
+    trace("job: connection lost while following");
+    render();
   } else if (m.type === "job.error") {
     off();
     store("pending", "");
     failJob(new Error(jobErrorText(m)));
+    if (state.job) {
+      state.job.retry = readableJobError(String(m.message))?.key === "job.checksFailed";
+      const p = m as { picture?: unknown; pictureWidth?: unknown; pictureHeight?: unknown };
+      if (
+        typeof p.picture === "string" &&
+        Number(p.pictureWidth) > 0 &&
+        Number(p.pictureHeight) > 0
+      )
+        state.job.picture = {
+          src: p.picture,
+          width: Number(p.pictureWidth),
+          height: Number(p.pictureHeight),
+        };
+      render();
+    }
   } else if (m.type === "job.cancelled") {
     off();
     store("pending", "");
@@ -3258,6 +3956,7 @@ async function resumePending() {
 async function continueReview(action: "render" | "recompose") {
   const r = state.review;
   if (!r) return;
+  startRun();
   const note =
     (document.getElementById("scenenote") as HTMLTextAreaElement | null)?.value ?? r.note;
   if (r.series) {
@@ -3341,7 +4040,9 @@ function failJob(err: unknown) {
       placed: null,
     };
   state.job.confirmStop = false;
-  state.job.reportable = !(err instanceof JobStopped);
+  state.job.retry = false;
+  state.job.picture = null;
+  state.job.reportable = !(err instanceof JobStopped) && !(err instanceof ConnectionLost);
   state.job.error =
     series && !(err instanceof JobStopped)
       ? t("job.partFailed", { i: seriesAt + 1, n: series.parts.length, message })
@@ -3397,9 +4098,21 @@ for (const name of ["pointerleave", "mouseleave"])
   });
 
 root.addEventListener("pointerdown", (event) => {
+  if ((event.target as HTMLElement | null)?.id === "pauses-strict") sliderHeld = true;
   pressed = actionTarget(event.target);
   pressedSeen = true;
 });
+// the release may land outside the panel's root: listened for on the document, and any move with no button
+// down ends a hold whose release was missed
+document.addEventListener("pointerup", () => releaseSlider(), true);
+document.addEventListener("pointercancel", () => releaseSlider(), true);
+document.addEventListener(
+  "pointermove",
+  (event) => {
+    if (sliderHeld && (event as PointerEvent).buttons === 0) releaseSlider();
+  },
+  true,
+);
 root.addEventListener("pointerup", (event) => {
   const el = actionTarget(event.target);
   // while a text field has focus UXP sends no pointerdown for the next click, only pointerup, so a lone
@@ -3433,6 +4146,9 @@ root.addEventListener("input", (event) => {
   const id = (event.target as HTMLElement | null)?.id ?? "";
   if (id.startsWith("cap-color-"))
     captionsColorInput(state.captions, captionsCtx, () => readColorFields());
+  // the Remove Pauses slider: its summary follows the move without a render, which would end the drag
+  else if (id === "pauses-strict")
+    pausesAct(state.pauses, pausesCtx, "pauses-strict", (event.target as HTMLInputElement).value);
   // a typed line is kept in the job folder once the typing pauses
   else if (id.startsWith("cap-line-"))
     captionsLineInput(state.captions, captionsCtx, () => captionsReadFields(state.captions));
@@ -3441,6 +4157,14 @@ root.addEventListener("input", (event) => {
     const text = (event.target as HTMLTextAreaElement).value ?? "";
     const line = document.getElementById("story-own-count");
     if (line) line.innerHTML = ownCountLine(text, state.story.language);
+  }
+});
+// a slider that reports only where it was let go still updates the summary (the move is debounced anyway)
+root.addEventListener("change", (event) => {
+  const el = event.target as HTMLInputElement | null;
+  if (el?.id === "pauses-strict") {
+    pausesAct(state.pauses, pausesCtx, "pauses-strict", el.value);
+    releaseSlider();
   }
 });
 root.addEventListener("pointermove", (event) => {
@@ -3465,7 +4189,11 @@ async function saveKey(id: string) {
     setup.editingKey = null;
     setup.keyDraft = "";
     if (id === "custom") customKey = true;
-    if (id === "gemini") void loadVoices().catch(() => undefined);
+    if (id === "elevenlabs") {
+      elevenKey = true;
+      state.voiceFix.keySet = true;
+    }
+    if (id === "gemini" || id === "elevenlabs") void loadVoices().catch(() => undefined);
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }
@@ -3478,6 +4206,10 @@ async function deleteKey(id: string) {
     await session.request<ServerMessage>({ type: "keys.delete", provider: id }, "keys.deleted");
     trace(`settings: key deleted for ${id}`);
     if (id === "custom") customKey = false;
+    if (id === "elevenlabs") {
+      elevenKey = false;
+      state.voiceFix.keySet = false;
+    }
   } catch (err) {
     setup.error = err instanceof Error ? err.message : String(err);
   }
@@ -3516,7 +4248,13 @@ async function updateAgent(id: string) {
 }
 
 function agentName(id: string): string {
-  return id === "claude-code" ? "Claude Code" : id === "codex" ? "Codex" : "Grok";
+  return id === "claude-code"
+    ? "Claude Code"
+    : id === "codex"
+      ? "Codex"
+      : id === "antigravity"
+        ? "Antigravity CLI"
+        : "Grok";
 }
 
 /** Runs the agent's own sign-out, then reads the sign-in states again; Sign In then takes another account. */
@@ -3655,6 +4393,12 @@ function runAction(el: HTMLElement) {
       void loadVoices()
         .then(render)
         .catch(() => undefined);
+    // the Voice Fix tab reads with ElevenLabs: whether its key is saved
+    if (state.tab === "voice") void voiceFixOpened(state.voiceFix, voiceFixCtx);
+  } else if (act && voiceFixAct(state.voiceFix, voiceFixCtx, act, val)) {
+    /* handled by the Voice Fix tab */
+  } else if (act && pausesAct(state.pauses, pausesCtx, act, val)) {
+    /* handled by the Remove Pauses tab */
   } else if (act && musicAct(state.music, musicCtx, act, val)) {
     /* handled by the Music tab */
   } else if (act && captionsAct(state.captions, captionsCtx, act, val)) {
@@ -3727,7 +4471,34 @@ function runAction(el: HTMLElement) {
     store("story-music", state.story.music);
   } else if (act === "story-voice") {
     state.story.voice = val;
-    store("story-voice", val);
+    store(voiceKey(state.story.speechProvider), val);
+  } else if (act === "clone-open") {
+    state.story.clone = { ...state.story.clone, open: true, error: null, done: null };
+  } else if (act === "clone-close") {
+    state.story.clone = { ...state.story.clone, open: false, error: null, consent: false };
+  } else if (act === "clone-noise") state.story.clone.noise = !state.story.clone.noise;
+  else if (act === "clone-consent") state.story.clone.consent = !state.story.clone.consent;
+  else if (act === "clone-go") {
+    render();
+    return void cloneVoice();
+  } else if (act === "story-speech") {
+    const st = state.story;
+    const provider: SpeechProvider = val === "elevenlabs" ? "elevenlabs" : "gemini";
+    if (provider !== st.speechProvider) {
+      st.speechProvider = provider;
+      store("story-speech", provider);
+      st.voice = storedVoice(provider);
+      st.voices = [];
+      st.voicesError = null;
+      st.allVoices = false;
+      if (state.voicePlaying) {
+        state.voicePlaying = "";
+        session.send({ type: "speech.stop" });
+      }
+      void loadVoices()
+        .then(render)
+        .catch((e: unknown) => trace(`voices threw: ${String(e)}`));
+    }
   } else if (act === "story-voices-all") state.story.allVoices = !state.story.allVoices;
   else if (act === "story-stop") {
     state.voicePlaying = "";
@@ -3742,7 +4513,13 @@ function runAction(el: HTMLElement) {
     render();
     void session
       .request<ServerMessage>(
-        { type: "speech.preview", voice: val || state.story.voice, language: state.story.language },
+        {
+          type: "speech.preview",
+          voice: val || state.story.voice,
+          language: state.story.language,
+          provider: state.story.speechProvider,
+          label: state.story.voices.find((v) => v.name === (val || state.story.voice))?.label,
+        },
         "speech.played",
         60_000,
       )
@@ -3862,8 +4639,15 @@ function runAction(el: HTMLElement) {
     state.review = null;
     state.job = null;
     state.screen = "home";
-  } else if (act === "series-continue") return void runSeries();
-  else if (act === "series-drop") {
+  } else if (act === "series-continue") {
+    startRun();
+    return void runSeries();
+  } else if (act === "open-progress") {
+    if (state.review) state.screen = "review";
+    else if (state.job) state.screen = "progress";
+  } else if (act === "series-drop") {
+    // a part's review the app was holding for (opened again from its folder) is no longer waited for
+    if (!state.review || state.review.series) leaveReview();
     state.series = null;
     saveSeries();
     seriesStills.clear();
@@ -3876,11 +4660,12 @@ function runAction(el: HTMLElement) {
   } else if (act === "ontop") {
     host().onTop?.set(val === "on");
   } else if (act === "provider") {
+    readProviderFields();
     state.settings = { ...state.settings, provider: val };
     store("settings", JSON.stringify(state.settings));
     setup.editingKey = null;
     setup.confirmDelete = null;
-    if (LOCAL_PROVIDERS.has(val) || val === "openrouter") void loadServed(val);
+    if (listsServedModels(val)) void loadServed(val);
   } else if (act === "lm-thinking") {
     state.settings = {
       ...state.settings,
@@ -3934,17 +4719,27 @@ function runAction(el: HTMLElement) {
   } else if (act === "settings") {
     state.screen = "settings";
     void refreshProviders();
-    if (LOCAL_PROVIDERS.has(state.settings.provider) || state.settings.provider === "openrouter")
-      void loadServed(state.settings.provider);
+    if (listsServedModels(state.settings.provider)) void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
   else if (act === "stop" && state.job) state.job.confirmStop = true;
   else if (act === "stop-no" && state.job) state.job.confirmStop = false;
   else if (act === "stop-yes" && state.job) {
     // the companion ends the job and everything it started; job.cancelled brings the panel home
     trace(`job: stopped by the editor (${state.job.id ?? "not started yet"})`);
+    // remembered for the run: a job accepted later is cancelled, and no further part or job starts
+    stopAsked = true;
     host().cancelExports?.();
-    if (state.job.id) session.send({ type: "job.cancel", jobId: state.job.id });
-    else failJob(new JobStopped(t("job.stopped")));
+    let sent = false;
+    if (state.job.id)
+      try {
+        session.send({ type: "job.cancel", jobId: state.job.id });
+        sent = true;
+      } catch (err) {
+        // not connected: nothing will say the job ended, so the panel says it
+        trace(`job: cancel not sent ${String(err)}`);
+        store("pending", "");
+      }
+    if (!sent) failJob(new JobStopped(t("job.stopped")));
   } else if (act === "reconnect") return void connectCompanion();
   else if (act === "app-update") {
     state.updateBusy = false;
@@ -4025,7 +4820,11 @@ setInterval(() => {
   watchTick++;
   if (
     state.screen !== "home" ||
-    !watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
+    !(
+      watchesSequence(state.tab, state.music.stage, state.captions.stage) ||
+      (state.tab === "voice" && voiceFixWatches(state.voiceFix)) ||
+      (state.tab === "pauses" && pausesWatches(state.pauses))
+    ) ||
     state.lightbox ||
     pressed
   )
@@ -4065,7 +4864,7 @@ connectCompanion().catch((e: unknown) => trace(`connectCompanion threw: ${String
  */
 function agentInstallHelp(id: AgentId): string {
   const win = isWindows();
-  const signIn = { "claude-code": "claude", codex: "codex", grok: "grok" };
+  const signIn = { "claude-code": "claude", codex: "codex", grok: "grok", antigravity: "agy" };
   const copy = setup.copied === id ? t("prov.copied") : t("prov.copy");
   return `<div class="note">${t(`prov.cliOnly.${id}`)}</div>
   <div class="note muted">${t("prov.installPaste", { terminal: win ? "PowerShell" : "Terminal" })}</div>
@@ -4073,7 +4872,7 @@ function agentInstallHelp(id: AgentId): string {
   <div class="note muted">${t("prov.installThen", { command: signIn[id] })}</div>`;
 }
 
-type AgentId = "claude-code" | "codex" | "grok";
+type AgentId = "claude-code" | "codex" | "grok" | "antigravity";
 
 function installCommand(id: AgentId): string {
   const win = isWindows();
@@ -4087,6 +4886,9 @@ function installCommand(id: AgentId): string {
     grok: win
       ? "irm https://x.ai/cli/install.ps1 | iex"
       : "curl -fsSL https://x.ai/cli/install.sh | bash",
+    antigravity: win
+      ? "irm https://antigravity.google/cli/install.ps1 | iex"
+      : "curl -fsSL https://antigravity.google/cli/install.sh | bash",
   };
   return commands[id];
 }

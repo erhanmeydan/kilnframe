@@ -8,6 +8,11 @@ export interface SpeechRequest {
   voice: string;
   /** How to read it, in natural language: "calm and warm, documentary narrator". */
   style?: string | undefined;
+  /** ISO 639-1 code of the text ("tr"), for providers that take it; others detect it. */
+  language?: string | undefined;
+  /** The pieces read before and after this one, so the delivery carries across them. */
+  previousText?: string | undefined;
+  nextText?: string | undefined;
 }
 
 export interface SpeechResult {
@@ -17,6 +22,8 @@ export interface SpeechResult {
   /** Audio tokens billed, when the provider reports or implies them. */
   audioTokens: number;
   inputTokens: number;
+  /** Characters billed, for providers that charge by the character. */
+  characters?: number;
 }
 
 export interface SpeechProvider {

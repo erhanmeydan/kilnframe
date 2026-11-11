@@ -52,7 +52,7 @@ export const RESOLVE_COLOURS = {
   "#3d4a66": "#4a4950",
 };
 
-/** Green, amber and red say what happened; they stay as they are. */
+/** Green, amber and red say what happened, and the brand clay is the brand: they stay as they are. */
 export const STATUS_COLOURS = [
   "#a9e0bd",
   "#2f5a3d",
@@ -65,6 +65,11 @@ export const STATUS_COLOURS = [
   "#e0a040",
   "#e8a598",
   "#6a3a33",
+  // Kilnframe's clay: the Remove Pauses bar looks the same in every editor
+  "#d9875f",
+  "#c4683e",
+  "#241c18",
+  "#1e1714",
 ];
 
 const FONT = `

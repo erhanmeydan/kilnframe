@@ -1,5 +1,5 @@
 {
-  "$comment": "Speech providers for story mode. Checked against ai.google.dev/gemini-api/docs/speech-generation and /pricing on 2026-10-07. Prices in USD per million tokens; audio is 25 tokens per second.",
+  "$comment": "Speech providers for story mode. Gemini checked against ai.google.dev/gemini-api/docs/speech-generation and /pricing on 2026-10-07 (prices in USD per million tokens; audio is 25 tokens per second). ElevenLabs checked against elevenlabs.io/docs (text-to-speech/convert, models, v2/voices) and elevenlabs.io/pricing/api on 2026-11-06 (prices in USD per 1,000 characters); its voices come from the editor's own account.",
   "version": 1,
   "providers": [
     {
@@ -161,6 +161,37 @@
         "over 130 languages including Turkish, detected from the text",
         "style is directed in natural language (speech_metadata.style)",
         "no voice cloning of other people; at most 2 speakers per request"
+      ]
+    },
+    {
+      "id": "elevenlabs",
+      "displayName": "ElevenLabs",
+      "endpoint": "https://api.elevenlabs.io",
+      "keyName": "elevenlabs",
+      "keyUrl": "https://elevenlabs.io/app/settings/api-keys",
+      "models": [
+        {
+          "id": "eleven_v4",
+          "label": "Eleven v4",
+          "price": {
+            "perThousandChars": 0.08
+          }
+        },
+        {
+          "id": "eleven_flash_v2_5",
+          "label": "Flash v2.5",
+          "price": {
+            "perThousandChars": 0.04
+          }
+        }
+      ],
+      "sampleRate": 24000,
+      "voices": [],
+      "notes": [
+        "Turkish is supported by eleven_v4, eleven_v3, eleven_multilingual_v2 and eleven_flash_v2_5",
+        "voices are listed from the editor's account (GET /v2/voices): their own clones first, then the default voices",
+        "delivery is directed with an audio tag in square brackets before the text (v3 and v4)",
+        "pcm_24000 needs no paid tier; 44.1 kHz PCM needs Pro"
       ]
     }
   ]

@@ -216,6 +216,30 @@ export function resolveMark(
   return "a mark needs a line id or a box";
 }
 
+/** A scene shorter than this cannot show anything worth composing (and paying for). */
+export const MIN_SCENE_S = 1;
+
+/**
+ * Scenes as draftToPlan will lay them out (each from the previous end to its own, the last to the range's
+ * end), checked for length: ends 4, 4, 10 s made a one-frame middle scene that was composed and paid for.
+ */
+function sceneTimeProblems(draft: PlanDraft, durationS: number): string[] {
+  if (draft.scenes.length < 2) return [];
+  const order = draft.scenes.map((s, i) => ({ s, i })).sort((a, b) => a.s.start_s - b.s.start_s);
+  const problems: string[] = [];
+  let prevEnd = 0;
+  order.forEach(({ s, i }, k) => {
+    const end = k === order.length - 1 ? durationS : s.end_s;
+    const len = end - prevEnd;
+    if (len < MIN_SCENE_S)
+      problems.push(
+        `scenes[${i}] runs only ${Math.max(0, len).toFixed(1)} s (${prevEnd.toFixed(2)} to ${end.toFixed(2)} s; scenes follow each other and the last ends at ${durationS.toFixed(2)} s). Every scene must last at least ${MIN_SCENE_S} s: move its end_s or merge it into a neighbour.`,
+      );
+    prevEnd = Math.max(prevEnd, end);
+  });
+  return problems;
+}
+
 /** Problems the code can detect beyond the schema: unsupported techniques, unknown sounds and images. */
 export function planProblems(
   draft: PlanDraft,
@@ -223,8 +247,11 @@ export function planProblems(
   assets: MarkableAsset[] = [],
   job: Pick<PlanJob, "mode" | "frames"> & Partial<Pick<PlanJob, "format">> = { mode: "fullscreen" },
   recipes: RecipeInfo[] = [],
+  /** The range's length; given, scenes too short to compose are sent back. */
+  durationS?: number,
 ): string[] {
   const problems: string[] = [];
+  if (durationS !== undefined) problems.push(...sceneTimeProblems(draft, durationS));
   const offered = planRecipes(recipes, style.name, job.format ?? "landscape");
   const ids = assets.map((a) => a.id);
   if (job.mode === "auto" && job.frames?.length && !draft.speaker_side)
@@ -428,7 +455,14 @@ export async function planInsert(o: PlanOptions): Promise<Plan> {
     let problems: string[];
     try {
       const draft = PlanDraftSchema.parse(extractJson(reply.text));
-      problems = planProblems(draft, o.style, o.job.assets ?? [], o.job, o.recipes);
+      problems = planProblems(
+        draft,
+        o.style,
+        o.job.assets ?? [],
+        o.job,
+        o.recipes,
+        o.transcript.duration_s,
+      );
       if (problems.length === 0) return draftToPlan(draft, o.job, o.transcript.duration_s);
     } catch (err) {
       problems =

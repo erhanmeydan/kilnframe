@@ -12,3 +12,5 @@ The words are the picture. HTML text animated with GSAP, synced to the speaker's
   animate `font-variation-settings` (for example width) as part of the motion.
 - No crossfades between word groups; cut on the beat or move words out through the frame edges.
 - Keep lines inside the safe area; measure with `max-width` and wrapping, not fixed line breaks.
+- A word never breaks inside, also when it is split into letters: size the type so the longest word fits its
+  line. Turkish words run long ("OKUYABİLİYORUZ").

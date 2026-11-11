@@ -2,7 +2,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { BUILD_READY_GUARD, GSAP_PLUGINS, rootHtml, vendorDir } from "../src/project/assemble.js";
+import {
+  BUILD_READY_GUARD,
+  GSAP_PLUGINS,
+  SPLIT_WORDS,
+  rootHtml,
+  vendorDir,
+} from "../src/project/assemble.js";
 import { draftToPlan, loadPrompt, parseFps } from "../src/index.js";
 
 const plan = draftToPlan(
@@ -173,5 +179,36 @@ describe("buildReady guard", () => {
     const html = rootHtml(plan);
     expect(html.indexOf(BUILD_READY_GUARD)).toBeGreaterThan(html.indexOf("gsap.registerPlugin("));
     expect(html.indexOf(BUILD_READY_GUARD)).toBeLessThan(html.indexOf('<div id="root"'));
+  });
+});
+
+describe("SplitText words", () => {
+  /** The options SplitText.create receives once SPLIT_WORDS has wrapped it. */
+  function splitVars(vars?: Record<string, unknown>): Record<string, unknown> {
+    let seen: Record<string, unknown> = {};
+    const SplitText = { create: (_t: unknown, v: Record<string, unknown>) => (seen = v) };
+    runInNewContext(SPLIT_WORDS, { SplitText });
+    SplitText.create("#t", vars as Record<string, unknown>);
+    return seen;
+  }
+
+  it("puts letters in words that do not break", () => {
+    expect(splitVars({ type: "chars" })).toEqual({ type: "chars,words", wordsClass: "kf-word" });
+    expect(splitVars({ type: "words,chars", mask: "lines" })).toEqual({
+      type: "words,chars",
+      mask: "lines",
+      wordsClass: "kf-word",
+    });
+    expect(splitVars()).toEqual({ type: "chars,words,lines", wordsClass: "kf-word" });
+  });
+
+  it("keeps the scene's own word class", () => {
+    expect(splitVars({ type: "words", wordsClass: "w" }).wordsClass).toBe("w kf-word");
+  });
+
+  it("runs after the plugins register, with the rule that keeps words whole", () => {
+    const html = rootHtml(plan);
+    expect(html.indexOf(SPLIT_WORDS)).toBeGreaterThan(html.indexOf("gsap.registerPlugin("));
+    expect(html).toContain(".kf-word { white-space: nowrap; }");
   });
 });

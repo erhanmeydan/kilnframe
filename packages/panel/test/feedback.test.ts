@@ -43,6 +43,11 @@ describe("feedback page link", () => {
     expect(f.v).toContain("DaVinci Resolve · Windows");
   });
 
+  it("names FilmCraft as the editor", () => {
+    const f = fields(feedbackPage({ kind: "feedback", lang: "en", ...info, editor: "FilmCraft" }));
+    expect(f.v).toContain("FilmCraft · macOS");
+  });
+
   it("names the provider and model that did the work, when given", () => {
     const f = fields(
       feedbackPage({

@@ -16,6 +16,25 @@ const base = [
 ];
 
 describe("outputSize", () => {
+  it("renders at most 4K: a 6K or 8K sequence gets a 4K insert in its shape", () => {
+    expect(outputSize({ width: 7680, height: 4320 }, "landscape")).toEqual({
+      width: 3840,
+      height: 2160,
+    });
+    expect(outputSize({ width: 4320, height: 7680 }, "portrait")).toEqual({
+      width: 2160,
+      height: 3840,
+    });
+    expect(outputSize({ width: 6144, height: 3240 }, "square")).toEqual({
+      width: 2160,
+      height: 2160,
+    });
+    expect(outputSize({ width: 3840, height: 2160 }, "landscape")).toEqual({
+      width: 3840,
+      height: 2160,
+    });
+  });
+
   it("derives every format from the sequence's short edge", () => {
     const seq = { width: 1920, height: 1080 };
     expect(outputSize(seq, "landscape")).toEqual({ width: 1920, height: 1080 });

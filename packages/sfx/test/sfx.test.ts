@@ -120,6 +120,21 @@ describe("mixCues", () => {
     expect(peak(r.mix.left.subarray(0, 23_000))).toBe(0);
   });
 
+  it("turns a mix of overlapping loud cues down below -1 dBFS instead of clipping it", () => {
+    const loud = Array.from({ length: 6 }, () => ({ timeS: 0.2, sound: "thock", gainDb: 12 }));
+    const r = mixCues({ palette, durationS: 1, cues: loud });
+    const top = Math.max(peak(r.mix.left), peak(r.mix.right));
+    expect(top).toBeLessThanOrEqual(dbToGain(-1) + 1e-6);
+    expect(top).toBeGreaterThan(0.8);
+    // a quiet mix is left as it was
+    const quiet = mixCues({
+      palette,
+      durationS: 1,
+      cues: [{ timeS: 0.2, sound: "pop", gainDb: -20 }],
+    });
+    expect(peak(quiet.mix.left)).toBeCloseTo(peak(quiet.stems.get("pop")!.left), 6);
+  });
+
   it("skips unknown sounds and cues after the end, and is deterministic", () => {
     const opts = {
       palette,

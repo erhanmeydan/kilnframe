@@ -15,7 +15,18 @@ describe("musicTextProvider", () => {
     expect(p.name).toBe("gemini");
   });
 
-  it("says a Google key is needed when there is none", async () => {
+  it("without a Gemini key plans with the AI chosen in the settings", async () => {
+    const keys = new MemoryKeyStore();
+    await keys.set("anthropic", "other-key");
+    const p = await musicTextProvider(loadDefaults(), keys, {
+      provider: "anthropic",
+      model: "claude-sonnet-5-5",
+    });
+    expect(p.name).toBe("anthropic");
+    expect(p.model).toBe("claude-sonnet-5-5");
+  });
+
+  it("says a Google key is needed when there is none and no AI was chosen", async () => {
     await expect(musicTextProvider(loadDefaults(), new MemoryKeyStore())).rejects.toThrow(/Gemini/);
   });
 });

@@ -3,9 +3,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ffmpegPath, type Defaults } from "../config.js";
+import { ElevenLabsSpeechProvider } from "./elevenlabs.js";
+import { VOICE_SAMPLE_MAX_S, type Span } from "./fix.js";
 import { GeminiSpeechProvider } from "./gemini.js";
 import { pcmWav, SpeechError, type SpeechProvider } from "./types.js";
 
+export * from "./elevenlabs.js";
+export * from "./fix.js";
 export * from "./gemini.js";
 export * from "./types.js";
 
@@ -16,8 +20,15 @@ export interface SpeechCatalogProvider {
   displayName: string;
   endpoint: string;
   keyName: string;
-  models: { id: string; label: string; price: { input: number; outputAudio: number } }[];
-  audioTokensPerSecond: number;
+  /** Where the editor makes a key. */
+  keyUrl?: string;
+  /** Gemini prices by the million tokens, ElevenLabs by the thousand characters. */
+  models: {
+    id: string;
+    label: string;
+    price: { input?: number; outputAudio?: number; perThousandChars?: number };
+  }[];
+  audioTokensPerSecond?: number;
   sampleRate: number;
   voices: { name: string; character: string }[];
 }
@@ -28,6 +39,29 @@ export function loadSpeechCatalog(): SpeechCatalogProvider[] {
       providers: SpeechCatalogProvider[];
     }
   ).providers;
+}
+
+/** The model a provider reads with: the defaults' when they name this provider, else its first. */
+export function speechModelFor(defaults: Defaults, provider: string): string | undefined {
+  if (provider === defaults.speech.provider) return defaults.speech.model;
+  return loadSpeechCatalog().find((p) => p.id === provider)?.models[0]?.id;
+}
+
+/** What a narration costs at the provider's list price, in USD; 0 when the model has no price. */
+export function speechPriceUsd(
+  provider: string,
+  model: string,
+  used: { audioTokens: number; inputTokens: number; characters?: number },
+): number {
+  const price = loadSpeechCatalog()
+    .find((p) => p.id === provider)
+    ?.models.find((m) => m.id === model)?.price;
+  if (!price) return 0;
+  if (price.perThousandChars !== undefined)
+    return ((used.characters ?? 0) * price.perThousandChars) / 1000;
+  return (
+    (used.audioTokens * (price.outputAudio ?? 0) + used.inputTokens * (price.input ?? 0)) / 1e6
+  );
 }
 
 /** The speech provider from the defaults or the caller's choice; the key comes from the keychain. */
@@ -42,19 +76,75 @@ export function createSpeechProvider(
   const id = o.provider ?? defaults.speech.provider;
   const entry = loadSpeechCatalog().find((p) => p.id === id);
   if (!entry) throw new SpeechError(`Unknown speech provider "${id}".`);
-  const apiKey = o.apiKey ?? process.env.GEMINI_API_KEY;
+  const envName = `${id.toUpperCase()}_API_KEY`;
+  const apiKey = o.apiKey ?? process.env[envName];
   if (!apiKey)
     throw new SpeechError(
-      `No ${entry.displayName} key. Add one in the panel's settings (or set GEMINI_API_KEY for the CLI).`,
+      `No ${entry.displayName} key. Add one in the panel's settings (or set ${envName} for the CLI).`,
     );
+  const model = o.model ?? speechModelFor(defaults, id) ?? defaults.speech.model;
   if (id === "gemini")
     return new GeminiSpeechProvider({
       apiKey,
-      model: o.model ?? defaults.speech.model,
+      model,
       endpoint: entry.endpoint,
-      audioTokensPerSecond: entry.audioTokensPerSecond,
+      audioTokensPerSecond: entry.audioTokensPerSecond ?? 25,
+    });
+  if (id === "elevenlabs")
+    return new ElevenLabsSpeechProvider({
+      apiKey,
+      model,
+      endpoint: entry.endpoint,
+      sampleRate: entry.sampleRate,
     });
   throw new SpeechError(`Speech provider "${id}" is not available yet.`);
+}
+
+/**
+ * Cuts a voice sample for cloning out of an exported range: mono 44.1 kHz, at most three minutes,
+ * levelled to about -20 LUFS with peaks under -3 dB (ElevenLabs asks for -23 to -18 dB RMS).
+ */
+export function cutVoiceSample(
+  o: { input: string; outFile: string } & ({ startS: number; endS: number } | { spans: Span[] }),
+): { file: string; durationS: number } {
+  const wanted: Span[] = "spans" in o ? o.spans : [{ startS: o.startS, endS: o.endS }];
+  // Keep the usable spans in order and stop once the total reaches the cap.
+  const spans: Span[] = [];
+  let durationS = 0;
+  for (const sp of wanted) {
+    const start = Math.max(0, sp.startS);
+    const len = Math.min(sp.endS - start, VOICE_SAMPLE_MAX_S - durationS);
+    if (!(sp.endS > sp.startS) || len <= 0) continue;
+    spans.push({ startS: start, endS: start + len });
+    durationS += len;
+  }
+  if (durationS < 1) throw new SpeechError("The range is too short to clone a voice from.");
+  mkdirSync(dirname(o.outFile), { recursive: true });
+  const parts = spans.map(
+    (sp, i) => `[0:a]atrim=start=${sp.startS}:end=${sp.endS},asetpts=PTS-STARTPTS[a${i}]`,
+  );
+  const filter = `${parts.join(";")};${spans.map((_, i) => `[a${i}]`).join("")}concat=n=${spans.length}:v=0:a=1,loudnorm=I=-20:TP=-3:LRA=11[out]`;
+  const r = spawnSync(ffmpegPath(), [
+    "-v",
+    "error",
+    "-y",
+    "-i",
+    o.input,
+    "-filter_complex",
+    filter,
+    "-map",
+    "[out]",
+    "-ar",
+    "44100",
+    "-ac",
+    "1",
+    "-c:a",
+    "pcm_s16le",
+    o.outFile,
+  ]);
+  if (r.status !== 0)
+    throw new SpeechError(`Could not cut the voice sample: ${String(r.stderr).trim()}`);
+  return { file: o.outFile, durationS };
 }
 
 /**
@@ -88,6 +178,8 @@ export interface NarrationResult {
   durationS: number;
   audioTokens: number;
   inputTokens: number;
+  /** Characters billed, for providers that charge by the character. */
+  characters: number;
   /** Where each chunk starts in the narration, in seconds. */
   chunks: { text: string; startS: number; endS: number }[];
 }
@@ -101,7 +193,12 @@ export async function narrate(o: {
   text: string;
   voice: string;
   style?: string | undefined;
+  /** ISO 639-1 code of the text, for providers that take it. */
+  language?: string | undefined;
   outFile: string;
+  /** Text spoken just before and after the whole text (a fix inside a recording), as context only. */
+  before?: string | undefined;
+  after?: string | undefined;
   pauseS?: number;
   onProgress?: (message: string) => void;
 }): Promise<NarrationResult> {
@@ -112,13 +209,21 @@ export async function narrate(o: {
   let rate = 0;
   let audioTokens = 0;
   let inputTokens = 0;
+  let characters = 0;
   let at = 0;
   for (const [i, text] of pieces.entries()) {
     o.onProgress?.(`Reading aloud ${i + 1}/${pieces.length}`);
     let result;
     for (let attempt = 1; ; attempt++) {
       try {
-        result = await o.provider.synthesize({ text, voice: o.voice, style: o.style });
+        result = await o.provider.synthesize({
+          text,
+          voice: o.voice,
+          style: o.style,
+          language: o.language,
+          previousText: i === 0 ? o.before : pieces[i - 1],
+          nextText: i === pieces.length - 1 ? o.after : pieces[i + 1],
+        });
         break;
       } catch (err) {
         // a rate limit is waited out (a long story makes more requests a minute than Tier 1 allows)
@@ -146,6 +251,7 @@ export async function narrate(o: {
     at += len;
     audioTokens += result.audioTokens;
     inputTokens += result.inputTokens;
+    characters += result.characters ?? 0;
   }
   mkdirSync(dirname(o.outFile), { recursive: true });
   const raw = `${o.outFile}.raw.wav`;
@@ -166,5 +272,12 @@ export async function narrate(o: {
   ]);
   rmSync(raw, { force: true });
   if (r.status !== 0) throw new SpeechError(`Could not write ${o.outFile}: ${String(r.stderr)}`);
-  return { file: o.outFile, durationS: +at.toFixed(3), audioTokens, inputTokens, chunks };
+  return {
+    file: o.outFile,
+    durationS: +at.toFixed(3),
+    audioTokens,
+    inputTokens,
+    characters,
+    chunks,
+  };
 }

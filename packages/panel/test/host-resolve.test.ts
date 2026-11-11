@@ -1,6 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { setLang } from "../src/i18n";
 import { createResolveHost } from "../src/host-resolve";
+import { JobStopped } from "../src/job-errors";
+import {
+  CONNECTION_LOST,
+  COPY_LEFT,
+  CUT_FAILED,
+  CUT_UNSUPPORTED,
+  NOT_RUNNING,
+  PLACE_FAILED,
+  RENDER_FAILED,
+  TIMED_OUT,
+} from "../src/resolve/api";
+import en from "../src/locales/en.json";
+import tr from "../src/locales/tr.json";
 import type { KilnframeResolveApi, ResolveSequence } from "../src/resolve/api";
 import { HOST_MEMBERS } from "./host-members";
 
@@ -28,6 +41,8 @@ function fakeApi(over: Partial<KilnframeResolveApi> = {}): KilnframeResolveApi {
     exportRangePicture: vi.fn(async () => true),
     hideOurInserts: vi.fn(async () => [{ type: "video" as const, index: 2 }]),
     showTracks: vi.fn(async () => undefined),
+    speechTracks: vi.fn(async () => [0]),
+    soloAudioTrack: vi.fn(async () => [{ type: "audio" as const, index: 1 }]),
     placeInsert: vi.fn(async () => ({ videoTrack: 1, audioTrack: 1 })),
     createStorySequence: vi.fn(async () => undefined),
     ourInsertSpans: vi.fn(async () => [{ startS: 2, endS: 7 }]),
@@ -131,6 +146,10 @@ describe("resolve host", () => {
     await expect(
       h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
     ).rejects.toThrow(/stopped/i);
+    // a stop, not an error: no report link
+    await expect(
+      h.exportRangeAudio({ ...seq, projectPath: "" } as never, 0, 1, "/a.wav", { wavPreset: "" }),
+    ).rejects.toBeInstanceOf(JobStopped);
   });
 
   it("lets the editor keep the panel window above Resolve or not", () => {
@@ -209,5 +228,272 @@ describe("resolve host", () => {
     await expect(
       h.replaceCaptionClip(s, { path: "/a", atS: 0, durationS: 1 }, "/b", 0, 1, 0),
     ).rejects.toThrow("The animation could not be placed on the timeline.");
+  });
+
+  describe("cutToNewSequence", () => {
+    const cuts = [
+      { startS: 1, endS: 2 },
+      { startS: 4, endS: 5.5 },
+    ];
+    const made = { id: "tl-2", name: "Timeline 1 (No Pauses)", leftOut: 1, rebuilt: true };
+
+    it("is missing when the bridge cannot cut, so the tab says it is not available here", () => {
+      expect(createResolveHost(fakeApi()).cutToNewSequence).toBeUndefined();
+    });
+
+    it("passes the timeline, the cuts and the name to the bridge", async () => {
+      const api = fakeApi({ cutToNewTimeline: vi.fn(async () => made) });
+      const h = createResolveHost(api);
+      const s = await h.currentSequence();
+      expect(await h.cutToNewSequence!(s, cuts, made.name)).toEqual(made);
+      expect(api.cutToNewTimeline).toHaveBeenCalledWith("tl-1", cuts, made.name);
+    });
+
+    it("says a failed build as a failed cut, not a failed placement, and keeps the reason", async () => {
+      setLang("en");
+      const why = new Error(`${CUT_FAILED}: AppendToTimeline placed 3 of 4 clips`);
+      const h = createResolveHost(
+        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(why)) }),
+      );
+      const s = await h.currentSequence();
+      const err = await h.cutToNewSequence!(s, cuts, "x").catch((e: Error) => e);
+      expect((err as Error).message).toBe(en["premiere.cutFailed"]);
+      expect((err as Error).cause).toBe(why);
+      // an older bridge still says PLACE_FAILED
+      const old = createResolveHost(
+        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(PLACE_FAILED))) }),
+      );
+      await expect(old.cutToNewSequence!(s, cuts, "x")).rejects.toThrow(en["premiere.placeFailed"]);
+    });
+
+    it("names the copy a failed cut left in the project", async () => {
+      setLang("en");
+      const h = createResolveHost(
+        fakeApi({
+          cutToNewTimeline: vi.fn(async () =>
+            Promise.reject(
+              new Error(`${CUT_FAILED}: ${COPY_LEFT}="Talk (No Pauses)": extract failed`),
+            ),
+          ),
+        }),
+        "filmcraft",
+      );
+      await expect(h.cutToNewSequence!(await h.currentSequence(), cuts, "x")).rejects.toThrow(
+        'A copy named "Talk (No Pauses)" was left in the project',
+      );
+    });
+
+    it("names the editor to update when it lacks a command the cut needs", async () => {
+      setLang("en");
+      const api = fakeApi({
+        cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(CUT_UNSUPPORTED))),
+      });
+      const fc = createResolveHost(api, "filmcraft");
+      await expect(fc.cutToNewSequence!(await fc.currentSequence(), cuts, "x")).rejects.toThrow(
+        "Remove Pauses needs a newer FilmCraft.",
+      );
+      const dr = createResolveHost(api);
+      await expect(dr.cutToNewSequence!(await dr.currentSequence(), cuts, "x")).rejects.toThrow(
+        "Remove Pauses needs a newer DaVinci Resolve.",
+      );
+    });
+
+    it("asks for the progress every second while the bridge works, and stops asking after", async () => {
+      vi.useFakeTimers();
+      try {
+        let finish!: (r: typeof made) => void;
+        const progress = [{ done: 200, total: 600 }, null, { done: 400, total: 600 }];
+        const api = fakeApi({
+          cutToNewTimeline: vi.fn(() => new Promise<typeof made>((r) => (finish = r))),
+          cutProgress: vi.fn(async () => progress.shift() ?? null),
+        });
+        const h = createResolveHost(api);
+        const s = await h.currentSequence();
+        const onProgress = vi.fn();
+        const run = h.cutToNewSequence!(s, cuts, "x", onProgress);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(onProgress.mock.calls).toEqual([
+          [200, 600],
+          [400, 600],
+        ]);
+        finish(made);
+        expect(await run).toEqual(made);
+        const asked = vi.mocked(api.cutProgress!).mock.calls.length;
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(vi.mocked(api.cutProgress!).mock.calls.length).toBe(asked);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps cutting when a progress question fails", async () => {
+      vi.useFakeTimers();
+      try {
+        let finish!: (r: typeof made) => void;
+        const api = fakeApi({
+          cutToNewTimeline: vi.fn(() => new Promise<typeof made>((r) => (finish = r))),
+          cutProgress: vi.fn(async () => Promise.reject(new Error("ipc"))),
+        });
+        const h = createResolveHost(api);
+        const s = await h.currentSequence();
+        const run = h.cutToNewSequence!(s, cuts, "x", vi.fn());
+        await vi.advanceTimersByTimeAsync(2000);
+        finish(made);
+        expect(await run).toEqual(made);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+});
+
+describe("filmcraft host", () => {
+  it("is the resolve host with its own kind and folder name", async () => {
+    const api = fakeApi({
+      currentSequence: vi.fn(async () => ({ ...seq, projectName: "" })),
+    });
+    const h = createResolveHost(api, "filmcraft");
+    expect(h.kind).toBe("filmcraft");
+    expect((await h.currentSequence()).jobRoot).toBe("/Users/e/Movies/Kilnframe/FilmCraft");
+    expect(createResolveHost(api).kind).toBe("resolve");
+  });
+
+  it("says in the panel's words that FilmCraft is not open, lost or slow", async () => {
+    setLang("en");
+    for (const [code, key] of [
+      [NOT_RUNNING, "filmcraft.notRunning"],
+      [CONNECTION_LOST, "filmcraft.connectionLost"],
+      [TIMED_OUT, "filmcraft.timedOut"],
+    ] as const) {
+      const h = createResolveHost(
+        fakeApi({
+          currentSequence: vi.fn(async () => {
+            throw new Error(code);
+          }),
+        }),
+        "filmcraft",
+      );
+      await expect(h.currentSequence()).rejects.toThrow((en as Record<string, string>)[key]);
+      expect((tr as Record<string, string>)[key]).toBeTruthy();
+    }
+  });
+
+  it("names FilmCraft, not Resolve, when an export fails", async () => {
+    setLang("en");
+    const failing = () =>
+      fakeApi({
+        currentSequence: vi.fn(async () => {
+          throw new Error(RENDER_FAILED);
+        }),
+      });
+    await expect(createResolveHost(failing(), "filmcraft").currentSequence()).rejects.toThrow(
+      en["filmcraft.exportFailed"],
+    );
+    await expect(createResolveHost(failing()).currentSequence()).rejects.toThrow(
+      en["resolve.renderFailed"],
+    );
+    expect(tr["filmcraft.exportFailed"]).toBeTruthy();
+  });
+
+  it("keeps FilmCraft's own reason for a failed export, for the report and the log", async () => {
+    setLang("en");
+    const api = fakeApi({
+      currentSequence: vi.fn(async () => {
+        throw new Error(
+          `${RENDER_FAILED}: file.exportMedia: cannot create C:/Users/Ömer/Kilnframe/j/sequence.wav`,
+        );
+      }),
+    });
+    await expect(createResolveHost(api, "filmcraft").currentSequence()).rejects.toThrow(
+      `${en["filmcraft.exportFailed"]} (FilmCraft: file.exportMedia: cannot create C:/Users/Ömer/Kilnframe/j/sequence.wav)`,
+    );
+  });
+  describe("speech track", () => {
+    it("asks the bridge for the speech tracks", async () => {
+      const api = fakeApi({ speechTracks: vi.fn(async () => [0, 2]) });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      expect(await h.speechTracksAt(s, 1, 4)).toEqual([0, 2]);
+      expect(api.speechTracks).toHaveBeenCalledWith("tl-1", 1, 4);
+    });
+
+    it("plays only the chosen track for the export and switches the others back on", async () => {
+      const api = fakeApi();
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      const out = await h.withOnlyAudioTrack(s, 1, async () => {
+        expect(api.showTracks).not.toHaveBeenCalled();
+        return 7;
+      });
+      expect(out).toEqual({ result: 7, isolated: true });
+      expect(api.soloAudioTrack).toHaveBeenCalledWith("tl-1", 1);
+      expect(api.showTracks).toHaveBeenCalledWith("tl-1", [{ type: "audio", index: 1 }]);
+    });
+
+    it("switches the others back on when the export throws", async () => {
+      const api = fakeApi();
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(s, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect(api.showTracks).toHaveBeenCalledWith("tl-1", [{ type: "audio", index: 1 }]);
+    });
+
+    it("asks for the tracks back even with none switched off, so Resolve gets the editor's page back", async () => {
+      const api = fakeApi({ soloAudioTrack: vi.fn(async () => []) });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      expect(await h.withOnlyAudioTrack(s, 0, async () => 1)).toEqual({
+        result: 1,
+        isolated: true,
+      });
+      expect(api.showTracks).toHaveBeenCalledWith("tl-1", []);
+    });
+
+    it("runs the export with every track playing when the tracks cannot be switched", async () => {
+      const api = fakeApi({
+        soloAudioTrack: vi.fn(async () => {
+          throw new Error("refused");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      expect(await h.withOnlyAudioTrack(s, 0, async () => 1)).toEqual({
+        result: 1,
+        isolated: false,
+      });
+      expect(api.showTracks).not.toHaveBeenCalled();
+    });
+    it("says so when the tracks cannot be switched back on after the export", async () => {
+      setLang("en");
+      const api = fakeApi({
+        showTracks: vi.fn(async () => {
+          throw new Error("FILMCRAFT_CONNECTION_LOST");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(h.withOnlyAudioTrack(s, 1, async () => 1)).rejects.toThrow(
+        en["filmcraft.connectionLost"],
+      );
+    });
+
+    it("keeps the export's error when the tracks cannot be switched back on either", async () => {
+      const api = fakeApi({
+        showTracks: vi.fn(async () => {
+          throw new Error("tracks");
+        }),
+      });
+      const h = createResolveHost(api, "filmcraft");
+      const s = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(s, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+    });
   });
 });

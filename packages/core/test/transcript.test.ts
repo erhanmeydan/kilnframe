@@ -1,5 +1,18 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { TranscriptSchema, chunksToWords, downloadProgress, pickLanguage } from "../src/index.js";
+import {
+  NoSpeechError,
+  TranscriptSchema,
+  chunksToWords,
+  downloadError,
+  downloadProgress,
+  loadDefaults,
+  pickLanguage,
+  runSpeechProcess,
+  transcribeHere,
+} from "../src/index.js";
 
 describe("chunksToWords", () => {
   it("trims words, drops empty chunks and closes an open last word", () => {
@@ -119,6 +132,27 @@ describe("downloadProgress", () => {
   });
 });
 
+describe("downloadError", () => {
+  it("says the download failed when the connection drops halfway through a file", () => {
+    const err = Object.assign(new TypeError("terminated"), { cause: { code: "UND_ERR_SOCKET" } });
+    const out = downloadError(err) as Error;
+    expect(out.message).toBe(
+      "Could not download the speech model (UND_ERR_SOCKET). Check the internet connection and try again.",
+    );
+    expect(out.cause).toBe(err);
+  });
+
+  it("says the download failed when there is no connection", () => {
+    const out = downloadError(new TypeError("fetch failed")) as Error;
+    expect(out.message).toMatch(/^Could not download the speech model \(fetch failed\)/);
+  });
+
+  it("keeps other errors as they are", () => {
+    const err = new Error("The speech model has no language tokens.");
+    expect(downloadError(err)).toBe(err);
+  });
+});
+
 describe("pickLanguage", () => {
   it("returns the language code and its probability", () => {
     const r = pickLanguage([
@@ -128,5 +162,83 @@ describe("pickLanguage", () => {
     ]);
     expect(r.language).toBe("tr");
     expect(r.probability).toBeGreaterThan(0.99);
+  });
+});
+
+describe("runSpeechProcess", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kf-speech-"));
+  // a stand-in for speech-worker.js: answers the request the way the real worker does
+  const worker = (body: string) => {
+    const file = join(dir, `w${Math.random().toString(36).slice(2)}.mjs`);
+    writeFileSync(
+      file,
+      `process.once("message", async (req) => { const send = (m) => new Promise((r) => process.send(m, undefined, {}, r)); ${body} });`,
+    );
+    return file;
+  };
+  const defaults = loadDefaults();
+
+  it("passes progress through and returns the transcript", async () => {
+    const transcript = { version: 1, language: "tr", words: [] };
+    const file = worker(
+      `await send({ type: "progress", message: req.kind + " " + req.audioPath }); await send({ type: "done", transcript: ${JSON.stringify(transcript)} }); process.exit(0);`,
+    );
+    const seen: string[] = [];
+    const result = await runSpeechProcess(
+      { kind: "transcribe", audioPath: "a.wav", defaults },
+      (m) => seen.push(m),
+      file,
+    );
+    expect(seen).toEqual(["transcribe a.wav"]);
+    expect(result).toEqual(transcript);
+  });
+
+  it("turns a failure named NoSpeechError back into a NoSpeechError", async () => {
+    const file = worker(
+      `await send({ type: "failed", name: "NoSpeechError", message: "x" }); process.exit(0);`,
+    );
+    await expect(
+      runSpeechProcess({ kind: "transcribe", audioPath: "a.wav", defaults }, undefined, file),
+    ).rejects.toBeInstanceOf(NoSpeechError);
+  });
+
+  it("keeps the message of any other failure", async () => {
+    const file = worker(
+      `await send({ type: "failed", name: "Error", message: "Could not download the speech model" }); process.exit(0);`,
+    );
+    await expect(runSpeechProcess({ kind: "download", defaults }, undefined, file)).rejects.toThrow(
+      "Could not download the speech model",
+    );
+  });
+
+  it("explains a process that ends without an answer", async () => {
+    const file = worker(`process.exit(9);`);
+    await expect(runSpeechProcess({ kind: "download", defaults }, undefined, file)).rejects.toThrow(
+      /stopped unexpectedly \(exit 9\).*low on memory/,
+    );
+  });
+});
+
+describe("transcribeHere", () => {
+  it("says no speech for an audio file without samples, before loading the model", async () => {
+    // a WAV header and nothing after it: what a cut past the end of the sound leaves
+    const header = Buffer.alloc(44);
+    header.write("RIFF", 0);
+    header.writeUInt32LE(36, 4);
+    header.write("WAVEfmt ", 8);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20);
+    header.writeUInt16LE(1, 22);
+    header.writeUInt32LE(48000, 24);
+    header.writeUInt32LE(96000, 28);
+    header.writeUInt16LE(2, 32);
+    header.writeUInt16LE(16, 34);
+    header.write("data", 36);
+    header.writeUInt32LE(0, 40);
+    const file = join(mkdtempSync(join(tmpdir(), "kf-empty-")), "range.wav");
+    writeFileSync(file, header);
+    await expect(
+      transcribeHere({ audioPath: file, defaults: loadDefaults() }),
+    ).rejects.toBeInstanceOf(NoSpeechError);
   });
 });

@@ -1,7 +1,7 @@
 {
   "id": "kilnframe",
   "name": "Kilnframe",
-  "version": "0.3.1",
+  "version": "0.5.0",
   "main": "index.html",
   "manifestVersion": 5,
   "host": {
@@ -27,15 +27,15 @@
         "default": "Kilnframe"
       },
       "minimumSize": {
-        "width": 320,
+        "width": 400,
         "height": 600
       },
       "preferredDockedSize": {
-        "width": 360,
+        "width": 580,
         "height": 720
       },
       "preferredFloatingSize": {
-        "width": 380,
+        "width": 580,
         "height": 760
       },
       "icons": [

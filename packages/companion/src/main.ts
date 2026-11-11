@@ -13,6 +13,8 @@ import {
   claudeCodeStatus,
   codexStatus,
   grokStatus,
+  antigravityStatus,
+  forgetAgyModels,
   agentUpdate,
   updateCommand,
   loadProviderCatalog,
@@ -25,14 +27,26 @@ import {
   createSpeechProvider,
   ensureOcrData,
   loadSpeechCatalog,
+  loadMusicCatalog,
+  listElevenLabsVoices,
+  speechModelFor,
   narrate,
-  loadSpeechModel,
+  downloadSpeechModel,
+  downloadVadModel,
   systemReport,
   speechModelCached,
   vendorDir,
 } from "@kilnframe/core";
-import { type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
+import {
+  AGENT_BINARY,
+  type Agent,
+  appleScriptString,
+  loginCommand,
+  loginEnv,
+  logoutArgs,
+} from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
+import { makeCloneVoice } from "./clone-voice.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
 import {
   captionPreviewFrames,
@@ -42,6 +56,7 @@ import {
   saveCaptionsState,
   findPreviewPreset,
   findWavPreset,
+  runningPremiereDirs,
   inspectImages,
   playSound,
   stopSound,
@@ -50,9 +65,9 @@ import {
   styleCards,
   reviewFromDisk,
 } from "./panel-support.js";
-import { isolatedRunner, killAllJobs } from "./isolated.js";
+import { isolatedRunner, killAllJobs, killAllJobsNow } from "./isolated.js";
 import { startCompanion } from "./server.js";
-import { appUpdatesFromParent } from "./app-updates.js";
+import { appUpdatesFromParent, type ChildMessage } from "./app-updates.js";
 
 export const DEFAULT_PORT = 47615;
 // the app passes its own version; the companion run on its own (development) has none
@@ -99,18 +114,19 @@ async function main() {
     runner: isolatedRunner(),
     appUpdates: appUpdatesFromParent(),
     // the app holds off quitting (its Quit, an installer) while a job runs; absent when run on its own
-    onBusy: (busy) => process.send?.({ type: "job.busy", busy }),
+    onBusy: (busy) => tellParent({ type: "job.busy", busy }),
     version: VERSION,
     port: Number(process.env.KILNFRAME_PORT ?? DEFAULT_PORT),
     systemCheck: async () => {
       // the speech model is looked at each time
       const defaults = loadDefaults();
       const report = await hardware();
+      const premiere = runningPremiereDirs();
       return {
         ...report,
         speechModel: { name: defaults.whisper.model, cached: speechModelCached(defaults) },
-        wavPreset: findWavPreset(),
-        previewPreset: findPreviewPreset(),
+        wavPreset: findWavPreset(process.platform, premiere),
+        previewPreset: findPreviewPreset(process.platform, premiere),
       };
     },
     listStyles: async () =>
@@ -123,37 +139,60 @@ async function main() {
     saveCaptions: async (jobDir, state) => saveCaptionsState(jobDir, state),
     loadCaptions: async (jobDir) => loadCaptionsState(jobDir),
     deleteStyle: async (name) => deleteUserStyle(name),
-    listVoices: async () => {
+    listVoices: async (provider) => {
       const defaults = loadDefaults();
-      const entry = loadSpeechCatalog().find((p) => p.id === defaults.speech.provider);
-      return {
-        provider: defaults.speech.provider,
-        model: defaults.speech.model,
-        voices: entry?.voices ?? [],
-        keySet: Boolean(await keys.get(entry?.keyName ?? defaults.speech.provider)),
+      const id = provider ?? defaults.speech.provider;
+      const entry = loadSpeechCatalog().find((p) => p.id === id);
+      const key = await keys.get(entry?.keyName ?? id);
+      const musicEntry = loadMusicCatalog().find((p) => p.id === defaults.music.provider);
+      const base = {
+        provider: id,
+        model: speechModelFor(defaults, id) ?? defaults.speech.model,
+        keySet: Boolean(key),
+        musicKeySet: Boolean(await keys.get(musicEntry?.keyName ?? defaults.music.provider)),
       };
+      // ElevenLabs voices live in the editor's account, clones included
+      if (id === "elevenlabs") {
+        if (!key || !entry) return { ...base, voices: [] };
+        try {
+          return {
+            ...base,
+            voices: await listElevenLabsVoices({ apiKey: key, endpoint: entry.endpoint }),
+          };
+        } catch (err) {
+          return { ...base, voices: [], error: err instanceof Error ? err.message : String(err) };
+        }
+      }
+      return { ...base, voices: entry?.voices ?? [] };
     },
-    previewVoice: async (voice, language, onEnd) => {
+    previewVoice: async (voice, language, onEnd, o = {}) => {
       const defaults = loadDefaults();
+      const id = o.provider ?? defaults.speech.provider;
+      const model = speechModelFor(defaults, id) ?? defaults.speech.model;
       const dir = join(
         process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"),
         "cache",
         "voices",
       );
-      const file = join(dir, `${defaults.speech.model}-${voice}-${language.slice(0, 2)}.wav`);
+      const file = join(dir, `${model}-${voice}-${language.slice(0, 2)}.wav`);
       if (!existsSync(file)) {
+        const entry = loadSpeechCatalog().find((p) => p.id === id);
         const speech = createSpeechProvider(defaults, {
-          apiKey: await keys.get(defaults.speech.provider),
+          provider: id,
+          model,
+          apiKey: await keys.get(entry?.keyName ?? id),
         });
         await narrate({
           provider: speech,
-          text: previewText(voice, language),
+          text: previewText(o.label ?? voice, language),
           voice,
+          language,
           outFile: file,
         });
       }
       playSound(file, onEnd);
     },
+    cloneVoice: makeCloneVoice({ getKey: (name) => keys.get(name) }),
     stopVoice: () => stopSound(),
     playAudio: (file, onEnd) => playSound(file, onEnd),
     inspectImages: async (paths) =>
@@ -180,11 +219,13 @@ async function main() {
           slowModels: p.slowModels ?? [],
         })),
       );
-      return { providers, ...agentStatuses(), updates: await agentUpdates() };
+      return { providers, ...(await agentStatuses()), updates: await agentUpdates() };
     },
     loginAgent: async (agent) => {
       // the panel watches for the sign-in to finish in the terminal: no cached state meanwhile
       freshUntil = Date.now() + 5 * 60_000;
+      // a kept Antigravity model list belongs to the account before this sign-in
+      if (agent === "antigravity") forgetAgyModels();
       openInTerminal(loginCommand(agent, process.env), loginEnv(agent, process.env));
     },
     logoutAgent: async (agent) => {
@@ -226,6 +267,8 @@ async function main() {
         model: providerPreset(provider)?.models[0] ?? "list",
         apiKey: await keys.get(provider),
       });
+      // Antigravity's preflight reads the status found here (its check goes over the network)
+      if (provider === "antigravity") await antigravityStatus();
       p.preflight?.();
       const catalog = loadModelCatalog();
       return ((await p.listModels?.()) ?? []).map((m) => ({
@@ -235,7 +278,8 @@ async function main() {
     },
     prepareModels: async (onProgress) => {
       const defaults = loadDefaults();
-      await loadSpeechModel(defaults, onProgress);
+      await downloadSpeechModel(defaults, onProgress);
+      await downloadVadModel(defaults.pauses.vadModel, onProgress);
       await ensureOcrData(defaults.ocr, onProgress);
     },
   });
@@ -250,19 +294,36 @@ async function main() {
   process.stderr.write(`kilnframe companion listening on 127.0.0.1:${companion.port}\n`);
   // ready before the panel asks: its first settings screen should not wait for the agents
   setTimeout(() => {
-    agentStatuses();
+    void agentStatuses();
     void agentUpdates().catch(() => {});
   }, 0);
   // a running job lives in its own process group and would outlive the companion
-  process.on("exit", killAllJobs);
+  process.on("exit", killAllJobsNow);
+  let stopping = false;
   const stop = async () => {
-    killAllJobs();
+    if (stopping) return;
+    stopping = true;
     rmSync(file, { force: true });
+    await killAllJobs();
     await companion.close();
     process.exit(0);
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+  if (process.send) {
+    // the app asks over IPC: on Windows a signal cannot be caught, it ends the process without clean-up
+    process.on("message", (m: { type?: string } | null) => {
+      if (m?.type === "quit") void stop();
+    });
+    // the app crashed or was force-quit: an orphan would hold the port the next app's companion needs
+    process.on("disconnect", () => void stop());
+  }
+}
+
+/** A message to the app, when it is there: a send on a closed channel would crash the companion. */
+function tellParent(message: ChildMessage): void {
+  if (!process.send || !process.connected) return;
+  process.send(message, undefined, {}, () => {});
 }
 
 main().catch((err: unknown) => {
@@ -277,7 +338,9 @@ main().catch((err: unknown) => {
  * touches a credential. It signs that CLI out on this computer, not just in Kilnframe.
  */
 function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
-  const r = spawnAgentSync(agent === "claude-code" ? "claude" : agent, logoutArgs(agent), {
+  const args = logoutArgs(agent);
+  if (!args) return { ok: false, error: "This CLI signs out only from its own screen." };
+  const r = spawnAgentSync(AGENT_BINARY[agent], args, {
     encoding: "utf8",
     timeout: 30_000,
     env: withoutHostSession(process.env),
@@ -295,12 +358,21 @@ function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
 /** A command in a terminal window the editor sees: the official CLI does the work, this app only starts it. */
 function openInTerminal(command: string, env: Record<string, string> = {}): void {
   if (process.platform === "darwin") {
-    spawnSync("osascript", [
-      "-e",
-      `tell application "Terminal" to do script "${command}"`,
-      "-e",
-      'tell application "Terminal" to activate',
-    ]);
+    const r = spawnSync(
+      "osascript",
+      [
+        "-e",
+        `tell application "Terminal" to do script ${appleScriptString(command)}`,
+        "-e",
+        'tell application "Terminal" to activate',
+      ],
+      { encoding: "utf8", timeout: 30_000 },
+    );
+    // the panel waits for a sign-in in that window: say so when no window opened
+    if (r.error || r.status !== 0)
+      throw new Error(
+        `Could not open Terminal: ${(r.stderr || r.error?.message || "").trim().slice(0, 200)}`,
+      );
   } else if (process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", command], {
       // the companion's own PATH is the one of sign-in time: an agent installed since would not be found
@@ -314,15 +386,19 @@ function openInTerminal(command: string, env: Record<string, string> = {}): void
 }
 
 /**
- * Sign-in state of the three agents. Asking them takes about a second (Grok goes over the network) and
+ * Sign-in state of the agents. Asking them takes about a second (Grok goes over the network) and
  * blocks the companion meanwhile, so it is kept for a short while: opening the settings again is instant,
  * and a sign-in in the terminal still shows within seconds.
  */
 let statusCache: { at: number; value: ReturnType<typeof readAgentStatuses> } | null = null;
 /** Until then every request reads the agents again (a sign-in or update is under way). */
 let freshUntil = 0;
-function readAgentStatuses() {
+async function readAgentStatuses() {
+  // the others are read synchronously and block the event loop; Antigravity's check runs on timers (10 s
+  // for --version), so it starts after them: started first, a slow Grok would make agy read as timed out
   const s = claudeCodeStatus();
+  const codex = codexStatus();
+  const grok = grokStatus();
   return {
     claudeCode: {
       installed: s.installed,
@@ -330,8 +406,9 @@ function readAgentStatuses() {
       version: s.version,
       subscription: s.subscription,
     },
-    codex: codexStatus(),
-    grok: grokStatus(),
+    codex,
+    grok,
+    antigravity: await antigravityStatus(),
   };
 }
 function agentStatuses() {
@@ -341,11 +418,11 @@ function agentStatuses() {
   return statusCache.value;
 }
 
-/** Update news for the three agents, read at most once an hour (a registry call per agent). */
+/** Update news for the agents, read at most once an hour (a registry call per agent). */
 let updateCache: { at: number; value: Record<string, unknown> } | null = null;
 async function agentUpdates(): Promise<Record<string, unknown>> {
   if (updateCache && Date.now() - updateCache.at < 60 * 60_000) return updateCache.value;
-  const ids = ["claude-code", "codex", "grok"] as const;
+  const ids = ["claude-code", "codex", "grok", "antigravity"] as const;
   const list = await Promise.all(ids.map((id) => agentUpdate(id)));
   const value = Object.fromEntries(ids.map((id, i) => [id, list[i]]));
   updateCache = { at: Date.now(), value };

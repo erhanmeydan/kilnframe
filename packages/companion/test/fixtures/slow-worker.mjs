@@ -11,7 +11,14 @@ process.once("message", (params) => {
     process.send({ type: "done", result: { ok: true } }, () => process.exit(0));
     return;
   }
-  const child = spawn("sleep", ["60"], { stdio: "ignore" });
+  // stubborn: a program that ignores TERM, as one closing its Chrome slowly would seem
+  const child = params.stubborn
+    ? spawn(
+        process.execPath,
+        ["-e", "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"],
+        { stdio: "ignore" },
+      )
+    : spawn("sleep", ["60"], { stdio: "ignore" });
   process.send({ type: "progress", message: `child ${child.pid}` });
   setInterval(() => {}, 1000);
 });

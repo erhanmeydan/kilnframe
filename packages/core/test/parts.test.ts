@@ -54,6 +54,24 @@ describe("parts", () => {
     expect(parts.every((p) => p.endS - p.startS <= 45)).toBe(true);
   });
 
+  it("cuts on time through a long silence at the end", () => {
+    // 40 s of speech, then 100 s without a word (music, B-roll)
+    const t = { ...speech([20, 20, 20, 20]), duration_s: 140 };
+    const parts = splitIntoParts(t, { targetS: 30, minS: 15, maxS: 45 });
+    expect(parts[0]?.startS).toBe(0);
+    expect(parts.at(-1)?.endS).toBe(140);
+    for (const p of parts) expect(p.endS - p.startS).toBeLessThanOrEqual(45);
+    for (let i = 1; i < parts.length; i++) expect(parts[i]?.startS).toBe(parts[i - 1]?.endS);
+    // every word lands in exactly one part
+    expect(
+      parts
+        .map((p) => p.text)
+        .join(" ")
+        .split(" ")
+        .filter(Boolean),
+    ).toHaveLength(80);
+  });
+
   it("gives each part its own transcript from zero", () => {
     const t = speech([10, 10, 10]);
     const [, second] = splitIntoParts(t, { targetS: 6, minS: 3, maxS: 7 });

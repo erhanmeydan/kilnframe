@@ -25,10 +25,31 @@ export interface HostSequence {
 export interface PlaceResult {
   videoTrack: number;
   audioTrack: number;
+  /**
+   * The clip, rendered at 4K for a larger sequence, could not be scaled up to fill it: the percent the editor
+   * sets by hand (Scale to Frame Size does the same).
+   */
+  scaleByHand?: number;
+}
+
+/** A stretch to take out of a sequence, in sequence seconds. */
+export interface TimelineCut {
+  startS: number;
+  endS: number;
+}
+
+/** The sequence a cut made: it is open and active, the original untouched. */
+export interface CutSequenceResult {
+  id: string;
+  name: string;
+  /** Clips that could not be carried into the new sequence (no media file, retimed...). */
+  leftOut: number;
+  /** Built from source clips: effects, grades and titles are not on it. */
+  rebuilt: boolean;
 }
 
 export interface Host {
-  kind: "premiere" | "resolve";
+  kind: "premiere" | "resolve" | "filmcraft";
   /** The active sequence; throws a readable message when there is no project or sequence. */
   currentSequence(): Promise<HostSequence>;
   /** Resolve: true once after an export that could not put the editor's Deliver settings back. */
@@ -71,6 +92,22 @@ export interface Host {
     endS: number,
     fn: () => Promise<T>,
   ): Promise<T>;
+  /**
+   * 0-based audio tracks with a clip over [startS, endS) that is not one of Kilnframe's own (inserts, sound
+   * effects, music): where the editor's speech can be.
+   */
+  speechTracksAt(seq: HostSequence, startS: number, endS: number): Promise<number[]>;
+  /**
+   * Runs `fn` with every other audio track switched off, so an export hears the 0-based `track` alone (or the
+   * tracks listed, together: two speakers on two microphones), then switches them back on, also when `fn`
+   * throws. `isolated` is false when the editor could not switch the tracks and `fn` ran with everything
+   * playing.
+   */
+  withOnlyAudioTrack<T>(
+    seq: HostSequence,
+    track: number | number[],
+    fn: () => Promise<T>,
+  ): Promise<{ result: T; isolated: boolean }>;
   placeInsert(
     seq: HostSequence,
     files: { video: string; sfx: string | null },
@@ -118,6 +155,16 @@ export interface Host {
     music: string | null,
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
+  /**
+   * A new sequence, `name`, holding `seq` with `cuts` taken out of every track, which becomes the active one;
+   * `seq` itself is not edited. Missing where the editor cannot cut: the tab says it is not available here.
+   */
+  cutToNewSequence?(
+    seq: HostSequence,
+    cuts: TimelineCut[],
+    name: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<CutSequenceResult>;
   pickImages(types: string[]): Promise<string[]>;
   /**
    * A copy of the text file `source` (one the companion wrote, a caption job's SRT) where the editor picks in

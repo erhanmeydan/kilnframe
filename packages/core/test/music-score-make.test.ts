@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SR, readAudio, writeAudio } from "../src/music/score/audio-io.js";
 import { meterLevelDb } from "../src/music/score/levels.js";
-import { makeScore } from "../src/music/score/make.js";
+import { makeScore, retryWaitMs } from "../src/music/score/make.js";
 import type { MusicPlan } from "../src/music/score/plan.js";
 
 /** A fake Lyria: answers with a WAV of `seconds` of tone, a hit near the end when the prompt asks for one. */
@@ -93,6 +93,55 @@ describe("making the score", { timeout: 30_000 }, () => {
     for (const s of r.sections) expect(existsSync(s.file!)).toBe(true);
     expect(r.priceUsd).toBeCloseTo(0.16);
     expect(JSON.parse(readFileSync(r.record, "utf8")).sections).toHaveLength(2);
+  });
+
+  it("asks ElevenLabs for each section's exact length, instrumental, priced by the minute", async () => {
+    const out = mkdtempSync(join(tmpdir(), "kf-score-"));
+    const asked: { url: string; key: string | null; body: Record<string, unknown> }[] = [];
+    const fetchFn = (async (
+      u: unknown,
+      init?: { body?: string; headers?: Record<string, string> },
+    ) => {
+      const body = JSON.parse(init?.body ?? "{}") as Record<string, unknown>;
+      asked.push({ url: String(u), key: init?.headers?.["xi-api-key"] ?? null, body });
+      const seconds = Number(body.music_length_ms) / 1000;
+      const dir = mkdtempSync(join(tmpdir(), "kf-eleven-"));
+      const x = new Float32Array(Math.round(seconds * SR));
+      for (let i = 0; i < x.length; i++) x[i] = 0.1 * Math.sin((2 * Math.PI * 220 * i) / SR);
+      writeAudio(join(dir, "a.wav"), [x, x.slice()]);
+      return new Response(readFileSync(join(dir, "a.wav")), {
+        status: 200,
+        headers: { "content-type": "audio/mpeg" },
+      });
+    }) as unknown as typeof fetch;
+    const r = await makeScore({
+      ...base(out, fetchFn),
+      endpoint: "https://api.elevenlabs.io/v1/music",
+      model: "music_v2_5",
+    });
+    // a second to spare, and the crossfade under the next section's head
+    expect(asked.map((a) => a.body.music_length_ms).sort()).toEqual([41_000, 43_500]);
+    for (const a of asked) {
+      expect(a.url).toBe("https://api.elevenlabs.io/v1/music?output_format=mp3_48000_192");
+      expect(a.key).toBe("k");
+      expect(a.body).toMatchObject({ model_id: "music_v2_5", force_instrumental: true });
+    }
+    expect(r.sections.every((s) => s.file && !s.error)).toBe(true);
+    // 84.5 s at 0.15 USD a minute
+    expect(r.priceUsd).toBeCloseTo(0.2113, 3);
+    expect(JSON.parse(readFileSync(r.record, "utf8")).synthId).toBeUndefined();
+
+    // the same plan with Lyria afterwards: the ElevenLabs pieces are not reused as Lyria's
+    const lyria = fakeLyria();
+    const again = await makeScore(base(out, lyria.fetchFn));
+    expect(lyria.calls).toHaveLength(2);
+    expect(again.priceUsd).toBeCloseTo(0.16);
+    const record = JSON.parse(readFileSync(again.record, "utf8"));
+    expect(record.synthId).toMatch(/SynthID/);
+    expect(record.sections.map((x: { model: string }) => x.model)).toEqual([
+      "lyria-3.5",
+      "lyria-3.5",
+    ]);
   });
 
   it("puts the music at the slider under speech and 6 dB higher in a gap", async () => {
@@ -268,5 +317,13 @@ describe("making the score", { timeout: 30_000 }, () => {
     const r = await makeScore(base(out, flaky));
     expect(r.sections[1]!.error).toBeTruthy();
     expect(r.sections[0]!.durationS).toBeCloseTo(40, 3);
+  });
+});
+
+describe("waiting before a piece is asked again", () => {
+  it("waits as the provider says, but never more than a minute", () => {
+    expect(retryWaitMs(1)).toBe(2000);
+    expect(retryWaitMs(1, 20)).toBe(20_000);
+    expect(retryWaitMs(2, 3600)).toBe(60_000);
   });
 });

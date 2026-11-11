@@ -13,7 +13,7 @@ const MAX_URL = 1800;
 export interface FeedbackInfo {
   app: string;
   panel: string;
-  editor: "Premiere" | "DaVinci Resolve";
+  editor: "Premiere" | "DaVinci Resolve" | "FilmCraft";
   os: "mac" | "win";
   /** The panel's language: the page speaks it too. */
   lang: "en" | "tr";

@@ -17,6 +17,7 @@ import { MAX_MESSAGE_BYTES } from "./companion";
 import type { ServerMessage } from "./companion-session";
 import { PORTRAIT_CENTRE, safeArea } from "../../core/src/safe-area";
 import { shapeOf } from "./format-check";
+import { renderFrame } from "./frame";
 import type { HostSequence, PlaceResult } from "./host";
 import { lang, t } from "./i18n";
 import { clock } from "./music";
@@ -877,8 +878,8 @@ async function renderCaptions(st: CaptionsState, ctx: CaptionsCtx): Promise<void
         language: st.language ?? "",
         glossary: st.settings.glossary,
         durationS: st.durationS,
-        width: target.width,
-        height: target.height,
+        // a 6K or 8K sequence's captions render at 4K; the host scales the clip up (frame.ts)
+        ...renderFrame(target.width, target.height),
         fps: target.fps,
         hideSpans,
       },

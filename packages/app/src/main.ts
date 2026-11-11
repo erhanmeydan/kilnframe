@@ -1,16 +1,28 @@
 // Kilnframe Helper: the companion (packages/companion) as a menu bar / tray app. It starts the companion
 // with Electron's own Node (ELECTRON_RUN_AS_NODE), restarts it if it stops, and offers a small menu. The
 // panel in Premiere talks to the companion exactly as before; this app only keeps it running.
-import { app, dialog, Menu, nativeImage, Notification, powerMonitor, shell, Tray } from "electron";
-import { spawn, type ChildProcess } from "node:child_process";
-import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  app,
+  dialog,
+  Menu,
+  nativeImage,
+  Notification,
+  powerMonitor,
+  shell,
+  Tray,
+  type BrowserWindow,
+} from "electron";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundledTools } from "./bundle.js";
 import { companionPath } from "./shell-path.js";
-import { startUpdates, type Updates } from "./updates.js";
+import type { AppUpdateState } from "@kilnframe/companion";
+import { updateMenuLine } from "./update-menu.js";
+import { startUpdates, storeUpdates, type Updates } from "./updates.js";
 import {
   bundledPlugin,
   installPlugin,
@@ -20,18 +32,34 @@ import {
   replacesSameVersion,
 } from "./plugin.js";
 import { LOGIN_FLAG, announceText, startedAtLogin } from "./announce.js";
-import { markBusy, onQuitRequest } from "./quit.js";
+import { markBusy, onQuitRequest, stopCompanion } from "./quit.js";
+import { gpuSandboxMarker, gpuSandboxOff, markGpuSandboxOff, onChildGone } from "./gpu-sandbox.js";
 import {
   bundledResolvePanel,
   installResolvePanel,
   resolveInstallState,
   resolvePaths,
 } from "./resolve-plugin.js";
+import {
+  createFilmCraftOpener,
+  filmCraftMenuItems,
+  filmCraftRunning,
+  findFilmCraft,
+  launchFilmCraft,
+  quitFilmCraft,
+  channelAnswer,
+  type Endpoint,
+} from "./filmcraft.js";
 
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
 const home = process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe");
 const logFile = join(home, "companion.log");
+/**
+ * Installed from the Microsoft Store (an MSIX package): the Store updates the app, and the package starts it at
+ * login (its startup task), since a login item it writes lands in the package's own copy of the registry.
+ */
+const fromStore = process.windowsStore === true;
 const turkish = app.getLocale().toLowerCase().startsWith("tr");
 
 const text = turkish
@@ -54,7 +82,22 @@ const text = turkish
       resolveFailed: "Resolve paneli kurulamadı, günlüğe bakın.",
       resolveNotStudio:
         "Kilnframe paneli DaVinci Resolve Studio gerektirir, ücretsiz sürüm eklenti yüklemiyor.",
-      updateReady: "Yeni sürüm hazır: {v}. Panelden güncelleyin.",
+      filmCraft: "FilmCraft'ı Aç",
+      filmCraftWithout: "FilmCraft Kilnframe olmadan açılmış.",
+      filmCraftWithoutDetail:
+        "Kilnframe paneli için FilmCraft'ın kapatılıp buradan yeniden açılması gerekiyor. Kaydedilmemiş bir işiniz varsa FilmCraft kaydetmenizi isteyecek.",
+      filmCraftReopen: "FilmCraft'ı Kapat ve Yeniden Aç",
+      cancel: "Vazgeç",
+      filmCraftStayedOpen: "FilmCraft açık kaldı.",
+      filmCraftStayedOpenDetail:
+        "FilmCraft kapanmadı, bu yüzden yeniden açılmadı. FilmCraft'ı kendiniz kapatıp menüden FilmCraft'ı Aç'ı seçin.",
+      ok: "Tamam",
+      filmCraftFailed: "FilmCraft başlatılamadı. Açıksa kapatıp yeniden deneyin.",
+      filmCraftPanelFailed: "Kilnframe paneli açılamadı, günlüğe bakın.",
+      updateNow: "Şimdi Güncelle ({v})",
+      updateBusy: "Yeni sürüm hazır: {v}. Animasyon bitince güncelleyin.",
+      updateDownloading: "Güncelleme indiriliyor… %{p}",
+      updateRestarting: "Kuruluyor. Kilnframe birazdan yeniden açılacak…",
       quit: "Kilnframe'den Çık",
       busyTitle: "Bir animasyon hazırlanıyor.",
       busyDetail:
@@ -62,6 +105,8 @@ const text = turkish
       quitWhenDone: "Bitince Kapat",
       quitNow: "Şimdi Kapat",
       closingWhenDone: "Animasyon bitince kapanacak",
+      oldInstall:
+        "Kilnframe kurulum dosyasıyla da kurulu. İkisi birlikte çalışmaz: Ayarlar > Uygulamalar'dan eski Kilnframe'i kaldırın.",
     }
   : {
       running: "Kilnframe is running",
@@ -82,7 +127,22 @@ const text = turkish
       resolveFailed: "The Resolve panel could not be installed, see the log.",
       resolveNotStudio:
         "The Kilnframe panel needs DaVinci Resolve Studio; the free version loads no plugins.",
-      updateReady: "Version {v} is ready. Update from the panel.",
+      filmCraft: "Open FilmCraft",
+      filmCraftWithout: "FilmCraft was opened without Kilnframe.",
+      filmCraftWithoutDetail:
+        "The Kilnframe panel needs FilmCraft to be closed and opened again from here. If you have unsaved work, FilmCraft will ask you to save it.",
+      filmCraftReopen: "Close FilmCraft and Reopen",
+      cancel: "Cancel",
+      filmCraftStayedOpen: "FilmCraft stayed open.",
+      filmCraftStayedOpenDetail:
+        "FilmCraft did not close, so it was not reopened. Close FilmCraft yourself, then choose Open FilmCraft from the menu.",
+      ok: "OK",
+      filmCraftFailed: "FilmCraft could not be started. If it is open, quit it and try again.",
+      filmCraftPanelFailed: "The Kilnframe panel could not be opened, see the log.",
+      updateNow: "Update Now ({v})",
+      updateBusy: "Version {v} is ready. Update when the animation is done.",
+      updateDownloading: "Downloading the update… {p}%",
+      updateRestarting: "Installing. Kilnframe will reopen in a moment…",
       quit: "Quit Kilnframe",
       busyTitle: "An animation is being made.",
       busyDetail:
@@ -90,6 +150,8 @@ const text = turkish
       quitWhenDone: "Quit When Done",
       quitNow: "Quit Now",
       closingWhenDone: "Quits when the animation is done",
+      oldInstall:
+        "Kilnframe is also installed from its installer. The two do not run together: remove the old Kilnframe in Settings > Apps.",
     };
 
 let tray: Tray | null = null;
@@ -97,6 +159,9 @@ let companion: ChildProcess | null = null;
 let updates: Updates | null = null;
 const appVersion = app.getVersion();
 let quitting = false;
+/** Windows: the companion was asked to quit (stopCompanion), and has. */
+let stoppingCompanion = false;
+let companionStopped = false;
 /** A job runs or waits in the companion (job.busy); quitting then asks first (quit.ts). */
 let busy = false;
 let quitWhenDone = false;
@@ -114,7 +179,8 @@ let pluginNote = "";
 /** A Resolve panel problem worth showing in the menu (developer files missing, copy failed). */
 let resolveNote = "";
 /** "New version ready", shown in the menu; the panel offers the button. */
-let updateNote = "";
+/** The last update state, for the menu's update line (update-menu.ts). */
+let updateState: AppUpdateState | null = null;
 
 /** ~/.kilnframe/app.json: when the app first started and which plugin it installed. */
 interface AppState {
@@ -267,7 +333,18 @@ function askToQuit() {
 /** On Windows the login item carries LOGIN_FLAG, so a start at login can be told apart (announce.ts). */
 const loginArgs = process.platform === "win32" ? { args: [LOGIN_FLAG] } : {};
 const openAtLogin = () => app.getLoginItemSettings(loginArgs).openAtLogin;
-const setOpenAtLogin = (on: boolean) => app.setLoginItemSettings({ openAtLogin: on, ...loginArgs });
+const setOpenAtLogin = (on: boolean) => {
+  if (!fromStore) app.setLoginItemSettings({ openAtLogin: on, ...loginArgs });
+};
+
+/** Where the installer (Kilnframe-Windows.exe) puts the app. */
+const oldInstall = () =>
+  join(
+    process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"),
+    "Programs",
+    "kilnframe",
+    "Kilnframe.exe",
+  );
 
 /** Opened by the user, or again while it runs: say where the icon is, and open its menu the second time. */
 function announce(again: boolean) {
@@ -323,6 +400,91 @@ function resolvePanelInstallable(): boolean {
   return state === "install" || state === "up-to-date";
 }
 
+/** FilmCraft's program, when it is installed. */
+const filmCraftProgram = () => findFilmCraft(process.platform, process.env, existsSync, homedir());
+
+/**
+ * The panel beside FilmCraft (packages/panel/dist-filmcraft): next to the app's other resources when packaged,
+ * from the repository in development.
+ */
+function filmCraftPanelDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, "filmcraft-panel")
+    : join(here, "..", "..", "panel", "dist-filmcraft");
+}
+
+let filmCraftPanel: BrowserWindow | null = null;
+
+/** Brings the panel window forward, or opens it; closing it leaves the app and FilmCraft running. */
+function showFilmCraftPanel() {
+  if (filmCraftPanel && !filmCraftPanel.isDestroyed()) {
+    filmCraftPanel.show();
+  } else {
+    const panel = require(join(filmCraftPanelDir(), "panel.js")) as {
+      openFilmCraftPanel(endpoint: () => Endpoint | null): BrowserWindow;
+    };
+    filmCraftPanel = panel.openFilmCraftPanel(filmCraft.endpoint);
+  }
+  // a menu bar app is not brought forward with its window
+  app.focus({ steal: true });
+  filmCraftPanel.focus();
+}
+
+/** FilmCraft's port and token stay in this process's memory: not written to a file or the log. */
+const filmCraft = createFilmCraftOpener({
+  program: () => filmCraftProgram() ?? "",
+  running: () => filmCraftRunning(process.platform),
+  answers: (ep) => channelAnswer(ep.port, ep.token),
+  launch: (program) => launchFilmCraft(program),
+  showPanel: showFilmCraftPanel,
+  askToReopen: async () => {
+    // a menu bar app's question comes forward only when the app does
+    app.focus({ steal: true });
+    const { response } = await dialog.showMessageBox({
+      type: "question",
+      message: text.filmCraftWithout,
+      detail: text.filmCraftWithoutDetail,
+      buttons: [text.filmCraftReopen, text.cancel],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    return response === 0;
+  },
+  quit: () => quitFilmCraft(process.platform),
+  stayedOpen: async () => {
+    app.focus({ steal: true });
+    await dialog.showMessageBox({
+      type: "info",
+      message: text.filmCraftStayedOpen,
+      detail: text.filmCraftStayedOpenDetail,
+      buttons: [text.ok],
+      defaultId: 0,
+    });
+  },
+  failed: (err) => {
+    logLine(`filmcraft: ${err.message}`);
+    notify(text.filmCraftFailed);
+  },
+});
+
+function openFilmCraft() {
+  filmCraft.open().catch((err: unknown) => {
+    logLine(`filmcraft: the panel did not open: ${err instanceof Error ? err.message : err}`);
+    notify(text.filmCraftPanelFailed);
+  });
+}
+
+/** The update line: Update Now starts the update, as the panel's Update button does. */
+function updateMenuItems() {
+  const line = updateMenuLine(updateState, busy, text);
+  if (!line) return [];
+  return [
+    line.install
+      ? { label: line.label, click: () => (busy ? refreshMenu() : updates?.install()) }
+      : { label: line.label, enabled: false },
+  ];
+}
+
 function refreshMenu() {
   if (!tray) return;
   const login = openAtLogin();
@@ -332,13 +494,14 @@ function refreshMenu() {
       { label: quitWhenDone ? text.closingWhenDone : status, enabled: false },
       ...(pluginNote ? [{ label: pluginNote, enabled: false }] : []),
       ...(resolveNote ? [{ label: resolveNote, enabled: false }] : []),
-      ...(updateNote ? [{ label: updateNote, enabled: false }] : []),
+      ...updateMenuItems(),
       { type: "separator" },
       { label: text.log, click: () => void shell.openPath(logFile) },
       ...(bundledPlugin() ? [{ label: text.plugin, click: () => void ensurePlugin(true) }] : []),
       ...(resolvePanelInstallable()
         ? [{ label: text.resolvePanel, click: () => ensureResolvePlugin(true) }]
         : []),
+      ...filmCraftMenuItems(filmCraftProgram(), text.filmCraft, openFilmCraft),
       {
         label: text.styles,
         click: () => {
@@ -347,23 +510,50 @@ function refreshMenu() {
           void shell.openPath(styles);
         },
       },
-      {
-        label: text.login,
-        type: "checkbox",
-        checked: login,
-        click: () => {
-          setOpenAtLogin(!login);
-          refreshMenu();
-        },
-      },
+      // the Store build starts at login through its package, switched in Windows' Startup apps settings
+      ...(fromStore
+        ? []
+        : [
+            {
+              label: text.login,
+              type: "checkbox" as const,
+              checked: login,
+              click: () => {
+                setOpenAtLogin(!login);
+                refreshMenu();
+              },
+            },
+          ]),
       { type: "separator" },
       { label: text.quit, click: () => app.quit() },
     ]),
   );
 }
 
+// a computer where the GPU process crashed starts it without its sandbox (gpu-sandbox.ts)
+const gpuUnsandboxed = gpuSandboxOff(process.platform, home);
+if (gpuUnsandboxed) app.commandLine.appendSwitch("disable-gpu-sandbox");
+
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  app.on("child-process-gone", (_event, d) => {
+    const step = onChildGone({
+      platform: process.platform,
+      type: d.type,
+      reason: d.reason,
+      marked: gpuUnsandboxed || existsSync(gpuSandboxMarker(home)),
+      busy,
+    });
+    if (step === "none") return;
+    logLine(
+      `gpu process ${d.reason} (exit ${d.exitCode}): starting without its sandbox from now on`,
+    );
+    markGpuSandboxOff(home, `${d.reason} ${d.exitCode}`);
+    if (step === "relaunch") {
+      app.relaunch();
+      app.quit();
+    }
+  });
   // opened again while it runs: Windows starts a second copy (it quits at once), macOS sends activate
   app.on("second-instance", () => announce(true));
   // macOS also sends activate as the app starts and when the quit question takes focus: not a reopen
@@ -383,6 +573,24 @@ else {
       return;
     }
     quitting = true;
+    if (process.platform === "win32" && companion && !companionStopped) {
+      // kill() is TerminateProcess here, which leaves the job running: the companion is asked over IPC and
+      // the app quits once it is gone (or its tree was ended with taskkill). A shutdown is not held up.
+      if (shuttingDown) {
+        spawnSync("taskkill", ["/pid", String(companion.pid), "/T", "/F"]);
+        return;
+      }
+      event.preventDefault();
+      if (stoppingCompanion) return;
+      stoppingCompanion = true;
+      void stopCompanion(companion, {
+        killTree: (pid) => spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"]),
+      }).then(() => {
+        companionStopped = true;
+        app.quit();
+      });
+      return;
+    }
     // the companion ends its running job and everything that job started (isolated.ts)
     companion?.kill("SIGTERM");
   });
@@ -418,18 +626,25 @@ else {
     readyAt = Date.now();
     refreshMenu();
     // only a packaged app updates; in development the version is the repository's
-    if (app.isPackaged)
+    if (fromStore) {
+      updates = storeUpdates(
+        appVersion,
+        () => void shell.openExternal("ms-windows-store://downloadsandupdates"),
+      );
+      // the installer's copy would start at login too and take the companion's port
+      if (existsSync(oldInstall())) {
+        logLine(`store: the installer's Kilnframe is also installed (${oldInstall()})`);
+        notify(text.oldInstall);
+      }
+    } else if (app.isPackaged)
       updates = startUpdates({
         current: appVersion,
         log: logLine,
+        busy: () => busy,
         feedUrl: process.env.KILNFRAME_UPDATE_URL,
         onState: (state) => {
           if (companion?.connected) companion.send({ type: "update.state", state });
-          // installing is the panel's button: only the companion knows whether a job is running
-          updateNote =
-            state.status === "available" || state.status === "ready"
-              ? text.updateReady.replace("{v}", state.version ?? "")
-              : "";
+          updateState = state;
           refreshMenu();
         },
       });

@@ -27,7 +27,7 @@ Chrome for Testing, headless shell 150.0.7871.24
   BSD-style license and the licenses of Chromium's components (Resources/bin/headless-shell/LICENSE.headless_shell).
   https://developer.chrome.com/blog/chrome-for-testing
 
-Electron 44.7.0
+Electron 44.10.1
   MIT License; Chromium's licenses in LICENSES.chromium.html next to the app's executable.
   https://www.electronjs.org
 

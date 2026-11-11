@@ -11,6 +11,8 @@ const ASYNC = [
   "exportRangePicture",
   "hideOurInserts",
   "showTracks",
+  "speechTracks",
+  "soloAudioTrack",
   "placeInsert",
   "placeAudioClips",
   "createStorySequence",
@@ -19,6 +21,8 @@ const ASYNC = [
   "replaceCaptionClip",
   "isRendering",
   "cancelExports",
+  "cutToNewTimeline",
+  "cutProgress",
   "pickImages",
   "saveFileCopy",
   "openUrl",
@@ -34,6 +38,7 @@ const info = ipcRenderer.sendSync("kilnframe:info") as {
   locale: string;
   pluginVersion: string;
   onTop: boolean;
+  editor?: "resolve" | "filmcraft";
 };
 
 contextBridge.exposeInMainWorld("kilnframeResolve", {
@@ -45,4 +50,5 @@ contextBridge.exposeInMainWorld("kilnframeResolve", {
   locale: () => info.locale,
   pluginVersion: () => info.pluginVersion,
   onTop: () => info.onTop,
+  editor: () => info.editor,
 });

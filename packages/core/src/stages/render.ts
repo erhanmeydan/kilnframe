@@ -1,13 +1,15 @@
 import { edgeCutScenes } from "../edges.js";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
 import {
-  checkProject,
-  renderProject,
-  snapshotProject,
-  snapshotStills,
-  type CheckFinding,
-} from "../hyperframes.js";
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { checkProject, renderProject, snapshotProject, type CheckFinding } from "../hyperframes.js";
 import { formatFps, framesToSeconds, parseFps, renderFps } from "../fps.js";
 import { compositeOver, nearestFrame, readFrames } from "../frames.js";
 import { assembleProject, rootHtml } from "../project/assemble.js";
@@ -123,21 +125,18 @@ async function reviewStills(
     usual,
   );
   const sampleDir = join(stillsDir, "samples");
-  // a scene made again renders all stills anew: nothing of the last review stays
+  // a scene made again renders all stills anew, into a folder of their own (renderPlan swaps it in)
   rmSync(stillsDir, { recursive: true, force: true });
   mkdirSync(stillsDir, { recursive: true });
+  // one shot per candidate time, in order (snapshotProject throws when one is missing)
   const snap = await snapshotProject(projectDir, candidates.flat(), sampleDir);
-  const shots = snapshotStills(sampleDir);
   const stills: string[] = [];
   const times: number[] = [];
   let at = 0;
   candidates.forEach((sceneTimes, i) => {
-    const files = shots.slice(at, at + sceneTimes.length);
+    const files = snap.files.slice(at, at + sceneTimes.length);
     at += sceneTimes.length;
-    const k =
-      files.length === sceneTimes.length
-        ? pickStill(sceneTimes, files.map(fullness), usual[i] as number)
-        : 0;
+    const k = pickStill(sceneTimes, files.map(fullness), usual[i] as number);
     const time = sceneTimes[k] as number;
     const from = files[k];
     if (!from) return;
@@ -189,12 +188,24 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
 
   log("Rendering stills");
   const stillsDir = join(outDir, "stills");
-  const { stills, times, ms } = await reviewStills(plan, projectDir, outDir, stillsDir);
-  timingsMs.stills = ms;
-  const cutScenes = await edgeCutScenes(plan, stills);
-  // kept with the stills: a review opened again after a reload shows the same notes
-  writeFileSync(join(stillsDir, "edges.json"), `${JSON.stringify(cutScenes)}\n`);
-  showOverlaysOverFootage(plan, stills, outDir, times);
+  // the new stills are made beside the last review's and replace them only once complete: a snapshot that
+  // fails during a redo leaves the review its stills and edge notes
+  const nextDir = join(outDir, "stills.next");
+  let stills: string[];
+  let cutScenes: string[];
+  try {
+    const shot = await reviewStills(plan, projectDir, outDir, nextDir);
+    timingsMs.stills = shot.ms;
+    cutScenes = await edgeCutScenes(plan, shot.stills);
+    // kept with the stills: a review opened again after a reload shows the same notes
+    writeFileSync(join(nextDir, "edges.json"), `${JSON.stringify(cutScenes)}\n`);
+    showOverlaysOverFootage(plan, shot.stills, outDir, shot.times);
+    rmSync(stillsDir, { recursive: true, force: true });
+    renameSync(nextDir, stillsDir);
+    stills = shot.stills.map((f) => join(stillsDir, basename(f)));
+  } finally {
+    rmSync(nextDir, { recursive: true, force: true });
+  }
   if (o.stillsOnly)
     return {
       projectDir,
@@ -241,6 +252,9 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
     handlesFrames: plan.handles_frames,
   });
   timingsMs.deliver = Date.now() - started;
+  // the master (ProRes 4444 for an overlay, gigabytes at 4K) is only the source of insert.*; a render
+  // again makes a new one
+  rmSync(join(projectDir, "renders"), { recursive: true, force: true });
 
   log("Synthesizing sound effects");
   const sfxStarted = Date.now();

@@ -1,8 +1,19 @@
 import { t, type MessageKey } from "./i18n";
 
 /** Checks whose reason the panel can say in the editor's language; the rest are covered by the sentence. */
-const KNOWN = ["overlay_faint_layer", "scene_shows_nothing"] as const;
-export type CheckKey = `check.${(typeof KNOWN)[number]}`;
+/** What the panel says for a check the composition failed, by the check's code (several codes, one text). */
+const CHECK_TEXT = {
+  overlay_faint_layer: "check.overlay_faint_layer",
+  scene_shows_nothing: "check.scene_shows_nothing",
+  content_overlap: "check.content_overlap",
+  text_occluded: "check.text_occluded",
+  canvas_overflow: "check.canvas_overflow",
+  text_box_overflow: "check.text_overflow",
+  container_overflow: "check.text_overflow",
+  clipped_text: "check.text_overflow",
+  sweep_static: "check.sweep_static",
+} as const;
+export type CheckKey = (typeof CHECK_TEXT)[keyof typeof CHECK_TEXT];
 
 /** The names editors know, for the provider ids the core puts in its messages. */
 const PROVIDER_NAMES: Record<string, string> = {
@@ -20,7 +31,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 export type ReadableError =
   | { key: "job.checksFailed"; vars: { n: number }; reasons: CheckKey[] }
   | {
-      key: "job.keyExpired" | "job.keyRejected" | "job.noCredits";
+      key: "job.keyExpired" | "job.keyRejected" | "job.noCredits" | "job.providerBusy";
       vars: { provider: string };
       reasons: [];
     }
@@ -32,10 +43,34 @@ export type ReadableError =
   | { key: "job.geminiFreeTier"; vars: { limit: number; hours: number }; reasons: [] }
   | { key: "job.geminiFreeTierNoWait"; vars: { limit: number }; reasons: [] }
   | {
-      key: "job.lyriaFreeTier" | "job.ollamaContextUnknown" | "music.noKey";
+      key:
+        | "job.lyriaFreeTier"
+        | "job.ollamaContextUnknown"
+        | "music.noKey"
+        | "job.noAi"
+        | "job.agyBusy"
+        | "job.agyLimit"
+        | "job.agyNotSignedIn"
+        | "job.agyNotInstalled"
+        | "job.agyOffline";
       vars: Record<string, never>;
       reasons: [];
     };
+
+/** The editor stopped the job; nothing is retried and there is nothing to report. */
+export class JobStopped extends Error {}
+
+/** The connection to the companion closed while a job ran; the job may still be running there. */
+export class ConnectionLost extends Error {}
+
+/** Antigravity CLI's own problems (core providers/antigravity.ts), by the start of the core's sentence. */
+const ANTIGRAVITY_TEXT: [string, ReadableError["key"]][] = [
+  ["Your Google account is busy on this model", "job.agyBusy"],
+  ["Google account usage limit reached", "job.agyLimit"],
+  ["Antigravity CLI is not signed in", "job.agyNotSignedIn"],
+  ["Antigravity CLI is not installed", "job.agyNotInstalled"],
+  ["Antigravity CLI could not reach Google", "job.agyOffline"],
+];
 
 /**
  * A job error the panel can say in its own language instead of the core's English: the composition that
@@ -46,16 +81,33 @@ export type ReadableError =
 export function readableJobError(message: string): ReadableError | null {
   if (message.includes("could not read the context Ollama runs the model with"))
     return { key: "job.ollamaContextUnknown", vars: {}, reasons: [] };
+  // the core's advice is for its command line ("export ANTHROPIC_API_KEY in this terminal")
+  if (message.startsWith("No Claude API key found."))
+    return { key: "job.noAi", vars: {}, reasons: [] };
   if (message.includes("Music needs a Google Gemini key"))
     return { key: "music.noKey", vars: {}, reasons: [] };
-  // an account out of credits, or a key over its spending limit (OpenRouter's 402)
-  const credits = /^(\S+) error 402: .*(credit|afford)/i.exec(message);
+  const agy = ANTIGRAVITY_TEXT.find(([start]) => message.includes(start));
+  if (agy) return { key: agy[1], vars: {}, reasons: [] } as ReadableError;
+  // an account out of credits, or a key over its spending limit (OpenRouter's 402); Z.ai says a key with
+  // no balance behind it with a 429
+  const credits =
+    /^(\S+) error 402: .*(credit|afford)/i.exec(message) ??
+    /^(\S+) error 4\d\d: .*(insufficient balance|no resource package|recharge|insufficient_quota)/i.exec(
+      message,
+    );
   if (credits)
     return {
       key: "job.noCredits",
       vars: { provider: PROVIDER_NAMES[credits[1]!] ?? credits[1]! },
       reasons: [],
     };
+  // the provider is too busy for the model right now (Gemini's 503 "high demand"); the core has already
+  // asked again a few times
+  const busy = /^(\S+) error (503|529):/.exec(message);
+  if (busy || /^(\S+) error \d+: .*(high demand|overloaded)/i.test(message)) {
+    const id = /^(\S+)/.exec(message)![1]!;
+    return { key: "job.providerBusy", vars: { provider: PROVIDER_NAMES[id] ?? id }, reasons: [] };
+  }
   // a free tier Gemini key gets no music at all (Lyria's limit there is 0)
   if (/Lyria failed \(429\)/.test(message) && /free[ _]tier|limit: 0\b/i.test(message))
     return { key: "job.lyriaFreeTier", vars: {}, reasons: [] };
@@ -89,9 +141,13 @@ export function readableJobError(message: string): ReadableError | null {
   }
   const m = /still fails validation after (\d+) repair rounds/.exec(message);
   if (!m) return null;
-  const reasons = KNOWN.filter((code) => message.includes(`${code}:`)).map(
-    (code) => `check.${code}` as CheckKey,
-  );
+  const reasons = [
+    ...new Set(
+      Object.entries(CHECK_TEXT)
+        .filter(([code]) => message.includes(`${code}:`))
+        .map(([, key]) => key),
+    ),
+  ];
   return { key: "job.checksFailed", vars: { n: Number(m[1]) }, reasons };
 }
 

@@ -1,20 +1,32 @@
-// The DaVinci Resolve Studio host: the panel's Host over window.kilnframeResolve (preload.ts), which forwards
+// The DaVinci Resolve Studio and FilmCraft host: the panel's Host over window.kilnframeResolve (preload.ts), which forwards
 // to the bridge in the Electron main process (resolve/bridge.ts) and to a few file and OS calls.
-import type { Host, HostSequence } from "./host";
+import type { CutSequenceResult, Host, HostSequence, TimelineCut } from "./host";
 import { t } from "./i18n";
+import { JobStopped } from "./job-errors";
 import {
+  CONNECTION_LOST,
+  COPY_LEFT,
+  CUT_FAILED,
+  CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
+  NOT_RUNNING,
+  TIMED_OUT,
   NO_SEQUENCE,
   PLACE_FAILED,
   RENDER_BUSY,
   RENDER_FAILED,
+  type HiddenTrack,
   type KilnframeResolveApi,
 } from "./resolve/api";
 
 /** A project name as a folder name: no path separators or characters Windows refuses. */
-const folderName = (name: string) => name.replace(/[\\/:*?"<>|]/g, "-").trim() || "Resolve";
+const folderName = (name: string, fallback: string) =>
+  name.replace(/[\\/:*?"<>|]/g, "-").trim() || fallback;
 
-export function createResolveHost(api: KilnframeResolveApi): Host {
+export function createResolveHost(
+  api: KilnframeResolveApi,
+  kind: "resolve" | "filmcraft" = "resolve",
+): Host {
   let onTop = api.onTop();
   /** The bridge's codes in the panel's words; anything else as it came. */
   const words = async <T>(p: Promise<T>): Promise<T> => {
@@ -23,16 +35,78 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
     } catch (err) {
       const m = err instanceof Error ? err.message : String(err);
       if (m.includes(NO_SEQUENCE)) throw new Error(t("seq.noSequence"), { cause: err });
-      if (m.includes(EXPORTS_STOPPED)) throw new Error(t("job.stopped"), { cause: err });
+      // the editor's own Stop: said as stopped, with no report link
+      if (m.includes(EXPORTS_STOPPED)) throw new JobStopped(t("job.stopped"), { cause: err });
+      if (m.includes(NOT_RUNNING)) throw new Error(t("filmcraft.notRunning"), { cause: err });
+      if (m.includes(CONNECTION_LOST))
+        throw new Error(t("filmcraft.connectionLost"), { cause: err });
+      if (m.includes(TIMED_OUT)) throw new Error(t("filmcraft.timedOut"), { cause: err });
       if (m.includes(RENDER_BUSY)) throw new Error(t("resolve.renderBusy"), { cause: err });
-      if (m.includes(RENDER_FAILED)) throw new Error(t("resolve.renderFailed"), { cause: err });
+      if (m.includes(RENDER_FAILED)) {
+        // the editor's own reason, when the bridge passed it on, goes into the report and the log
+        const why = m.split(`${RENDER_FAILED}: `)[1]?.trim().slice(0, 300);
+        const editor = kind === "filmcraft" ? "FilmCraft" : "DaVinci Resolve";
+        throw new Error(
+          `${t(kind === "filmcraft" ? "filmcraft.exportFailed" : "resolve.renderFailed")}${why ? ` (${editor}: ${why})` : ""}`,
+          { cause: err },
+        );
+      }
+      // before PLACE_FAILED: the reason a cut carries may name a failed placement of its own
+      if (m.includes(CUT_FAILED)) {
+        const left = new RegExp(`${COPY_LEFT}=("(?:[^"\\\\]|\\\\.)*")`).exec(m)?.[1];
+        const name = (() => {
+          try {
+            return left ? String(JSON.parse(left)) : null;
+          } catch {
+            return null;
+          }
+        })();
+        throw new Error(name ? t("pauses.copyLeft", { name }) : t("premiere.cutFailed"), {
+          cause: err,
+        });
+      }
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
+      if (m.includes(CUT_UNSUPPORTED))
+        throw new Error(
+          t("pauses.needsNewer", {
+            editor: kind === "filmcraft" ? "FilmCraft" : "DaVinci Resolve",
+          }),
+          { cause: err },
+        );
       throw err;
     }
   };
 
+  /** The bridge's cut, with its progress asked for every second (IPC has no callback). */
+  const cutToNewSequence = async (
+    seq: HostSequence,
+    cuts: TimelineCut[],
+    name: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<CutSequenceResult> => {
+    let running = true;
+    const ask = api.cutProgress?.bind(api);
+    const poll =
+      onProgress && ask
+        ? setInterval(() => {
+            ask()
+              .then((p) => {
+                if (p && running) onProgress(p.done, p.total);
+              })
+              // a missed progress line is not worth stopping the cut for
+              .catch(() => undefined);
+          }, 1000)
+        : null;
+    try {
+      return await words(api.cutToNewTimeline!(seq.id, cuts, name));
+    } finally {
+      running = false;
+      if (poll) clearInterval(poll);
+    }
+  };
+
   return {
-    kind: "resolve",
+    kind,
     async currentSequence(): Promise<HostSequence> {
       const s = await words(api.currentSequence());
       return {
@@ -40,7 +114,7 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
         name: s.name,
         projectPath: "",
         // ~/Movies/Kilnframe on a Mac, Videos\Kilnframe on Windows
-        jobRoot: `${api.homedir().replace(/\\/g, "/")}/${api.platform() === "win" ? "Videos" : "Movies"}/Kilnframe/${folderName(s.projectName)}`,
+        jobRoot: `${api.homedir().replace(/\\/g, "/")}/${api.platform() === "win" ? "Videos" : "Movies"}/Kilnframe/${folderName(s.projectName, kind === "filmcraft" ? "FilmCraft" : "Resolve")}`,
         fps: s.fps,
         fpsValue: s.fpsValue,
         width: s.width,
@@ -86,6 +160,28 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
       await words(api.showTracks(seq.id, hidden));
       return result;
     },
+    speechTracksAt: (seq, startS, endS) => words(api.speechTracks(seq.id, startS, endS)),
+    async withOnlyAudioTrack(seq, track, fn) {
+      let hidden: HiddenTrack[] | null;
+      try {
+        hidden = await api.soloAudioTrack(seq.id, track);
+      } catch {
+        // the tracks could not be switched: the export hears them all, and the panel says so
+        hidden = null;
+      }
+      if (!hidden) return { result: await fn(), isolated: false };
+      let result: Awaited<ReturnType<typeof fn>>;
+      try {
+        result = await fn();
+      } catch (err) {
+        // the export's own error is the one the editor needs; a second one from the tracks would hide it
+        await api.showTracks(seq.id, hidden).catch(() => undefined);
+        throw err;
+      }
+      // also with none switched off: Resolve gets the editor's page back
+      await words(api.showTracks(seq.id, hidden));
+      return { result, isolated: true };
+    },
     placeInsert: (seq, files, atS, handlesS, durationS, tracks) =>
       words(api.placeInsert(seq.id, files, atS, handlesS, durationS, tracks)),
     placeAudioClips: (seq, clips) => words(api.placeAudioClips(seq.id, clips)),
@@ -96,6 +192,8 @@ export function createResolveHost(api: KilnframeResolveApi): Host {
       words(api.replaceCaptionClip(seq.id, old, file, atS, durationS, videoTrack)),
     createStorySequence: (template, name, narration, music, format) =>
       words(api.createStorySequence(template.id, name, narration, music, format)),
+    // left out when the bridge cannot cut, so the tab says it is not available here
+    ...(api.cutToNewTimeline ? { cutToNewSequence } : {}),
     pickImages: (types) => api.pickImages(types),
     saveFileCopy: (source, suggestedName) => api.saveFileCopy(source, suggestedName),
     openUrl: (url) => api.openUrl(url),

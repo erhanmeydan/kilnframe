@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createResolveBridge } from "../src/resolve/bridge";
 import { makeFakeResolve } from "./fake-resolve";
+import { UNSET_MARK } from "../src/resolve/api";
+import { pickRange } from "../src/range";
 
 const fast = { sleep: async () => undefined };
 const bridge = (r: ReturnType<typeof makeFakeResolve>) =>
@@ -39,10 +41,14 @@ describe("resolve bridge", () => {
     await expect(bridge(makeFakeResolve({ noTimeline: true })).quickRange()).rejects.toThrow();
   });
 
-  it("takes the whole timeline when no In/Out is set", async () => {
+  it("reports unset marks as unset, so the panel takes the whole timeline and says no range is marked", async () => {
     const seq = await bridge(makeFakeResolve()).currentSequence();
-    expect(seq.inSeconds).toBe(0);
-    expect(seq.outSeconds).toBeCloseTo(271 / 25);
+    expect(seq.inSeconds).toBe(UNSET_MARK);
+    expect(seq.outSeconds).toBe(UNSET_MARK);
+    expect(pickRange(seq.inSeconds, seq.outSeconds, seq.endSeconds)).toMatchObject({
+      startS: 0,
+      source: "sequence",
+    });
   });
 
   it("says NO_SEQUENCE when there is no project or no timeline", async () => {
@@ -269,6 +275,49 @@ describe("resolve bridge", () => {
     expect([a.start, a.path]).toEqual([90050, "/m/Kilnframe/j/sfx_mix.wav"]);
     expect(f.project.timeline.mark).toEqual({ in: 50, out: 225 });
     expect(f.project.timeline.playhead).toBe("01:00:07:00");
+  });
+
+  it("fits a 4K insert to a larger timeline with its Scaling, and leaves a 4K timeline alone", async () => {
+    const insert = { video: "/m/Kilnframe/j/insert.mov", sfx: null };
+    const big = makeFakeResolve();
+    Object.assign(big.project.timeline.settings, {
+      timelineResolutionWidth: "7680",
+      timelineResolutionHeight: "4320",
+    });
+    const b = bridge(big);
+    expect(await b.placeInsert((await b.currentSequence()).id, insert, 2, 0.8, 7)).toEqual({
+      videoTrack: 1,
+      audioTrack: 1,
+    });
+    // SCALE_FIT: the clip fills the frame whatever the project's mismatch setting is
+    expect(big.project.timeline.tracks.video[1]!.items[0]!.props).toEqual({ Scaling: 2 });
+
+    const uhd = makeFakeResolve();
+    Object.assign(uhd.project.timeline.settings, {
+      timelineResolutionWidth: "3840",
+      timelineResolutionHeight: "2160",
+    });
+    const u = bridge(uhd);
+    await u.placeInsert((await u.currentSequence()).id, insert, 2, 0.8, 7);
+    expect(uhd.project.timeline.tracks.video[1]!.items[0]!.props).toBeUndefined();
+  });
+
+  it("says the percent to set by hand when Resolve refuses the Scaling", async () => {
+    const f = makeFakeResolve({ refuseProperties: true });
+    Object.assign(f.project.timeline.settings, {
+      timelineResolutionWidth: "6144",
+      timelineResolutionHeight: "3240",
+    });
+    const b = bridge(f);
+    const placed = await b.placeInsert(
+      (await b.currentSequence()).id,
+      { video: "/m/Kilnframe/j/insert.mov", sfx: null },
+      2,
+      0.8,
+      7,
+    );
+    // 3240 / 2160
+    expect(placed.scaleByHand).toBe(150);
   });
 
   it("reports PLACE_FAILED and takes the clip away when the track was locked", async () => {
@@ -603,5 +652,117 @@ describe("resolve bridge", () => {
     const old = { path: captions, atS: 5, durationS: 10 };
     expect(await b.replaceCaptionClip(seq.id, old, next, 5, 10, 1)).toBe(false);
     expect(v2.items.map((i) => [i.start, i.end, i.path])).toEqual([[90000, 90750, captions]]);
+  });
+  describe("speech track", () => {
+    /** A1 the footage, A2 a lav, A3 our music, A4 a clip after the range. */
+    function withAudio(o: Parameters<typeof makeFakeResolve>[0] = {}) {
+      const f = makeFakeResolve(o);
+      const clip = (path: string, start: number, end: number) => ({
+        enabled: true,
+        locked: false,
+        items: [{ start, end, sourceIn: 0, sourceOut: end - start - 1, path }],
+      });
+      f.project.timeline.tracks.audio.push(
+        clip("/lav.wav", 90000, 90271),
+        clip("/m/Kilnframe/Probe-Music-1/music/s1.wav", 90000, 90200),
+        clip("/room.wav", 90250, 90271),
+      );
+      return f;
+    }
+
+    it("finds the audio tracks with the editor's own clips under the range", async () => {
+      const f = withAudio();
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      expect(await b.speechTracks(seq.id, 0, 5)).toEqual([0, 1]);
+    });
+
+    it("keeps several audio tracks on when asked", async () => {
+      const f = withAudio();
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, [0, 2]);
+      expect(hidden).toEqual([
+        { type: "audio", index: 2 },
+        { type: "audio", index: 4 },
+      ]);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        true,
+        false,
+        true,
+        false,
+      ]);
+    });
+
+    it("switches off every other enabled audio track and the same ones back on", async () => {
+      const f = withAudio();
+      f.project.timeline.tracks.audio[3]!.enabled = false;
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, 1);
+      expect(hidden).toEqual([
+        { type: "audio", index: 1 },
+        { type: "audio", index: 3 },
+      ]);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        false,
+        true,
+        false,
+        false,
+      ]);
+      await b.showTracks(seq.id, hidden);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        true,
+        true,
+        true,
+        false,
+      ]);
+    });
+
+    it("leaves the Deliver page to switch the tracks, where Resolve ignores it", async () => {
+      const f = withAudio();
+      const b = bridge(f);
+      await f.resolve.OpenPage("deliver");
+      const seq = await b.currentSequence();
+      const hidden = await b.soloAudioTrack(seq.id, 0);
+      expect(f.project.timeline.tracks.audio.map((t) => t.enabled)).toEqual([
+        true,
+        false,
+        false,
+        false,
+      ]);
+      await b.showTracks(seq.id, hidden);
+      expect(f.project.timeline.tracks.audio.every((t) => t.enabled)).toBe(true);
+      expect(f.log.pages.at(-1)).toBe("deliver");
+    });
+    it("leaves out earlier voice fix takes and disabled tracks", async () => {
+      const f = withAudio();
+      f.project.timeline.tracks.audio[1]!.items[0]!.path = "/m/Kilnframe/Probe-1/voice-fix/fix.wav";
+      f.project.timeline.tracks.audio.push({
+        enabled: true,
+        locked: false,
+        items: [
+          {
+            start: 90000,
+            end: 90100,
+            sourceIn: 0,
+            sourceOut: 99,
+            path: "C:\\Kilnframe\\Probe-2\\voice-fix\\fix.wav",
+          },
+        ],
+      });
+      f.project.timeline.tracks.audio[0]!.enabled = false;
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      expect(await b.speechTracks(seq.id, 0, 5)).toEqual([]);
+    });
+
+    it("fails and switches the tracks back on when Resolve refuses to switch one off", async () => {
+      const f = withAudio({ refuseDisable: [3] });
+      const b = bridge(f);
+      const seq = await b.currentSequence();
+      await expect(b.soloAudioTrack(seq.id, 1)).rejects.toThrow();
+      expect(f.project.timeline.tracks.audio.every((t) => t.enabled)).toBe(true);
+    });
   });
 });

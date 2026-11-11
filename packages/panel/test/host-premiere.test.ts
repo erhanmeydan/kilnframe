@@ -16,8 +16,20 @@ interface FakeClip {
  * sequence's tracks hold `video` and `audio` clips; the editor's actions change them when the transaction runs:
  * an overwrite cuts away what lies under the new clip, a remove takes the selected clips off.
  */
-function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeClip[][] } = {}) {
+function fakePremiere(
+  opts: {
+    win?: boolean;
+    video?: FakeClip[][];
+    audio?: FakeClip[][];
+    /** The sequences' frame; 1920x1080 when missing. */
+    size?: { width: number; height: number };
+    /** Clips without a Motion effect, so their Scale cannot be set. */
+    noMotion?: boolean;
+  } = {},
+) {
   const seqs = new Map<string, ReturnType<typeof makeSeq>>();
+  /** Motion > Scale values set on clips, by clip file. */
+  const scales: { path: string; value: number }[] = [];
   const overwrites: { path: string; at: number; videoTrack: number; audioTrack: number }[] = [];
   const binItems: { name: string; path: string }[] = [];
   /** A file's length in seconds once imported; 10 when the test does not say. */
@@ -30,10 +42,35 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
     getStartTime: async () => tick(c.start),
     getEndTime: async () => tick(c.end),
     getProjectItem: async () => ({ path: c.path }),
+    // Premiere's chain: Opacity, then Motion, whose param 1 is Scale
+    getComponentChain: async () => {
+      const motion = {
+        getMatchName: async () => "AE.ADBE Motion",
+        getParam: (i: number) => ({
+          displayName: i === 1 ? "Scale" : "Position",
+          createKeyframe: (value: number) => ({ value }),
+          createSetValueAction: (k: { value: number }) => ({
+            apply: () => scales.push({ path: c.path, value: k.value }),
+          }),
+        }),
+      };
+      const opacity = { getMatchName: async () => "AE.ADBE Opacity", getParam: motion.getParam };
+      const list = opts.noMotion ? [opacity] : [opacity, motion];
+      return { getComponentCount: () => list.length, getComponentAtIndex: (i: number) => list[i] };
+    },
   });
+  /** Which tracks are muted, by their clip list; a track not in it is on. */
+  const muted = new Map<FakeClip[], boolean>();
+  /** Decides a setMute call before it lands: false refuses it, a throw fails it. */
+  const muteRule = { fn: (_clips: FakeClip[], _mute: boolean): boolean | void => undefined };
   const trackApi = (clips: FakeClip[]) => ({
-    isMuted: async () => false,
-    setMute: async () => true,
+    isMuted: async () => muted.get(clips) ?? false,
+    setMute: async (mute: boolean) => {
+      // the rule may refuse (false) or throw, as Premiere can
+      if (muteRule.fn(clips, mute) === false) return false;
+      muted.set(clips, mute);
+      return true;
+    },
     getTrackItems: () => clips.map(trackItem),
   });
   function makeSeq(guid: string, name: string) {
@@ -42,7 +79,7 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
       name,
       getSettings: async () => ({
         getVideoFrameRate: async () => ({ ticksPerFrame: TICKS_PER_SECOND / 25, value: 25 }),
-        getVideoFrameRect: async () => ({ width: 1920, height: 1080 }),
+        getVideoFrameRect: async () => opts.size ?? { width: 1920, height: 1080 },
         getVideoPixelAspectRatio: async () => "1",
         setVideoFrameRect: async () => true,
         setPreviewFrameRect: async () => true,
@@ -209,7 +246,11 @@ function fakePremiere(opts: { win?: boolean; video?: FakeClip[][]; audio?: FakeC
     os,
     project,
     overwrites,
+    scales,
     video,
+    audio,
+    muted,
+    muteRule,
     lengths,
     files,
     make,
@@ -329,6 +370,54 @@ describe("premiere host", () => {
     expect(b?.at).toBe(7);
   });
 
+  it("places a part on the sequence's frame grid, not between frames", async () => {
+    const f = fakePremiere();
+    const h = f.make();
+    const seq = await h.currentSequence();
+    // a sentence end rounded to milliseconds: 7.123 s is frame 178.075 at 25 fps
+    await h.placeInsert(seq, { video: "/j/2/insert.mov", sfx: null }, 7.123, 0.8, 5);
+    expect(f.overwrites[0]?.at).toBeCloseTo(178 / 25, 9);
+  });
+
+  it("scales a 4K insert up to fill an 8K sequence, and not one on a 4K sequence", async () => {
+    const big = fakePremiere({ size: { width: 7680, height: 4320 } });
+    const h = big.make();
+    const placed = await h.placeInsert(
+      await h.currentSequence(),
+      { video: "/j/1/insert.mov", sfx: null },
+      2,
+      0.8,
+      5,
+    );
+    expect(placed.scaleByHand).toBeUndefined();
+    expect(big.scales).toEqual([{ path: "/j/1/insert.mov", value: 200 }]);
+
+    const uhd = fakePremiere({ size: { width: 3840, height: 2160 } });
+    const u = uhd.make();
+    await u.placeInsert(
+      await u.currentSequence(),
+      { video: "/j/1/insert.mov", sfx: null },
+      2,
+      0.8,
+      5,
+    );
+    expect(uhd.scales).toEqual([]);
+  });
+
+  it("places the insert and says the percent to set by hand when its Scale cannot be found", async () => {
+    const f = fakePremiere({ size: { width: 6144, height: 3240 }, noMotion: true });
+    const h = f.make();
+    const placed = await h.placeInsert(
+      await h.currentSequence(),
+      { video: "/j/1/insert.mov", sfx: null },
+      2,
+      0.8,
+      5,
+    );
+    expect(placed.scaleByHand).toBe(150);
+    expect(f.overwrites).toHaveLength(1);
+  });
+
   it("makes the story sequence the active one, so the next read returns its id", async () => {
     const f = fakePremiere();
     const h = f.make();
@@ -405,5 +494,135 @@ describe("premiere host", () => {
     const old = { path: captions, atS: 5, durationS: 10 };
     expect(await h.replaceCaptionClip(seq, old, next, 5, 10, 1)).toBe(false);
     expect(f.video[1]).toEqual([{ path: captions, start: 0, end: 30 }]);
+  });
+  describe("speech track", () => {
+    const music = "/Edits/Kilnframe/Main-Music-20261024/music/s1.wav";
+    const lav = { path: "/Footage/lav.wav", start: 0, end: 30 };
+    const later = { path: "/Footage/room.wav", start: 12, end: 30 };
+    const audio = () => [[footage], [lav], [{ path: music, start: 0, end: 20 }], [later]];
+
+    it("finds the audio tracks with the editor's own clips under the range, not ours or empty ones", async () => {
+      const f = fakePremiere({ audio: audio() });
+      const h = f.make();
+      expect(await h.speechTracksAt(await h.currentSequence(), 2, 9)).toEqual([0, 1]);
+    });
+
+    it("mutes every other audio track for the export and puts them back, leaving a muted one muted", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muted.set(f.audio[3]!, true);
+      const h = f.make();
+      const seq = await h.currentSequence();
+      let during: boolean[] = [];
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => {
+        during = f.audio.map((t) => f.muted.get(t) ?? false);
+        return "wav";
+      });
+      expect(out).toEqual({ result: "wav", isolated: true });
+      expect(during).toEqual([true, false, true, true]);
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, true]);
+    });
+
+    it("keeps several audio tracks playing together when asked: two speakers on two microphones", async () => {
+      const f = fakePremiere({ audio: audio() });
+      const h = f.make();
+      const seq = await h.currentSequence();
+      let during: boolean[] = [];
+      await h.withOnlyAudioTrack(seq, [0, 2], async () => {
+        during = f.audio.map((t) => f.muted.get(t) ?? false);
+      });
+      expect(during).toEqual([false, true, false, true]);
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
+    it("puts the tracks back when the export throws", async () => {
+      const f = fakePremiere({ audio: audio() });
+      const h = f.make();
+      const seq = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(seq, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+    it("leaves out earlier voice fix takes and muted tracks", async () => {
+      const f = fakePremiere({
+        audio: [
+          [footage],
+          [{ path: "/Edits/Kilnframe/Main-20261107/voice-fix/fix.wav", start: 2, end: 6 }],
+          [{ path: "C:\\Edits\\Kilnframe\\Main-1\\voice-fix\\fix.wav", start: 2, end: 6 }],
+          [lav],
+        ],
+      });
+      f.muted.set(f.audio[3]!, true);
+      const h = f.make();
+      expect(await h.speechTracksAt(await h.currentSequence(), 2, 9)).toEqual([0]);
+    });
+
+    it("is not isolated when Premiere refuses to mute a track, and unmutes the others", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => (mute && clips === f.audio[2] ? false : undefined);
+      const h = f.make();
+      const seq = await h.currentSequence();
+      let during: boolean[] = [];
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => {
+        during = f.audio.map((t) => f.muted.get(t) ?? false);
+        return 1;
+      });
+      expect(out).toEqual({ result: 1, isolated: false });
+      expect(during).toEqual([true, false, false, true]);
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
+    it("is not isolated when muting a track throws, and unmutes the others", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => {
+        if (mute && clips === f.audio[0]) throw new Error("mute");
+      };
+      const h = f.make();
+      const seq = await h.currentSequence();
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => 1);
+      expect(out).toEqual({ result: 1, isolated: false });
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
+    it("unmutes a track whose mute applied and then threw", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => {
+        if (mute && clips === f.audio[0]) {
+          f.muted.set(clips, true);
+          throw new Error("late");
+        }
+      };
+      const h = f.make();
+      const seq = await h.currentSequence();
+      const out = await h.withOnlyAudioTrack(seq, 1, async () => 1);
+      expect(out).toEqual({ result: 1, isolated: false });
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
+    it("tries every track and then says so when one cannot be unmuted after the export", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => (!mute && clips === f.audio[0] ? false : undefined);
+      const h = f.make();
+      const seq = await h.currentSequence();
+      await expect(h.withOnlyAudioTrack(seq, 1, async () => 1)).rejects.toThrow();
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([true, false, false, false]);
+    });
+
+    it("lets the export's error through when unmuting also fails", async () => {
+      const f = fakePremiere({ audio: audio() });
+      f.muteRule.fn = (clips, mute) => {
+        if (!mute && clips === f.audio[0]) throw new Error("unmute");
+      };
+      const h = f.make();
+      const seq = await h.currentSequence();
+      await expect(
+        h.withOnlyAudioTrack(seq, 1, async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([true, false, false, false]);
+    });
   });
 });

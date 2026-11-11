@@ -141,6 +141,23 @@ writeFileSync(
   ),
 );
 
+// the panel beside FilmCraft (packages/panel/dist-filmcraft), which the app opens in its own window (src/main.ts)
+const filmCraftPanel = join(root, "packages", "panel", "dist-filmcraft");
+if (!existsSync(join(filmCraftPanel, "panel.js")))
+  throw new Error("packages/panel/dist-filmcraft is missing: run pnpm build first.");
+cpSync(filmCraftPanel, join(extra, "filmcraft-panel"), {
+  recursive: true,
+  filter: (src) => !src.endsWith(".map"),
+});
+const filmCraftManifest = join(extra, "filmcraft-panel", "manifest.xml");
+writeFileSync(
+  filmCraftManifest,
+  readFileSync(filmCraftManifest, "utf8").replace(
+    /<Version>[^<]*<\/Version>/,
+    `<Version>${version}</Version>`,
+  ),
+);
+
 console.log("3/4 trimming");
 const modules = join(stage, "node_modules");
 // onnxruntime-node ships every platform's library; keep this platform and architecture. The binding links
@@ -214,6 +231,7 @@ writeFileSync(
         { from: "extra/vendor", to: "vendor" },
         { from: "extra/plugin", to: "plugin" },
         { from: "extra/resolve-panel", to: "resolve-panel" },
+        { from: "extra/filmcraft-panel", to: "filmcraft-panel" },
         { from: "extra/licenses", to: "licenses" },
       ],
       mac: {
@@ -228,8 +246,12 @@ writeFileSync(
             : process.argv.includes("--dmg")
               ? ["dmg"]
               : ["dir"],
-        // a menu bar app: no Dock icon, no window
-        extendInfo: { LSUIElement: true },
+        // a menu bar app: no Dock icon, no window; macOS asks once before the app may ask FilmCraft to quit
+        extendInfo: {
+          LSUIElement: true,
+          NSAppleEventsUsageDescription:
+            "Kilnframe asks FilmCraft to quit so it can reopen it with the Kilnframe panel.",
+        },
         // signed with the Developer ID in the login keychain when there is one (--unsigned skips it);
         // notarized when APPLE_KEYCHAIN_PROFILE names a notarytool profile (xcrun notarytool store-credentials)
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",
@@ -250,7 +272,27 @@ writeFileSync(
         artifactName: "Kilnframe-mac.pkg",
         identity: process.argv.includes("--unsigned") ? null : "Erhan Meydan (6J2A7G347T)",
       },
-      win: { target: ["nsis"], icon: join(app, "assets", "icon.png") },
+      // --appx: the Microsoft Store package (MSIX) as well as the installer. The Store signs it; the identity
+      // is the one Partner Center gave the app (Product identity)
+      win: {
+        target: process.argv.includes("--appx") ? ["nsis", "appx"] : ["nsis"],
+        icon: join(app, "assets", "icon.png"),
+      },
+      appx: {
+        identityName: "Kilnframe.kilnframe",
+        publisher: "CN=6C655E7B-9484-4CB3-96CA-1E8EFF1ED9BA",
+        publisherDisplayName: "Kilnframe",
+        displayName: "Kilnframe",
+        applicationId: "Kilnframe",
+        backgroundColor: "#1F2739",
+        // Windows 10 1809, the oldest Electron supports
+        minVersion: "10.0.17763.0",
+        maxVersionTested: "10.0.26100.0",
+        languages: ["en-US", "tr-TR"],
+        // the package starts the app at login; a login item the app writes lands in the package's own registry
+        addAutoLaunchExtension: true,
+        artifactName: "Kilnframe-Windows.appx",
+      },
       // the installer asks to wait while an animation is being made (build/installer.nsh)
       nsis: { artifactName: "Kilnframe-Windows.exe", include: join(app, "build", "installer.nsh") },
     },
@@ -258,6 +300,9 @@ writeFileSync(
     2,
   ),
 );
+// the Store package's tile logos: electron-builder takes them from build/appx in the folder it runs in
+if (process.argv.includes("--appx"))
+  cpSync(join(app, "build", "appx"), join(stage, "build", "appx"), { recursive: true });
 // extended attributes on the installer scripts would go into the .pkg as ._ files beside them
 if (platform === "mac") execFileSync("xattr", ["-cr", join(app, "build", "pkg-scripts")]);
 run(

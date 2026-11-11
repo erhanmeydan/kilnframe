@@ -123,4 +123,75 @@ describe("job errors in the panel's language", () => {
     ).toEqual({ key: "job.noCredits", vars: { provider: "OpenRouter" }, reasons: [] });
     expect(tr).toHaveProperty("job.noCredits");
   });
+
+  it("says a Z.ai key with no balance behind it is out of credits", () => {
+    expect(
+      readableJobError(
+        "zai error 429: Insufficient balance or no resource package. Please recharge.",
+      ),
+    ).toEqual({ key: "job.noCredits", vars: { provider: "Z.ai" }, reasons: [] });
+    // a busy endpoint stays a plain error
+    expect(readableJobError("zai error 429: Too many requests")).toBeNull();
+  });
+
+  it("says a provider too busy for the model, in the panel's language", () => {
+    expect(
+      readableJobError(
+        "gemini error 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      ),
+    ).toEqual({ key: "job.providerBusy", vars: { provider: "Google Gemini" }, reasons: [] });
+    expect(readableJobError("openrouter error 502: Provider returned error")).toBeNull();
+    expect(tr["job.providerBusy"]).toContain("{provider}");
+  });
+
+  it("names a check the animation failed, one text for codes that mean the same", () => {
+    const r = readableJobError(
+      "The composition still fails validation after 3 repair rounds:\n- content_overlap: Two text blocks overlap and may render unreadable.\n- clipped_text: x\n- text_box_overflow: y",
+    );
+    expect(r).toEqual({
+      key: "job.checksFailed",
+      vars: { n: 3 },
+      reasons: ["check.content_overlap", "check.text_overflow"],
+    });
+    for (const k of r!.reasons) expect(tr).toHaveProperty(k);
+  });
+
+  it("says no AI is connected instead of the core's terminal advice", () => {
+    expect(
+      readableJobError(
+        "No Claude API key found. Set it in this terminal with export ANTHROPIC_API_KEY=... (or store it in the companion app), then run again.",
+      ),
+    ).toEqual({ key: "job.noAi", vars: {}, reasons: [] });
+    expect(tr["job.noAi"]).not.toMatch(/terminal|export/);
+  });
+
+  it("says Antigravity's account and setup problems in the panel's language", () => {
+    const cases: [string, string][] = [
+      [
+        "Plan failed: Your Google account is busy on this model: RESOURCE_EXHAUSTED (code 429) Wait a minute and try again, or use an API key.",
+        "job.agyBusy",
+      ],
+      [
+        "Google account usage limit reached: quota exceeded. Wait for it to reset or use an API key.",
+        "job.agyLimit",
+      ],
+      [
+        "Antigravity CLI is not signed in. Run `agy` in a terminal and sign in with Google, then try again.",
+        "job.agyNotSignedIn",
+      ],
+      [
+        "Antigravity CLI is not installed. Install it from antigravity.google, or use an API key.",
+        "job.agyNotInstalled",
+      ],
+      [
+        "Antigravity CLI could not reach Google. Check the internet connection and try again.",
+        "job.agyOffline",
+      ],
+    ];
+    for (const [message, key] of cases) {
+      expect(readableJobError(message)).toEqual({ key, vars: {}, reasons: [] });
+      expect(en).toHaveProperty(key);
+      expect(tr).toHaveProperty(key);
+    }
+  });
 });
