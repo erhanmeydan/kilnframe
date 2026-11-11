@@ -35,7 +35,14 @@ import {
   speechModelCached,
   vendorDir,
 } from "@kilnframe/core";
-import { AGENT_BINARY, type Agent, loginCommand, loginEnv, logoutArgs } from "./agent-commands.js";
+import {
+  AGENT_BINARY,
+  type Agent,
+  appleScriptString,
+  loginCommand,
+  loginEnv,
+  logoutArgs,
+} from "./agent-commands.js";
 import { OsKeyStore } from "./keys.js";
 import { makeCloneVoice } from "./clone-voice.js";
 import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
@@ -344,12 +351,21 @@ function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
 /** A command in a terminal window the editor sees: the official CLI does the work, this app only starts it. */
 function openInTerminal(command: string, env: Record<string, string> = {}): void {
   if (process.platform === "darwin") {
-    spawnSync("osascript", [
-      "-e",
-      `tell application "Terminal" to do script "${command}"`,
-      "-e",
-      'tell application "Terminal" to activate',
-    ]);
+    const r = spawnSync(
+      "osascript",
+      [
+        "-e",
+        `tell application "Terminal" to do script ${appleScriptString(command)}`,
+        "-e",
+        'tell application "Terminal" to activate',
+      ],
+      { encoding: "utf8", timeout: 30_000 },
+    );
+    // the panel waits for a sign-in in that window: say so when no window opened
+    if (r.error || r.status !== 0)
+      throw new Error(
+        `Could not open Terminal: ${(r.stderr || r.error?.message || "").trim().slice(0, 200)}`,
+      );
   } else if (process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", command], {
       // the companion's own PATH is the one of sign-in time: an agent installed since would not be found
