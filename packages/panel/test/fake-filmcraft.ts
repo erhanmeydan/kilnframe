@@ -2,6 +2,7 @@
 // FilmCraft 0.14.0 answers. Times are ticks from the sequence start; a placed clip starts on the frame asked.
 import { NOT_RUNNING, type CallOptions, type FilmCraftClient } from "../src/filmcraft/client";
 import { TICKS } from "../src/filmcraft/bridge";
+import fixture from "./fixtures/filmcraft-commands.json";
 
 export interface FakeClip {
   clip: number;
@@ -41,6 +42,10 @@ export interface FakeFilmCraftOptions {
   size?: { width: number; height: number };
   /** A FilmCraft without clip.fitToFrame. */
   noFitToFrame?: boolean;
+  /** Commands engine.commands leaves out and the engine refuses: an older FilmCraft. */
+  without?: string[];
+  /** project.delete's params as engine.commands lists them; null leaves it out. Its shape is not measured. */
+  projectDelete?: string | null;
 }
 
 export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
@@ -103,6 +108,8 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
     holdExports: null as "cancel" | "never" | null,
     /** Commands sent on a connection of their own. */
     alone: [] as string[],
+    /** sequence.extract cuts locked tracks too (by hand FilmCraft leaves them alone). */
+    extractIgnoresLocks: false,
     get active() {
       return active;
     },
@@ -131,6 +138,22 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
       for (const t of [...s.video, ...s.audio]) if (t.id === id) return { s, t };
     throw new Error(`no track ${String(id)}`);
   };
+
+  /** A mark's time from the shapes markers.markIn takes. */
+  const markTicks = (p: Record<string, unknown>) => {
+    if (typeof p.frame === "number") return ticksOf(p.frame);
+    if (typeof p.time === "number") return p.time;
+    if (typeof p.seconds === "number") return Math.round(p.seconds * TICKS);
+    throw new Error("no time");
+  };
+  /** A copy of a clip lying on [startFrame, endFrame). */
+  const at = (c: FakeClip, startFrame: number, endFrame: number): FakeClip => ({
+    ...c,
+    startFrame,
+    endFrame,
+    start: ticksOf(startFrame),
+    end: ticksOf(endFrame),
+  });
 
   const commands: Record<string, (p: Record<string, unknown>) => unknown> = {
     "sequence.inspect": (p) => structuredClone(seqOf(p.item)),
@@ -228,12 +251,101 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
       for (const c of cancels.splice(0)) c();
       return {};
     },
+    // measured on 0.16.0: with every option off, a full copy of the active sequence, opened
+    "sequence.simplify": (p) => {
+      const from = seqOf(undefined);
+      const copy: FakeSequence = structuredClone(from);
+      copy.id = nextId++;
+      copy.name = String(p.name ?? `${from.name} (Simplified)`);
+      for (const t of [...copy.video, ...copy.audio]) {
+        t.id = nextId++;
+        for (const c of t.items) c.clip = nextId++;
+      }
+      sequences.push(copy);
+      active = copy;
+      return {
+        closedGaps: 0,
+        movedClips: 0,
+        name: copy.name,
+        removedClips: 0,
+        removedEffects: 0,
+        removedTracks: 0,
+        sequence: copy.id,
+      };
+    },
+    "markers.markIn": (p) => {
+      seqOf(undefined).in = markTicks(p);
+      return {};
+    },
+    "markers.markOut": (p) => {
+      seqOf(undefined).out = markTicks(p);
+      return {};
+    },
+    "markers.clearInOut": () => {
+      const s = seqOf(undefined);
+      s.in = null;
+      s.out = null;
+      return {};
+    },
+    // measured on 0.16.0: In to Out out of every track, the gap closed, In and Out cleared
+    "sequence.extract": () => {
+      const s = seqOf(undefined);
+      if (s.in === null || s.out === null) throw new Error("set In and Out first");
+      const from = framesOf(s.in);
+      const to = framesOf(s.out);
+      const gone = to - from;
+      let copied = 0;
+      for (const t of [...s.video, ...s.audio]) {
+        if (t.locked && !state.extractIgnoresLocks) continue;
+        const kept: FakeClip[] = [];
+        for (const c of t.items) {
+          if (c.endFrame <= from) kept.push(c);
+          else if (c.startFrame >= to) kept.push(at(c, c.startFrame - gone, c.endFrame - gone));
+          else {
+            copied++;
+            if (c.startFrame < from) kept.push(at(c, c.startFrame, from));
+            if (c.endFrame > to) {
+              const tail = at(c, from, from + c.endFrame - to);
+              tail.clip = nextId++;
+              tail.sourceIn = c.sourceIn + ticksOf(to - c.startFrame);
+              kept.push(tail);
+            }
+          }
+        }
+        t.items = kept;
+      }
+      s.duration = ticksOf(framesOf(s.duration) - gone);
+      s.in = null;
+      s.out = null;
+      return { copied };
+    },
+    "project.delete": (p) => {
+      for (const id of (p.items as number[] | undefined) ?? []) {
+        const i = sequences.findIndex((x) => x.id === id);
+        if (i >= 0) sequences.splice(i, 1);
+      }
+      return {};
+    },
+  };
+  for (const name of opts.without ?? []) delete commands[name];
+
+  /** engine.commands as 0.16.0 answers it: the fixture's entries, plus project.delete unless left out. */
+  const listed = () => {
+    const entries: { id: string; params: string }[] = [...fixture.commands];
+    if (opts.projectDelete !== null)
+      entries.push({ id: "project.delete", params: opts.projectDelete ?? '{"items":[id]?}' });
+    return { commands: entries.filter((e) => !opts.without?.includes(e.id)) };
   };
 
   const cancels: (() => void)[] = [];
   let down = false;
   const client: FilmCraftClient = {
     async call(method, params, o) {
+      if (method === "engine.commands") {
+        log.push({ command: method, params: {} });
+        if (down) throw new Error(NOT_RUNNING);
+        return listed();
+      }
       if (method !== "engine.execute") throw new Error(`unknown method ${method}`);
       const { command, params: p } = params as { command: string; params: Record<string, unknown> };
       return client.exec(command, p, o);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createFilmCraftBridge, TICKS } from "../src/filmcraft/bridge";
 import {
+  CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
   NOT_RUNNING,
   PLACE_FAILED,
@@ -316,5 +317,153 @@ describe("filmcraft bridge", () => {
       const seq = await b.currentSequence();
       expect(await b.speechTracks(seq.id, 2, 9)).toEqual([0]);
     });
+  });
+});
+
+describe("filmcraft cut to a new sequence", () => {
+  const cuts = [
+    { startS: 2, endS: 3 },
+    { startS: 10, endS: 11 },
+    { startS: 5, endS: 6.5 },
+  ];
+  /** The editor's footage on V1/A1 and a B-roll clip on V2 from 4 s to 12 s, at 29.97 fps. */
+  function withBroll(opts: Parameters<typeof makeFakeFilmCraft>[0] = {}) {
+    const f = makeFakeFilmCraft({ inS: 1, outS: 20, ...opts });
+    f.state.addClip("video", "/Users/ed/Footage/B001.mov", 4, 12);
+    return f;
+  }
+  const framesOf = (s: { start: number; end: number }) =>
+    [s.start, s.end].map((t) => Math.round((t * 30000) / (1001 * TICKS)));
+  const marks = (f: FakeFilmCraft) =>
+    f.state.log.filter(
+      (l) => l.command.startsWith("markers.mark") || l.command === "sequence.extract",
+    );
+
+  it("extracts every pause from a copy, last pause first, on frames, and leaves it open", async () => {
+    const f = withBroll();
+    const original = structuredClone(f.sequence);
+    const b = bridgeOf(f);
+    const r = await b.cutToNewTimeline!(String(f.sequence.id), cuts, "Sequence 1 (No Pauses)");
+
+    const copy = f.state.active!;
+    expect(copy.id).not.toBe(f.sequence.id);
+    expect(r).toEqual({
+      id: String(copy.id),
+      name: "Sequence 1 (No Pauses)",
+      leftOut: 0,
+      rebuilt: false,
+    });
+    // [60, 89), [150, 194), [300, 329) at 29.97 fps: 102 frames out of 899
+    expect(marks(f).map((l) => [l.command, l.params.frame])).toEqual([
+      ["markers.markIn", 300],
+      ["markers.markOut", 329],
+      ["sequence.extract", undefined],
+      ["markers.markIn", 150],
+      ["markers.markOut", 194],
+      ["sequence.extract", undefined],
+      ["markers.markIn", 60],
+      ["markers.markOut", 89],
+      ["sequence.extract", undefined],
+    ]);
+    expect(
+      marks(f)
+        .filter((l) => l.command !== "sequence.extract")
+        .every((l) => l.params.target === "program"),
+    ).toBe(true);
+    expect(Math.round(copy.duration / f.ticksOf(1))).toBe(899 - 102);
+    // the B-roll moved with the footage: cut at the same frames, the pieces closed up
+    expect(copy.video[1]!.items.map(framesOf)).toEqual([
+      [91, 121],
+      [121, 227],
+      [227, 258],
+    ]);
+    expect(copy.in).toBeNull();
+    expect(copy.out).toBeNull();
+    // the editor's sequence, In and Out included, as it was
+    expect(f.sequence).toEqual(original);
+  });
+
+  it("copies the sequence asked for, when another one is open", async () => {
+    const f = withBroll();
+    const b = bridgeOf(f);
+    await f.client.exec("sequence.simplify", { name: "Other" });
+    const other = f.state.active!;
+    await b.cutToNewTimeline!(String(f.sequence.id), cuts, "Cut");
+    expect(f.state.active!.name).toBe("Cut");
+    expect(f.state.active!.video[1]!.items).toHaveLength(3);
+    expect(other.video[1]!.items).toHaveLength(1);
+  });
+
+  it("reports its progress per pause while it runs, and none after", async () => {
+    const f = withBroll();
+    const b = bridgeOf(f);
+    const seen: Promise<unknown>[] = [];
+    f.state.before = (command) => {
+      if (command === "sequence.extract") seen.push(b.cutProgress!());
+    };
+    await b.cutToNewTimeline!(String(f.sequence.id), cuts, "Cut");
+    expect(await Promise.all(seen)).toEqual([
+      { done: 0, total: 3 },
+      { done: 1, total: 3 },
+      { done: 2, total: 3 },
+    ]);
+    expect(await b.cutProgress!()).toBeNull();
+  });
+
+  it("says CUT_UNSUPPORTED on a FilmCraft without extract, before making anything", async () => {
+    const f = withBroll({ without: ["sequence.extract"] });
+    await expect(bridgeOf(f).cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
+      CUT_UNSUPPORTED,
+    );
+    expect(f.state.sequences).toHaveLength(1);
+    expect(f.state.log.map((l) => l.command)).not.toContain("sequence.simplify");
+  });
+
+  it("deletes the copy and opens the editor's sequence again when an extract fails", async () => {
+    const f = withBroll();
+    const b = bridgeOf(f);
+    let n = 0;
+    f.state.before = (command) => {
+      if (command === "sequence.extract" && ++n === 2) throw new Error("extract failed");
+    };
+    await expect(b.cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
+      PLACE_FAILED,
+    );
+    expect(f.state.sequences).toEqual([f.sequence]);
+    expect(f.state.active).toBe(f.sequence);
+    expect(await b.cutProgress!()).toBeNull();
+  });
+
+  it("refuses a copy where a track did not follow the cut (a locked track), and deletes it", async () => {
+    const f = withBroll();
+    f.sequence.video[1]!.locked = true;
+    await expect(bridgeOf(f).cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
+      PLACE_FAILED,
+    );
+    expect(f.state.sequences).toEqual([f.sequence]);
+  });
+
+  it("leaves the copy in the project when FilmCraft does not list how to delete it", async () => {
+    const f = withBroll({ projectDelete: '{"confirm":bool?}' });
+    f.state.before = (command) => {
+      if (command === "sequence.extract") throw new Error("extract failed");
+    };
+    await expect(bridgeOf(f).cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
+      PLACE_FAILED,
+    );
+    // an unknown shape might act on the editor's selection: not sent
+    expect(f.state.log.map((l) => l.command)).not.toContain("project.delete");
+    expect(f.state.sequences).toHaveLength(2);
+    expect(f.state.active).toBe(f.sequence);
+  });
+
+  it("says FilmCraft went away as it is, not as a failed cut", async () => {
+    const f = withBroll();
+    f.state.before = (command) => {
+      if (command === "sequence.extract") f.quit();
+    };
+    await expect(bridgeOf(f).cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
+      NOT_RUNNING,
+    );
   });
 });
