@@ -999,37 +999,35 @@ export function createPremiereHost(
       // A: clips with nothing left. One selection per media type: an ANY removal may take a linked partner
       // that still has pieces. The selections live only inside their callbacks, nothing async in them
       if (plan.remove.length) {
-        const of = (kind: PlanItem["kind"]) =>
-          plan.remove
-            .filter((key) => byKey.get(key)?.info.plan.kind === kind)
-            .map((key) => (byKey.get(key) as ReadClip).item);
-        const video = of("video");
-        const audio = of("audio");
-        const editor = await editorNow();
-        withSelection(video, (videoSel) =>
-          withSelection(audio, (audioSel) =>
-            runStep(project, "remove clips", (c) => {
-              if (video.length)
-                c.addAction(
-                  editor.createRemoveItemsAction(
-                    videoSel,
-                    false,
-                    ppro.Constants.MediaType.VIDEO,
-                    false,
-                  ),
-                );
-              if (audio.length)
-                c.addAction(
-                  editor.createRemoveItemsAction(
-                    audioSel,
-                    false,
-                    ppro.Constants.MediaType.AUDIO,
-                    false,
-                  ),
-                );
-            }),
-          ),
-        );
+        const keysOf = (kind: PlanItem["kind"]) =>
+          plan.remove.filter((key) => byKey.get(key)?.info.plan.kind === kind);
+        // one selection, then the next: a selection made inside another's callback crashed Premiere 26.5
+        // (TrackItemSelection.createEmptySelection, 11 Nov 2026). The audio clips are read again after the
+        // video step, whose transaction leaves the objects read before it no longer valid
+        const video = keysOf("video").map((key) => (byKey.get(key) as ReadClip).item);
+        if (video.length) {
+          const editor = await editorNow();
+          withSelection(video, (sel) =>
+            runStep(project, "remove video clips", (c) =>
+              c.addAction(
+                editor.createRemoveItemsAction(sel, false, ppro.Constants.MediaType.VIDEO, false),
+              ),
+            ),
+          );
+        }
+        const audioKeys = keysOf("audio");
+        if (audioKeys.length) {
+          const found = await readFresh();
+          const audio = audioKeys.map((key) => found(key, startOf(key)));
+          const editor = await editorNow();
+          withSelection(audio, (sel) =>
+            runStep(project, "remove audio clips", (c) =>
+              c.addAction(
+                editor.createRemoveItemsAction(sel, false, ppro.Constants.MediaType.AUDIO, false),
+              ),
+            ),
+          );
+        }
       }
       onProgress?.(2, TOTAL);
 

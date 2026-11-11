@@ -53,6 +53,7 @@ function fakePremiere(
     stale: true,
   };
   let generation = 0;
+  let inSelection = false;
   /** Each removal: its media type and the names it was given. */
   const removals: { mediaType: number; names: string[] }[] = [];
   const log: string[] = [];
@@ -242,8 +243,15 @@ function fakePremiere(
     },
     TrackItemSelection: {
       createEmptySelection: (cb: (s: unknown) => void) => {
+        // a selection made inside another's callback crashed Premiere 26.5 (11 Nov 2026)
+        if (inSelection) throw new Error("Premiere crashed: a selection inside a selection");
         const items: Item[] = [];
-        cb({ items, addItem: (it: Item) => (items.push(it), true) });
+        inSelection = true;
+        try {
+          cb({ items, addItem: (it: Item) => (items.push(it), true) });
+        } finally {
+          inSelection = false;
+        }
         return true;
       },
     },
