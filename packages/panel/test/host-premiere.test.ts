@@ -370,6 +370,15 @@ describe("premiere host", () => {
     expect(b?.at).toBe(7);
   });
 
+  it("places a part on the sequence's frame grid, not between frames", async () => {
+    const f = fakePremiere();
+    const h = f.make();
+    const seq = await h.currentSequence();
+    // a sentence end rounded to milliseconds: 7.123 s is frame 178.075 at 25 fps
+    await h.placeInsert(seq, { video: "/j/2/insert.mov", sfx: null }, 7.123, 0.8, 5);
+    expect(f.overwrites[0]?.at).toBeCloseTo(178 / 25, 9);
+  });
+
   it("scales a 4K insert up to fill an 8K sequence, and not one on a 4K sequence", async () => {
     const big = fakePremiere({ size: { width: 7680, height: 4320 } });
     const h = big.make();

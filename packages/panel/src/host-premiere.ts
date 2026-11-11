@@ -199,6 +199,20 @@ export function createPremiereHost(
     return tracks;
   }
 
+  /** `seconds` moved to the nearest frame of the sequence. */
+  async function onFrame(sequence: Sequence, seconds: number): Promise<number> {
+    const settings = await sequence.getSettings();
+    const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
+      settings,
+      "getVideoFrameRate",
+    );
+    const frameS = rate.ticksPerFrame / ppro.TickTime.TIME_ONE_SECOND.ticksNumber;
+    return frameS > 0
+      ? (Math.round(seconds / frameS) * rate.ticksPerFrame) /
+          ppro.TickTime.TIME_ONE_SECOND.ticksNumber
+      : seconds;
+  }
+
   /** The clips of `mediaPath` among `clips` that start at `atS` and last `durationS`, each within a frame. */
   async function captionClips(
     sequence: Sequence,
@@ -535,6 +549,9 @@ export function createPremiereHost(
     durationSeconds: number,
     tracks?: PlaceResult,
   ): Promise<PlaceResult> {
+    // a long range's parts start at sentence ends in milliseconds; off the frame grid they could leave a
+    // frame's gap or overlap between parts (Resolve and FilmCraft round to frames in their bridges)
+    at = await onFrame(sequence, at);
     const { videoTrack, audioTrack } = tracks ?? (await freeTracks(sequence));
     const trim = (item: ProjectItem) => {
       const clip = ppro.ClipProjectItem.cast(item);
