@@ -3113,7 +3113,7 @@ async function readSequence(): Promise<HostSequence | null> {
 async function generate() {
   // one paid run at a time: a second one would take over the first one's screen and messages
   if (rangeJobRunning()) return render();
-  stopAsked = false;
+  const run = startRun();
   // a sign-in or key added since the panel last looked counts: ask again before saying it is missing
   if (aiMissing()) await refreshProviders();
   state.aiBlocked = Boolean(aiMissing());
@@ -3144,7 +3144,7 @@ async function generate() {
       },
       "job.prepared",
     );
-    stopIfAsked();
+    stopIfAsked(run);
     const jobDir = String(prepared.jobDir);
     // a story sequence holds its narration from 0 on A1; under it is music, so read the voice alone
     const narration = await storyNarration(target.id, range.endS);
@@ -3218,8 +3218,9 @@ async function generate() {
         : {}),
       ...providerParams(),
     };
-    // Premiere's exports cannot be cancelled: a Stop pressed during them is honoured here, before paying
-    stopIfAsked();
+    // Premiere's exports cannot be cancelled: a Stop pressed during them is honoured here, before paying,
+    // also when the editor has started another run since
+    stopIfAsked(run);
     if (range.durationS > LONG_RANGE_SECONDS)
       return await startParts(target, params, jobDir, footage, audioOffset);
     await submitJob(
@@ -3229,6 +3230,8 @@ async function generate() {
       params,
     );
   } catch (err) {
+    // a run stopped and followed by a new one: the screen and the job are the new run's now
+    if (run !== runId) return trace(`job: an earlier run ended after Stop (${String(err)})`);
     failJob(stoppedOr(err));
   }
 }
@@ -3307,6 +3310,19 @@ class JobLost extends Error {}
  */
 let stopAsked = false;
 
+/**
+ * The run the panel is on. A run that awaits Premiere's exports (which Stop cannot cut short) can still be
+ * waiting when the editor stopped it and pressed Create again, which clears stopAsked; its own number, no
+ * longer the current one, keeps it from submitting a paid job.
+ */
+let runId = 0;
+
+/** Starts a run: Stop is forgotten and every earlier run counts as stopped. */
+function startRun(): number {
+  stopAsked = false;
+  return ++runId;
+}
+
 /** A job accepted after Stop was pressed is cancelled at once. */
 function cancelIfStopped(jobId: string) {
   if (!stopAsked) return;
@@ -3318,9 +3334,9 @@ function cancelIfStopped(jobId: string) {
   }
 }
 
-/** Throws when the editor pressed Stop; the screen already says so. */
-function stopIfAsked() {
-  if (stopAsked) throw new JobStopped(t("job.stopped"));
+/** Throws when the editor pressed Stop, or (given its run) a newer run has started; the screen says so. */
+function stopIfAsked(run?: number) {
+  if (stopAsked || (run !== undefined && run !== runId)) throw new JobStopped(t("job.stopped"));
 }
 
 /** The error a job's message ends it with: an error, a stop, a job the companion forgot, a lost connection. */
@@ -3878,7 +3894,7 @@ async function resumePending() {
 async function continueReview(action: "render" | "recompose") {
   const r = state.review;
   if (!r) return;
-  stopAsked = false;
+  startRun();
   const note =
     (document.getElementById("scenenote") as HTMLTextAreaElement | null)?.value ?? r.note;
   if (r.series) {
@@ -4537,7 +4553,7 @@ function runAction(el: HTMLElement) {
     state.job = null;
     state.screen = "home";
   } else if (act === "series-continue") {
-    stopAsked = false;
+    startRun();
     return void runSeries();
   } else if (act === "open-progress") {
     if (state.review) state.screen = "review";
