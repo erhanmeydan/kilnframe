@@ -371,6 +371,76 @@ describe("retries", () => {
     await expect(provider().complete(request)).rejects.toMatchObject({ kind: "cut-off" });
     expect(calls).toBe(2);
   });
+
+  it("does not take a stream that stopped halfway or an empty 200 for an answer", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      if (calls === 1)
+        // closed cleanly, but without a finish reason or [DONE]
+        return new Response('data: {"choices":[{"delta":{"content":"<html><bo"}}]}\n\n', {
+          headers: { "content-type": "text/event-stream" },
+        });
+      if (calls === 2) return new Response("<html>gateway</html>", { status: 200 });
+      return ok();
+    });
+    expect((await provider().complete(request)).text).toBe("fine");
+    expect(calls).toBe(3);
+
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response('data: {"choices":[{"delta":{"content":"half"}}]}\n\n', {
+          headers: { "content-type": "text/event-stream" },
+        }),
+    );
+    await expect(provider().complete(request)).rejects.toThrow(/stopped before it ended/);
+  });
+
+  it("waits as long as Retry-After says", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      if (calls === 1)
+        return new Response(JSON.stringify({ error: { message: "slow down" } }), {
+          status: 429,
+          headers: { "retry-after": "1" },
+        });
+      return ok();
+    });
+    const t = Date.now();
+    expect((await provider().complete(request)).text).toBe("fine");
+    expect(Date.now() - t).toBeGreaterThanOrEqual(900);
+    const { retryAfterMs } = await import("../src/providers/openai-compatible.js");
+    // one header cannot hold a job for an hour
+    expect(retryAfterMs("3600")).toBe(60_000);
+    expect(retryAfterMs(new Date(10_000).toUTCString(), 0)).toBe(10_000);
+    expect(retryAfterMs(null)).toBeNull();
+  });
+
+  it("raises a learned limit again after requests go through", async () => {
+    let cap = 2;
+    let open = 0;
+    let peak = 0;
+    vi.stubGlobal("fetch", async () => {
+      if (open >= cap)
+        return new Response(JSON.stringify({ error: { message: "too many at once" } }), {
+          status: 429,
+        });
+      open++;
+      peak = Math.max(peak, open);
+      await new Promise((r) => setTimeout(r, 10));
+      open--;
+      return ok();
+    });
+    const p = provider();
+    await Promise.all(Array.from({ length: 4 }, () => p.complete(request)));
+    // the endpoint takes more now; the provider should find out
+    cap = 100;
+    peak = 0;
+    await Promise.all(Array.from({ length: 16 }, () => p.complete(request)));
+    expect(peak).toBeGreaterThan(2);
+  });
 });
 
 describe("billed output tokens", () => {
