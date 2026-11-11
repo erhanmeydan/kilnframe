@@ -9,7 +9,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { checkProject, renderProject, snapshotProject, type CheckFinding } from "../hyperframes.js";
+import { checkProject, renderProject, type CheckFinding } from "../hyperframes.js";
+import { cachedShooter, snapshotShooter } from "../shots.js";
 import { formatFps, framesToSeconds, parseFps, renderFps } from "../fps.js";
 import { compositeOver, nearestFrame, readFrames } from "../frames.js";
 import { assembleProject } from "../project/assemble.js";
@@ -109,14 +110,13 @@ function showOverlaysOverFootage(
  * One still per scene for the review: a few frames per scene in one snapshot run, the fullest kept
  * (still-pick.ts). Returns the stills in scene order and the time each was taken.
  */
-async function reviewStills(
+/** The usual still time of each scene and the times sampled around it for the review (still-pick.ts). */
+export function reviewTimes(
   plan: Plan,
-  projectDir: string,
-  outDir: string,
-  stillsDir: string,
-): Promise<{ stills: string[]; times: number[]; ms: number }> {
+  words: { start: number }[],
+): { usual: number[]; candidates: number[][] } {
   const fps = parseFps(plan.fps);
-  const usual = stillTimes(plan, transcriptWords(outDir));
+  const usual = stillTimes(plan, words);
   const candidates = stillCandidates(
     plan.scenes.map((s) => ({
       startS: framesToSeconds(s.start_frame, fps),
@@ -124,12 +124,29 @@ async function reviewStills(
     })),
     usual,
   );
+  return { usual, candidates };
+}
+
+/** Where the last check round leaves its frames for the stills (shots.ts). */
+export const sharedShotsDir = (outDir: string) => join(outDir, "checks", "shots");
+
+async function reviewStills(
+  plan: Plan,
+  projectDir: string,
+  outDir: string,
+  stillsDir: string,
+): Promise<{ stills: string[]; times: number[]; ms: number }> {
+  const started = Date.now();
+  const { usual, candidates } = reviewTimes(plan, transcriptWords(outDir));
   const sampleDir = join(stillsDir, "samples");
   // a scene made again renders all stills anew, into a folder of their own (renderPlan swaps it in)
   rmSync(stillsDir, { recursive: true, force: true });
   mkdirSync(stillsDir, { recursive: true });
-  // one shot per candidate time, in order (snapshotProject throws when one is missing)
-  const snap = await snapshotProject(projectDir, candidates.flat(), sampleDir);
+  // one shot per candidate time, in order (snapshotProject throws when one is missing); the check round's
+  // frames when it took them of this very project
+  const fresh = snapshotShooter(projectDir, sampleDir);
+  const shoot = cachedShooter(projectDir, sharedShotsDir(outDir), fresh) ?? fresh;
+  const snap = { files: await shoot(candidates.flat()) };
   const stills: string[] = [];
   const times: number[] = [];
   let at = 0;
@@ -146,7 +163,7 @@ async function reviewStills(
     times.push(time);
   });
   rmSync(sampleDir, { recursive: true, force: true });
-  return { stills, times, ms: snap.ms };
+  return { stills, times, ms: Date.now() - started };
 }
 
 /** The frame of the footage nearest the middle of the range, for the preview of an insert with alpha. */
@@ -198,6 +215,8 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
     showOverlaysOverFootage(plan, shot.stills, outDir, shot.times);
     rmSync(stillsDir, { recursive: true, force: true });
     renameSync(nextDir, stillsDir);
+    // the check round's frames have served the stills; a later render takes its own
+    rmSync(sharedShotsDir(outDir), { recursive: true, force: true });
     stills = shot.stills.map((f) => join(stillsDir, basename(f)));
   } finally {
     rmSync(nextDir, { recursive: true, force: true });

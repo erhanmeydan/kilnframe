@@ -21,8 +21,9 @@ import {
 } from "./compose.js";
 import { planInsert, type PlanJob } from "./plan.js";
 import { extractHtml } from "../prompts.js";
-import { renderPlan, stillTimes, type RenderPlanResult } from "./render.js";
-import { emptySceneFindings } from "../empty.js";
+import { renderPlan, reviewTimes, sharedShotsDir, type RenderPlanResult } from "./render.js";
+import { emptyCheckTimes, emptySceneFindings } from "../empty.js";
+import { takeShots } from "../shots.js";
 import { failurePicture } from "../failure-picture.js";
 import { overlayHazeFindings } from "../haze.js";
 import { transcribe } from "./transcribe.js";
@@ -171,17 +172,25 @@ export async function validateAndRepair(a: RepairLoopOptions): Promise<number> {
     let errors = check.errors;
     if (check.ok) {
       // the code passed; an overlay may still lay a faint layer over the speaker, which only the pixels show
-      const times = stillTimes(plan, ctx.transcript.words);
+      // one snapshot run for the haze and empty checks and the review stills after them (shots.ts)
+      const { usual: times, candidates } = reviewTimes(plan, ctx.transcript.words);
+      const shoot = await takeShots(
+        projectDir,
+        [...times, ...emptyCheckTimes(plan, times).flat(), ...candidates.flat()],
+        sharedShotsDir(outDir),
+      );
       const hazeDir = join(outDir, "checks", "haze");
       const emptyDir = join(outDir, "checks", "empty");
-      errors = await overlayHazeFindings(plan, projectDir, times, hazeDir);
+      errors = await overlayHazeFindings(plan, projectDir, times, hazeDir, shoot);
       if (errors.length) writeJson(join(outDir, "checks", `haze-${round}.json`), errors);
       // and a scene may run cleanly yet show nothing: a camera looking past its objects
-      const empty = await emptySceneFindings(plan, projectDir, times, emptyDir);
+      const empty = await emptySceneFindings(plan, projectDir, times, emptyDir, shoot);
       if (empty.length) writeJson(join(outDir, "checks", `empty-${round}.json`), empty);
       errors = [...errors, ...empty];
-      // the verdicts are in the JSON; the shots behind them are only work files
+      // the verdicts are in the JSON; the shots behind them are only work files, kept for the stills only
+      // when the project passed (the next round changes it)
       for (const dir of [hazeDir, emptyDir]) rmSync(dir, { recursive: true, force: true });
+      if (errors.length) rmSync(sharedShotsDir(outDir), { recursive: true, force: true });
       // the pixels are looked at only once the code passes, which can first happen in the last round:
       // their findings then get one repair of their own instead of failing the job unrepaired
       if (errors.length && !pixelsFailed && round >= limit) limit = round + 1;

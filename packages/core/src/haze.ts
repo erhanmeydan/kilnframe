@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { closeSync, openSync, readdirSync, readSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { closeSync, openSync, readSync } from "node:fs";
 import { ffmpegPath } from "./config.js";
-import { snapshotProject, type CheckFinding } from "./hyperframes.js";
+import type { CheckFinding } from "./hyperframes.js";
+import { snapshotShooter, type Shooter } from "./shots.js";
 import { sceneMode, type Plan } from "./schemas/plan.js";
 
 /** Alpha at or below this (8%) is nearly invisible over the footage but still tints it once graded. */
@@ -82,25 +82,18 @@ export async function overlayHazeFindings(
   projectDir: string,
   times: number[],
   workDir: string,
+  shoot: Shooter = snapshotShooter(projectDir, workDir),
 ): Promise<CheckFinding[]> {
   const overlay = plan.scenes
     .map((s, i) => ({ s, at: times[i] as number }))
     .filter(({ s }) => sceneMode(plan, s) === "overlay");
   if (!overlay.length) return [];
-  rmSync(workDir, { recursive: true, force: true });
-  await snapshotProject(
-    projectDir,
-    overlay.map((o) => o.at),
-    workDir,
-  );
-  const shots = readdirSync(workDir)
-    .filter((f) => /^frame-\d+.*\.png$/.test(f))
-    .sort();
+  const shots = await shoot(overlay.map((o) => o.at));
   const findings: CheckFinding[] = [];
   overlay.forEach(({ s, at }, i) => {
     const shot = shots[i];
     if (!shot) return;
-    const share = faintShare(join(workDir, shot));
+    const share = faintShare(shot);
     if (share <= MAX_FAINT_SHARE) return;
     findings.push({
       code: "overlay_faint_layer",
