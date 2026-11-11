@@ -51,3 +51,34 @@ describe("Antigravity CLI", () => {
     expect(prompt).toContain("/t/images/image-1.png");
   });
 });
+
+describe("Antigravity capacity", () => {
+  it("reads how long a capacity error says to wait", async () => {
+    const { capacityWaitMs } = await import("../src/providers/antigravity.js");
+    const msg =
+      "API error (attempt 1): RESOURCE_EXHAUSTED (code 429): You have exhausted your capacity on this model. Resets in 0s.";
+    // a short pause even when it says 0 s, so the next try does not hit the same moment
+    expect(capacityWaitMs(msg)).toBe(5_000);
+    expect(capacityWaitMs("RESOURCE_EXHAUSTED (code 429): Resets in 40s.")).toBe(45_000);
+    expect(capacityWaitMs("RESOURCE_EXHAUSTED (code 429): no time given")).toBe(30_000);
+    // a wait of hours is a quota for the day: not worth holding the job for
+    expect(capacityWaitMs("RESOURCE_EXHAUSTED: Resets in 3h20m.")).toBeNull();
+    expect(capacityWaitMs("some other error")).toBeNull();
+  });
+
+  it("sends one request at a time", async () => {
+    const { oneAtATime } = await import("../src/providers/antigravity.js");
+    const run = oneAtATime();
+    let running = 0;
+    let most = 0;
+    const task = () =>
+      run(async () => {
+        running++;
+        most = Math.max(most, running);
+        await new Promise((r) => setTimeout(r, 10));
+        running--;
+      });
+    await Promise.all([task(), task(), task()]);
+    expect(most).toBe(1);
+  });
+});

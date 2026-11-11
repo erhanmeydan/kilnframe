@@ -27,6 +27,9 @@ import {
  * - `--mode plan` keeps the agent from editing files or running commands.
  * - `agy models` prints one "id<TAB>name" line per model the account may use; the effort is part of the id
  *   (gemini-3.8-flash-high), and `--effort` is refused for some models, so it is never passed.
+ * - A free Google account takes few requests at once: three scenes composed together ended the first panel job
+ *   with "RESOURCE_EXHAUSTED (code 429): You have exhausted your capacity on this model. Resets in 0s."
+ *   (11 Nov 2026). So the requests go one at a time, and such an error waits as long as it says and tries again.
  */
 
 export interface AntigravityStatus {
@@ -130,6 +133,44 @@ export function readAgyResult(output: string): AgyResult | null {
   return result;
 }
 
+/** How long a capacity error asks to wait, or null when it is not one or the wait is hours (a daily quota). */
+export function capacityWaitMs(detail: string): number | null {
+  if (!/RESOURCE_EXHAUSTED|exhausted your capacity/i.test(detail)) return null;
+  const m = /Resets in ([0-9hms.]+)/i.exec(detail);
+  if (!m) return 30_000;
+  const text = m[1] ?? "";
+  if (/\d+h/.test(text)) return null;
+  const minutes = Number(/(\d+)m/.exec(text)?.[1] ?? 0);
+  const seconds = Number(/(\d+(?:\.\d+)?)s/.exec(text)?.[1] ?? 0);
+  const ms = (minutes * 60 + seconds) * 1000;
+  // more than ten minutes is not worth holding a job for
+  return ms > 10 * 60_000 ? null : Math.ceil(ms) + 5_000;
+}
+
+/** A queue that runs one task at a time, in the order they came. */
+export function oneAtATime(): <T>(task: () => Promise<T>) => Promise<T> {
+  let chain: Promise<unknown> = Promise.resolve();
+  return <T>(task: () => Promise<T>) => {
+    const next = chain.then(task, task);
+    chain = next.catch(() => undefined);
+    return next;
+  };
+}
+
+/** Every Antigravity request of this process waits for the one before it (one job runs per process). */
+const queue = oneAtATime();
+/** Capacity errors are tried again this many times. */
+const CAPACITY_TRIES = 3;
+
+class CapacityError extends ProviderError {
+  constructor(
+    message: string,
+    readonly waitMs: number,
+  ) {
+    super(message, true);
+  }
+}
+
 export interface AntigravityOptions {
   /** Empty: the model the account uses by default. */
   model: string;
@@ -170,7 +211,20 @@ export class AntigravityProvider implements TextProvider {
       .map((m) => ({ id: m.id, displayName: m.name, contextWindow: null, vision: true }));
   }
 
-  async complete(req: TextRequest): Promise<TextResponse> {
+  complete(req: TextRequest): Promise<TextResponse> {
+    return queue(async () => {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return await this.once(req);
+        } catch (err) {
+          if (!(err instanceof CapacityError) || attempt >= CAPACITY_TRIES) throw err;
+          await new Promise((r) => setTimeout(r, err.waitMs));
+        }
+      }
+    });
+  }
+
+  private async once(req: TextRequest): Promise<TextResponse> {
     const dir = mkdtempSync(join(tmpdir(), "mi-agy-"));
     try {
       const imageDir = join(dir, "images");
@@ -215,6 +269,12 @@ export class AntigravityProvider implements TextProvider {
         );
       if (r.status !== "SUCCESS" || r.finished_reason) {
         const detail = (r.error ?? lastLine(out.stderr) ?? "").trim().slice(0, 300);
+        const wait = capacityWaitMs(detail);
+        if (wait !== null)
+          throw new CapacityError(
+            `Your Google account is busy on this model: ${detail} Wait a minute and try again, or use an API key.`,
+            wait,
+          );
         const limit = /quota|limit|exhausted|credits?/i.test(detail);
         if (!limit && mentionsUnavailableModel(detail))
           throw new ProviderError(
