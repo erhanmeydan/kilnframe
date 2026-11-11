@@ -54,12 +54,13 @@ export function createResolveHost(
       // before PLACE_FAILED: the reason a cut carries may name a failed placement of its own
       if (m.includes(CUT_FAILED)) {
         const left = new RegExp(`${COPY_LEFT}=("(?:[^"\\\\]|\\\\.)*")`).exec(m)?.[1];
-        let name: string | null = null;
-        try {
-          name = left ? String(JSON.parse(left)) : null;
-        } catch {
-          name = null;
-        }
+        const name = (() => {
+          try {
+            return left ? String(JSON.parse(left)) : null;
+          } catch {
+            return null;
+          }
+        })();
         throw new Error(name ? t("pauses.copyLeft", { name }) : t("premiere.cutFailed"), {
           cause: err,
         });
