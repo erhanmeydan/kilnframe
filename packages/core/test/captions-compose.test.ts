@@ -1041,3 +1041,42 @@ describe("word colour, emphasis and line emoji", () => {
     }
   });
 });
+
+describe("the page's language", () => {
+  it("writes a language tag as given and anything else as en, so a transcript cannot add markup", () => {
+    expect(
+      captionHtml(doc(sample.lines, { language: "pt-BR" }), "loud", CAPTION_LOOKS.loud.colors),
+    ).toContain('<html lang="pt-BR">');
+    const html = captionHtml(
+      doc(sample.lines, { language: 'en"><script>fetch("//x.test/")</script><html lang="' }),
+      "loud",
+      CAPTION_LOOKS.loud.colors,
+    );
+    expect(html).toContain('<html lang="en">');
+    expect(html).not.toContain("x.test");
+  });
+});
+
+describe("overlapping lines", () => {
+  it("are drawn and written to the SRT alike: each ends where the next starts, and two at one start show as one", () => {
+    const a = line("first speaker", 1, 3);
+    const b = line("second speaker", 1, 2.5);
+    const c = line("third line", 2, 4);
+    const d = line("last one", 6, 7);
+    const lines = captionLines([a, b, c, d]);
+    expect(lines.map((l) => [l.text, l.start, l.end])).toEqual([
+      ["first speaker second speaker", 1, 2],
+      ["third line", 2, 4],
+      ["last one", 6, 7],
+    ]);
+    expect(lines[0]?.words.map((w) => w.text)).toEqual(["first", "speaker", "second", "speaker"]);
+    const windows = captionWindows(lines, 10, []);
+    expect(windows.every((w) => w.length === 1)).toBe(true);
+    expect(windows[0]).toEqual([{ startS: 1, endS: 2 }]);
+  });
+
+  it("leaves lines in order and apart untouched", () => {
+    const lines = [line("one", 0, 1), line("two", 1, 2)];
+    expect(captionLines(lines)).toEqual(lines);
+  });
+});

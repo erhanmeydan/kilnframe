@@ -68,9 +68,37 @@ const LOOK_MODULES: Record<CaptionStyleId, (o: LookInput) => LookParts> = {
   editoryal,
 };
 
-/** Lines that have something to show: an emptied or wordless line is left out of the render and the SRT. */
+/** Two lines starting this close together start together. */
+const SAME_START_S = 0.001;
+
+/**
+ * Lines that have something to show, in time order and apart: an emptied or wordless line is left out of the
+ * render and the SRT. Overlapping lines (two speakers in an imported SRT) are untangled the same way for both: a
+ * line ends where the next starts, and two starting together become one line, the first's words then the
+ * second's. Shown as given, the first would get no time on screen while its SRT cue ran on.
+ */
 export function captionLines(lines: CaptionLine[]): CaptionLine[] {
-  return lines.filter((l) => l.text.trim() !== "" && l.words.some((w) => w.text.trim() !== ""));
+  const shown = lines
+    .filter((l) => l.text.trim() !== "" && l.words.some((w) => w.text.trim() !== ""))
+    .sort((a, b) => a.start - b.start);
+  const out: CaptionLine[] = [];
+  for (const line of shown) {
+    const prev = out.at(-1);
+    if (prev && line.start <= prev.start + SAME_START_S) {
+      out[out.length - 1] = {
+        ...prev,
+        end: Math.max(prev.end, line.end),
+        text: `${prev.text} ${line.text}`,
+        words: [...prev.words, ...line.words],
+        changed: prev.changed || line.changed,
+        ...((prev.emoji ?? line.emoji) ? { emoji: prev.emoji ?? line.emoji } : {}),
+      };
+      continue;
+    }
+    if (prev && prev.end > line.start) out[out.length - 1] = { ...prev, end: line.start };
+    out.push(line);
+  }
+  return out;
 }
 
 function cut(span: TimeSpan, hide: TimeSpan): TimeSpan[] {
@@ -238,6 +266,11 @@ function fontCopy(file: string): { name: string; format: string } {
 
 /** A word's own colour is used only in this form; anything else could break out of the style rule. */
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+/**
+ * A BCP 47 language tag ("tr", "pt-BR"). The language comes from a transcript in the project folder, which a shared
+ * project could carry with markup in it: anything else is written as en.
+ */
+const LANGUAGE_TAG = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
 /** Two colours closer than this (straight-line distance in RGB, 0–441) are too near to tell apart on a word. */
 const NEAR_RGB = 60;
 
@@ -426,7 +459,7 @@ export function captionHtml(
     : "";
   const duration = seconds(segment.endS - segment.startS);
   return `<!doctype html>
-<html lang="${doc.language}">
+<html lang="${LANGUAGE_TAG.test(doc.language) ? doc.language : "en"}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=${width}, height=${height}">
