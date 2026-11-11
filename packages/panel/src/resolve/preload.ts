@@ -21,6 +21,8 @@ const ASYNC = [
   "replaceCaptionClip",
   "isRendering",
   "cancelExports",
+  "cutToNewTimeline",
+  "cutProgress",
   "pickImages",
   "saveFileCopy",
   "openUrl",

@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath, sep } from "node:path";
 import { kilnframeFile, saveCopy } from "../resolve/paths";
-import type { ResolveBridge } from "../resolve/api";
+import { CUT_UNSUPPORTED, type ResolveBridge } from "../resolve/api";
 
 export type Editor = "resolve" | "filmcraft";
 
@@ -57,6 +57,8 @@ const BRIDGE_CALLS = [
   "replaceCaptionClip",
   "isRendering",
   "cancelExports",
+  "cutToNewTimeline",
+  "cutProgress",
 ] as const;
 
 // window size, place and always-on-top, kept between sessions
@@ -123,7 +125,13 @@ export function registerPanelIpc(
   for (const m of BRIDGE_CALLS)
     ipcMain.handle(`kilnframe:${m}`, async (_e, ...args: unknown[]) => {
       const b = await currentOptions().bridge();
-      return (b[m] as (...a: unknown[]) => Promise<unknown>)(...args);
+      const call = b[m] as ((...a: unknown[]) => Promise<unknown>) | undefined;
+      // the cut is optional on a bridge: one without it says so in a code the host can read
+      if (!call) {
+        if (m === "cutProgress") return null;
+        throw new Error(CUT_UNSUPPORTED);
+      }
+      return call.apply(b, args);
     });
   ipcMain.handle("kilnframe:setOnTop", (_e, on: boolean) => {
     liveWindow()?.setAlwaysOnTop(Boolean(on));

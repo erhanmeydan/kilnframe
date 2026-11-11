@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { setLang } from "../src/i18n";
 import { createResolveHost } from "../src/host-resolve";
 import { JobStopped } from "../src/job-errors";
-import { CONNECTION_LOST, NOT_RUNNING, RENDER_FAILED, TIMED_OUT } from "../src/resolve/api";
+import {
+  CONNECTION_LOST,
+  NOT_RUNNING,
+  PLACE_FAILED,
+  RENDER_FAILED,
+  TIMED_OUT,
+} from "../src/resolve/api";
 import en from "../src/locales/en.json";
 import tr from "../src/locales/tr.json";
 import type { KilnframeResolveApi, ResolveSequence } from "../src/resolve/api";
@@ -219,6 +225,82 @@ describe("resolve host", () => {
     await expect(
       h.replaceCaptionClip(s, { path: "/a", atS: 0, durationS: 1 }, "/b", 0, 1, 0),
     ).rejects.toThrow("The animation could not be placed on the timeline.");
+  });
+
+  describe("cutToNewSequence", () => {
+    const cuts = [
+      { startS: 1, endS: 2 },
+      { startS: 4, endS: 5.5 },
+    ];
+    const made = { id: "tl-2", name: "Timeline 1 (No Pauses)", leftOut: 1, rebuilt: true };
+
+    it("is missing when the bridge cannot cut, so the tab says it is not available here", () => {
+      expect(createResolveHost(fakeApi()).cutToNewSequence).toBeUndefined();
+    });
+
+    it("passes the timeline, the cuts and the name to the bridge", async () => {
+      const api = fakeApi({ cutToNewTimeline: vi.fn(async () => made) });
+      const h = createResolveHost(api);
+      const s = await h.currentSequence();
+      expect(await h.cutToNewSequence!(s, cuts, made.name)).toEqual(made);
+      expect(api.cutToNewTimeline).toHaveBeenCalledWith("tl-1", cuts, made.name);
+    });
+
+    it("says a failed build in the panel's words", async () => {
+      setLang("en");
+      const h = createResolveHost(
+        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(PLACE_FAILED))) }),
+      );
+      const s = await h.currentSequence();
+      await expect(h.cutToNewSequence!(s, cuts, "x")).rejects.toThrow(en["premiere.placeFailed"]);
+    });
+
+    it("asks for the progress every second while the bridge works, and stops asking after", async () => {
+      vi.useFakeTimers();
+      try {
+        let finish!: (r: typeof made) => void;
+        const progress = [{ done: 200, total: 600 }, null, { done: 400, total: 600 }];
+        const api = fakeApi({
+          cutToNewTimeline: vi.fn(() => new Promise<typeof made>((r) => (finish = r))),
+          cutProgress: vi.fn(async () => progress.shift() ?? null),
+        });
+        const h = createResolveHost(api);
+        const s = await h.currentSequence();
+        const onProgress = vi.fn();
+        const run = h.cutToNewSequence!(s, cuts, "x", onProgress);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(onProgress.mock.calls).toEqual([
+          [200, 600],
+          [400, 600],
+        ]);
+        finish(made);
+        expect(await run).toEqual(made);
+        const asked = vi.mocked(api.cutProgress!).mock.calls.length;
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(vi.mocked(api.cutProgress!).mock.calls.length).toBe(asked);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps cutting when a progress question fails", async () => {
+      vi.useFakeTimers();
+      try {
+        let finish!: (r: typeof made) => void;
+        const api = fakeApi({
+          cutToNewTimeline: vi.fn(() => new Promise<typeof made>((r) => (finish = r))),
+          cutProgress: vi.fn(async () => Promise.reject(new Error("ipc"))),
+        });
+        const h = createResolveHost(api);
+        const s = await h.currentSequence();
+        const run = h.cutToNewSequence!(s, cuts, "x", vi.fn());
+        await vi.advanceTimersByTimeAsync(2000);
+        finish(made);
+        expect(await run).toEqual(made);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
 

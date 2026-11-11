@@ -1,6 +1,6 @@
 // The DaVinci Resolve Studio and FilmCraft host: the panel's Host over window.kilnframeResolve (preload.ts), which forwards
 // to the bridge in the Electron main process (resolve/bridge.ts) and to a few file and OS calls.
-import type { Host, HostSequence } from "./host";
+import type { CutSequenceResult, Host, HostSequence, TimelineCut } from "./host";
 import { t } from "./i18n";
 import { JobStopped } from "./job-errors";
 import {
@@ -50,6 +50,34 @@ export function createResolveHost(
       }
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
       throw err;
+    }
+  };
+
+  /** The bridge's cut, with its progress asked for every second (IPC has no callback). */
+  const cutToNewSequence = async (
+    seq: HostSequence,
+    cuts: TimelineCut[],
+    name: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<CutSequenceResult> => {
+    let running = true;
+    const ask = api.cutProgress?.bind(api);
+    const poll =
+      onProgress && ask
+        ? setInterval(() => {
+            ask()
+              .then((p) => {
+                if (p && running) onProgress(p.done, p.total);
+              })
+              // a missed progress line is not worth stopping the cut for
+              .catch(() => undefined);
+          }, 1000)
+        : null;
+    try {
+      return await words(api.cutToNewTimeline!(seq.id, cuts, name));
+    } finally {
+      running = false;
+      if (poll) clearInterval(poll);
     }
   };
 
@@ -140,6 +168,8 @@ export function createResolveHost(
       words(api.replaceCaptionClip(seq.id, old, file, atS, durationS, videoTrack)),
     createStorySequence: (template, name, narration, music, format) =>
       words(api.createStorySequence(template.id, name, narration, music, format)),
+    // left out when the bridge cannot cut, so the tab says it is not available here
+    ...(api.cutToNewTimeline ? { cutToNewSequence } : {}),
     pickImages: (types) => api.pickImages(types),
     saveFileCopy: (source, suggestedName) => api.saveFileCopy(source, suggestedName),
     openUrl: (url) => api.openUrl(url),

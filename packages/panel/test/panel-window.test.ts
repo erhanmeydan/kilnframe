@@ -75,6 +75,8 @@ const CALLS = [
   "replaceCaptionClip",
   "isRendering",
   "cancelExports",
+  "cutToNewTimeline",
+  "cutProgress",
 ];
 
 function options(over: Partial<PanelWindowOptions> = {}): PanelWindowOptions {
@@ -124,6 +126,14 @@ describe("registerPanelIpc", () => {
     const boom = new Error("boom");
     panel.registerPanelIpc(options({ bridge: () => Promise.reject(boom) }), "/x", () => null);
     await expect(handlers.get("kilnframe:currentSequence")!({})).rejects.toBe(boom);
+  });
+
+  it("says a cut the editor's bridge cannot make as unsupported, and has no progress for it", async () => {
+    panel.registerPanelIpc(options(), "/x", () => null);
+    await expect(handlers.get("kilnframe:cutToNewTimeline")!({}, "tl", [], "x")).rejects.toThrow(
+      "CUT_UNSUPPORTED",
+    );
+    expect(await handlers.get("kilnframe:cutProgress")!({})).toBeNull();
   });
 
   it("tells the page which editor it runs in and the version in <dir>/manifest.xml", () => {
