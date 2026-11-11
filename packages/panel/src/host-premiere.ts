@@ -919,26 +919,23 @@ export function createPremiereHost(
     // whole ticks: seconds at 29.97 fps would land a hair off the frame
     const at = (frames: number) => ppro.TickTime.createWithTicks(String(Math.round(frames * tpf)));
     let clone: Sequence | null = null;
+    // the step a failure came from, for the log
+    let stage = "copy the sequence";
     try {
       clone = await cloneSequence(project, sequence);
       onProgress?.(1, TOTAL);
       const copy = clone;
       const editor = ppro.SequenceEditor.getEditor(copy);
       const endF = Math.round(ticksOf(await copy.getEndTime()) / tpf);
-      const read = await readItems(copy, tpf);
       const frames = frameCuts(cuts, ppro.TickTime.TIME_ONE_SECOND.ticksNumber / tpf, endF);
-      const plan = planPremiereCut(
-        read.map((r) => r.info),
-        frames,
-        tpf,
-      );
-      const byKey = new Map(read.map((r) => [r.info.plan.key, r]));
-      const item = (key: string) => (byKey.get(key) as ReadClip).item;
-
+      stage = "name the copy";
       // a sequence is renamed through its project item
       const projectItem = await copy.getProjectItem();
       runStep(project, "name the copy", (c) => c.addAction(projectItem.createSetNameAction(name)));
 
+      // a transaction leaves the clip objects read before it no longer valid ("The script object is no longer
+      // valid", 11 Nov 2026): the transitions come off first, the clips are read after
+      stage = "remove transitions";
       // 0: transitions at the cuts come off the copy (the pieces meet in hard cuts there); when Premiere will
       // not take them off, the cut is refused before any clip is touched
       const transitions = await transitionsAtCuts(copy, frames, tpf);
@@ -963,6 +960,17 @@ export function createPremiereHost(
           throw new CutRefused(t("pauses.transitions"));
       }
 
+      stage = "read the clips";
+      const read = await readItems(copy, tpf);
+      const plan = planPremiereCut(
+        read.map((r) => r.info),
+        frames,
+        tpf,
+      );
+      const byKey = new Map(read.map((r) => [r.info.plan.key, r]));
+      const item = (key: string) => (byKey.get(key) as ReadClip).item;
+
+      stage = "remove clips";
       // A: clips with nothing left. One selection per media type: an ANY removal may take a linked partner
       // that still has pieces. The selections live only inside their callbacks, nothing async in them
       if (plan.remove.length) {
@@ -997,6 +1005,7 @@ export function createPremiereHost(
       }
       onProgress?.(2, TOTAL);
 
+      stage = "trim to the seed";
       // B: trim to the seed; the end first, so the clip only ever shrinks. A start trim moves the in point too
       if (plan.trims.length)
         runStep(project, "trim clips", (c) => {
@@ -1007,6 +1016,7 @@ export function createPremiereHost(
         });
       onProgress?.(3, TOTAL);
 
+      stage = "copy the pieces";
       // C: copies of each seed into its further pieces, on its own track (alignToVideo for an audio clip,
       // which lands the same way); an overwrite, but only over the clip's own emptied span
       if (plan.clones.length)
@@ -1032,6 +1042,7 @@ export function createPremiereHost(
         return found;
       };
 
+      stage = "set in points and ends";
       // D: each copy's in point, then every piece grows to its end into its own emptied span
       if (plan.fixes.length) {
         const fixes = plan.fixes.map((f) => ({ f, it: find(f) }));
@@ -1047,6 +1058,7 @@ export function createPremiereHost(
       }
       onProgress?.(5, TOTAL);
 
+      stage = "move the pieces";
       // E: a move is a relative shift and does not overwrite; left to right, each piece only moves into
       // space already emptied
       if (plan.moves.length) {
@@ -1062,10 +1074,12 @@ export function createPremiereHost(
         inTicks: r.info.inTicks,
         speed: r.info.speed,
       }));
+      stage = "check the cut";
       const why = cutMismatch(plan.expected, after, tpf);
       if (why) throw new Error(`The cut sequence differs from the plan: ${why}`);
 
       // the copy's markers and In/Out were cloned at their old times: they follow their content
+      stage = "move markers, In and Out";
       await followMarks(project, copy, frames, tpf);
       onProgress?.(TOTAL, TOTAL);
 
@@ -1078,6 +1092,8 @@ export function createPremiereHost(
       if (clone) await project.deleteSequence(clone).catch(() => false);
       if (err instanceof CutRefused) throw new Error(err.message, { cause: err });
       // the reason (which clip, which frames) goes with it for the log; the editor reads that nothing was lost
+      // the step goes on the reason, which the tab logs from `cause`
+      if (err instanceof Error) err.message = `${stage}: ${err.message}`;
       throw new Error(t("premiere.cutFailed"), { cause: err });
     }
   }
