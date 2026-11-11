@@ -526,7 +526,9 @@ async function apply(st: PausesState, ctx: PausesCtx): Promise<void> {
     st.result = result;
     st.stage = "done";
   } catch (err) {
-    ctx.trace(`remove pauses: apply failed ${message(err)}`);
+    // the host's reason (which clip, which frames) rides in `cause`: the log keeps it for a report
+    const cause = err instanceof Error && err.cause !== undefined ? ` (${message(err.cause)})` : "";
+    ctx.trace(`remove pauses: apply failed ${message(err)}${cause}`);
     st.stage = "preview";
     st.error = t("pauses.failed", { message: message(err) });
   }

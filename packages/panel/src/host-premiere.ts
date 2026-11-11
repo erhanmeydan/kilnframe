@@ -18,7 +18,7 @@ import { withoutLongPathPrefix } from "./home";
 import type { CutSequenceResult, Host, HostSequence, PlaceResult, TimelineCut } from "./host";
 import { exportError } from "./export-cancel";
 import { premiereCall } from "./premiere-version";
-import { t, type MessageKey } from "./i18n";
+import { t } from "./i18n";
 import { isOurAnimation, isOurInsert, isVoiceFixTake } from "./our-files";
 
 export interface UxpModule {
@@ -809,7 +809,7 @@ export function createPremiereHost(
     let ok = false;
     project.lockedAccess(() => {
       // new key for the tab's locale files; until it is there t() shows the key itself
-      ok = project.executeTransaction(add, t("premiere.undoPauses" as MessageKey));
+      ok = project.executeTransaction(add, t("premiere.undoPauses"));
     });
     if (!ok) throw new Error(`Premiere refused the step "${step}"`);
   }
@@ -998,7 +998,8 @@ export function createPremiereHost(
       return { id, name, leftOut: plan.leftOut, rebuilt: false };
     } catch (err) {
       if (clone) await project.deleteSequence(clone).catch(() => false);
-      throw new Error(t("premiere.placeFailed"), { cause: err });
+      // the reason (which clip, which frames) goes with it for the log; the editor reads that nothing was lost
+      throw new Error(t("premiere.cutFailed"), { cause: err });
     }
   }
 
