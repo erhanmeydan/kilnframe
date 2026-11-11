@@ -168,6 +168,39 @@ describe("deliverArgs", () => {
     expect(args).toContain("yuva444p10le");
   });
 
+  it("copies an overlay master that is already the clip: no handles, rendered at the sequence's own rate", () => {
+    const clip = { ...base, input: "master.mov", output: "out.mov", mode: "overlay" as const };
+    // HyperFrames writes the mov master as this same ProRes 4444; encoding it again only cost minutes
+    expect(deliverArgs({ ...clip, fps: "25", handlesFrames: 0 })).toEqual([
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      "master.mov",
+      "-map",
+      "0:v:0",
+      "-c:v",
+      "copy",
+      "out.mov",
+    ]);
+    expect(deliverArgs({ ...clip, fps: "30000/1001", handlesFrames: 0 }).join(" ")).toContain(
+      "-c:v copy",
+    );
+    // handles, or a rate the master is not rendered at (12 renders at 24), still need the encode
+    expect(deliverArgs({ ...clip, fps: "25", handlesFrames: 20 }).join(" ")).toContain("prores_ks");
+    expect(deliverArgs({ ...clip, fps: "12", handlesFrames: 0 }).join(" ")).toContain("prores_ks");
+    // a fullscreen master is H.264 to be made
+    expect(
+      deliverArgs({
+        ...clip,
+        output: "out.mp4",
+        fps: "25",
+        handlesFrames: 0,
+        mode: "fullscreen",
+      }).join(" "),
+    ).toContain("libx264");
+  });
+
   it("skips padding when there are no handles and scales bitrate with size", () => {
     expect(deliverArgs({ ...base, handlesFrames: 0, mode: "fullscreen" }).join(" ")).not.toContain(
       "tpad",

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { ffmpegPath } from "../config.js";
-import { formatFps, parseFps } from "../fps.js";
+import { formatFps, parseFps, renderFps } from "../fps.js";
 import type { OutputMode } from "../schemas/plan.js";
 
 export interface DeliverOptions {
@@ -32,6 +32,17 @@ export function deliverArgs(o: DeliverOptions): string[] {
       ? `tpad=start_duration=${handleS}:stop_duration=${handleS}:start_mode=clone:stop_mode=clone,`
       : "";
   const base = ["-v", "error", "-y", "-i", o.input, "-an", "-r", fps];
+  const rendered = renderFps(rate);
+  if (
+    o.mode === "overlay" &&
+    o.handlesFrames === 0 &&
+    rendered.num * rate.den === rate.num * rendered.den
+  ) {
+    // HyperFrames writes an overlay's mov master as this same clip (prores_ks 4444, yuva444p10le, apl0) at the
+    // sequence's rate: with nothing to add, its picture is copied, not encoded a second time (minutes over a long
+    // cut's captions)
+    return ["-v", "error", "-y", "-i", o.input, "-map", "0:v:0", "-c:v", "copy", o.output];
+  }
   if (o.mode === "overlay") {
     return [
       ...base,
