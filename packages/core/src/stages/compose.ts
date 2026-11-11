@@ -11,6 +11,7 @@ import { sceneMode, type Plan, type Scene } from "../schemas/plan.js";
 import type { Transcript } from "../schemas/transcript.js";
 import type { StyleFont, StyleInfo } from "../styles.js";
 import { sceneWords } from "./plan.js";
+import { loadsFromNetwork, sceneCode } from "./scene-code.js";
 
 /** Cheap checks before HyperFrames: things that would break determinism or the scene contract. */
 /** The project paths of the editor's images a scene was planned to use. */
@@ -27,35 +28,46 @@ export function staticSceneProblems(
   overlay = false,
 ): string[] {
   const p: string[] = [];
+  // only what runs or loads is checked, not the text a scene shows (a code scene showing setTimeout()
+  // or a fetch URL is fine)
+  const parts = sceneCode(html);
   // a grain or noise layer in an overlay scene lays a faint haze over the speaker (9 Oct 2026: a
   // whiteboard overlay put 6% paper grain over the whole frame, about 2% alpha across the face)
-  if (overlay && /feTurbulence|grain/i.test(html))
+  if (overlay && /feTurbulence|grain/i.test(`${parts.tags}\n${parts.css}\n${parts.codeWithWords}`))
     p.push(
       "This is an overlay scene: it must not use grain, noise or paper texture (feTurbulence, a grain layer). Over the footage it shows as a faint haze across the speaker. Keep the overlay graphics flat; leave texture to fullscreen scenes.",
     );
-  const rules: [RegExp, string][] = [
-    [
-      /https?:\/\/(?!www\.w3\.org)/i,
-      "loads something from the network (http/https URL); everything must be local",
-    ],
-    [/Math\.random\s*\(/, "uses Math.random(); use a seeded generator"],
+  if (loadsFromNetwork(parts))
+    p.push(
+      "The scene loads something from the network (http/https URL); everything must be local.",
+    );
+  const code = parts.code;
+  const rules: [RegExp, string, string][] = [
+    [/Math\.random\s*\(/, "uses Math.random(); use a seeded generator", code],
     [
       /Date\.now\s*\(|performance\.now\s*\(|new Date\s*\(/,
       "reads the clock; frames must depend only on time from the timeline",
+      code,
     ],
     [
       /requestAnimationFrame|setAnimationLoop|setInterval\s*\(|setTimeout\s*\(/,
       "runs its own loop or timer; drive everything from the timeline",
+      code,
     ],
-    [/repeat\s*:\s*-1/, "uses repeat: -1; use a finite repeat count"],
-    [/\.play\s*\(\s*\)/, "calls play(); the renderer seeks the paused timeline itself"],
-    [/PCFSoftShadowMap/, "uses PCFSoftShadowMap, which no longer exists; use THREE.PCFShadowMap"],
+    [/repeat\s*:\s*-1/, "uses repeat: -1; use a finite repeat count", code],
+    [/\.play\s*\(\s*\)/, "calls play(); the renderer seeks the paused timeline itself", code],
+    [
+      /PCFSoftShadowMap/,
+      "uses PCFSoftShadowMap, which no longer exists; use THREE.PCFShadowMap",
+      code,
+    ],
     [
       /visibility\s*[:=]\s*["'`]visible["'`]|autoAlpha/,
       "shows elements with visibility or autoAlpha; a child set to visible stays on screen after the scene ends, so use opacity",
+      parts.codeWithWords,
     ],
   ];
-  for (const [re, msg] of rules) if (re.test(html)) p.push(`The scene ${msg}.`);
+  for (const [re, msg, where] of rules) if (re.test(where)) p.push(`The scene ${msg}.`);
   if (!new RegExp(`data-composition-id=["']${sceneId}["']`).test(html))
     p.push(`The root must have data-composition-id="${sceneId}".`);
   if (!registersTimeline(html, sceneId))
