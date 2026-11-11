@@ -867,4 +867,45 @@ describe("companion server", () => {
     expect(await c.next((m) => m.type === "speech.played")).toMatchObject({ voice: "Kore" });
     expect(played).toEqual(["Kore tr"]);
   });
+
+  it("answers pauses.cuts with the cut plan, and refuses an unknown strictness", async () => {
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    const ask = {
+      type: "pauses.cuts",
+      speech: [
+        [1, 3],
+        [8, 10],
+        [40, 42],
+      ],
+      durationS: 45,
+      strictness: 0.5,
+    };
+    c.send({ ...ask, keepLongS: null, ref: "a" });
+    const all = await c.next((m) => m.type === "pauses.cuts" && m.ref === "a");
+    if (all.type !== "pauses.cuts") throw new Error("not pauses.cuts");
+    expect(all.cuts.length).toBeGreaterThan(0);
+    // the 30 s silent part is cut with the rest
+    expect(all.cuts.some((k) => k.startS < 20 && k.endS > 35)).toBe(true);
+    expect(all.longKept).toEqual([]);
+    expect(all.emptied).toBe(false);
+    expect(all.removedS + all.keptS).toBeCloseTo(45, 6);
+    c.send({ ...ask, keepLongS: 10, ref: "b" });
+    const kept = await c.next((m) => m.type === "pauses.cuts" && m.ref === "b");
+    if (kept.type !== "pauses.cuts") throw new Error("not pauses.cuts");
+    expect(kept.longKept).toHaveLength(1);
+    expect(kept.removedS).toBeLessThan(all.removedS);
+    c.send({ ...ask, keepLongS: null, strictness: 2, ref: "c" });
+    expect(await c.next((m) => m.type === "error" && m.ref === "c")).toMatchObject({
+      message: expect.stringMatching(/Invalid message/),
+    });
+  });
 });

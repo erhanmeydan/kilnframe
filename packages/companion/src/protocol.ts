@@ -327,7 +327,26 @@ export const CaptionsPreviewJobParamsSchema = z.object({
   frame: z.string().min(1).optional(),
 });
 
+/**
+ * Remove Pauses, step one: where the range holds speech, from the voice activity model (no transcript). The
+ * result's times count from the range start: `{ kind, speech: [startS, endS][], durationS }`.
+ */
+export const PausesFindJobParamsSchema = z
+  .object({
+    kind: z.literal("pauses-find"),
+    audioPath: z.string().min(1),
+    /** The part of `audioPath` to listen to (Premiere exports the whole sequence). */
+    rangeStartS: z.number().min(0).optional(),
+    rangeEndS: z.number().positive().optional(),
+    outDir: z.string().min(1),
+  })
+  .refine((p) => p.rangeEndS === undefined || p.rangeEndS > (p.rangeStartS ?? 0), {
+    message: "The range must end after it starts.",
+  });
+export type PausesFindJobParams = z.infer<typeof PausesFindJobParamsSchema>;
+
 export const JobParamsSchema = z.union([
+  PausesFindJobParamsSchema,
   VoiceFixReadJobParamsSchema,
   VoiceFixSayJobParamsSchema,
   CaptionsTextJobParamsSchema,
@@ -382,6 +401,20 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   /** The folder the Captions tab exports its previews' footage frames into (the app's own, not the project's). */
   z.object({ type: z.literal("captions.previews"), ref: z.string().optional() }),
+  /**
+   * Remove Pauses, step two: the cuts for a strictness, from the speech pauses-find returned. Asked again as
+   * the slider moves, so it is a request, not a job; the curves live in core only.
+   */
+  z.object({
+    type: z.literal("pauses.cuts"),
+    speech: z.array(z.tuple([z.number().min(0), z.number().min(0)])).max(20_000),
+    durationS: z.number().positive(),
+    strictness: z.number().min(0).max(1),
+    /** Pauses longer than this stay in (none: every pause is cut). */
+    keepLongS: z.number().positive().nullable(),
+    /** Echoed on the answer, so a late answer to an older slider position can be told apart. */
+    ref: z.string().optional(),
+  }),
   /** Keeps the Captions tab's lines and choices in its job folder's captions.json. */
   z.object({
     type: z.literal("captions.save"),
@@ -526,6 +559,15 @@ export type ServerMessage =
   | { type: "job.prepared"; jobDir: string; ref?: string }
   | { type: "captions.previews"; dir: string; ref?: string }
   | { type: "captions.saved"; jobDir: string; ref?: string }
+  | {
+      type: "pauses.cuts";
+      cuts: { startS: number; endS: number }[];
+      removedS: number;
+      keptS: number;
+      longKept: { startS: number; endS: number }[];
+      emptied: boolean;
+      ref?: string;
+    }
   | { type: "captions.loaded"; jobDir: string; state: unknown; ref?: string }
   | { type: "job.progress"; jobId: string; message: string }
   | { type: "job.done"; jobId: string; result: unknown }
