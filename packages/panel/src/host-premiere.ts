@@ -1065,9 +1065,18 @@ export function createPremiereHost(
         runStep(project, "copy clips", (c) => {
           for (const { cl, it, where, audio } of seeds) {
             try {
-              c.addAction(
-                editor.createCloneTrackItemAction(it, at(cl.offsetF), 0, 0, audio, false),
-              );
+              const copyAt = (align: boolean) =>
+                c.addAction(
+                  editor.createCloneTrackItemAction(it, at(cl.offsetF), 0, 0, align, false),
+                );
+              try {
+                copyAt(audio);
+              } catch (first) {
+                // an audio clip linked to video was refused with alignToVideo ("Illegal Parameter type",
+                // 11 Nov 2026), a lone one took it (probe): the other setting before giving up
+                if (!audio) throw first;
+                copyAt(false);
+              }
             } catch (err) {
               throw new Error(`${err instanceof Error ? err.message : String(err)} for ${where}`, {
                 cause: err,
@@ -1132,7 +1141,7 @@ export function createPremiereHost(
 
       // the copy's markers and In/Out were cloned at their old times: they follow their content
       stage = "move markers, In and Out";
-      await followMarks(project, await live(), frames, tpf);
+      await followMarks(project, live, frames, tpf);
       onProgress?.(TOTAL, TOTAL);
 
       const done = await live();
@@ -1171,14 +1180,14 @@ export function createPremiereHost(
    */
   async function followMarks(
     project: Project,
-    copy: Sequence,
+    live: () => Promise<Sequence>,
     frames: FrameCut[],
     tpf: number,
   ): Promise<void> {
     if (!frames.length) return;
     const frameOf = (t: { ticks?: string; seconds: number }) => Math.round(ticksOf(t) / tpf);
     const at = (f: number) => ppro.TickTime.createWithTicks(String(Math.round(f * tpf)));
-    const markers = await ppro.Markers.getMarkers(copy);
+    const markers = await ppro.Markers.getMarkers(await live());
     const moves: Action[] = [];
     for (const m of markers.getMarkers()) {
       const f = frameOf(m.getStart());
@@ -1188,7 +1197,9 @@ export function createPremiereHost(
         moves.push(markers.createMoveMarkerAction(m, at(newEndF(f, frames))));
     }
     if (moves.length) runStep(project, "move markers", (c) => moves.forEach((a) => c.addAction(a)));
-    // an unset In or Out reads far before the start (range.ts)
+    // an unset In or Out reads far before the start (range.ts); the sequence is fetched again after the
+    // marker step, which leaves the object read before it no longer valid
+    const copy = await live();
     const inPoint = await copy.getInPoint();
     const outPoint = await copy.getOutPoint();
     const inF = inPoint.seconds > -1000 ? frameOf(inPoint) : null;
