@@ -71,16 +71,16 @@ interface WindowState {
   onTop: boolean;
 }
 /** The panel's width when it first opens; the tab bar holds every tab on one line from here. */
-export const PANEL_WIDTH = 440;
+export const PANEL_WIDTH = 580;
 export const PANEL_MIN_WIDTH = 360;
 
 /**
  * The saved size, widened once to the new width: a window saved before the panel grew more tabs was 380 wide,
- * and its tab names broke over two lines. `sized: 2` marks a size kept since, which stays as the editor left it.
+ * and its tab names broke over two lines. `sized: 3` marks a size kept since the panel opens 580 wide, which stays as the editor left it.
  */
 export function windowStateFrom(saved: Partial<WindowState> & { sized?: number }): WindowState {
   const s = { width: PANEL_WIDTH, height: 760, onTop: true, ...saved };
-  if (saved.sized !== 2) s.width = Math.max(s.width, PANEL_WIDTH);
+  if (saved.sized !== 3) s.width = Math.max(s.width, PANEL_WIDTH);
   return { ...s, width: Math.max(s.width, PANEL_MIN_WIDTH) };
 }
 
@@ -216,7 +216,7 @@ export function openPanelWindow(o: PanelWindowOptions, dir: string): BrowserWind
   win.on("close", () => {
     try {
       const b = win.getBounds();
-      writeFileSync(windowFile(), JSON.stringify({ ...b, onTop: win.isAlwaysOnTop(), sized: 2 }));
+      writeFileSync(windowFile(), JSON.stringify({ ...b, onTop: win.isAlwaysOnTop(), sized: 3 }));
     } catch {
       // the window state is a convenience
     }
