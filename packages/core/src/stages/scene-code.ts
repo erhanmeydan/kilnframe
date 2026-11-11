@@ -17,13 +17,20 @@ export interface SceneCode {
   loadedUrls: string[];
 }
 
-const NETWORK = /^\s*https?:\/\/(?!www\.w3\.org)/i;
+/**
+ * An address on another host: http(s), a socket (ws, wss) or one without a scheme (//host/x.js, which takes the
+ * page's). A namespace on www.w3.org stays allowed, the host whole, so www.w3.org.example is not.
+ */
+const REMOTE = String.raw`(?:(?:https?|wss?):)?\/\/(?!www\.w3\.org(?:[/:"'\s)]|$))[a-z0-9]`;
+const NETWORK = new RegExp(String.raw`^\s*${REMOTE}`, "i");
 /** Code right before a string that loads it: fetch(, import(, from, loader.load(, .src =, new Worker(. */
 const LOADS =
   /(?:\bfetch|\bimport|\.load|\.loadAsync|\bimportScripts|\bnew\s+(?:Audio|Worker|WebSocket|EventSource|SharedWorker))\s*\(\s*$|\b(?:from|import)\s*$|\.(?:src|href)\s*=\s*$|\bopen\s*\(\s*(["'])\s*\1\s*,\s*$/;
 /** Markup or CSS inside a string that would load from the network once inserted. */
-const INNER_LOAD =
-  /(?:\b(?:src|href|poster)\s*=\s*["']?|url\(\s*["']?|@import\s+["']?)https?:\/\/(?!www\.w3\.org)/i;
+const INNER_LOAD = new RegExp(
+  String.raw`(?:\b(?:src|href|poster)\s*=\s*["']?|url\(\s*["']?|@import\s+["']?)${REMOTE}`,
+  "i",
+);
 /** A string short and plain enough to be a value or a name rather than shown text. */
 const WORD = /^[\w-]{1,40}$/;
 const TAG = /<[a-z!/][^>]*>/gi;
@@ -56,16 +63,17 @@ export function sceneCode(html: string): SceneCode {
   };
 }
 
-/** True when the scene loads anything over http(s): in an attribute, in CSS, or from a script. */
+/** An attribute that loads what it names, naming another host. */
+const REMOTE_ATTR = new RegExp(
+  String.raw`\s(?:src|href|xlink:href|poster|data|srcset)\s*=\s*["']?\s*${REMOTE}`,
+  "i",
+);
+/** A CSS url() or @import of another host. */
+const REMOTE_CSS = new RegExp(String.raw`(?:url\(|@import)\s*["']?\s*${REMOTE}`, "i");
+
+/** True when the scene loads anything from another host: in an attribute, in CSS, or from a script. */
 export function loadsFromNetwork(c: SceneCode): boolean {
-  if (
-    /\s(?:src|href|xlink:href|poster|data|srcset)\s*=\s*["']?\s*https?:\/\/(?!www\.w3\.org)/i.test(
-      c.tags,
-    )
-  )
-    return true;
-  if (/(?:url\(|@import)\s*["']?\s*https?:\/\/(?!www\.w3\.org)/i.test(c.css)) return true;
-  return c.loadedUrls.length > 0;
+  return REMOTE_ATTR.test(c.tags) || REMOTE_CSS.test(c.css) || c.loadedUrls.length > 0;
 }
 
 interface JsScan {

@@ -56,6 +56,31 @@ const re = /setInterval\\(/; const tl = gsap.timeline({ paused: true });`,
     );
   });
 
+  it("catches a remote load written without a scheme, over a socket, or on a host only starting like w3.org", () => {
+    const run = (js: string) =>
+      problems(scene("", `const tl = gsap.timeline({ paused: true }); ${js}`));
+    expect(problems(scene(`<script src="//cdn.example.com/x.js"></script>`, ""))).toMatch(
+      /network/,
+    );
+    expect(problems(scene("", "", "#s1-a { background: url(//x.example/b.png) }"))).toMatch(
+      /network/,
+    );
+    expect(run(`const ws = new WebSocket("wss://x.example/feed");`)).toMatch(/network/);
+    expect(run(`fetch("//x.example/data.json");`)).toMatch(/network/);
+    expect(problems(scene(`<img src="https://www.w3.org.evil.example/a.png">`, ""))).toMatch(
+      /network/,
+    );
+    // what stays local: a namespace, a file of the project, a fragment
+    expect(
+      problems(
+        scene(
+          `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="s1-svg"><use href="#s1-x"/></svg><img id="s1-i" src="assets/a.png">`,
+          "",
+        ),
+      ),
+    ).toBe("");
+  });
+
   it("looks for grain in an overlay's layers, not in its words", () => {
     expect(problems(scene(`<p id="s1-p">A grain of rice</p>`, ""), true)).toBe("");
     expect(problems(scene(`<div id="s1-grain"></div>`, ""), true)).toMatch(/haze/);
