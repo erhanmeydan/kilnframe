@@ -943,7 +943,7 @@ function home(): string {
       ["voice", t("tab.voice")],
       ["pauses", t("tab.pauses")],
     ],
-    // six labels do not fit one row of a 320 px panel: two rows of three
+    // one row: the panel is at least 360 px wide (its style keeps every label whole)
     "tabs",
   )}
   ${
