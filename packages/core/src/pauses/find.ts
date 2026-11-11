@@ -22,8 +22,8 @@ export const DENOISE_DELAY_S = 0.025;
 export interface FindSpeechOptions {
   audioPath: string;
   /** The part of `audioPath` to listen to (Premiere exports the whole sequence). */
-  rangeStartS?: number;
-  rangeEndS?: number;
+  rangeStartS?: number | undefined;
+  rangeEndS?: number | undefined;
   model: string;
   signal?: AbortSignal;
   /** 0..1 of the audio listened to. */

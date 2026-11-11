@@ -32,6 +32,7 @@ import {
   speechModelFor,
   narrate,
   downloadSpeechModel,
+  downloadVadModel,
   systemReport,
   speechModelCached,
   vendorDir,
@@ -278,6 +279,7 @@ async function main() {
     prepareModels: async (onProgress) => {
       const defaults = loadDefaults();
       await downloadSpeechModel(defaults, onProgress);
+      await downloadVadModel(defaults.pauses.vadModel, onProgress);
       await ensureOcrData(defaults.ocr, onProgress);
     },
   });

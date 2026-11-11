@@ -126,6 +126,7 @@ export class JobQueue {
           : j.params.kind === "story-write" ||
               j.params.kind === "story-voice" ||
               j.params.kind === "voice-fix-read" ||
+              j.params.kind === "pauses-find" ||
               j.params.kind === "voice-fix-say" ||
               j.params.kind === "parts" ||
               j.params.kind === "music-plan" ||

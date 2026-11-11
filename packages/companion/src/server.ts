@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
+import { planPauseCuts } from "@kilnframe/core";
 import { WebSocketServer, type WebSocket } from "ws";
 import { LISTEN_HOST, LISTEN_HOST_V6, isLoopbackAddress } from "./loopback.js";
 import type { KeyStore } from "./keys.js";
@@ -345,6 +346,16 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             send({
               type: "captions.previews",
               dir: await o.captionPreviews(),
+              ...(msg.ref ? { ref: msg.ref } : {}),
+            });
+            break;
+          case "pauses.cuts":
+            send({
+              type: "pauses.cuts",
+              ...planPauseCuts(msg.speech, msg.durationS, {
+                strictness: msg.strictness,
+                keepLongS: msg.keepLongS,
+              }),
               ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
