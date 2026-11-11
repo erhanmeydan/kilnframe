@@ -145,7 +145,10 @@ interface CliResult {
  */
 export function isPlanLimit(detail: string): boolean {
   if (/\b(429|529)\b|rate[_ ]limit|overloaded/i.test(detail)) return false;
-  return /usage limit|limit reached|hit your limit|limit will reset|\bresets?\b/i.test(detail);
+  // "reset" alone is not enough: a dropped connection ("connection reset by peer") is passing
+  return /usage limit|limit reached|hit your limit|limit will reset|limit\b.*\bresets?\b|\bresets (at|in|on)\b/i.test(
+    detail,
+  );
 }
 
 /** The reply of `claude -p --output-format json`, or the error it stands for. */

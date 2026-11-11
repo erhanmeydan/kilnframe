@@ -34,6 +34,10 @@ describe("Claude Code result", () => {
     );
     expect(isPlanLimit("API Error: 529 overloaded_error")).toBe(false);
     expect(isPlanLimit("Prompt is too long: input exceeds the context limit")).toBe(false);
+    // a dropped connection says "reset" too, and is passing
+    expect(isPlanLimit("API Error: Connection error. read ECONNRESET")).toBe(false);
+    expect(isPlanLimit("API Error: connection reset by peer")).toBe(false);
+    expect(isPlanLimit("Your limit resets at 5pm")).toBe(true);
     const e = thrown(() =>
       readClaudeCodeResult(
         result({ is_error: true, subtype: "error", result: "API Error: 429 rate_limit_error" }),
