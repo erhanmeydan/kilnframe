@@ -4,6 +4,8 @@ import { createResolveHost } from "../src/host-resolve";
 import { JobStopped } from "../src/job-errors";
 import {
   CONNECTION_LOST,
+  COPY_LEFT,
+  CUT_FAILED,
   CUT_UNSUPPORTED,
   NOT_RUNNING,
   PLACE_FAILED,
@@ -247,13 +249,38 @@ describe("resolve host", () => {
       expect(api.cutToNewTimeline).toHaveBeenCalledWith("tl-1", cuts, made.name);
     });
 
-    it("says a failed build in the panel's words", async () => {
+    it("says a failed build as a failed cut, not a failed placement, and keeps the reason", async () => {
       setLang("en");
+      const why = new Error(`${CUT_FAILED}: AppendToTimeline placed 3 of 4 clips`);
       const h = createResolveHost(
-        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(PLACE_FAILED))) }),
+        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(why)) }),
       );
       const s = await h.currentSequence();
-      await expect(h.cutToNewSequence!(s, cuts, "x")).rejects.toThrow(en["premiere.placeFailed"]);
+      const err = await h.cutToNewSequence!(s, cuts, "x").catch((e: Error) => e);
+      expect((err as Error).message).toBe(en["premiere.cutFailed"]);
+      expect((err as Error).cause).toBe(why);
+      // an older bridge still says PLACE_FAILED
+      const old = createResolveHost(
+        fakeApi({ cutToNewTimeline: vi.fn(async () => Promise.reject(new Error(PLACE_FAILED))) }),
+      );
+      await expect(old.cutToNewSequence!(s, cuts, "x")).rejects.toThrow(en["premiere.placeFailed"]);
+    });
+
+    it("names the copy a failed cut left in the project", async () => {
+      setLang("en");
+      const h = createResolveHost(
+        fakeApi({
+          cutToNewTimeline: vi.fn(async () =>
+            Promise.reject(
+              new Error(`${CUT_FAILED}: ${COPY_LEFT}="Talk (No Pauses)": extract failed`),
+            ),
+          ),
+        }),
+        "filmcraft",
+      );
+      await expect(h.cutToNewSequence!(await h.currentSequence(), cuts, "x")).rejects.toThrow(
+        'A copy named "Talk (No Pauses)" was left in the project',
+      );
     });
 
     it("names the editor to update when it lacks a command the cut needs", async () => {

@@ -4,6 +4,7 @@ import {
   barSegments,
   newPauses,
   pausesAct,
+  previewTotals,
   pausesBox,
   pausesWatches,
   type PausesState,
@@ -50,6 +51,8 @@ function fakeCtx(
     seq?: () => typeof SEQ;
     cutReply?: Record<string, unknown>;
     cutError?: string;
+    /** The export waits for this before it ends (a long sequence). */
+    exportGate?: Promise<void>;
   } = {},
 ) {
   const sent: Msg[] = [];
@@ -96,6 +99,7 @@ function fakeCtx(
     }),
     exportAudio: async (...args: unknown[]) => {
       exports.push(args.slice(1));
+      if (o.exportGate) await o.exportGate;
       return { ok: true, offsetSeconds: 0 };
     },
     renderSettingsLost: async () => false,
@@ -129,6 +133,7 @@ function atPreview(extra: Partial<PausesState> = {}): PausesState {
     seqId: "seq-1",
     seqName: "Talk",
     seqEndS: 760,
+    fps: 25,
     tracksSeen: { video: 1, audio: 2 },
     scope: "range",
     rangeStartS: 100,
@@ -154,14 +159,16 @@ const jobs = (sent: Msg[]) => sent.filter((m) => m.type === "job.start").map((m)
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("remove pauses panel", () => {
-  it("offers In/Out only when the sequence has a range", () => {
-    expect(pausesBox(newPauses(), fakeCtx().ctx)).toContain('data-val="range"');
-    const html = pausesBox(newPauses(), fakeCtx({ range: false }).ctx);
-    expect(html).not.toContain('data-val="range"');
-    expect(html).toContain("Whole Sequence");
+  it("offers no scope choice: the range line shows which part is listened to", () => {
+    const f = fakeCtx();
+    (f.ctx as unknown as Record<string, unknown>).rangeLine = () => "[range line]";
+    const html = pausesBox(newPauses(), f.ctx);
+    expect(html).not.toContain("pauses-scope");
+    expect(html).toContain("[range line]");
     expect(html).toContain('data-act="pauses-find"');
   });
 
@@ -184,7 +191,7 @@ describe("remove pauses panel", () => {
     expect(st.stage).toBe("listening");
     expect(st.track).toBe(2);
 
-    const one = fakeCtx();
+    const one = fakeCtx({ range: false });
     const st1 = newPauses();
     pausesAct(st1, one.ctx, "pauses-find");
     await tick();
@@ -198,18 +205,21 @@ describe("remove pauses panel", () => {
         outDir: "/j/pauses",
       },
     ]);
-    // the whole sequence by default
+    // no In/Out: the whole sequence
     expect(one.exports[0]).toEqual([0, 760, "/j/export.wav"]);
   });
 
-  it("listens to the In/Out range only when that scope is chosen", async () => {
+  it("listens to the In/Out range whenever the sequence has one", async () => {
     const f = fakeCtx();
     const st = newPauses();
-    pausesAct(st, f.ctx, "pauses-scope", "range");
     pausesAct(st, f.ctx, "pauses-find");
     await tick();
     expect(f.exports[0]).toEqual([100, 200, "/j/export.wav"]);
     expect(st.rangeStartS).toBe(100);
+    f.emit({ type: "job.done", jobId: "job-1", result: { speech: [[0, 5]], durationS: 100 } });
+    await tick();
+    // a part of a longer timeline: the cuts keep a pad at its edges
+    expect(f.sent.find((m) => m.type === "pauses.cuts")).toMatchObject({ rangeEdges: true });
   });
 
   it("says when no track has sound", async () => {
@@ -222,7 +232,7 @@ describe("remove pauses panel", () => {
   });
 
   it("enters the preview with the job's speech and asks for the cuts", async () => {
-    const f = fakeCtx();
+    const f = fakeCtx({ range: false });
     const st = newPauses();
     pausesAct(st, f.ctx, "pauses-find");
     await tick();
@@ -238,7 +248,8 @@ describe("remove pauses panel", () => {
       { type: "pauses.cuts", speech: [[0, 5]], durationS: 760, strictness: 0.5, keepLongS: null },
     ]);
     const html = pausesBox(st, f.ctx);
-    expect(html).toContain("2 pauses, 5 s shorter. 12:40 becomes 12:35.");
+    // 4.5 s asked, 4.48 s on the 25 fps grid (12.5 s is mid frame and the cut ends down)
+    expect(html).toContain("2 pauses, 4 s shorter. 12:40 becomes 12:36.");
     expect(html).toContain('data-act="pauses-apply"');
     expect(html).toContain("Create Sequence Without Pauses");
   });
@@ -350,6 +361,32 @@ describe("remove pauses panel", () => {
     expect(st.error).toBe("The job was stopped.");
   });
 
+  it("offers Stop during the export too, and drops the export's late result", async () => {
+    let finish = () => undefined as void;
+    const gate = new Promise<void>((r) => (finish = r));
+    const f = fakeCtx({ exportGate: gate });
+    const st = newPauses();
+    pausesAct(st, f.ctx, "pauses-find");
+    await tick();
+    expect(f.exports).toHaveLength(1);
+    expect(st.jobId).toBeNull();
+    expect(pausesBox(st, f.ctx)).toContain('data-act="pauses-stop"');
+    pausesAct(st, f.ctx, "pauses-stop");
+    expect(st.stage).toBe("idle");
+    expect(st.error).toBe("The job was stopped.");
+    finish();
+    await tick();
+    await tick();
+    // no job for the stopped run, and the tab stays as Stop left it
+    expect(jobs(f.sent)).toHaveLength(0);
+    expect(st.stage).toBe("idle");
+    // a new Find runs as usual
+    const g = fakeCtx();
+    pausesAct(st, g.ctx, "pauses-find");
+    await tick();
+    expect(jobs(g.sent)).toHaveLength(1);
+  });
+
   it("offers no Stop while the new sequence is built", () => {
     const html = pausesBox(
       atPreview({ stage: "applying", progress: { done: 3, total: 9 } }),
@@ -357,6 +394,28 @@ describe("remove pauses panel", () => {
     );
     expect(html).toContain("Building the new sequence, 3 of 9.");
     expect(html).not.toContain("pauses-stop");
+  });
+
+  it("shows and clears a slider error in place, without a full render that would end the drag", async () => {
+    const slots: Record<string, { innerHTML: string }> = {
+      "pauses-live": { innerHTML: "" },
+      "pauses-apply-slot": { innerHTML: "" },
+      "pauses-errors": { innerHTML: "" },
+    };
+    vi.stubGlobal("document", { getElementById: (id: string) => slots[id] ?? null });
+    const bad = fakeCtx({ cutError: "connection lost" });
+    const st = atPreview();
+    pausesAct(st, bad.ctx, "pauses-strict", "0.4");
+    await new Promise((r) => setTimeout(r, 120));
+    expect(st.error).toContain("connection lost");
+    expect(slots["pauses-errors"]!.innerHTML).toContain("connection lost");
+    expect(bad.renders()).toBe(0);
+    const good = fakeCtx();
+    pausesAct(st, good.ctx, "pauses-strict", "0.5");
+    await new Promise((r) => setTimeout(r, 120));
+    expect(st.error).toBeNull();
+    expect(slots["pauses-errors"]!.innerHTML).toBe("");
+    expect(good.renders()).toBe(0);
   });
 
   it("says an older app needs updating", async () => {
@@ -371,6 +430,27 @@ describe("remove pauses panel", () => {
     expect(pausesWatches(newPauses())).toBe(true);
     expect(pausesWatches(atPreview())).toBe(false);
     expect(pausesWatches(atPreview({ stage: "done" }))).toBe(true);
+  });
+
+  it("previews what the hosts cut: each cut snapped inward to whole frames, merged when they touch", () => {
+    const cuts = [
+      { startS: 1.01, endS: 3.03 }, // sequence frames 2526..2575 at 25 fps (49 frames), not 2.02 s
+      { startS: 3.03, endS: 3.5 }, // snaps to 2576..2587: does not touch the first
+      { startS: 10.5, endS: 10.52 }, // under a frame after snapping: not a cut at all
+    ];
+    const st = atPreview({
+      rangeStartS: 100,
+      plan: { cuts, removedS: 2.51, keptS: 97.49, longKept: [], emptied: false },
+    });
+    const totals = previewTotals(st);
+    expect(totals.count).toBe(2);
+    expect(totals.removedS).toBeCloseTo((49 + 11) / 25, 9);
+    expect(totals.afterS).toBeCloseTo(760 - (49 + 11) / 25, 9);
+    // the bar shows the snapped cuts, in seconds of the part listened to
+    expect(totals.cuts[0]!.startS).toBeCloseTo(2526 / 25 - 100, 9);
+    expect(totals.cuts[0]!.endS).toBeCloseTo(2575 / 25 - 100, 9);
+    // without a frame rate (an older state) the plan's own seconds are shown
+    expect(previewTotals(atPreview({ fps: 0, plan: { ...st.plan!, cuts } })).removedS).toBe(2.51);
   });
 
   it("draws the bar as kept and cut parts that fill it", () => {

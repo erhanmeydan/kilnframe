@@ -3,6 +3,7 @@
 // (pauses.cuts, pure maths, asked again on every move). The cut is applied by the host into a new sequence;
 // the editor's own sequence is never edited, so undo is closing the new one.
 import type { ServerMessage } from "./companion-session";
+import { frameCuts } from "./cut-plan";
 import type { CutSequenceResult, Host, HostSequence, TimelineCut } from "./host";
 import { t } from "./i18n";
 import { readableJobText } from "./job-errors";
@@ -33,6 +34,8 @@ export interface PausesState {
   seqId: string | null;
   seqName: string;
   seqEndS: number;
+  /** The sequence's frame rate: every host snaps the cuts to its frames, and so does the preview. */
+  fps: number;
   /** Track counts at Find: a different count at Create means the sequence changed. */
   tracksSeen: { video: number; audio: number } | null;
   scope: "all" | "range";
@@ -48,6 +51,8 @@ export interface PausesState {
   plan: PausesPlan | null;
   progress: { done: number; total: number } | null;
   result: CutSequenceResult | null;
+  /** This Find's token: Stop takes a new one, so a late export or job reply of the stopped run is ignored. */
+  run: number;
 }
 
 export function newPauses(): PausesState {
@@ -62,6 +67,7 @@ export function newPauses(): PausesState {
     seqId: null,
     seqName: "",
     seqEndS: 0,
+    fps: 0,
     tracksSeen: null,
     scope: "all",
     rangeStartS: 0,
@@ -74,6 +80,7 @@ export function newPauses(): PausesState {
     plan: null,
     progress: null,
     result: null,
+    run: 0,
   };
 }
 
@@ -113,6 +120,7 @@ export interface PausesCtx {
 }
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
+let runs = 0;
 const strictKey = (seqId: string) => `pauses-strict:${seqId}`;
 /** Slider moves closer together than this send one request. */
 const DEBOUNCE_MS = 80;
@@ -149,14 +157,59 @@ export function barSegments(
   return out;
 }
 
+/**
+ * What the new sequence will really lose: the plan's cuts on the sequence's frame grid, as every host cuts
+ * them (start up, end down, merged). The plan's own seconds promise about a frame per cut too much.
+ */
+export function previewTotals(st: PausesState): {
+  count: number;
+  removedS: number;
+  afterS: number;
+  /** The snapped cuts, in seconds of the part listened to (for the bar). */
+  cuts: TimelineCut[];
+} {
+  const plan = st.plan;
+  if (!plan) return { count: 0, removedS: 0, afterS: st.seqEndS, cuts: [] };
+  const fps = st.fps;
+  if (!(fps > 0)) {
+    return {
+      count: plan.cuts.length,
+      removedS: plan.removedS,
+      afterS: Math.max(0, st.seqEndS - plan.removedS),
+      cuts: plan.cuts,
+    };
+  }
+  const endF = Math.round(st.seqEndS * fps);
+  const frames = frameCuts(
+    plan.cuts.map((c) => ({ startS: c.startS + st.rangeStartS, endS: c.endS + st.rangeStartS })),
+    fps,
+    endF,
+  );
+  const removedF = frames.reduce((n, c) => n + c.endF - c.startF, 0);
+  return {
+    count: frames.length,
+    removedS: removedF / fps,
+    afterS: Math.max(0, endF - removedF) / fps,
+    cuts: frames.map((c) => ({
+      startS: c.startF / fps - st.rangeStartS,
+      endS: c.endF / fps - st.rangeStartS,
+    })),
+  };
+}
+
 // ---------- view ----------
 
-function errors(st: PausesState, ctx: PausesCtx): string {
+function errorBoxes(st: PausesState, ctx: PausesCtx): string {
   return (
     (st.error
       ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "")
   );
+}
+
+/** In a slot of its own, so the slider's moves can set or clear it in place. */
+function errors(st: PausesState, ctx: PausesCtx): string {
+  return `<div id="pauses-errors">${errorBoxes(st, ctx)}</div>`;
 }
 
 export function pausesBox(st: PausesState, ctx: PausesCtx): string {
@@ -174,7 +227,7 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
     case "listening":
       return `${err}<div class="box"><div class="row"><span>${t("pauses.listening")}</span></div>${
         st.last ? `<div class="small muted mt">${ctx.esc(st.last)}</div>` : ""
-      }${st.jobId ? `<div class="link mt" data-act="pauses-stop">${t("progress.stop")}</div>` : ""}</div>`;
+      }<div class="link mt" data-act="pauses-stop">${t("progress.stop")}</div></div>`;
     case "preview":
       return err + previewScreen(st, ctx);
     case "applying": {
@@ -191,17 +244,12 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
   }
 }
 
-function idleScreen(st: PausesState, ctx: PausesCtx): string {
-  const range = ctx.inOut();
-  const scope = range ? st.scope : "all";
+/** The part listened to: the In/Out when the sequence has one, else the whole sequence (no choice to make). */
+function idleScreen(_st: PausesState, ctx: PausesCtx): string {
   const can = Boolean(ctx.cutToNewSequence);
-  const options: [string, string][] = [["all", t("pauses.scopeAll")]];
-  if (range) options.push(["range", t("pauses.scopeRange")]);
   return `<div class="note muted">${t("pauses.intro")}</div>
   ${can ? "" : `<div class="box warn">${t("pauses.unsupported")}</div>`}
-  <div class="lbl">${t("pauses.scope")}</div>
-  ${ctx.seg("pauses-scope", scope, options)}
-  ${scope === "range" ? ctx.rangeLine() : ""}
+  ${ctx.rangeLine()}
   ${can ? `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="pauses-find">${t("pauses.find")}</div>` : ""}`;
 }
 
@@ -210,23 +258,24 @@ function liveHtml(st: PausesState): string {
   const plan = st.plan;
   if (!plan) return `<div class="small muted mt">…</div>`;
   if (plan.emptied) return `<div class="box warn">${t("pauses.emptied")}</div>`;
-  if (!plan.cuts.length) return `<div class="note muted">${t("pauses.none")}</div>`;
+  const totals = previewTotals(st);
+  if (!totals.count) return `<div class="note muted">${t("pauses.none")}</div>`;
+  // whole seconds on both sides, so "A becomes B" agrees with "N s shorter"
   const before = Math.round(st.seqEndS);
-  const removed = Math.round(plan.removedS);
-  const bar = barSegments(plan, st.durationS)
+  const bar = barSegments({ ...plan, cuts: totals.cuts }, st.durationS)
     .map((p) => `<div class="pause-${p.kind}" style="width:${p.width.toFixed(3)}%"></div>`)
     .join("");
   return `<div class="pause-bar mt">${bar}</div>
   <div class="note">${t("pauses.summary", {
-    n: plan.cuts.length,
-    removed: formatDuration(plan.removedS),
+    n: totals.count,
+    removed: formatDuration(totals.removedS),
     before: formatTimecode(before),
-    after: formatTimecode(Math.max(0, before - removed)),
+    after: formatTimecode(Math.max(0, before - Math.round(totals.removedS))),
   })}</div>`;
 }
 
 function canApply(st: PausesState): boolean {
-  return Boolean(st.plan && !st.plan.emptied && st.plan.cuts.length);
+  return Boolean(st.plan && !st.plan.emptied && previewTotals(st).count);
 }
 
 function previewScreen(st: PausesState, ctx: PausesCtx): string {
@@ -261,7 +310,10 @@ function renderLive(st: PausesState, ctx: PausesCtx): void {
   const doc = typeof document === "undefined" ? null : document;
   const live = doc?.getElementById("pauses-live");
   const slot = doc?.getElementById("pauses-apply-slot");
-  if (!live || !slot || st.error) return ctx.render();
+  const errorSlot = doc?.getElementById("pauses-errors");
+  if (!live || !slot || !errorSlot) return ctx.render();
+  // an error (a lost connection) shows, and clears on the next good answer, without ending the drag
+  errorSlot.innerHTML = errorBoxes(st, ctx);
   live.innerHTML = liveHtml(st);
   slot.innerHTML = applyButton(st);
 }
@@ -276,11 +328,13 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
     return ctx.render();
   }
   const range = ctx.inOut();
-  const scope = range ? st.scope : "all";
-  Object.assign(st, newPauses(), { scope, stage: "listening" });
+  const scope = range ? "range" : "all";
+  Object.assign(st, newPauses(), { scope, stage: "listening", run: ++runs });
+  const run = st.run;
   ctx.render();
   try {
     const target = await ctx.readSequence();
+    if (st.run !== run) return;
     if (!target) {
       st.stage = "idle";
       return ctx.render();
@@ -288,6 +342,7 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
     st.seqId = target.id;
     st.seqName = target.name;
     st.seqEndS = target.endSeconds;
+    st.fps = target.fpsValue;
     st.tracksSeen = { video: target.videoTracks, audio: target.audioTracks };
     st.rangeStartS = scope === "range" && range ? range.startS : 0;
     st.rangeEndS = scope === "range" && range ? range.endS : target.endSeconds;
@@ -295,6 +350,7 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
     if (ctx.stored(strictKey(target.id)) !== null && saved >= 0 && saved <= 1)
       st.strictness = saved;
     const tracks = await ctx.speechTracksAt(target, st.rangeStartS, st.rangeEndS);
+    if (st.run !== run) return;
     if (!tracks.length) {
       st.stage = "idle";
       st.error = t("pauses.noTrack");
@@ -305,8 +361,9 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
       st.stage = "track";
       return ctx.render();
     }
-    await listen(st, ctx, target, tracks[0]!);
+    await listen(st, ctx, target, tracks[0]!, run);
   } catch (err) {
+    if (st.run !== run) return;
     st.stage = "idle";
     st.error = readable(message(err), true);
     ctx.render();
@@ -316,16 +373,20 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
 async function pickTrack(st: PausesState, ctx: PausesCtx, track: number): Promise<void> {
   if (st.stage !== "track" || !st.tracks.includes(track)) return;
   st.stage = "listening";
+  st.run = ++runs;
+  const run = st.run;
   ctx.render();
   try {
     const target = await ctx.readSequence();
+    if (st.run !== run) return;
     if (!target || target.id !== st.seqId) {
       st.stage = "idle";
       if (target) st.error = t("pauses.changed");
       return ctx.render();
     }
-    await listen(st, ctx, target, track);
+    await listen(st, ctx, target, track, run);
   } catch (err) {
+    if (st.run !== run) return;
     st.stage = "idle";
     st.error = readable(message(err), true);
     ctx.render();
@@ -338,6 +399,7 @@ async function listen(
   ctx: PausesCtx,
   target: HostSequence,
   track: number,
+  run: number,
 ): Promise<void> {
   st.track = track;
   st.stage = "listening";
@@ -351,6 +413,7 @@ async function listen(
     },
     "job.prepared",
   );
+  if (st.run !== run) return;
   st.jobDir = String(prepared.jobDir);
   const file = `${st.jobDir}/export.wav`;
   let exported;
@@ -360,8 +423,12 @@ async function listen(
     );
   } finally {
     // Resolve may lose its Deliver settings even when the export fails: read (and cleared) either way
-    st.settingsNote = (await ctx.renderSettingsLost()) ? t("resolve.settingsLost") : null;
+    const lost = await ctx.renderSettingsLost();
+    st.settingsNote = lost ? t("resolve.settingsLost") : null;
+    if (lost && st.run !== run) ctx.render();
   }
+  // stopped during the export (a long sequence takes a while): nothing is listened to
+  if (st.run !== run) return;
   if (!exported.result.ok) throw new Error(t("job.exportFailed"));
   st.notIsolated = !exported.isolated;
   // Premiere writes the whole sequence: the written file starts at offsetSeconds in the sequence
@@ -369,6 +436,7 @@ async function listen(
   await runJob(
     st,
     ctx,
+    run,
     {
       kind: "pauses-find",
       audioPath: file,
@@ -395,6 +463,7 @@ async function listen(
 async function runJob(
   st: PausesState,
   ctx: PausesCtx,
+  run: number,
   params: Record<string, unknown>,
   onDone: (result: Record<string, unknown>) => void,
 ): Promise<void> {
@@ -426,10 +495,17 @@ async function runJob(
       { type: "job.start", ref: String(Date.now()), params },
       "job.accepted",
     );
+    if (st.run !== run) {
+      // Stop came while the job was being started: stop it now that it has an id
+      off();
+      ctx.send({ type: "job.cancel", jobId: String(accepted.jobId) });
+      return;
+    }
     st.jobId = String(accepted.jobId);
     ctx.render();
   } catch (err) {
     off();
+    if (st.run !== run) return;
     st.stage = "idle";
     st.error = readable(message(err), true);
     ctx.render();
@@ -452,6 +528,8 @@ async function askCuts(st: PausesState, ctx: PausesCtx): Promise<void> {
         strictness: st.strictness,
         // long silent parts are cut like any pause (decided for v1: no keep rule)
         keepLongS: null,
+        // an In/Out part may begin or end mid word: keep a pad at its edges too
+        ...(st.scope === "range" ? { rangeEdges: true } : {}),
       },
       "pauses.cuts",
     );
@@ -536,7 +614,6 @@ async function apply(st: PausesState, ctx: PausesCtx): Promise<void> {
 }
 
 const ACTS = new Set([
-  "pauses-scope",
   "pauses-find",
   "pauses-track",
   "pauses-strict",
@@ -548,16 +625,21 @@ const ACTS = new Set([
 /** The tab's clicks (and the slider's moves). Returns true when it handled `act`. */
 export function pausesAct(st: PausesState, ctx: PausesCtx, act: string, val = ""): boolean {
   if (!ACTS.has(act)) return false;
-  if (act === "pauses-scope") {
-    if (st.stage === "idle" || st.stage === "done") st.scope = val === "range" ? "range" : "all";
-  } else if (act === "pauses-find") void find(st, ctx);
+  if (act === "pauses-find") void find(st, ctx);
   else if (act === "pauses-track") void pickTrack(st, ctx, Number(val));
   else if (act === "pauses-strict") strictMoved(st, ctx, val);
   else if (act === "pauses-apply") void apply(st, ctx);
   else if (act === "pauses-stop") {
     if (st.jobId) ctx.send({ type: "job.cancel", jobId: st.jobId });
+    else if (st.stage === "listening") {
+      // before the job: the export (or the reading before it) cannot be called back, so this run is let go
+      // and its late result ignored
+      st.run = ++runs;
+      st.stage = "idle";
+      st.error = t("job.stopped");
+    }
   } else if (act === "pauses-again" && st.stage !== "listening" && st.stage !== "applying") {
-    Object.assign(st, newPauses(), { scope: st.scope });
+    Object.assign(st, newPauses());
   }
   return true;
 }

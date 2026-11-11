@@ -4,6 +4,8 @@ import {
   CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
   NOT_RUNNING,
+  COPY_LEFT,
+  CUT_FAILED,
   PLACE_FAILED,
   RENDER_FAILED,
   UNSET_MARK,
@@ -364,6 +366,9 @@ describe("filmcraft cut to a new sequence", () => {
       ["markers.markIn", 60],
       ["markers.markOut", 88],
       ["sequence.extract", undefined],
+      // the editor's In (1 s, frame 30) and Out (20 s, frame 599, its last frame) follow their content
+      ["markers.markIn", 30],
+      ["markers.markOut", 599 - 102],
     ]);
     expect(
       marks(f)
@@ -377,8 +382,8 @@ describe("filmcraft cut to a new sequence", () => {
       [121, 227],
       [227, 258],
     ]);
-    expect(copy.in).toBeNull();
-    expect(copy.out).toBeNull();
+    expect(copy.in).toBe(f.ticksOf(30));
+    expect(copy.out).toBe(f.ticksOf(497));
     // the editor's sequence, In and Out included, as it was
     expect(f.sequence).toEqual(original);
   });
@@ -426,9 +431,14 @@ describe("filmcraft cut to a new sequence", () => {
     f.state.before = (command) => {
       if (command === "sequence.extract" && ++n === 2) throw new Error("extract failed");
     };
+    // FilmCraft's reason kept for the log; the copy deleted with the measured project.delete
     await expect(b.cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
-      PLACE_FAILED,
+      `${CUT_FAILED}: extract failed`,
     );
+    expect(f.state.log).toContainEqual({
+      command: "project.delete",
+      params: { items: [expect.any(Number)] },
+    });
     expect(f.state.sequences).toEqual([f.sequence]);
     expect(f.state.active).toBe(f.sequence);
     expect(await b.cutProgress!()).toBeNull();
@@ -438,18 +448,36 @@ describe("filmcraft cut to a new sequence", () => {
     const f = withBroll();
     f.sequence.video[1]!.locked = true;
     await expect(bridgeOf(f).cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
-      PLACE_FAILED,
+      CUT_FAILED,
     );
     expect(f.state.sequences).toEqual([f.sequence]);
   });
 
-  it("leaves the copy in the project when FilmCraft does not list how to delete it", async () => {
+  it("deletes a copy simplify made before it failed, found by its name", async () => {
+    const f = withBroll();
+    // a sequence already named like the copy is the editor's and stays
+    await f.client.exec("sequence.simplify", { name: "Cut" });
+    const theirs = f.state.active!;
+    await f.client.exec("sequence.open", { item: f.sequence.id });
+    f.state.before = (command) => {
+      if (command !== "sequence.simplify") return;
+      // FilmCraft made the copy, then failed before answering with its id
+      f.state.sequences.push({ ...structuredClone(f.sequence), id: 9999, name: "Cut" });
+      throw new Error("simplify failed");
+    };
+    await expect(bridgeOf(f).cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
+      `${CUT_FAILED}: simplify failed`,
+    );
+    expect(f.state.sequences).toEqual([f.sequence, theirs]);
+  });
+
+  it("leaves the copy in the project when FilmCraft does not list how to delete it, and says so", async () => {
     const f = withBroll({ projectDelete: '{"confirm":bool?}' });
     f.state.before = (command) => {
       if (command === "sequence.extract") throw new Error("extract failed");
     };
     await expect(bridgeOf(f).cutToNewTimeline!(String(f.sequence.id), cuts, "Cut")).rejects.toThrow(
-      PLACE_FAILED,
+      `${CUT_FAILED}: ${COPY_LEFT}="Cut": extract failed`,
     );
     // an unknown shape might act on the editor's selection: not sent
     expect(f.state.log.map((l) => l.command)).not.toContain("project.delete");

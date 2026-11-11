@@ -103,6 +103,51 @@ describe("resolve cut to a new timeline", () => {
     ]);
   });
 
+  it.each([
+    ["29.97", "30"],
+    ["23.976", "24"],
+  ])(
+    "keeps a long %s fps clip Resolve plays frame for frame on a %s timeline",
+    async (clip, tl) => {
+      const f = makeFakeResolve({ conformNearRates: true });
+      const t = f.project.timeline;
+      t.settings.timelineFrameRate = tl;
+      t.length = 6000;
+      // 6000 timeline frames show 6000 frames of the file: 0.1 % (6 frames) off the rate-converted length
+      for (const track of [t.tracks.video[0]!, t.tracks.audio[0]!])
+        Object.assign(track.items[0]!, { end: 96000, sourceIn: 0, sourceOut: 6000 });
+      Object.assign(t.tracks.video[0]!.items[0]!, { fps: clip });
+      const r = await bridge(f).cutToNewTimeline!("tl-1", [{ startS: 100, endS: 101 }], "Cut");
+      expect(r.leftOut).toBe(0);
+      const v = f.project.current.tracks.video[0]!.items;
+      const fps = Number(tl);
+      // frame for frame: the source follows the timeline frames, not the clip's nominal rate
+      expect(v.map((i) => [i.sourceIn, i.sourceOut])).toEqual([
+        [0, 100 * fps],
+        [101 * fps, 6000],
+      ]);
+    },
+  );
+
+  it("moves the editor's In and Out on the new timeline to where their frames now sit", async () => {
+    // In 40 (before both cuts), Out 160 (inside the second cut [150, 175), inclusive)
+    const f = makeFakeResolve({ markIn: 40, markOut: 160 });
+    await bridge(f).cutToNewTimeline!(
+      "tl-1",
+      [
+        { startS: 2, endS: 3 },
+        { startS: 6, endS: 7 },
+      ],
+      "Cut",
+    );
+    // the Out goes to the last frame kept before the cut: 149 - 25 removed earlier
+    expect(f.project.current.mark).toEqual({ in: 40, out: 124 });
+    // an In inside a cut goes to its edge
+    const g = makeFakeResolve({ markIn: 60 });
+    await bridge(g).cutToNewTimeline!("tl-1", [{ startS: 2, endS: 3 }], "Cut");
+    expect(g.project.current.mark).toEqual({ in: 50 });
+  });
+
   it("leaves out a 25 fps clip slowed to 50 %", async () => {
     const f = makeFakeResolve();
     // 271 timeline frames show only 135 frames of the file
@@ -138,6 +183,15 @@ describe("resolve cut to a new timeline", () => {
     });
   });
 
+  it("still leaves out a near-rate clip at a real speed change", async () => {
+    const f = makeFakeResolve();
+    f.project.timeline.settings.timelineFrameRate = "30";
+    // 271 timeline frames show 135 frames of a 29.97 file: slowed to 50 %
+    Object.assign(f.project.timeline.tracks.video[0]!.items[0]!, { fps: "29.97", sourceOut: 135 });
+    const r = await bridge(f).cutToNewTimeline!("tl-1", [{ startS: 2, endS: 3 }], "Cut");
+    expect(r.leftOut).toBe(1);
+  });
+
   it("deletes the new timeline and gives the editor's timeline back when an append fails", async () => {
     const f = makeFakeResolve({ appendRefuses: "/footage.mp4" });
     // the editor looks at another timeline than the one being cut
@@ -149,8 +203,9 @@ describe("resolve cut to a new timeline", () => {
     f.project.timelines.push(other);
     f.project.current = other;
     const b = bridge(f);
+    // the code the panel words as a failed cut, with Resolve's reason kept for the log
     await expect(b.cutToNewTimeline!("tl-1", [{ startS: 2, endS: 3 }], "Cut")).rejects.toThrow(
-      "PLACE_FAILED",
+      /^CUT_FAILED: .+/,
     );
     expect(f.project.timelines.map((t) => t.id)).toEqual(["tl-1", "tl-9"]);
     expect(f.project.current.id).toBe("tl-9");

@@ -8,6 +8,8 @@
 // - media.status gives an item's file path (null for generated media); timeline.setTrack {enabled} switches
 //   video and audio tracks off for exports.
 import {
+  COPY_LEFT,
+  CUT_FAILED,
   CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
   NO_SEQUENCE,
@@ -20,7 +22,7 @@ import {
   type ResolveBridge,
   type ResolveSequence,
 } from "../resolve/api";
-import { frameCuts, piecesOf, type FrameCut } from "../cut-plan";
+import { frameCuts, newEndF, piecesOf, type FrameCut } from "../cut-plan";
 import { frameFor, insertScale } from "../frame";
 import { isOurAnimation, isOurInsert, isVoiceFixTake } from "../our-files";
 import { CONNECTION_LOST, TIMED_OUT, type FilmCraftClient } from "./client";
@@ -66,6 +68,12 @@ interface ProjectNode {
 }
 
 const seconds = (ticks: number) => ticks / TICKS;
+/** Every project item named `name`, through the bins. */
+const itemsNamed = (node: ProjectNode, name: string, out: number[] = []): number[] => {
+  if (node.item !== undefined && node.name === name) out.push(node.item);
+  for (const c of node.children ?? []) itemsNamed(c, name, out);
+  return out;
+};
 /** The channel failed, not the command: said as it is, never as a missing sequence or a failed render. */
 const channelError = (err: unknown) =>
   [NOT_RUNNING, CONNECTION_LOST, TIMED_OUT].includes((err as Error).message);
@@ -148,6 +156,8 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
 
   const fpsOf = (s: Sequence) => s.settings.frame_rate.num / s.settings.frame_rate.den;
   const frame = (s: Sequence, secs: number) => Math.round(secs * fpsOf(s));
+  /** A time in ticks as a frame of the sequence. */
+  const frameAt = (s: Sequence, ticks: number) => frame(s, seconds(ticks));
   /** Ticks of a whole number of frames: lengths that end on a frame. */
   const frameTicks = (s: Sequence, frames: number) =>
     Math.round((frames * TICKS * s.settings.frame_rate.den) / s.settings.frame_rate.num);
@@ -692,6 +702,10 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
       const removed = frames.reduce((n, c) => n + c.endF - c.startF, 0);
 
       if (source !== editorSeq) await fc.exec("sequence.open", { item: source.id });
+      // items already named like the copy: one that appears after a failed simplify is the copy
+      const namedBefore = new Set(
+        itemsNamed((await fc.exec<{ root: ProjectNode }>("project.inspect")).root, name),
+      );
       let copy: number | null = null;
       cutting = { done: 0, total: frames.length };
       try {
@@ -733,26 +747,52 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
           );
         if (!same)
           throw new Error(
-            `${PLACE_FAILED}: the copy is ${afterLength} frames, ${length - removed} expected, or a track did not follow the cut`,
+            `${CUT_FAILED}: the copy is ${afterLength} frames, ${length - removed} expected, or a track did not follow the cut`,
           );
+        // the editor's In and Out follow their content (a mark inside a pause goes to its edge). Out is the
+        // last frame of the range here, as extract showed; a lost mark is not worth failing the cut for
+        const mark = (command: string, f: number) =>
+          fc.exec(command, { frame: Math.max(0, f), target: "program" }).catch(() => undefined);
+        if (source.in != null)
+          await mark("markers.markIn", newEndF(frameAt(source, source.in), frames));
+        if (source.out != null)
+          await mark("markers.markOut", newEndF(frameAt(source, source.out) + 1, frames) - 1);
         return { id: String(copy), name: after.name || made.name, leftOut: 0, rebuilt: false };
       } catch (err) {
         await fc.exec("sequence.open", { item: editorSeq.id }).catch(() => undefined);
+        // simplify failed after making its copy: found by its name, as an item that was not there before
+        if (copy === null && !channelError(err)) {
+          const made = await fc
+            .exec<{ root: ProjectNode }>("project.inspect")
+            .then((p) => itemsNamed(p.root, name).filter((i) => !namedBefore.has(i)))
+            .catch(() => []);
+          if (made.length === 1) copy = made[0]!;
+        }
+        let left = false;
         if (copy !== null) {
-          // only with a shape FilmCraft lists: a guessed one might fall back to the editor's selection
+          // only with a shape FilmCraft lists: a guessed one might fall back to the editor's selection.
+          // Measured on 0.16.0: project.delete {items:[seq]} deleted that sequence ({items:1})
           const params = listed.get("project.delete") ?? "";
           const what = /"items"\s*:\s*\[/.test(params)
             ? { items: [copy] }
             : /"item"\s*:/.test(params)
               ? { item: copy }
               : null;
-          if (what) await fc.exec("project.delete", what).catch(() => undefined);
+          left =
+            !what ||
+            !(await fc.exec("project.delete", what).then(
+              () => true,
+              () => false,
+            ));
         }
         if (channelError(err)) throw err;
         // FilmCraft's own reason in the message: a cause does not cross from the app to the panel window
-        const why = err instanceof Error ? err.message : String(err);
-        if (why.startsWith(PLACE_FAILED)) throw err;
-        throw new Error(`${PLACE_FAILED}: ${why}`, { cause: err });
+        const why = (err instanceof Error ? err.message : String(err)).replace(
+          new RegExp(`^${CUT_FAILED}: `),
+          "",
+        );
+        const leftNote = left ? `${COPY_LEFT}=${JSON.stringify(name)}: ` : "";
+        throw new Error(`${CUT_FAILED}: ${leftNote}${why}`, { cause: err });
       } finally {
         cutting = null;
       }

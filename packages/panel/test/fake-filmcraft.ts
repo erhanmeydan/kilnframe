@@ -44,7 +44,7 @@ export interface FakeFilmCraftOptions {
   noFitToFrame?: boolean;
   /** Commands engine.commands leaves out and the engine refuses: an older FilmCraft. */
   without?: string[];
-  /** project.delete's params as engine.commands lists them; null leaves it out. Its shape is not measured. */
+  /** project.delete's params in place of the measured ones (the fixture's); null leaves it out. */
   projectDelete?: string | null;
 }
 
@@ -320,21 +320,30 @@ export function makeFakeFilmCraft(opts: FakeFilmCraftOptions = {}) {
       s.out = null;
       return { copied };
     },
+    // measured on 0.16.0: {items:[seqId]} deleted that sequence, {"bins":0,"items":1,"offline":0}
     "project.delete": (p) => {
+      let items = 0;
       for (const id of (p.items as number[] | undefined) ?? []) {
         const i = sequences.findIndex((x) => x.id === id);
-        if (i >= 0) sequences.splice(i, 1);
+        if (i >= 0) {
+          sequences.splice(i, 1);
+          items++;
+        }
       }
-      return {};
+      return { bins: 0, items, offline: 0 };
     },
   };
   for (const name of opts.without ?? []) delete commands[name];
 
-  /** engine.commands as 0.16.0 answers it: the fixture's entries, plus project.delete unless left out. */
+  /** engine.commands as 0.16.0 answers it: the fixture's entries, project.delete changed or left out if asked. */
   const listed = () => {
-    const entries: { id: string; params: string }[] = [...fixture.commands];
-    if (opts.projectDelete !== null)
-      entries.push({ id: "project.delete", params: opts.projectDelete ?? '{"items":[id]?}' });
+    const entries: { id: string; params: string }[] = fixture.commands
+      .filter((e) => e.id !== "project.delete" || opts.projectDelete !== null)
+      .map((e) =>
+        e.id === "project.delete" && opts.projectDelete !== undefined && opts.projectDelete !== null
+          ? { ...e, params: opts.projectDelete }
+          : e,
+      );
     return { commands: entries.filter((e) => !opts.without?.includes(e.id)) };
   };
 

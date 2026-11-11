@@ -33,6 +33,8 @@ export interface FakeTimeline {
 }
 
 export interface FakeOptions {
+  /** Clips within 0.2 % of the timeline's rate (29.97 on 30) play frame for frame, as Resolve may conform them. */
+  conformNearRates?: boolean;
   /** TimelineItem.SetProperty answers false, as for a property this Resolve does not know. */
   refuseProperties?: boolean;
   /** SaveAsNewRenderPreset or LoadRenderPreset answers false: the editor's render settings cannot come back. */
@@ -305,9 +307,10 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         // a whole clip when no frames are given (a WAV of the fake is 250 frames long); endFrame is exclusive,
         // as measured in Resolve Studio 21.1.1 (12 Oct 2026: 20..891 placed 871 frames)
         // startFrame/endFrame count the clip's own frames: a 50 fps clip's 100 frames fill 50 of a 25 fps timeline
-        const ratio = info.mediaPoolItem.fps
+        const nominal = info.mediaPoolItem.fps
           ? parseRate(info.mediaPoolItem.fps).fps / parseRate(tl.settings.timelineFrameRate!).fps
           : 1;
+        const ratio = o.conformNearRates && Math.abs(nominal - 1) < 0.002 ? 1 : nominal;
         const len =
           info.endFrame !== undefined
             ? Math.round((info.endFrame - (info.startFrame ?? 0)) / ratio)
