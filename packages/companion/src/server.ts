@@ -355,6 +355,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               ...planPauseCuts(msg.speech, msg.durationS, {
                 strictness: msg.strictness,
                 keepLongS: msg.keepLongS,
+                rangeEdges: msg.rangeEdges ?? false,
               }),
               ...(msg.ref ? { ref: msg.ref } : {}),
             });

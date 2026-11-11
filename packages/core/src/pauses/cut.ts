@@ -49,12 +49,14 @@ export function tailPadS(strictness: number): number {
  * Pauses cut from the voice model's speech stretches alone: every gap between speech longer than
  * silenceGapS(strictness), less a short pad before the speech that follows and after the speech before.
  * No word times are needed (Whisper stretches words over pauses and invents some in silence); the edges of
- * the recording need no pad.
+ * the recording need no pad, unless `rangeEdges` says the audio is a part cut from a longer timeline: there a
+ * word may straddle the edge, so the pads are kept at the edges too.
  */
 export function cutPauses(
   speech: [number, number][],
   durationS: number,
   strictness: number,
+  o: { rangeEdges?: boolean } = {},
 ): PauseCut[] {
   if (!speech.length) return [];
   const minGap = silenceGapS(strictness);
@@ -64,12 +66,13 @@ export function cutPauses(
   const push = (a: number, b: number) => {
     if (b - a > 0.04) cuts.push({ startS: +a.toFixed(3), endS: +b.toFixed(3) });
   };
+  const edges = Boolean(o.rangeEdges);
   let at = 0;
   speech.forEach(([a, b], i) => {
-    if (a - at > minGap) push(i === 0 ? 0 : at + tail, a - lead);
+    if (a - at > minGap) push(i === 0 && !edges ? 0 : at + tail, a - lead);
     at = Math.max(at, b);
   });
-  if (durationS - at > minGap) push(at + tail, durationS);
+  if (durationS - at > minGap) push(at + tail, edges ? durationS - lead : durationS);
   return cuts;
 }
 
@@ -94,9 +97,9 @@ export interface PausePlan {
 export function planPauseCuts(
   speech: [number, number][],
   durationS: number,
-  o: { strictness: number; keepLongS?: number | null },
+  o: { strictness: number; keepLongS?: number | null; rangeEdges?: boolean },
 ): PausePlan {
-  const all = cutPauses(speech, durationS, o.strictness);
+  const all = cutPauses(speech, durationS, o.strictness, { rangeEdges: o.rangeEdges ?? false });
   const keepLong = o.keepLongS ?? null;
   const isLong = (c: PauseCut) => keepLong !== null && c.endS - c.startS > keepLong;
   const cuts = all.filter((c) => !isLong(c));

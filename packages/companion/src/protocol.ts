@@ -412,6 +412,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     strictness: z.number().min(0).max(1),
     /** Pauses longer than this stay in (none: every pause is cut). */
     keepLongS: z.number().positive().nullable(),
+    /** The audio is an In/Out part of a longer timeline: keep the pads at its edges (a word may straddle them). */
+    rangeEdges: z.boolean().optional(),
     /** Echoed on the answer, so a late answer to an older slider position can be told apart. */
     ref: z.string().optional(),
   }),

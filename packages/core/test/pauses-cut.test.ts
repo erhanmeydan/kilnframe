@@ -122,3 +122,24 @@ test("a cut that would leave almost nothing is not made", () => {
   expect(plan.removedS).toBe(0);
   expect(plan.keptS).toBe(60);
 });
+
+test("a range cut from a longer timeline keeps the lead and tail pads at its edges too", () => {
+  const speech: [number, number][] = [
+    [2, 3],
+    [6, 7],
+  ];
+  // a whole recording: its edges need no pad
+  expect(cutPauses(speech, 10, 0.5)[0]!.startS).toBe(0);
+  expect(cutPauses(speech, 10, 0.5).at(-1)!.endS).toBe(10);
+  // a range: a word straddling the edge keeps its pad
+  const cuts = cutPauses(speech, 10, 0.5, { rangeEdges: true });
+  expect(cuts[0]).toEqual({
+    startS: +tailPadS(0.5).toFixed(3),
+    endS: +(2 - leadPadS(0.5)).toFixed(3),
+  });
+  expect(cuts.at(-1)).toEqual({
+    startS: +(7 + tailPadS(0.5)).toFixed(3),
+    endS: +(10 - leadPadS(0.5)).toFixed(3),
+  });
+  expect(planPauseCuts(speech, 10, { strictness: 0.5, rangeEdges: true }).cuts).toEqual(cuts);
+});

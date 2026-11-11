@@ -903,6 +903,12 @@ describe("companion server", () => {
     if (kept.type !== "pauses.cuts") throw new Error("not pauses.cuts");
     expect(kept.longKept).toHaveLength(1);
     expect(kept.removedS).toBeLessThan(all.removedS);
+    // an In/Out part keeps a pad at its edges: the first cut no longer starts at 0
+    c.send({ ...ask, keepLongS: null, rangeEdges: true, ref: "r" });
+    const range = await c.next((m) => m.type === "pauses.cuts" && m.ref === "r");
+    if (range.type !== "pauses.cuts") throw new Error("not pauses.cuts");
+    expect(all.cuts[0]!.startS).toBe(0);
+    expect(range.cuts[0]!.startS).toBeGreaterThan(0);
     c.send({ ...ask, keepLongS: null, strictness: 2, ref: "c" });
     expect(await c.next((m) => m.type === "error" && m.ref === "c")).toMatchObject({
       message: expect.stringMatching(/Invalid message/),
