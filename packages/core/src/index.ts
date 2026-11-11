@@ -38,3 +38,4 @@ export * from "./align.js";
 export * from "./usage-file.js";
 export * from "./captions/index.js";
 export * from "./failure-picture.js";
+export * from "./pauses/index.js";
