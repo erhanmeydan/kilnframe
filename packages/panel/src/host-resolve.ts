@@ -5,6 +5,7 @@ import { t } from "./i18n";
 import { JobStopped } from "./job-errors";
 import {
   CONNECTION_LOST,
+  CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
   NOT_RUNNING,
   TIMED_OUT,
@@ -49,6 +50,13 @@ export function createResolveHost(
         );
       }
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
+      if (m.includes(CUT_UNSUPPORTED))
+        throw new Error(
+          t("pauses.needsNewer", {
+            editor: kind === "filmcraft" ? "FilmCraft" : "DaVinci Resolve",
+          }),
+          { cause: err },
+        );
       throw err;
     }
   };
