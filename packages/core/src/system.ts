@@ -47,7 +47,8 @@ export function ffmpegVersion(): Promise<string | null> {
   return new Promise((resolve) => {
     const proc = spawn(ffmpegPath(), ["-version"], { stdio: ["ignore", "pipe", "ignore"] });
     let out = "";
-    proc.stdout.on("data", (c: Buffer) => (out += c.toString()));
+    proc.stdout.setEncoding("utf8");
+    proc.stdout.on("data", (c: string) => (out += c));
     proc.on("error", () => resolve(null));
     proc.on("close", (code) => resolve(code === 0 ? (out.split("\n")[0] ?? null) : null));
   });

@@ -54,8 +54,9 @@ export async function findSpeech(
   // only the tail is kept: an error message, and the Duration line for the progress
   let stderr = "";
   let totalS = o.rangeEndS !== undefined ? o.rangeEndS - start : 0;
-  proc.stderr.on("data", (c: Buffer) => {
-    stderr = (stderr + c.toString()).slice(-8192);
+  proc.stderr.setEncoding("utf8");
+  proc.stderr.on("data", (c: string) => {
+    stderr = (stderr + c).slice(-8192);
     if (!totalS) {
       const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(stderr);
       if (m) totalS = Math.max(0, +m[1]! * 3600 + +m[2]! * 60 + +m[3]! - start);

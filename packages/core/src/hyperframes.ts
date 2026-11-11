@@ -108,9 +108,8 @@ export function runProcess(
       }, o.idleTimeoutMs);
     };
     arm();
-    const feed = (chunk: Buffer, sink: "out" | "err") => {
+    const feed = (text: string, sink: "out" | "err") => {
       arm();
-      const text = chunk.toString();
       if (sink === "out") stdout += text;
       else stderr += text;
       if (!o.onLine) return;
@@ -118,8 +117,11 @@ export function runProcess(
       pending[sink] = lines.pop() ?? "";
       for (const line of lines) if (line.trim()) o.onLine(line);
     };
-    proc.stdout.on("data", (c: Buffer) => feed(c, "out"));
-    proc.stderr.on("data", (c: Buffer) => feed(c, "err"));
+    // decoded as a stream, so a Turkish letter split across two reads stays whole
+    proc.stdout.setEncoding("utf8");
+    proc.stderr.setEncoding("utf8");
+    proc.stdout.on("data", (c: string) => feed(c, "out"));
+    proc.stderr.on("data", (c: string) => feed(c, "err"));
     proc.on("error", (err) => {
       if (timer) clearTimeout(timer);
       reject(err);

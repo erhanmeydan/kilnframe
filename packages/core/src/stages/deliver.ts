@@ -152,7 +152,8 @@ function runFfmpeg(args: string[], what: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffmpegPath(), args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
-    proc.stderr.on("data", (c: Buffer) => (stderr += c.toString()));
+    proc.stderr.setEncoding("utf8");
+    proc.stderr.on("data", (c: string) => (stderr += c));
     proc.on("error", (err) =>
       reject(new Error(`Could not start FFmpeg (${ffmpegPath()}): ${err.message}`)),
     );

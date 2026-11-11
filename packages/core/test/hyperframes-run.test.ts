@@ -15,6 +15,17 @@ describe("runProcess", () => {
     expect(lines).toEqual(['@hf-progress {"code":"capture","done":1}', "next", "last"]);
   });
 
+  it("keeps a Turkish letter whole when it falls across two reads", async () => {
+    // the first write ends with half of "ş" (0xC5 0x9F), the second starts with the other half
+    const [cmd, args] = node(
+      `process.stdout.write(Buffer.from([0x61, 0xc5])); setTimeout(() => process.stdout.write(Buffer.from([0x9f, 0x0a])), 50);`,
+    );
+    const lines: string[] = [];
+    const r = await runProcess(cmd, [...args], tmpdir(), { onLine: (l) => lines.push(l) });
+    expect(r.stdout).toBe("aş\n");
+    expect(lines).toEqual(["aş"]);
+  });
+
   it("stops a process that stays silent, and says so", async () => {
     const [cmd, args] = node(
       `process.stderr.write("booting chrome\\n"); setTimeout(() => {}, 60000);`,
