@@ -8,6 +8,7 @@ export * from "./schemas/transcript.js";
 export * from "./config.js";
 export * from "./media/audio.js";
 export * from "./stages/transcribe.js";
+export { joinWords, wordGap } from "./unspaced.js";
 export * from "./styles.js";
 export * from "./recipes.js";
 export * from "./recipe-fill.js";
