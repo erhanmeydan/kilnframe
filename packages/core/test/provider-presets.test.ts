@@ -293,7 +293,9 @@ describe("retries", () => {
     const results = await Promise.allSettled([p.complete(request), p.complete(request)]);
     for (const r of results) {
       expect(r.status).toBe("rejected");
-      expect(String((r as PromiseRejectedResult).reason)).toMatch(/xai error 429: Insufficient balance/);
+      expect(String((r as PromiseRejectedResult).reason)).toMatch(
+        /xai error 429: Insufficient balance/,
+      );
     }
     expect(calls).toBe(2);
   });
