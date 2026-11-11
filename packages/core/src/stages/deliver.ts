@@ -22,10 +22,14 @@ export function targetMbps(width: number, height: number): number {
 
 /** FFmpeg arguments for the delivery file. Pure, so the encoding contract is testable. */
 export function deliverArgs(o: DeliverOptions): string[] {
-  const fps = formatFps(parseFps(o.fps));
+  const rate = parseFps(o.fps);
+  const fps = formatFps(rate);
+  // in seconds: tpad counts frames at the master's rate, which for a sequence off the standard list (12,
+  // 15, 120 fps) is the nearest standard one, not the sequence's
+  const handleS = ((o.handlesFrames * rate.den) / rate.num).toFixed(6);
   const pad =
     o.handlesFrames > 0
-      ? `tpad=start=${o.handlesFrames}:stop=${o.handlesFrames}:start_mode=clone:stop_mode=clone,`
+      ? `tpad=start_duration=${handleS}:stop_duration=${handleS}:start_mode=clone:stop_mode=clone,`
       : "";
   const base = ["-v", "error", "-y", "-i", o.input, "-an", "-r", fps];
   if (o.mode === "overlay") {

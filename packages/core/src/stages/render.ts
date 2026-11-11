@@ -1,13 +1,5 @@
 import { edgeCutScenes } from "../edges.js";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { checkProject, renderProject, snapshotProject, type CheckFinding } from "../hyperframes.js";
 import { formatFps, framesToSeconds, parseFps, renderFps } from "../fps.js";
@@ -128,23 +120,15 @@ async function reviewStills(
   // a scene made again renders all stills anew: nothing of the last review stays
   rmSync(stillsDir, { recursive: true, force: true });
   mkdirSync(stillsDir, { recursive: true });
+  // one shot per candidate time, in order (snapshotProject throws when one is missing)
   const snap = await snapshotProject(projectDir, candidates.flat(), sampleDir);
-  // by number: frame-100 comes after frame-99
-  const index = (f: string) => Number(/^frame-(\d+)/.exec(f)?.[1] ?? 0);
-  const shots = readdirSync(sampleDir)
-    .filter((f) => /^frame-\d+.*\.png$/.test(f))
-    .sort((a, b) => index(a) - index(b))
-    .map((f) => join(sampleDir, f));
   const stills: string[] = [];
   const times: number[] = [];
   let at = 0;
   candidates.forEach((sceneTimes, i) => {
-    const files = shots.slice(at, at + sceneTimes.length);
+    const files = snap.files.slice(at, at + sceneTimes.length);
     at += sceneTimes.length;
-    const k =
-      files.length === sceneTimes.length
-        ? pickStill(sceneTimes, files.map(fullness), usual[i] as number)
-        : 0;
+    const k = pickStill(sceneTimes, files.map(fullness), usual[i] as number);
     const time = sceneTimes[k] as number;
     const from = files[k];
     if (!from) return;
@@ -234,6 +218,9 @@ export async function renderPlan(o: RenderPlanOptions): Promise<RenderPlanResult
     handlesFrames: plan.handles_frames,
   });
   timingsMs.deliver = Date.now() - started;
+  // the master (ProRes 4444 for an overlay, gigabytes at 4K) is only the source of insert.*; a render
+  // again makes a new one
+  rmSync(join(projectDir, "renders"), { recursive: true, force: true });
 
   log("Synthesizing sound effects");
   const sfxStarted = Date.now();

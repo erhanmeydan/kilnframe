@@ -75,6 +75,8 @@ export interface RecomposeOptions {
   defaults: Defaults;
   maxRepairRounds?: number;
   onProgress?: (message: string) => void;
+  /** Meters the model calls; pass one to read what a failed or cancelled recompose cost. */
+  usage?: UsageMeter;
 }
 
 /**
@@ -91,7 +93,7 @@ export async function recomposeScene(
   const transcript = TranscriptSchema.parse(
     JSON.parse(readFileSync(join(job.outDir, "transcript.json"), "utf8")),
   );
-  const usage = new UsageMeter();
+  const usage = o.usage ?? new UsageMeter();
   const ctx: ComposeContext = {
     provider: usage.wrap(o.provider),
     plan: job.plan,
@@ -124,33 +126,48 @@ export async function recomposeScene(
   }
   log(`Composing ${o.sceneId} again`);
   const note = o.note.trim();
-  const redo = await composeScene(ctx, {
-    ...scene,
-    visual: note
-      ? `${scene.visual}\nThe editor saw a still of the previous version and asks: ${note}`
-      : scene.visual,
-  });
-  composed.set(o.sceneId, redo);
-  const repairRounds = await validateAndRepair({
-    ctx,
-    plan: job.plan,
-    composed,
-    outDir: job.outDir,
-    maxRounds: o.maxRepairRounds ?? 3,
-    log,
-  });
-  const render = await renderPlan({
-    plan: job.plan,
-    scenes: Object.fromEntries([...composed.values()].map((c) => [c.id, c.html])),
-    outDir: job.outDir,
-    stillsOnly: true,
-    prechecked: true,
-    speechPath: job.speechPath,
-    onProgress: log,
-  });
-  writeFileSync(
-    join(job.outDir, `usage-${o.sceneId}-${Date.now()}.json`),
-    `${JSON.stringify({ total: usage.total(), calls: usage.calls }, null, 2)}\n`,
-  );
-  return { plan: job.plan, render, usage, repairRounds };
+  try {
+    const redo = await composeScene(ctx, {
+      ...scene,
+      visual: note
+        ? `${scene.visual}\nThe editor saw a still of the previous version and asks: ${note}`
+        : scene.visual,
+    });
+    composed.set(o.sceneId, redo);
+    const repairRounds = await validateAndRepair({
+      ctx,
+      plan: job.plan,
+      composed,
+      outDir: job.outDir,
+      maxRounds: o.maxRepairRounds ?? 3,
+      log,
+    });
+    const render = await renderPlan({
+      plan: job.plan,
+      scenes: Object.fromEntries([...composed.values()].map((c) => [c.id, c.html])),
+      outDir: job.outDir,
+      stillsOnly: true,
+      prechecked: true,
+      speechPath: job.speechPath,
+      onProgress: log,
+    });
+    return { plan: job.plan, render, usage, repairRounds };
+  } catch (err) {
+    // the repair rounds wrote their attempts into compositions/; Render takes that folder as checked, so
+    // the scenes the editor approved go back in place of a version that never passed
+    restoreScenes(job);
+    throw err;
+  } finally {
+    if (usage.calls.length)
+      writeFileSync(
+        join(job.outDir, `usage-${o.sceneId}-${Date.now()}.json`),
+        `${JSON.stringify({ total: usage.total(), calls: usage.calls }, null, 2)}\n`,
+      );
+  }
+}
+
+/** Writes the job's scenes as they were read back into the project. */
+function restoreScenes(job: JobFolder): void {
+  for (const [id, html] of Object.entries(job.scenes))
+    writeFileSync(join(job.outDir, "project", "compositions", `${id}.html`), html);
 }

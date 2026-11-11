@@ -120,6 +120,28 @@ describe("automatic mode in the plan", () => {
     );
   });
 
+  it("asks again for scenes too short to compose, with times the model can fix", () => {
+    const style = loadStyle("beyaz-tahta");
+    const fixed = { mode: "fullscreen" as const };
+    const timed = (ends: number[]) => {
+      const d = draft(ends.map(() => "fullscreen"));
+      d.scenes.forEach((s, i) => {
+        s.start_s = i === 0 ? 0 : (ends[i - 1] as number);
+        s.end_s = ends[i] as number;
+      });
+      return d;
+    };
+    expect(planProblems(timed([5, 10]), style, [], fixed, [], 10)).toEqual([]);
+    // ends 4, 4, 10 s became a one-frame scene in the middle
+    const same = planProblems(timed([4, 4, 10]), style, [], fixed, [], 10);
+    expect(same.join(" ")).toMatch(/scenes\[1\].*at least 1 s/);
+    // an end close to the range's end leaves the last scene a sliver
+    const sliver = planProblems(timed([4, 9.7, 10]), style, [], fixed, [], 10);
+    expect(sliver.join(" ")).toMatch(/scenes\[2\].*0\.3 s/);
+    // one scene is fine however short the range
+    expect(planProblems(timed([0.6]), style, [], fixed, [], 0.6)).toEqual([]);
+  });
+
   it("reads plans written before modes were chosen per scene", () => {
     expect(sceneMode({ mode: "overlay" }, {})).toBe("overlay");
     expect(sceneMode({ mode: "overlay" }, { mode: "fullscreen" })).toBe("fullscreen");

@@ -17,6 +17,15 @@ export function seconds(frames: number, fps: string): string {
     .replace(/\.?0+$/, "");
 }
 
+/**
+ * A scene's length as the difference of its rounded edges: rounded on its own, start plus duration could
+ * land a microsecond before the next scene's start (at 29.97 fps, frames 1 to 2).
+ */
+export function spanSeconds(startFrame: number, endFrame: number, fps: string): string {
+  const micros = (frames: number) => Math.round(Number(seconds(frames, fps)) * 1e6);
+  return ((micros(endFrame) - micros(startFrame)) / 1e6).toFixed(6).replace(/\.?0+$/, "");
+}
+
 /** GSAP plugins shipped in vendor/gsap, loaded and registered for every scene (same licence as GSAP). */
 export const GSAP_PLUGINS = [
   "SplitText",
@@ -50,7 +59,7 @@ export function rootHtml(plan: Plan): string {
   const hosts = plan.scenes
     .map(
       (s) =>
-        `      <div id="${s.id}-host" data-composition-id="${s.id}" data-composition-src="compositions/${s.id}.html" data-start="${seconds(s.start_frame, fps)}" data-duration="${seconds(s.end_frame - s.start_frame, fps)}" data-track-index="0" data-width="${width}" data-height="${height}"></div>`,
+        `      <div id="${s.id}-host" data-composition-id="${s.id}" data-composition-src="compositions/${s.id}.html" data-start="${seconds(s.start_frame, fps)}" data-duration="${spanSeconds(s.start_frame, s.end_frame, fps)}" data-track-index="0" data-width="${width}" data-height="${height}"></div>`,
     )
     .join("\n");
   const background = plan.mode === "overlay" ? "transparent" : "#000";
