@@ -6,6 +6,9 @@ describe("agent sign-in and sign-out commands", () => {
     expect(loginCommand("claude-code", {}, "darwin")).toBe("claude auth login");
     expect(loginCommand("codex", {}, "darwin")).toBe("codex login");
     expect(loginCommand("grok", {}, "darwin")).toBe("grok login --oauth");
+    // Antigravity CLI asks for the Google sign-in on its first start
+    expect(loginCommand("antigravity", { GROK_HOME: "/p/grok" }, "darwin")).toBe("agy");
+    expect(loginEnv("antigravity", { GROK_HOME: "/p/grok" })).toEqual({});
   });
 
   it("signs in to the profile folder the companion uses, for every agent", () => {
@@ -30,5 +33,6 @@ describe("agent sign-in and sign-out commands", () => {
     expect(logoutArgs("claude-code")).toEqual(["auth", "logout"]);
     expect(logoutArgs("codex")).toEqual(["logout"]);
     expect(logoutArgs("grok")).toEqual(["logout"]);
+    expect(logoutArgs("antigravity")).toBeNull();
   });
 });

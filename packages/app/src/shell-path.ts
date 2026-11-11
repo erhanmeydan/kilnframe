@@ -8,7 +8,7 @@ const MARK = "__KILNFRAME_PATH__";
 /** Where the agents and their Node usually live when the login shell cannot be read. */
 function commonDirs(home: string): string[] {
   return [
-    posix.join(home, ".local", "bin"), // Claude Code's native installer
+    posix.join(home, ".local", "bin"), // Claude Code's native installer, Antigravity CLI's script
     posix.join(home, ".claude", "local"),
     posix.join(home, ".grok", "bin"),
     posix.join(home, ".npm-global", "bin"),
@@ -55,6 +55,7 @@ export function companionPath(
       win32.join(home, ".local", "bin"), // Claude Code
       win32.join(localAppData, "Programs", "OpenAI", "Codex", "bin"), // Codex's installer
       win32.join(home, ".grok", "bin"), // Grok Build
+      win32.join(localAppData, "agy", "bin"), // Antigravity CLI's install.ps1
       win32.join(appData, "npm"),
     ].filter((d) => existsSync(d));
     return [...new Set([...current.split(sep), ...extra].filter(Boolean))].join(sep);
