@@ -246,23 +246,30 @@ export function pipelineRunner(keys: KeyStore): JobRunner {
     }
     if (params.action === "recompose") {
       if (!params.sceneId) throw new Error("recompose needs a sceneId");
-      const r = await recomposeScene({
-        outDir: params.outDir,
-        sceneId: params.sceneId,
-        note: params.note ?? "",
-        provider,
-        defaults,
-        onProgress: events.progress,
-      });
-      // the scene made again is part of the job's cost
-      addUsage(params.outDir, {
-        model: provider.model,
-        billing: provider.billing ?? "api",
-        calls: r.usage.calls,
-        price:
-          loadModelCatalog().models[provider.model]?.price ??
-          (await provider.modelPrice?.().catch(() => undefined)),
-      });
+      const usage = new UsageMeter();
+      let r: Awaited<ReturnType<typeof recomposeScene>>;
+      try {
+        r = await recomposeScene({
+          outDir: params.outDir,
+          sceneId: params.sceneId,
+          note: params.note ?? "",
+          provider,
+          defaults,
+          onProgress: events.progress,
+          usage,
+        });
+      } finally {
+        // the scene made again is part of the job's cost, also when it failed or was cancelled
+        if (usage.calls.length)
+          addUsage(params.outDir, {
+            model: provider.model,
+            billing: provider.billing ?? "api",
+            calls: usage.calls,
+            price:
+              loadModelCatalog().models[provider.model]?.price ??
+              (await provider.modelPrice?.().catch(() => undefined)),
+          });
+      }
       return {
         ...panelResult(r.plan, r.render),
         usage: r.usage.total(),
