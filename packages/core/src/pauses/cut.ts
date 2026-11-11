@@ -29,12 +29,12 @@ export function silencePadS(strictness: number): number {
 }
 
 /**
- * Room kept before speech starts (a piece's start): 0.1 s up to the middle, still 0.06 s at Tight. Less
- * and every piece bursts in: the voice rises from silence to full in a few milliseconds, and a joint's
- * short fade would fall on the word's first sound instead of on the room.
+ * Room kept before speech starts (a piece's start): 0.05 s up to the middle, 0.03 s at Tight. Speech
+ * starts where its sound begins (speechStartsEarlier), so this is only room for a joint's short fade to
+ * fall on instead of on the word's first sound; the 0.1 s kept before that showed as a gap before each clip.
  */
 export function leadPadS(strictness: number): number {
-  return 0.1 + (0.06 - 0.1) * past(strictness);
+  return 0.05 + (0.03 - 0.05) * past(strictness);
 }
 
 /**
