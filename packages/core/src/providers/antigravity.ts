@@ -402,7 +402,8 @@ export class AntigravityProvider implements TextProvider {
           );
         throw new ProviderError(
           limit
-            ? `Google account usage limit reached: ${detail}. Wait for it to reset or use an API key.`
+            ? // Google's own text ends with a full stop already ("Resets in 146h42m32s.")
+              `Google account usage limit reached: ${detail.replace(/[.\s]+$/, "")}. Wait for it to reset or use an API key.`
             : `Antigravity failed on ${req.purpose}: ${detail || `the run ended (${r.finished_reason ?? r.status})`}`,
           !limit,
         );
