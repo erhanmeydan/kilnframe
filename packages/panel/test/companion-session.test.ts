@@ -62,12 +62,31 @@ describe("companion session", () => {
     expect((await good).jobId).toBe("job-2");
   });
 
-  it("leaves requests alone when an error names no request (a job.cancel on a finished job)", async () => {
+  it("leaves requests alone when an error names a plain send (a job.cancel on a finished job)", async () => {
     const { session, sent, reply } = fakeSession();
     const styles = session.request({ type: "styles.list" }, "styles");
-    reply({ type: "error", message: "This job has already finished." });
+    session.send({ type: "job.cancel", jobId: "gone" });
+    const cancelRef = sent[1]!.ref as string;
+    expect(cancelRef).toBeTruthy();
+    expect(cancelRef).not.toBe(sent[0]!.ref);
+    reply({ type: "error", message: "This job has already finished.", ref: cancelRef });
     reply({ type: "styles", styles: ["a"], ref: sent[0]!.ref });
     expect((await styles).styles).toEqual(["a"]);
+  });
+
+  it("takes an error without a ref as the answer when only one request waits (an older app)", async () => {
+    const { session, sent, reply } = fakeSession();
+    const models = session.request({ type: "models.list", provider: "antigravity" }, "models");
+    reply({ type: "error", message: "Antigravity CLI could not reach Google." });
+    await expect(models).rejects.toThrow("could not reach Google");
+    // with two waiting, nobody can tell whose it is: both keep waiting for their own reply
+    const a = session.request({ type: "styles.list" }, "styles");
+    const b = session.request({ type: "styles.list" }, "styles");
+    reply({ type: "error", message: "Something failed" });
+    reply({ type: "styles", styles: ["a"], ref: sent[1]!.ref });
+    reply({ type: "styles", styles: ["b"], ref: sent[2]!.ref });
+    expect((await a).styles).toEqual(["a"]);
+    expect((await b).styles).toEqual(["b"]);
   });
 
   it("fails waiting requests and running jobs when the connection closes", async () => {

@@ -375,6 +375,36 @@ describe("companion server", () => {
     expect(await c.next((m) => m.type === "error")).toMatchObject({ ref: "r1" });
   });
 
+  it("answers a failed request with its ref and readable reason, even where the schema has no ref", async () => {
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: {
+        get: async () => undefined,
+        set: async () => {
+          throw new Error("keychain locked: sk-secret-123");
+        },
+        delete: async () => false,
+      },
+      runner: async () => null,
+      listModels: async () => {
+        throw new Error("Antigravity CLI could not reach Google. Check the connection.");
+      },
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "models.list", provider: "antigravity", ref: "m1" });
+    const listed = await c.next((m) => m.type === "error" && m.ref === "m1");
+    expect(String((listed as { message: string }).message)).toContain(
+      "Antigravity CLI could not reach Google",
+    );
+    c.send({ type: "keys.set", provider: "openai", key: "sk-secret-123", ref: "k1" });
+    const keyed = await c.next((m) => m.type === "error" && m.ref === "k1");
+    expect(JSON.stringify(keyed)).not.toContain("sk-secret");
+  });
+
   it("passes a failed job's kind along, also to a panel that asks again", async () => {
     companion = await startCompanion({
       token: TOKEN,

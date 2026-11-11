@@ -66,16 +66,25 @@ export class CompanionSession {
     return () => this.listeners.delete(listener);
   }
 
+  /**
+   * Sends without waiting for a reply. The message still carries a ref of its own (the companion echoes it
+   * on an error), so an error about a plain send (job.cancel on a finished job) is never taken as the answer
+   * to a request waiting at the same time.
+   */
   send(message: unknown): void {
     if (!this.client) throw new Error(t("conn.notConnected"));
-    this.client.send(message);
+    const plain = message && typeof message === "object" && !("ref" in message);
+    this.client.send(
+      plain ? { ...(message as object), ref: `s${++requests}-${Date.now()}` } : message,
+    );
   }
 
   /**
    * Sends a message and resolves with its reply of the given type (or rejects on "error"). Every request
    * carries its own `ref`; a reply that echoes another request's ref is not this one's, so two job.start or
    * job.prepare requests in flight never swap their job ids or folders. A reply without a ref (messages the
-   * companion does not echo it for) is taken as before; an error without one is not.
+   * companion does not echo it for) is taken as before. An error without one comes from an older app that
+   * echoed no refs: it is this request's only when no other request waits, else it is left alone.
    */
   request<T extends ServerMessage>(
     message: unknown,
@@ -97,8 +106,8 @@ export class CompanionSession {
       const off = this.on((m) => {
         if (m.type !== replyType && m.type !== "error") return;
         if (m.ref !== undefined && m.ref !== ref) return;
-        // an error that names no request answers a plain send (job.cancel on a finished job), not this one
-        if (m.type === "error" && m.ref === undefined) return;
+        // an error that names no request: an older app's answer to the one request in flight, or unknown
+        if (m.type === "error" && m.ref === undefined && this.waiting.size !== 1) return;
         done();
         if (m.type === "error") reject(new Error(String(m.message)));
         else resolve(m as T);

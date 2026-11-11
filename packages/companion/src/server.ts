@@ -146,6 +146,9 @@ export function foreignOrigin(origin: string | undefined): boolean {
   }
 }
 
+/** Requests whose failure is said only by name: they carry a key, or the keychain's error may name one. */
+const SECRET_REQUESTS = new Set(["keys.set", "keys.has", "keys.delete"]);
+
 /** The token of a well-formed hello, or null: nothing else is parsed for a client that has not signed in. */
 function helloToken(raw: string): string | null {
   try {
@@ -514,13 +517,17 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
         }
       } catch (err) {
-        // never echo request contents back: a keys.set failure must not leak the key
-        send({
-          type: "error",
-          message: `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`,
-          // the request's own ref, so the panel fails that request and no other
-          ...("ref" in msg && msg.ref ? { ref: msg.ref } : {}),
-        });
+        // never echo request contents back: a keys.* failure (the keychain's own text) must not leak a key;
+        // every other request carries no key, so its reason ("Antigravity CLI could not reach Google") is
+        // what the panel needs to say
+        const reason =
+          !SECRET_REQUESTS.has(msg.type) && err instanceof Error && err.message
+            ? err.message
+            : `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`;
+        // the ref is read from the raw message: the schema strips it from requests that do not declare it,
+        // and the panel fails only the request that names it
+        const ref = (parsed as { ref?: unknown } | null)?.ref;
+        send({ type: "error", message: reason, ...(typeof ref === "string" ? { ref } : {}) });
       }
     });
   };
