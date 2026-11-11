@@ -66,7 +66,8 @@ export interface ResolveBridge {
    * Switches off every enabled audio track but the 0-based `track`, so an export hears that one alone; the
    * tracks switched off, for showTracks to switch back on.
    */
-  soloAudioTrack(id: string, track: number): Promise<HiddenTrack[]>;
+  /** Every audio track but the 0-based `track` (or the ones listed) off; the ones switched off. */
+  soloAudioTrack(id: string, track: number | number[]): Promise<HiddenTrack[]>;
   placeInsert(
     id: string,
     files: { video: string; sfx: string | null },

@@ -522,6 +522,18 @@ describe("premiere host", () => {
       expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, true]);
     });
 
+    it("keeps several audio tracks playing together when asked: two speakers on two microphones", async () => {
+      const f = fakePremiere({ audio: audio() });
+      const h = f.make();
+      const seq = await h.currentSequence();
+      let during: boolean[] = [];
+      await h.withOnlyAudioTrack(seq, [0, 2], async () => {
+        during = f.audio.map((t) => f.muted.get(t) ?? false);
+      });
+      expect(during).toEqual([false, true, false, true]);
+      expect(f.audio.map((t) => f.muted.get(t) ?? false)).toEqual([false, false, false, false]);
+    });
+
     it("puts the tracks back when the export throws", async () => {
       const f = fakePremiere({ audio: audio() });
       const h = f.make();

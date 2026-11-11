@@ -42,8 +42,12 @@ export interface PausesState {
   /** Where the part listened to starts in the sequence: the plan's times count from here. */
   rangeStartS: number;
   rangeEndS: number;
+  /** The audio tracks with sound in the part, 0-based. */
   tracks: number[];
-  track: number | null;
+  /** The ones the editor marked as speech: listened to together (two speakers on two microphones). */
+  picked: number[];
+  /** The tracks the speech was found on. */
+  listened: number[];
   speech: [number, number][] | null;
   durationS: number;
   /** 0 Gentle .. 1 Tight; remembered per sequence. */
@@ -73,7 +77,8 @@ export function newPauses(): PausesState {
     rangeStartS: 0,
     rangeEndS: 0,
     tracks: [],
-    track: null,
+    picked: [],
+    listened: [],
     speech: null,
     durationS: 0,
     strictness: 0.5,
@@ -102,7 +107,7 @@ export interface PausesCtx {
   speechTracksAt(seq: HostSequence, startS: number, endS: number): Promise<number[]>;
   withOnlyAudioTrack<T>(
     seq: HostSequence,
-    track: number,
+    track: number | number[],
     fn: () => Promise<T>,
   ): Promise<{ result: T; isolated: boolean }>;
   exportAudio(
@@ -233,9 +238,12 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
   <div class="pbtns mt">${st.tracks
     .map(
       (n) =>
-        `<div class="pbtn" data-act="pauses-track" data-val="${n}">${t("pauses.trackN", { n: n + 1 })}</div>`,
+        `<div class="pbtn${st.picked.includes(n) ? " on" : ""}" data-act="pauses-track" data-val="${n}">${
+          st.picked.includes(n) ? "✓ " : ""
+        }${t("pauses.trackN", { n: n + 1 })}</div>`,
     )
     .join("")}</div>
+  <div class="btn mt${st.picked.length ? "" : " off"}" data-act="pauses-listen">${t("pauses.find")}</div>
   <div class="link mt" data-act="pauses-again">${t("pauses.again")}</div>`;
     case "listening":
       return `${err}<div class="box"><div class="row"><span>${t("pauses.listening")}</span></div>${
@@ -298,9 +306,21 @@ function previewScreen(st: PausesState, ctx: PausesCtx): string {
   <div class="row small muted"><span>${t("pauses.gentle")}</span><span>${t("pauses.tight")}</span></div>
   <div id="pauses-live">${liveHtml(st)}</div>
   ${st.notIsolated ? `<div class="box warn">${t("pauses.notIsolated")}</div>` : ""}
+  ${unheardNote(st)}
   ${ctx.hostKind() === "resolve" ? `<div class="note muted">${t("pauses.rebuildNote")}</div>` : ""}
   <div id="pauses-apply-slot">${applyButton(st)}</div>
   <div class="link mt" data-act="pauses-again">${t("pauses.again")}</div>`;
+}
+
+/**
+ * Speech on a track that was not listened to counts as a pause: said when other tracks have sound too, so a
+ * second speaker on their own microphone is not cut out unnoticed.
+ */
+export function unheardNote(st: PausesState): string {
+  const others = st.tracks.filter((n) => !st.listened.includes(n));
+  if (!others.length || !st.listened.length) return "";
+  const names = (list: number[]) => list.map((n) => t("pauses.trackN", { n: n + 1 })).join(", ");
+  return `<div class="note">${t("pauses.unheard", { heard: names(st.listened), others: names(others) })}</div>`;
 }
 
 function applyButton(st: PausesState): string {
@@ -369,12 +389,14 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
       st.error = t("pauses.noTrack");
       return ctx.render();
     }
+    st.tracks = tracks;
     if (tracks.length > 1) {
-      st.tracks = tracks;
+      // all marked to start with: a second speaker on their own microphone is heard unless taken out
+      st.picked = [...tracks];
       st.stage = "track";
       return ctx.render();
     }
-    await listen(st, ctx, target, tracks[0]!, run);
+    await listen(st, ctx, target, tracks, run);
   } catch (err) {
     if (st.run !== run) return;
     st.stage = "idle";
@@ -383,8 +405,18 @@ async function find(st: PausesState, ctx: PausesCtx): Promise<void> {
   }
 }
 
-async function pickTrack(st: PausesState, ctx: PausesCtx, track: number): Promise<void> {
+/** Marks or unmarks a track as speech. */
+function pickTrack(st: PausesState, track: number): void {
   if (st.stage !== "track" || !st.tracks.includes(track)) return;
+  st.picked = st.picked.includes(track)
+    ? st.picked.filter((n) => n !== track)
+    : [...st.picked, track].sort((a, b) => a - b);
+}
+
+/** Listens to the marked tracks together. */
+async function listenPicked(st: PausesState, ctx: PausesCtx): Promise<void> {
+  if (st.stage !== "track" || !st.picked.length) return;
+  const picked = [...st.picked];
   st.stage = "listening";
   st.run = ++runs;
   const run = st.run;
@@ -397,7 +429,7 @@ async function pickTrack(st: PausesState, ctx: PausesCtx, track: number): Promis
       if (target) st.error = t("pauses.changed");
       return ctx.render();
     }
-    await listen(st, ctx, target, track, run);
+    await listen(st, ctx, target, picked, run);
   } catch (err) {
     if (st.run !== run) return;
     st.stage = "idle";
@@ -411,10 +443,10 @@ async function listen(
   st: PausesState,
   ctx: PausesCtx,
   target: HostSequence,
-  track: number,
+  tracks: number[],
   run: number,
 ): Promise<void> {
-  st.track = track;
+  st.listened = tracks;
   st.stage = "listening";
   ctx.render();
   const prepared = await ctx.request(
@@ -431,7 +463,7 @@ async function listen(
   const file = `${st.jobDir}/export.wav`;
   let exported;
   try {
-    exported = await ctx.withOnlyAudioTrack(target, track, () =>
+    exported = await ctx.withOnlyAudioTrack(target, tracks, () =>
       ctx.exportAudio(target, st.rangeStartS, st.rangeEndS, file),
     );
   } finally {
@@ -629,6 +661,7 @@ async function apply(st: PausesState, ctx: PausesCtx): Promise<void> {
 const ACTS = new Set([
   "pauses-find",
   "pauses-track",
+  "pauses-listen",
   "pauses-strict",
   "pauses-apply",
   "pauses-again",
@@ -639,7 +672,8 @@ const ACTS = new Set([
 export function pausesAct(st: PausesState, ctx: PausesCtx, act: string, val = ""): boolean {
   if (!ACTS.has(act)) return false;
   if (act === "pauses-find") void find(st, ctx);
-  else if (act === "pauses-track") void pickTrack(st, ctx, Number(val));
+  else if (act === "pauses-track") pickTrack(st, Number(val));
+  else if (act === "pauses-listen") void listenPicked(st, ctx);
   else if (act === "pauses-strict") strictMoved(st, ctx, val);
   else if (act === "pauses-apply") void apply(st, ctx);
   else if (act === "pauses-stop") {

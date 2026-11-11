@@ -53,6 +53,7 @@ function fakePremiere(
     stale: true,
   };
   let generation = 0;
+  let inSelection = false;
   /** Each removal: its media type and the names it was given. */
   const removals: { mediaType: number; names: string[] }[] = [];
   const log: string[] = [];
@@ -242,8 +243,24 @@ function fakePremiere(
     },
     TrackItemSelection: {
       createEmptySelection: (cb: (s: unknown) => void) => {
+        // a selection made inside another's callback crashed Premiere 26.5 (11 Nov 2026)
+        if (inSelection) throw new Error("Premiere crashed: a selection inside a selection");
         const items: Item[] = [];
-        cb({ items, addItem: (it: Item) => (items.push(it), true) });
+        inSelection = true;
+        try {
+          cb({
+            items,
+            addItem: (it: Item) => {
+              // the selection belongs to the active sequence: a clip of another one crashed Premiere 26.5
+              if (![...active.video, ...active.audio].includes(it.track))
+                throw new Error("Premiere crashed: a clip of a sequence that is not active");
+              items.push(it);
+              return true;
+            },
+          });
+        } finally {
+          inSelection = false;
+        }
         return true;
       },
     },
@@ -422,7 +439,8 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
     expect(f.project.deleteSequence).toHaveBeenCalledTimes(1);
     expect(f.seqs).toHaveLength(1);
     expect(f.originalUntouched()).toBe(true);
-    expect(f.project.setActiveSequence).not.toHaveBeenCalled();
+    // the copy was active while it was cut; the editor's own sequence is the active one again
+    expect(f.active()).toBe(f.seqs[0]);
   });
 
   it("deletes the copy when the read back differs from the plan", async () => {

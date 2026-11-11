@@ -494,9 +494,10 @@ export function createPremiereHost(
    */
   async function withOnlyAudioTrack<T>(
     sequence: Sequence,
-    index: number,
+    index: number | number[],
     fn: () => Promise<T>,
   ): Promise<{ result: T; isolated: boolean }> {
+    const keep = new Set(Array.isArray(index) ? index : [index]);
     const hidden: Mutable[] = [];
     let isolated = true;
     /** Unmutes every track muted here; the first failure, after trying them all. */
@@ -513,7 +514,7 @@ export function createPremiereHost(
     let result: T;
     try {
       for (let i = 0; i < (await sequence.getAudioTrackCount()); i++) {
-        if (i === index) continue;
+        if (keep.has(i)) continue;
         let track: Mutable | undefined;
         try {
           track = (await sequence.getAudioTrack(i)) as unknown as Mutable;
@@ -925,6 +926,10 @@ export function createPremiereHost(
       clone = await cloneSequence(project, sequence);
       onProgress?.(1, TOTAL);
       const copy = clone;
+      // the copy is the active sequence while it is cut: a TrackItemSelection works on the active sequence,
+      // and making one for clips of a sequence that was not open crashed Premiere 26.5 (11 Nov 2026)
+      await project.openSequence(copy);
+      await project.setActiveSequence(copy);
       // the sequence and its editor are fetched again before each step too: an object read before a transaction
       // may no longer be valid after it, and the copy is found by its guid
       const guid = copy.guid.toString();
@@ -998,37 +1003,35 @@ export function createPremiereHost(
       // A: clips with nothing left. One selection per media type: an ANY removal may take a linked partner
       // that still has pieces. The selections live only inside their callbacks, nothing async in them
       if (plan.remove.length) {
-        const of = (kind: PlanItem["kind"]) =>
-          plan.remove
-            .filter((key) => byKey.get(key)?.info.plan.kind === kind)
-            .map((key) => (byKey.get(key) as ReadClip).item);
-        const video = of("video");
-        const audio = of("audio");
-        const editor = await editorNow();
-        withSelection(video, (videoSel) =>
-          withSelection(audio, (audioSel) =>
-            runStep(project, "remove clips", (c) => {
-              if (video.length)
-                c.addAction(
-                  editor.createRemoveItemsAction(
-                    videoSel,
-                    false,
-                    ppro.Constants.MediaType.VIDEO,
-                    false,
-                  ),
-                );
-              if (audio.length)
-                c.addAction(
-                  editor.createRemoveItemsAction(
-                    audioSel,
-                    false,
-                    ppro.Constants.MediaType.AUDIO,
-                    false,
-                  ),
-                );
-            }),
-          ),
-        );
+        const keysOf = (kind: PlanItem["kind"]) =>
+          plan.remove.filter((key) => byKey.get(key)?.info.plan.kind === kind);
+        // one selection, then the next: a selection made inside another's callback crashed Premiere 26.5
+        // (TrackItemSelection.createEmptySelection, 11 Nov 2026). The audio clips are read again after the
+        // video step, whose transaction leaves the objects read before it no longer valid
+        const video = keysOf("video").map((key) => (byKey.get(key) as ReadClip).item);
+        if (video.length) {
+          const editor = await editorNow();
+          withSelection(video, (sel) =>
+            runStep(project, "remove video clips", (c) =>
+              c.addAction(
+                editor.createRemoveItemsAction(sel, false, ppro.Constants.MediaType.VIDEO, false),
+              ),
+            ),
+          );
+        }
+        const audioKeys = keysOf("audio");
+        if (audioKeys.length) {
+          const found = await readFresh();
+          const audio = audioKeys.map((key) => found(key, startOf(key)));
+          const editor = await editorNow();
+          withSelection(audio, (sel) =>
+            runStep(project, "remove audio clips", (c) =>
+              c.addAction(
+                editor.createRemoveItemsAction(sel, false, ppro.Constants.MediaType.AUDIO, false),
+              ),
+            ),
+          );
+        }
       }
       onProgress?.(2, TOTAL);
 
@@ -1151,7 +1154,12 @@ export function createPremiereHost(
       const id = guid;
       return { id, name, leftOut: plan.leftOut, rebuilt: false };
     } catch (err) {
-      if (clone) await project.deleteSequence(clone).catch(() => false);
+      if (clone) {
+        // the editor's own sequence comes back to the front before the copy goes
+        await project.openSequence(sequence).catch(() => false);
+        await project.setActiveSequence(sequence).catch(() => false);
+        await project.deleteSequence(clone).catch(() => false);
+      }
       if (err instanceof CutRefused) throw new Error(err.message, { cause: err });
       // the reason (which clip, which frames) goes with it for the log; the editor reads that nothing was lost
       // the step goes on the reason, which the tab logs from `cause`
