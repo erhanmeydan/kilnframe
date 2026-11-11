@@ -19,16 +19,20 @@ export interface SceneCode {
 
 /**
  * An address on another host: http(s), a socket (ws, wss) or one without a scheme (//host/x.js, which takes the
- * page's). A namespace on www.w3.org stays allowed, the host whole, so www.w3.org.example is not.
+ * page's), with slashes or backslashes (a browser reads "https:\\host" as "https://host"), the host a name or an
+ * address ([::1]). A namespace on www.w3.org stays allowed, the host whole, so www.w3.org.example is not.
  */
-const REMOTE = String.raw`(?:(?:https?|wss?):)?\/\/(?!www\.w3\.org(?:[/:"'\s)]|$))[a-z0-9]`;
-const NETWORK = new RegExp(String.raw`^\s*${REMOTE}`, "i");
+const REMOTE = String.raw`(?:(?:https?|wss?):[\\/]*|[\\/]{2})(?!www\.w3\.org(?:[/:"'\s)]|$))[a-z0-9\[]`;
+/** A loaded string that is a remote address, or a srcset list with one among its candidates. */
+const NETWORK = new RegExp(String.raw`(?:^|,)\s*${REMOTE}`, "i");
+/** A srcset's value up to any of its candidates (each after a comma). */
+const SRCSET = String.raw`srcset\s*=\s*["']?(?:[^"'>,]*,)*\s*`;
 /** Code right before a string that loads it: fetch(, import(, from, loader.load(, .src =, new Worker(. */
 const LOADS =
-  /(?:\bfetch|\bimport|\.load|\.loadAsync|\bimportScripts|\bnew\s+(?:Audio|Worker|WebSocket|EventSource|SharedWorker))\s*\(\s*$|\b(?:from|import)\s*$|\.(?:src|href)\s*=\s*$|\bopen\s*\(\s*(["'])\s*\1\s*,\s*$/;
+  /(?:\bfetch|\bimport|\.load|\.loadAsync|\bimportScripts|\bnew\s+(?:Audio|Worker|WebSocket|EventSource|SharedWorker))\s*\(\s*$|\b(?:from|import)\s*$|\.(?:src|href|srcset)\s*=\s*$|\bopen\s*\(\s*(["'])\s*\1\s*,\s*$/;
 /** Markup or CSS inside a string that would load from the network once inserted. */
 const INNER_LOAD = new RegExp(
-  String.raw`(?:\b(?:src|href|poster)\s*=\s*["']?|url\(\s*["']?|@import\s+["']?)${REMOTE}`,
+  String.raw`(?:\b(?:src|href|poster)\s*=\s*["']?|\b${SRCSET}|url\(\s*["']?|@import\s+["']?)${REMOTE}`,
   "i",
 );
 /** A string short and plain enough to be a value or a name rather than shown text. */
@@ -65,7 +69,7 @@ export function sceneCode(html: string): SceneCode {
 
 /** An attribute that loads what it names, naming another host. */
 const REMOTE_ATTR = new RegExp(
-  String.raw`\s(?:src|href|xlink:href|poster|data|srcset)\s*=\s*["']?\s*${REMOTE}`,
+  String.raw`\s(?:(?:src|href|xlink:href|poster|data)\s*=\s*["']?\s*|${SRCSET})${REMOTE}`,
   "i",
 );
 /** A CSS url() or @import of another host. */

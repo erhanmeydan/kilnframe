@@ -70,6 +70,22 @@ const re = /setInterval\\(/; const tl = gsap.timeline({ paused: true });`,
     expect(problems(scene(`<img src="https://www.w3.org.evil.example/a.png">`, ""))).toMatch(
       /network/,
     );
+    // a backslash reads as a slash in an http(s) address, a later srcset candidate loads too, and so does an IP host
+    expect(problems(scene(`<img src="https:\\\\evil.example/x.png">`, ""))).toMatch(/network/);
+    expect(problems(scene(`<img src="\\\\evil.example/x.png">`, ""))).toMatch(/network/);
+    expect(problems(scene(`<img src="https:evil.example/x.png">`, ""))).toMatch(/network/);
+    expect(
+      problems(
+        scene(`<img id="s1-i" srcset="assets/a.png 1x, https://evil.example/x.png 2x">`, ""),
+      ),
+    ).toMatch(/network/);
+    expect(problems(scene(`<img src="//[::1]/x.png">`, ""))).toMatch(/network/);
+    expect(run(`el.innerHTML = '<img srcset="a.png 1x, //evil.example/x.png 2x">';`)).toMatch(
+      /network/,
+    );
+    expect(problems(scene(`<img id="s1-i" srcset="assets/a.png 1x, assets/b.png 2x">`, ""))).toBe(
+      "",
+    );
     // what stays local: a namespace, a file of the project, a fragment
     expect(
       problems(
