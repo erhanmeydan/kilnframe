@@ -132,7 +132,14 @@ export function captionLines(lines: CaptionLine[]): CaptionLine[] {
         out[out.length - 1] = fold(prev, line);
         continue;
       }
-      if (overlaps) out[out.length - 1] = { ...prev, end: line.start };
+      // cut short: its words end by the cut too, so a look that types or fills a word over its time (Daktilo,
+      // Karaoke) finishes inside the window instead of losing the letters after it
+      if (overlaps)
+        out[out.length - 1] = {
+          ...prev,
+          end: line.start,
+          words: prev.words.map((w) => (w.end > line.start ? { ...w, end: line.start } : w)),
+        };
     }
     out.push(line);
   }

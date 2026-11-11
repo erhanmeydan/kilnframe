@@ -1107,6 +1107,47 @@ describe("overlapping lines", () => {
     ]);
   });
 
+  it("shows every word and letter of a line cut short before its window ends, in every look", () => {
+    // the re-review's case: the last word runs on past the cut, which Daktilo typed letter by letter after the line hid
+    const cut: CaptionLine = {
+      start: 1,
+      end: 5,
+      text: "hello extraordinarily",
+      changed: false,
+      words: [
+        { text: "hello", start: 1, end: 1.5 },
+        { text: "extraordinarily", start: 1.5, end: 5 },
+      ],
+    };
+    const lines = everyWordShown([cut, line("yes", 1.85, 3)]);
+    expect(lines.map((l) => [l.text, l.start, l.end])).toEqual([
+      ["hello extraordinarily", 1, 1.85],
+      ["yes", 1.85, 3],
+    ]);
+    for (const w of (lines[0] as CaptionLine).words) expect(w.end).toBeLessThanOrEqual(1.85);
+    for (const look of LOOKS) {
+      const html = captionHtml(doc([cut, line("yes", 1.85, 3)]), look, CAPTION_LOOKS[look].colors);
+      const hides = [...html.matchAll(/tl\.set\("#l0",\{opacity:0\},([\d.]+)\)/g)].map((m) =>
+        Number(m[1]),
+      );
+      const hide = Math.max(...hides);
+      expect(hide, look).toBeCloseTo(1.85, 3);
+      // every word or letter of line 0 that the timeline brings in comes in a frame before the line hides
+      const shows = [
+        ...html.matchAll(
+          /tl\.(?:set|fromTo|to)\("(#w0_[^"]*)",(\{[^}]*\})(?:,\{[^}]*\})?,([\d.]+)\)/g,
+        ),
+      ]
+        .filter(
+          (m) =>
+            !/opacity:0\}$|scaleX:0\}$|color:/.test(m[2] as string) || m[0].startsWith("tl.fromTo"),
+        )
+        .map((m) => ({ el: m[1], at: Number(m[3]) }));
+      for (const s of shows)
+        expect(s.at + 1 / 25, `${look} ${s.el}`).toBeLessThanOrEqual(hide + 1e-9);
+    }
+  });
+
   it("loses no word however cues overlap", () => {
     // a fixed spread of overlapping and touching cues, as two speakers in an imported SRT
     const cues: CaptionLine[] = [];
