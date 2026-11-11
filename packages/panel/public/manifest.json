@@ -27,15 +27,15 @@
         "default": "Kilnframe"
       },
       "minimumSize": {
-        "width": 360,
+        "width": 400,
         "height": 600
       },
       "preferredDockedSize": {
-        "width": 420,
+        "width": 480,
         "height": 720
       },
       "preferredFloatingSize": {
-        "width": 440,
+        "width": 480,
         "height": 760
       },
       "icons": [
