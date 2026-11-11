@@ -342,8 +342,16 @@ async function main(argv: string[]): Promise<number> {
       onProgress: log,
     });
     const total = result.usage.total();
-    const listCost =
-      total.listPriceUsd || usageCost(total, loadModelCatalog().models[provider.model]?.price);
+    // each call at the price of the model that answered it (a server-side or suggested fallback may differ)
+    const prices = loadModelCatalog().models;
+    const listCost = result.usage.calls.reduce(
+      (sum, c) =>
+        sum +
+        (c.usage.listPriceUsd ||
+          usageCost(c.usage, (prices[c.model] ?? prices[provider.model])?.price) ||
+          0),
+      0,
+    );
     const costText =
       provider.billing === "plan"
         ? `, billed to your subscription${listCost ? ` (about $${listCost.toFixed(2)} at API prices)` : ""}`

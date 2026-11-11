@@ -7,6 +7,35 @@ import {
 } from "./types.js";
 
 /**
+ * Why a Gemini answer (TTS or Lyria) came without audio, when the body says: a block or finish reason, or a
+ * status other than completed. Searched a few levels deep, since it can sit at the top or in a step.
+ */
+export function noAudioReason(json: unknown, depth = 0): string | null {
+  if (!json || typeof json !== "object" || depth > 4) return null;
+  for (const [key, value] of Object.entries(json as Record<string, unknown>)) {
+    if (
+      typeof value === "string" &&
+      (/^(block_?reason|finish_?reason)$/i.test(key) ||
+        (key === "status" && !/^(completed|success)$/i.test(value))) &&
+      !/^(STOP|FINISH_REASON_UNSPECIFIED|BLOCK_REASON_UNSPECIFIED)$/i.test(value)
+    )
+      return `${key}: ${value}`;
+    const inner = noAudioReason(value, depth + 1);
+    if (inner) return inner;
+  }
+  return null;
+}
+
+/** "returned no audio" with the reason, worded "blocked" for a block so a caller can tell it apart. */
+export function noAudioMessage(service: string, json: unknown): string {
+  const reason = noAudioReason(json);
+  if (!reason) return `${service} returned no audio. Trying again usually helps.`;
+  return /block|safety|prohibited|recitation/i.test(reason)
+    ? `${service} returned no audio: the request was blocked (${reason}).`
+    : `${service} returned no audio (${reason}). Trying again usually helps.`;
+}
+
+/**
  * Gemini TTS through the Interactions API (ai.google.dev/gemini-api/docs/speech-generation, checked
  * 2026-10-07): a unary request returns a 24 kHz mono 16-bit WAV in steps[].content[] as base64.
  */
@@ -89,7 +118,8 @@ export class GeminiSpeechProvider implements SpeechProvider {
       .flatMap((s) => s.content ?? [])
       .filter((c) => c.type === "audio" && c.data)
       .at(-1);
-    if (!audio?.data) throw new SpeechError("Gemini returned no audio.");
+    // an empty answer now and then is passing; failing on it would throw away the pieces already made
+    if (!audio?.data) throw new SpeechError(noAudioMessage("Gemini", json), true);
     const { pcm, sampleRate, channels } = wavPcm(Buffer.from(audio.data, "base64"));
     if (channels !== 1)
       throw new SpeechError(`Gemini returned ${channels} channels; mono expected.`);

@@ -120,6 +120,8 @@ interface ChatCompletion {
     prompt_cache_hit_tokens?: number;
   };
   error?: { message?: string };
+  /** Set by readChatStream: the stream closed without a finish reason or [DONE], so the reply is partial. */
+  incomplete?: boolean;
 }
 
 /**
@@ -448,8 +450,11 @@ export class OpenAICompatibleProvider implements TextProvider {
     let waits = 0;
     for (let attempt = 1; ; attempt++) {
       await this.slot();
+      let pauseMs = 0;
       try {
-        return await this.once(req, effort);
+        const reply = await this.once(req, effort);
+        this.succeeded();
+        return reply;
       } catch (err) {
         const others = this.running - 1;
         // Some accounts may hold only a few requests at once (a custom endpoint allowed 4 while a job
@@ -462,6 +467,7 @@ export class OpenAICompatibleProvider implements TextProvider {
           waits < MAX_SLOT_WAITS
         ) {
           this.limit = Math.min(this.limit, others);
+          this.successes = 0;
           waits++;
           attempt--;
           continue;
@@ -471,10 +477,27 @@ export class OpenAICompatibleProvider implements TextProvider {
         // the thinking counts against the limit: the try again thinks little (OpenRouter takes the level
         // for any model; elsewhere only where the preset sets one)
         if (err.kind === "cut-off" && (effort || this.name === "openrouter")) effort = "low";
-        await new Promise((r) => setTimeout(r, (this.o.retryDelayMs ?? 5_000) * attempt));
+        pauseMs =
+          err instanceof RetryAfterError ? err.waitMs : (this.o.retryDelayMs ?? 5_000) * attempt;
       } finally {
         this.release();
       }
+      // the pause is taken outside the slot, so the other scenes keep going meanwhile
+      await new Promise((r) => setTimeout(r, pauseMs));
+    }
+  }
+
+  /**
+   * A limit learned from a burst of 429s (often a per-minute limit) would otherwise hold for the whole job: a
+   * few requests in a row that go through raise it by one again.
+   */
+  private successes = 0;
+  private succeeded(): void {
+    if (!Number.isFinite(this.limit)) return;
+    if (++this.successes >= 3) {
+      this.successes = 0;
+      this.limit++;
+      this.queue.shift()?.();
     }
   }
 
@@ -578,6 +601,11 @@ export class OpenAICompatibleProvider implements TextProvider {
       } catch (err) {
         throw new ProviderError(unreachable(this.name, this.o.baseURL, err), true);
       }
+      if (streamed.incomplete && !streamed.error)
+        throw new ProviderError(
+          `${this.name}'s reply for ${req.purpose} stopped before it ended. Trying again usually helps.`,
+          true,
+        );
       return this.answer(streamed, req, maxTokens);
     }
     const raw = (await res.json().catch(() => ({}))) as ChatCompletion | ChatCompletion[];
@@ -606,7 +634,8 @@ export class OpenAICompatibleProvider implements TextProvider {
       const unavailable =
         res.status === 404 ||
         ((res.status === 400 || res.status === 422) && mentionsUnavailableModel(detail));
-      throw new ProviderError(
+      const waitMs = noBalance ? null : retryAfterMs(res.headers.get("retry-after"));
+      throw new (waitMs !== null ? RetryAfterError : ProviderError)(
         unavailable
           ? `${this.name} does not offer the model "${this.model}": ${detail}`
           : `${this.name} error ${res.status}: ${detail}`,
@@ -616,8 +645,14 @@ export class OpenAICompatibleProvider implements TextProvider {
           : res.status === 429 && !noBalance
             ? "rate-limited"
             : undefined,
+        waitMs ?? 0,
       );
     }
+    if (!body.error?.message && !body.choices?.length)
+      throw new ProviderError(
+        `${this.name} answered ${req.purpose} without a reply. Trying again usually helps.`,
+        true,
+      );
     return this.answer(body, req, maxTokens);
   }
 
@@ -663,9 +698,11 @@ function canTurnThinkingOff(m: LmStudioModel): boolean {
 export function readChatStream(sse: string): ChatCompletion {
   let text = "";
   let finish: string | null = null;
+  let done = false;
   const out: ChatCompletion = {};
   for (const line of sse.split("\n")) {
     const data = line.startsWith("data:") ? line.slice(5).trim() : "";
+    if (data === "[DONE]") done = true;
     if (!data || data === "[DONE]") continue;
     let chunk: ChatCompletion;
     try {
@@ -681,7 +718,30 @@ export function readChatStream(sse: string): ChatCompletion {
     if (c?.finish_reason) finish = c.finish_reason;
   }
   out.choices = [{ message: { content: text }, finish_reason: finish }];
+  // a connection closed cleanly halfway looks like a whole stream otherwise
+  if (!done && !finish) out.incomplete = true;
   return out;
+}
+
+/** A 429 or 5xx whose Retry-After header says how long to wait. */
+class RetryAfterError extends ProviderError {
+  constructor(
+    message: string,
+    retryable: boolean,
+    kind: ProviderError["kind"],
+    readonly waitMs: number,
+  ) {
+    super(message, retryable, kind);
+  }
+}
+
+/** Retry-After in seconds or as a date, capped at a minute so one header cannot hold a job; null when absent. */
+export function retryAfterMs(header: string | null, now: number = Date.now()): number | null {
+  if (!header) return null;
+  const seconds = Number(header);
+  const ms = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - now;
+  if (!Number.isFinite(ms)) return null;
+  return Math.min(Math.max(0, ms), 60_000);
 }
 
 /** "Could not reach" with the reason fetch gave, so a timeout reads as a timeout. */

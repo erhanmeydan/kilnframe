@@ -15,6 +15,7 @@ const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 import { composeElevenLabsMusic } from "./elevenlabs.js";
 import { MusicError } from "./errors.js";
+import { noAudioMessage } from "../speech/gemini.js";
 
 export { MusicError };
 
@@ -138,7 +139,8 @@ export async function generateMusic(o: {
     .flatMap((s) => s.content ?? [])
     .filter((c) => c.type === "audio" && c.data)
     .at(-1);
-  if (!audio?.data) throw new MusicError("Lyria returned no audio.");
+  // a block inside a 200 is named "blocked", so the plainer brief is tried as for a refused request
+  if (!audio?.data) throw new MusicError(noAudioMessage("Lyria", json), true);
   return { audio: Buffer.from(audio.data, "base64"), mimeType: audio.mime_type ?? "audio/wav" };
 }
 

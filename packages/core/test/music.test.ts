@@ -82,6 +82,22 @@ describe("music", () => {
     });
   });
 
+  it("tries an answer without audio again, and names a block so a plainer brief is tried", async () => {
+    const ask = (body: unknown) =>
+      generateMusic({
+        apiKey: "k",
+        model: "lyria-3.5",
+        endpoint: "https://example.invalid",
+        prompt: "x",
+        fetch: (async () => new Response(JSON.stringify(body))) as unknown as typeof fetch,
+      }).catch((e: unknown) => e as Error & { retryable: boolean });
+    const empty = await ask({ steps: [] });
+    expect(empty.retryable).toBe(true);
+    const blocked = await ask({ prompt_feedback: { block_reason: "SAFETY" }, steps: [] });
+    expect(blocked.message).toMatch(/blocked/);
+    expect(blocked.message).toContain("SAFETY");
+  });
+
   it("tells a sung line from the words Whisper imagines in music", () => {
     const at = (...s: number[]) => s.map((start) => ({ start }));
     // a sung line under the promo: one word every 0.3 to 0.5 s
