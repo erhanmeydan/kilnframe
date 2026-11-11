@@ -37,7 +37,13 @@ export function loginCommand(
   const dir = name ? env[name] : undefined;
   // Windows: the folder goes to the new window as a setting (loginEnv); cmd's quoting broke on spaces
   if (!name || !dir || platform === "win32") return LOGIN[agent];
-  return `${name}='${dir}' ${LOGIN[agent]}`;
+  // single quotes keep everything literal in the shell; a quote in the folder name closes, escapes, reopens
+  return `${name}='${dir.replace(/'/g, "'\\''")}' ${LOGIN[agent]}`;
+}
+
+/** Text as an AppleScript string literal: the command goes inside `do script "…"`. */
+export function appleScriptString(text: string): string {
+  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 /** The profile setting the sign-in window needs on Windows, where the window inherits it from the companion. */

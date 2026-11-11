@@ -6,6 +6,7 @@ import electronUpdater from "electron-updater";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AppUpdateState } from "@kilnframe/companion";
+import { afterDownload } from "./update-menu.js";
 
 const { autoUpdater } = electronUpdater;
 const SIX_HOURS = 6 * 60 * 60 * 1000;
@@ -28,10 +29,14 @@ export function startUpdates(o: {
   current: string;
   onState: (state: AppUpdateState) => void;
   log: (line: string) => void;
+  /** A job runs or waits: a download that finishes meanwhile is not installed. */
+  busy: () => boolean;
   feedUrl?: string | undefined;
 }): Updates {
   let state: AppUpdateState = { status: "checking", current: o.current };
   let installing = false;
+  /** The update is on disk: installing needs no download. */
+  let downloaded = false;
   const set = (next: Partial<AppUpdateState> & Pick<AppUpdateState, "status">) => {
     state = { current: o.current, ...next };
     o.onState(state);
@@ -72,15 +77,25 @@ export function startUpdates(o: {
     if (state.status !== "available" && state.status !== "ready") set({ status: "checking" });
   });
   autoUpdater.on("update-not-available", () => set({ status: "none" }));
-  autoUpdater.on("update-available", (info) =>
-    set({ status: "available", version: info.version, notes: notes(info.releaseNotes) }),
-  );
+  autoUpdater.on("update-available", (info) => {
+    // a newer release than the one on disk is downloaded again
+    if (info.version !== state.version) downloaded = false;
+    set({ status: "available", version: info.version, notes: notes(info.releaseNotes) });
+  });
   autoUpdater.on("download-progress", (p) =>
     set({ ...state, status: "downloading", percent: Math.round(p.percent) }),
   );
   autoUpdater.on("update-downloaded", (info) => {
-    set({ status: "ready", version: info.version, notes: notes(info.releaseNotes) });
-    if (installing) autoUpdater.quitAndInstall(false, true);
+    downloaded = true;
+    const next = { version: info.version, notes: notes(info.releaseNotes) };
+    if (afterDownload(installing, o.busy()) === "install") {
+      set({ status: "ready", ...next });
+      autoUpdater.quitAndInstall(false, true);
+      return;
+    }
+    // a job started during the download: the next click installs what is already here
+    installing = false;
+    set({ status: "available", ...next });
   });
   autoUpdater.on("error", (err) => {
     installing = false;
@@ -98,7 +113,8 @@ export function startUpdates(o: {
     state: () => state,
     install: () => {
       if (installing) return;
-      if (state.status === "ready") {
+      if (state.status === "ready" || (downloaded && state.status === "available")) {
+        set({ ...state, status: "ready" });
         autoUpdater.quitAndInstall(false, true);
         return;
       }

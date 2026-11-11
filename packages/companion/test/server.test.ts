@@ -300,6 +300,79 @@ describe("companion server", () => {
       await settle();
       expect(busy).toEqual([true, false]);
     });
+
+    it("and a review left open by a panel that went away does not hold a later job", async () => {
+      const { busy, c, job, settle } = await start();
+      await job({ stillsOnly: true });
+      c.ws.close();
+      await settle();
+      const again = await connect(companion!.port);
+      again.send({ type: "hello", token: TOKEN });
+      await again.next((m) => m.type === "ready");
+      again.send({ type: "job.start", params });
+      await again.next((m) => m.type === "job.done");
+      await settle();
+      expect(busy).toEqual([true, false, true, false]);
+    });
+  });
+
+  describe("before the hello", () => {
+    const start = async () =>
+      (companion = await startCompanion({
+        token: TOKEN,
+        keys: new MemoryKeyStore(),
+        runner: async () => null,
+        version: "test",
+        port: 0,
+      }));
+    const open = (port: number, origin?: string) =>
+      new Promise<{ ws: WebSocket; closed: Promise<string> }>((resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}`, origin ? { origin } : {});
+        const closed = new Promise<string>((r) => ws.on("close", (_c, why) => r(why.toString())));
+        ws.once("open", () => resolve({ ws, closed }));
+        ws.once("error", reject);
+      });
+
+    it("closes on anything but a small hello, without answering it", async () => {
+      const { port } = await start();
+      const junk = await open(port);
+      const answers: string[] = [];
+      junk.ws.on("message", (m) => answers.push(m.toString()));
+      junk.ws.send("not json");
+      expect(await junk.closed).toBe("unauthorized");
+      const big = await open(port);
+      big.ws.send(JSON.stringify({ type: "hello", token: TOKEN, pad: "x".repeat(8000) }));
+      expect(await big.closed).toBe("unauthorized");
+      expect(answers).toEqual([]);
+    });
+
+    it("refuses a web page from elsewhere, and takes the panels' own origins", async () => {
+      const { port } = await start();
+      const web = await open(port, "https://example.com");
+      expect(await web.closed).toBe("origin");
+      for (const origin of ["file://", "null", "http://127.0.0.1:8091", "http://localhost:5173"]) {
+        const ok = await open(port, origin);
+        const ready = new Promise<string>((r) => ok.ws.once("message", (m) => r(m.toString())));
+        ok.ws.send(JSON.stringify({ type: "hello", token: TOKEN }));
+        expect(JSON.parse(await ready)).toMatchObject({ type: "ready" });
+        ok.ws.close();
+      }
+    });
+  });
+
+  it("answers a stop for a finished job with the request's ref", async () => {
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "job.cancel", jobId: "gone", ref: "r1" });
+    expect(await c.next((m) => m.type === "error")).toMatchObject({ ref: "r1" });
   });
 
   it("passes a failed job's kind along, also to a panel that asks again", async () => {

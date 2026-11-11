@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { updateMenuLine } from "../src/update-menu.js";
+import { afterDownload, updateMenuLine } from "../src/update-menu.js";
 
 const text = {
   updateNow: "Update Now ({v})",
@@ -41,5 +41,14 @@ describe("updateMenuLine", () => {
       label: "Installing…",
       install: false,
     });
+  });
+});
+
+describe("afterDownload", () => {
+  it("installs a download the editor asked for, unless a job started meanwhile", () => {
+    expect(afterDownload(true, false)).toBe("install");
+    // installing would quit the app and end the job: the update is offered again instead
+    expect(afterDownload(true, true)).toBe("offer");
+    expect(afterDownload(false, false)).toBe("offer");
   });
 });

@@ -61,6 +61,28 @@ describe("isolated jobs", () => {
       await waitFor(() => !alive(childPid));
     },
   );
+
+  it.skipIf(process.platform === "win32")(
+    "frees the queue only once the stopped job's programs are gone",
+    { timeout: 15_000 },
+    async () => {
+      const controller = new AbortController();
+      let childPid = 0;
+      const run = isolatedRunner(slowWorker, { graceMs: 600 });
+      const done = run(params({ stubborn: true }), {
+        progress: (m) => (childPid = Number(m.replace("child ", ""))),
+        signal: controller.signal,
+      });
+      await waitFor(() => childPid > 0);
+      // let the program set up its TERM handler
+      await new Promise((r) => setTimeout(r, 300));
+      const at = Date.now();
+      controller.abort();
+      await expect(done).rejects.toThrow("stopped");
+      expect(Date.now() - at).toBeGreaterThanOrEqual(500);
+      expect(alive(childPid)).toBe(false);
+    },
+  );
 });
 
 describe("stopping a running job in the queue", () => {
@@ -89,5 +111,25 @@ describe("stopping a running job in the queue", () => {
     expect(events).toEqual(["cancelled", "done second done"]);
     expect(queue.get(first)?.state).toBe("cancelled");
     expect(queue.cancel(first)).toBe(false);
+  });
+});
+
+describe("finished jobs the queue keeps", () => {
+  it("keeps the recent ones for a panel that asks again, and forgets older ones", async () => {
+    const done: string[] = [];
+    const queue = new JobQueue(async (p) => ({ n: (p as unknown as { n: number }).n }), {
+      queued: () => {},
+      progress: () => {},
+      done: (id) => done.push(id),
+      failed: () => {},
+      cancelled: () => {},
+    });
+    const ids = Array.from({ length: 30 }, (_, n) => queue.enqueue(params({ n })));
+    await waitFor(() => done.length === 30);
+    expect(queue.get(ids[29]!)).toEqual({ state: "done", result: { n: 29 } });
+    expect(queue.get(ids[10]!)).toEqual({ state: "done", result: { n: 10 } });
+    expect(queue.get(ids[0]!)).toBeNull();
+    expect(queue.paramsOf(ids[0]!)).toBeUndefined();
+    expect(queue.summaries()).toHaveLength(20);
   });
 });

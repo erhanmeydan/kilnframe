@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve as resolvePath, sep, win32 } from "node:path";
+import { basename, dirname, extname, join, posix, resolve as resolvePath, win32 } from "node:path";
 import {
   ASSET_EXTENSIONS,
   FAILURE_PICTURE,
@@ -143,6 +143,20 @@ export function safeName(text: string): string {
 }
 
 /**
+ * True when `child` lies inside `parent` (not the folder itself). Windows paths ignore letter case: Resolve
+ * may give c:\Users\… for a home folder of C:\Users\….
+ */
+export function insideFolder(
+  child: string,
+  parent: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  const path = platform === "win32" ? win32 : posix;
+  const rel = path.relative(parent, child);
+  return rel !== "" && rel !== ".." && !rel.startsWith(".." + path.sep) && !path.isAbsolute(rel);
+}
+
+/**
  * A new job folder next to the Premiere project: <project folder>/Motion
  * Inserts/<sequence>-<time>. Without a saved project the folder goes under ~/.kilnframe/jobs.
  */
@@ -156,7 +170,7 @@ export function prepareJobDir(
   const projectPath = projectPathIn && withoutLongPathPrefix(projectPathIn);
   const home = resolvePath(opts.home ?? homedir());
   const root = opts.jobRoot ? resolvePath(opts.jobRoot) : null;
-  if (root && !root.startsWith(home + sep))
+  if (root && !insideFolder(root, home))
     throw new Error(`The job folder root must be inside the home folder: ${opts.jobRoot}`);
   const base = root
     ? root

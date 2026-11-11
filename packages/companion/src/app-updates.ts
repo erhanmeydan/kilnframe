@@ -2,11 +2,16 @@ import type { AppUpdateState } from "./protocol.js";
 import type { AppUpdates } from "./server.js";
 
 /** What the app (packages/app) and the companion say to each other over Node's IPC channel. */
-export type ParentMessage = { type: "update.state"; state: AppUpdateState };
-export type ChildMessage = { type: "update.install" };
+export type ParentMessage =
+  | { type: "update.state"; state: AppUpdateState }
+  /** The app quits: the companion stops its job and everything that job started, then exits. */
+  | { type: "quit" };
+export type ChildMessage = { type: "update.install" } | { type: "job.busy"; busy: boolean };
 
 interface Channel {
   send?: (message: ChildMessage) => unknown;
+  /** False once the app is gone: a send then would throw. */
+  connected?: boolean;
   on(event: "message", listener: (message: unknown) => void): unknown;
 }
 
@@ -29,6 +34,8 @@ export function appUpdatesFromParent(
   return {
     state: () => last,
     onState: (listener) => listeners.push(listener),
-    install: () => channel.send?.({ type: "update.install" }),
+    install: () => {
+      if (channel.connected !== false) channel.send?.({ type: "update.install" });
+    },
   };
 }

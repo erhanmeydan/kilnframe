@@ -35,6 +35,12 @@ export interface QueueListener {
   cancelled(jobId: string): void;
 }
 
+/**
+ * Finished jobs kept for a panel that asks again (job.get, status). The companion runs for weeks, and a
+ * result can hold stills and a preview video as data URLs, so older ones are forgotten.
+ */
+export const KEEP_FINISHED = 20;
+
 /** One render at a time; later jobs wait in order. */
 export class JobQueue {
   private readonly jobs: Job[] = [];
@@ -70,15 +76,16 @@ export class JobQueue {
     job.state = "cancelled";
     this.listener.cancelled(jobId);
     if (wasRunning && this.stopRunning?.jobId === jobId) this.stopRunning.controller.abort();
+    else this.forgetOld();
     return true;
   }
 
-  /** A job is running or waiting: no update is installed now. */
   /** A job's parameters, while the queue keeps it. */
   paramsOf(jobId: string): JobParams | undefined {
     return this.jobs.find((j) => j.id === jobId)?.params;
   }
 
+  /** A job is running or waiting: no update is installed now. */
   busy(): boolean {
     return this.running || this.jobs.some((j) => j.state === "queued");
   }
@@ -132,6 +139,15 @@ export class JobQueue {
     }));
   }
 
+  /** Drops the oldest finished jobs beyond KEEP_FINISHED; the running one stays until its runner returns. */
+  private forgetOld(): void {
+    const finished = this.jobs.filter(
+      (j) => j.state !== "queued" && j.state !== "running" && j.id !== this.stopRunning?.jobId,
+    );
+    for (const old of finished.slice(0, Math.max(0, finished.length - KEEP_FINISHED)))
+      this.jobs.splice(this.jobs.indexOf(old), 1);
+  }
+
   private async pump(): Promise<void> {
     if (this.running) return;
     const job = this.jobs.find((j) => j.state === "queued");
@@ -169,6 +185,7 @@ export class JobQueue {
     } finally {
       this.stopRunning = null;
       this.running = false;
+      this.forgetOld();
       if (!this.jobs.some((j) => j.state === "queued")) {
         this.saidBusy = false;
         this.onBusy?.(false);
