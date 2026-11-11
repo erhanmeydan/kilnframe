@@ -91,3 +91,23 @@ describe("stopping a running job in the queue", () => {
     expect(queue.cancel(first)).toBe(false);
   });
 });
+
+describe("finished jobs the queue keeps", () => {
+  it("keeps the recent ones for a panel that asks again, and forgets older ones", async () => {
+    const done: string[] = [];
+    const queue = new JobQueue(async (p) => ({ n: (p as unknown as { n: number }).n }), {
+      queued: () => {},
+      progress: () => {},
+      done: (id) => done.push(id),
+      failed: () => {},
+      cancelled: () => {},
+    });
+    const ids = Array.from({ length: 30 }, (_, n) => queue.enqueue(params({ n })));
+    await waitFor(() => done.length === 30);
+    expect(queue.get(ids[29]!)).toEqual({ state: "done", result: { n: 29 } });
+    expect(queue.get(ids[10]!)).toEqual({ state: "done", result: { n: 10 } });
+    expect(queue.get(ids[0]!)).toBeNull();
+    expect(queue.paramsOf(ids[0]!)).toBeUndefined();
+    expect(queue.summaries()).toHaveLength(20);
+  });
+});
