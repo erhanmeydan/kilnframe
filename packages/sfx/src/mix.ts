@@ -98,5 +98,18 @@ export function mixCues({ cues, palette, durationS, seed = 11 }: MixOptions): Mi
     }
     stems.set("room", room);
   }
+  // overlapping cues and room tone can sum past full scale, which the WAV encoder would hard clip
+  // (audible crackle): the whole mix is turned down to -1 dBFS instead
+  let top = 0;
+  for (let i = 0; i < n; i++)
+    top = Math.max(top, Math.abs(mix.left[i] as number), Math.abs(mix.right[i] as number));
+  const ceiling = db(-1);
+  if (top > ceiling) {
+    const k = ceiling / top;
+    for (let i = 0; i < n; i++) {
+      mix.left[i] = (mix.left[i] as number) * k;
+      mix.right[i] = (mix.right[i] as number) * k;
+    }
+  }
   return { mix, stems, skipped };
 }
