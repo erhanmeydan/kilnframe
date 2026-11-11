@@ -2741,7 +2741,26 @@ function readProviderFields() {
   store("settings", JSON.stringify(state.settings));
 }
 
+/**
+ * The Remove Pauses slider is held: a full render (a progress line, the sequence watcher) would replace the
+ * slider and end the drag, so it waits for the release. The tab redraws its summary in place meanwhile.
+ */
+let sliderHeld = false;
+let renderHeld = false;
+function releaseSlider() {
+  if (!sliderHeld) return;
+  sliderHeld = false;
+  if (renderHeld) {
+    renderHeld = false;
+    render();
+  }
+}
+
 function render() {
+  if (sliderHeld) {
+    renderHeld = true;
+    return;
+  }
   const sceneNote = document.getElementById("scenenote") as HTMLTextAreaElement | null;
   if (sceneNote && state.review) state.review.note = sceneNote.value ?? "";
   const note = document.getElementById("note") as HTMLTextAreaElement | null;
@@ -4079,9 +4098,21 @@ for (const name of ["pointerleave", "mouseleave"])
   });
 
 root.addEventListener("pointerdown", (event) => {
+  if ((event.target as HTMLElement | null)?.id === "pauses-strict") sliderHeld = true;
   pressed = actionTarget(event.target);
   pressedSeen = true;
 });
+// the release may land outside the panel's root: listened for on the document, and any move with no button
+// down ends a hold whose release was missed
+document.addEventListener("pointerup", () => releaseSlider(), true);
+document.addEventListener("pointercancel", () => releaseSlider(), true);
+document.addEventListener(
+  "pointermove",
+  (event) => {
+    if (sliderHeld && (event as PointerEvent).buttons === 0) releaseSlider();
+  },
+  true,
+);
 root.addEventListener("pointerup", (event) => {
   const el = actionTarget(event.target);
   // while a text field has focus UXP sends no pointerdown for the next click, only pointerup, so a lone
@@ -4131,7 +4162,10 @@ root.addEventListener("input", (event) => {
 // a slider that reports only where it was let go still updates the summary (the move is debounced anyway)
 root.addEventListener("change", (event) => {
   const el = event.target as HTMLInputElement | null;
-  if (el?.id === "pauses-strict") pausesAct(state.pauses, pausesCtx, "pauses-strict", el.value);
+  if (el?.id === "pauses-strict") {
+    pausesAct(state.pauses, pausesCtx, "pauses-strict", el.value);
+    releaseSlider();
+  }
 });
 root.addEventListener("pointermove", (event) => {
   if (!focusedField || Date.now() - lastTyped < 500) return;
