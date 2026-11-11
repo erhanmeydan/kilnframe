@@ -1,4 +1,13 @@
-import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { framesToSeconds, parseFps } from "../fps.js";
@@ -168,6 +177,34 @@ export interface AssembleOptions {
   assetsDir?: string | undefined;
 }
 
+/** Each vendor file's path, size and time, which change when an update brings other files. */
+function vendorStamp(dir: string): string {
+  return readdirSync(dir, { recursive: true })
+    .map(String)
+    .sort()
+    .map((rel) => {
+      const st = statSync(join(dir, rel));
+      return st.isFile() ? `${rel} ${st.size} ${st.mtimeMs}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * Copies the core's vendor folder (11 MB: fonts, GSAP, three.js) into a project once: a repair round assembles the
+ * project again and only its scenes and root page change. A project whose copy is of other vendor files (made
+ * under an older core) gets them anew.
+ */
+function copyVendor(to: string): void {
+  const from = vendorDir();
+  const stampFile = `${to}.stamp`;
+  const stamp = `${from}\n${vendorStamp(from)}`;
+  if (existsSync(to) && existsSync(stampFile) && readFileSync(stampFile, "utf8") === stamp) return;
+  rmSync(to, { recursive: true, force: true });
+  cpSync(from, to, { recursive: true });
+  writeFileSync(stampFile, stamp);
+}
+
 /** Writes a renderable HyperFrames project: index.html, compositions/<id>.html, vendor/. */
 export function assembleProject({ plan, scenes, projectDir, assetsDir }: AssembleOptions): void {
   for (const s of plan.scenes) {
@@ -178,7 +215,7 @@ export function assembleProject({ plan, scenes, projectDir, assetsDir }: Assembl
   for (const s of plan.scenes)
     writeFileSync(join(projectDir, "compositions", `${s.id}.html`), scenes[s.id] as string);
   writeFileSync(join(projectDir, "plan.json"), `${JSON.stringify(plan, null, 2)}\n`);
-  cpSync(vendorDir(), join(projectDir, "vendor"), { recursive: true });
+  copyVendor(join(projectDir, "vendor"));
   if (plan.assets.length) {
     if (!assetsDir || !existsSync(assetsDir))
       throw new Error("The plan uses the editor's images, but their folder is missing.");
