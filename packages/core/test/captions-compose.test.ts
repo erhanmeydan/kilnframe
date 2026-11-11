@@ -14,7 +14,10 @@ import {
   type CaptionSegment,
   type TimeSpan,
 } from "../src/captions/compose.js";
+import { splitLines } from "../src/captions/lines.js";
 import { nextCaptionNumber } from "../src/captions/render.js";
+import { toSrt } from "../src/captions/srt.js";
+import { joinWords } from "../src/unspaced.js";
 import { CAPTION_LOOKS } from "../src/captions/styles.js";
 import type { CaptionLine, CaptionStyleId } from "../src/captions/types.js";
 import { safeArea } from "../src/safe-area.js";
@@ -1058,25 +1061,112 @@ describe("the page's language", () => {
 });
 
 describe("overlapping lines", () => {
-  it("are drawn and written to the SRT alike: each ends where the next starts, and two at one start show as one", () => {
-    const a = line("first speaker", 1, 3);
-    const b = line("second speaker", 1, 2.5);
-    const c = line("third line", 2, 4);
-    const d = line("last one", 6, 7);
-    const lines = captionLines([a, b, c, d]);
+  /** Every word of every line given is in a line whose window holds its start for over a frame, and in the SRT. */
+  function everyWordShown(given: CaptionLine[]) {
+    const lines = captionLines(given);
+    const windows = captionWindows(lines, 60, []);
+    const srt = toSrt(lines);
+    const shown = lines.flatMap((l, i) =>
+      l.words.map((w) => ({
+        text: w.text,
+        ok: (windows[i] ?? []).some((s) => w.start >= s.startS && w.start + 1 / 24 <= s.endS),
+      })),
+    );
+    const want = given.flatMap((l) => l.words.map((w) => w.text)).sort();
+    expect(shown.map((x) => x.text).sort()).toEqual(want);
+    for (const x of shown) expect(x, x.text).toEqual({ text: x.text, ok: true });
+    for (const l of given) expect(srt).toContain(l.text);
+    return lines;
+  }
+
+  it("shows two lines at one start as one, the first's words then the second's, read in that order", () => {
+    const lines = everyWordShown([line("first speaker", 1, 3), line("second speaker", 1, 2.5)]);
     expect(lines.map((l) => [l.text, l.start, l.end])).toEqual([
-      ["first speaker second speaker", 1, 2],
-      ["third line", 2, 4],
-      ["last one", 6, 7],
+      ["first speaker second speaker", 1, 3],
     ]);
-    expect(lines[0]?.words.map((w) => w.text)).toEqual(["first", "speaker", "second", "speaker"]);
-    const windows = captionWindows(lines, 10, []);
-    expect(windows.every((w) => w.length === 1)).toBe(true);
-    expect(windows[0]).toEqual([{ startS: 1, endS: 2 }]);
+    // the two speakers' words are timed in reading order, so a word-by-word look brings them in that order
+    const starts = (lines[0] as CaptionLine).words.map((w) => w.start);
+    expect([...starts].sort((a, b) => a - b)).toEqual(starts);
+  });
+
+  it("folds lines starting a few milliseconds apart, so the first is not cut to under a frame", () => {
+    const lines = everyWordShown([line("hello there", 1, 3), line("hi", 1.02, 2)]);
+    expect(lines.map((l) => l.text)).toEqual(["hello there hi"]);
+  });
+
+  it("folds a line holding an interjection, so its later words are not hidden by it", () => {
+    const lines = everyWordShown([line("one two three four", 1, 5), line("yes", 2, 3)]);
+    expect(lines.map((l) => [l.text, l.start, l.end])).toEqual([["one two three four yes", 1, 5]]);
+  });
+
+  it("ends a line where the next starts when its last word still shows long enough", () => {
+    const lines = everyWordShown([line("hello there", 1, 3), line("next one", 2.6, 4)]);
+    expect(lines.map((l) => [l.text, l.start, l.end])).toEqual([
+      ["hello there", 1, 2.6],
+      ["next one", 2.6, 4],
+    ]);
+  });
+
+  it("loses no word however cues overlap", () => {
+    // a fixed spread of overlapping and touching cues, as two speakers in an imported SRT
+    const cues: CaptionLine[] = [];
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let k = 0; k < 40; k++) {
+      const start = Math.round(rnd() * 400) / 10;
+      const words = Array.from({ length: 1 + Math.floor(rnd() * 4) }, (_, j) => `w${k}x${j}`);
+      cues.push(line(words.join(" "), start, start + 0.02 + Math.round(rnd() * 30) / 10));
+    }
+    everyWordShown(cues);
+  });
+
+  it("keeps both emoji of two lines folded together", () => {
+    const [folded] = captionLines([
+      { ...line("a b", 1, 2), emoji: "🎉" },
+      { ...line("c", 1, 2), emoji: "😀" },
+    ]);
+    expect(folded?.emoji).toBe("🎉😀");
   });
 
   it("leaves lines in order and apart untouched", () => {
     const lines = [line("one", 0, 1), line("two", 1, 2)];
     expect(captionLines(lines)).toEqual(lines);
+  });
+});
+
+describe("languages written without spaces", () => {
+  const ja = (texts: string[], start: number) => ({
+    start,
+    end: start + texts.length * 0.4,
+    text: texts.join(""),
+    changed: false,
+    words: texts.map((t, i) => ({ text: t, start: start + i * 0.4, end: start + (i + 1) * 0.4 })),
+  });
+
+  it("puts no space between Japanese words in a line, the SRT or the drawn rows", () => {
+    const words = ja(["こんにちは", "世界", "です。", "AI", "は", "便利"], 0).words;
+    const [made] = splitLines(words, { maxChars: 40, maxLines: 2 });
+    expect(made?.text).toBe("こんにちは世界です。AIは便利");
+    expect(toSrt(captionLines([made as CaptionLine]))).toContain("こんにちは世界です。AIは便利");
+    for (const look of LOOKS) {
+      const html = captionHtml(
+        doc([made as CaptionLine], { language: "ja" }),
+        look,
+        CAPTION_LOOKS[look].colors,
+      );
+      const row = /<div class="row">([\s\S]*?)<\/div><\/div>/.exec(html)?.[1] ?? "";
+      expect(row, look).not.toMatch(/<\/span>\s+<span/);
+    }
+    // a spaced language keeps its spaces
+    expect(splitLines(line("bir iki üç", 0, 1).words, { maxChars: 40, maxLines: 2 })[0]?.text).toBe(
+      "bir iki üç",
+    );
+  });
+
+  it("joins unspaced words and keeps a space where two spaced words meet", () => {
+    expect(joinWords(["こんにちは", "世界"])).toBe("こんにちは世界");
+    expect(joinWords(["สวัสดี", "ครับ"])).toBe("สวัสดีครับ");
+    expect(joinWords(["iPhone", "を", "買った"])).toBe("iPhoneを買った");
+    expect(joinWords(["Merhaba", "dünya"])).toBe("Merhaba dünya");
   });
 });

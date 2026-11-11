@@ -1,3 +1,4 @@
+import { joinWords } from "../unspaced.js";
 import type { CaptionLine, CaptionWord } from "./types.js";
 
 /**
@@ -38,7 +39,7 @@ export function packLines(lines: CaptionLine[]): PackedLine[] {
     const packed: PackedLine = d.every((x) => x !== null)
       ? { s: line.start, e: line.end, w, d: d as number[] }
       : { s: line.start, e: line.end, w, m: times };
-    if (line.text !== w.join(" ")) packed.t = line.text;
+    if (line.text !== joinWords(w)) packed.t = line.text;
     if (line.changed) packed.c = true;
     return packed;
   });
@@ -56,7 +57,7 @@ export function unpackLines(packed: PackedLine[]): CaptionLine[] {
     return {
       start: p.s,
       end: p.e,
-      text: p.t ?? p.w.join(" "),
+      text: p.t ?? joinWords(p.w),
       words,
       changed: p.c === true,
     };

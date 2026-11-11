@@ -1,3 +1,4 @@
+import { joinWords, wordGap } from "../unspaced.js";
 import type { CaptionLine, CaptionWord } from "./types.js";
 
 const DEFAULT_PAUSE_S = 0.45;
@@ -14,9 +15,10 @@ function wrap(words: CaptionWord[], maxChars: number): CaptionWord[][] {
   let length = 0;
   for (const word of words) {
     const row = rows[rows.length - 1];
-    if (row && length + 1 + word.text.length <= maxChars) {
+    const gap = row ? wordGap((row.at(-1) as CaptionWord).text, word.text).length : 0;
+    if (row && length + gap + word.text.length <= maxChars) {
       row.push(word);
-      length += 1 + word.text.length;
+      length += gap + word.text.length;
     } else {
       rows.push([word]);
       length = word.text.length;
@@ -31,14 +33,14 @@ export function wrapRows(text: string, maxChars: number): string[] {
     .split(/\s+/)
     .filter(Boolean)
     .map((t) => ({ text: t, start: 0, end: 0 }));
-  return wrap(words, maxChars).map((row) => row.map((w) => w.text).join(" "));
+  return wrap(words, maxChars).map((row) => joinWords(row.map((w) => w.text)));
 }
 
 function toLine(words: CaptionWord[], changed = false): CaptionLine {
   return {
     start: words[0]!.start,
     end: words[words.length - 1]!.end,
-    text: words.map((w) => w.text).join(" "),
+    text: joinWords(words.map((w) => w.text)),
     words,
     changed,
   };
@@ -128,7 +130,7 @@ export function mergeLines(a: CaptionLine, b: CaptionLine): CaptionLine {
   return {
     start: a.start,
     end: b.end,
-    text: words.map((w) => w.text).join(" "),
+    text: joinWords(words.map((w) => w.text)),
     words,
     changed: a.changed || b.changed,
   };

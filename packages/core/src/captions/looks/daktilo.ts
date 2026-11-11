@@ -1,3 +1,4 @@
+import { joinWords, wordGap } from "../../unspaced.js";
 import { CAPTION_LOOKS } from "../styles.js";
 import type { CaptionWord } from "../types.js";
 import {
@@ -84,7 +85,7 @@ export function look(o: LookInput): LookParts {
       const typed: { id: string; at: number; row: string; cut: number }[] = [];
       rows.forEach((ws, r) => {
         const row = `#l${i} .row:nth-child(${r + 1})`;
-        const rowText = ws.map((w) => w.text).join(" ");
+        const rowText = joinWords(ws.map((w) => w.text));
         let before = "";
         let early: number | null = null;
         // a scaled word's margins widen the row, and its letters are drawn larger from its centre
@@ -112,7 +113,8 @@ export function look(o: LookInput): LookParts {
             if (at <= 0) early = cut;
             else typed.push({ id: `#w${i}_${n}c${j}`, at, row, cut });
           }
-          before += " ";
+          const next = ws[ws.indexOf(w) + 1];
+          if (next) before += wordGap(w.text, next.text);
           doneExtra += 2 * (margin ?? 0);
         }
         // a row partly typed before this composition starts shows its strip that far from the start

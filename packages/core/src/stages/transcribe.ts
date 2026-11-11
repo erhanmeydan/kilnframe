@@ -4,6 +4,7 @@ import type { Defaults } from "../config.js";
 import { modelsDir } from "../config.js";
 import { WHISPER_SAMPLE_RATE, decodeAudio } from "../media/audio.js";
 import { TranscriptSchema, type Transcript, type Word } from "../schemas/transcript.js";
+import { UNSPACED } from "../unspaced.js";
 
 /** A word chunk as returned by the transformers.js ASR pipeline with `return_timestamps: "word"`. */
 export interface AsrChunk {
@@ -53,10 +54,6 @@ export function chunksToWords(chunks: AsrChunk[], durationS: number): Word[] {
   });
   return words;
 }
-
-/** A letter of a script written without spaces between words (Han, kana, Thai, Lao, Burmese). */
-const UNSPACED =
-  /[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Thai}\p{scx=Lao}\p{scx=Myanmar}]/u;
 
 /** Whether a chunk without a leading space starts a word anyway: a letter of an unspaced script, or one after it. */
 function startsUnspacedWord(prev: string, text: string): boolean {

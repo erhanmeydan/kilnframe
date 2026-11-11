@@ -26,6 +26,7 @@ import {
 import { CAPTION_LOOKS, type CaptionLook } from "./styles.js";
 import type { CaptionColors, CaptionLine, CaptionStyleId, CaptionWord } from "./types.js";
 import { lowerCase, upperCase } from "./upper.js";
+import { joinWords, wordGap } from "../unspaced.js";
 
 export interface CaptionDoc {
   lines: CaptionLine[];
@@ -68,14 +69,54 @@ const LOOK_MODULES: Record<CaptionStyleId, (o: LookInput) => LookParts> = {
   editoryal,
 };
 
-/** Two lines starting this close together start together. */
-const SAME_START_S = 0.001;
+/**
+ * The least time a line's last word stays on screen when an overlapping line that starts after it cuts it short: an
+ * imported SRT's two speakers. A line that would show it for less is folded into the next instead.
+ */
+const MIN_SHOWN_S = 0.3;
+/** The least time before the next line for lines apart: over one frame at every rate captions render at (23.976 up). */
+const MIN_FRAME_S = 0.05;
+
+/** The emoji two folded lines share: both when they fit the limit together, else the first. */
+function foldedEmoji(a?: string, b?: string): string | undefined {
+  if (!a || !b || a === b) return a ?? b;
+  return (a + b).length <= EMOJI_MAX ? a + b : a;
+}
+
+/**
+ * Two lines shown as one, the first's words then the second's. Words still in time order keep their times; otherwise
+ * (two speakers talking at once) they share the line's time by letters, in reading order, so a look that brings words
+ * in one at a time shows them all, and types them in the order they are read.
+ */
+function fold(a: CaptionLine, b: CaptionLine): CaptionLine {
+  const start = Math.min(a.start, b.start);
+  const end = Math.max(a.end, b.end);
+  let words = [...a.words, ...b.words];
+  if (words.some((w, i) => i > 0 && w.start < (words[i - 1] as CaptionWord).start)) {
+    const total = words.reduce((sum, w) => sum + Math.max(1, w.text.length), 0);
+    let used = 0;
+    words = words.map((w) => {
+      const from = start + ((end - start) * used) / total;
+      used += Math.max(1, w.text.length);
+      return { ...w, start: from, end: start + ((end - start) * used) / total };
+    });
+  }
+  const emoji = foldedEmoji(a.emoji, b.emoji);
+  return {
+    start,
+    end,
+    text: joinWords([a.text, b.text]),
+    words,
+    changed: a.changed || b.changed,
+    ...(emoji ? { emoji } : {}),
+  };
+}
 
 /**
  * Lines that have something to show, in time order and apart: an emptied or wordless line is left out of the
- * render and the SRT. Overlapping lines (two speakers in an imported SRT) are untangled the same way for both: a
- * line ends where the next starts, and two starting together become one line, the first's words then the
- * second's. Shown as given, the first would get no time on screen while its SRT cue ran on.
+ * render and the SRT. No caption text is lost to an overlap, and the render and the SRT get the same lines: a line
+ * that overlaps the next ends where the next starts when its last word still shows MIN_SHOWN_S; otherwise the two
+ * become one line (fold). A line whose last word would show for under a frame before the next is folded the same way.
  */
 export function captionLines(lines: CaptionLine[]): CaptionLine[] {
   const shown = lines
@@ -84,18 +125,15 @@ export function captionLines(lines: CaptionLine[]): CaptionLine[] {
   const out: CaptionLine[] = [];
   for (const line of shown) {
     const prev = out.at(-1);
-    if (prev && line.start <= prev.start + SAME_START_S) {
-      out[out.length - 1] = {
-        ...prev,
-        end: Math.max(prev.end, line.end),
-        text: `${prev.text} ${line.text}`,
-        words: [...prev.words, ...line.words],
-        changed: prev.changed || line.changed,
-        ...((prev.emoji ?? line.emoji) ? { emoji: prev.emoji ?? line.emoji } : {}),
-      };
-      continue;
+    if (prev) {
+      const lastWord = Math.max(prev.start, ...prev.words.map((w) => w.start));
+      const overlaps = prev.end > line.start;
+      if (line.start - lastWord < (overlaps ? MIN_SHOWN_S : MIN_FRAME_S)) {
+        out[out.length - 1] = fold(prev, line);
+        continue;
+      }
+      if (overlaps) out[out.length - 1] = { ...prev, end: line.start };
     }
-    if (prev && prev.end > line.start) out[out.length - 1] = { ...prev, end: line.start };
     out.push(line);
   }
   return out;
@@ -199,7 +237,7 @@ export function captionSegments(doc: CaptionDoc, segmentS = CAPTION_SEGMENT_S): 
   });
 }
 
-const rowLength = (words: string[]) => words.join(" ").length;
+const rowLength = (words: string[]) => joinWords(words).length;
 
 /**
  * Splits a block's words into rows: one row when it fits, otherwise the break that gives the most even
@@ -403,7 +441,7 @@ export function captionHtml(
     const widest = Math.max(
       ...rows.map(
         (r, ri) =>
-          (rowWidthEm(font, r.join(" "), parts) + growthEm(rowWords[ri] as typeof line.words)) *
+          (rowWidthEm(font, joinWords(r), parts) + growthEm(rowWords[ri] as typeof line.words)) *
           parts.fontPx,
       ),
     );
@@ -413,7 +451,7 @@ export function captionHtml(
     const markup = rowWords
       .map(
         (ws) =>
-          `<div class="row">${ws.map((w) => parts.wordMarkup(w, ids.get(w) as string)).join(" ")}</div>`,
+          `<div class="row">${ws.map((w, k) => (k ? wordGap((ws[k - 1] as typeof w).text, w.text) : "") + parts.wordMarkup(w, ids.get(w) as string)).join("")}</div>`,
       )
       .join("");
     const emoji = line.emoji
