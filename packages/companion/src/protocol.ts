@@ -395,7 +395,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     jobDir: z.string().min(1),
     ref: z.string().optional(),
   }),
-  z.object({ type: z.literal("job.cancel"), jobId: z.string() }),
+  /** `ref` comes back on the error for a job that has already finished. */
+  z.object({ type: z.literal("job.cancel"), jobId: z.string(), ref: z.string().optional() }),
   z.object({ type: z.literal("job.get"), jobId: z.string() }),
   z.object({ type: z.literal("styles.delete"), name: z.string().min(1) }),
   /** The voices of a speech provider (config/speech.json); the defaults' provider when none is named. */

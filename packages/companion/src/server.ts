@@ -129,6 +129,33 @@ export interface Companion {
   close(): Promise<void>;
 }
 
+/** Before the hello only this much is read: a hello with a 64-character token is about 80 bytes. */
+const MAX_HELLO_BYTES = 1024;
+
+/**
+ * Browsers send the page's Origin with a WebSocket. The panels send none, `null`, `file://`, a host's own
+ * scheme, or (the panel demo) a loopback page; a page on a web site can be none of ours.
+ */
+export function foreignOrigin(origin: string | undefined): boolean {
+  if (!origin || !/^https?:/i.test(origin)) return false;
+  try {
+    const host = new URL(origin).hostname;
+    return !["localhost", "127.0.0.1", "[::1]"].includes(host);
+  } catch {
+    return true;
+  }
+}
+
+/** The token of a well-formed hello, or null: nothing else is parsed for a client that has not signed in. */
+function helloToken(raw: string): string | null {
+  try {
+    const m = JSON.parse(raw) as { type?: unknown; token?: unknown } | null;
+    return m?.type === "hello" && typeof m.token === "string" ? m.token : null;
+  } catch {
+    return null;
+  }
+}
+
 function sameToken(a: string, b: string): boolean {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
@@ -203,6 +230,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
       ws.close(1008, "loopback only");
       return;
     }
+    // a web page open in a browser reaches 127.0.0.1 too; it still needs the token, but is turned away first
+    if (foreignOrigin(req.headers.origin)) {
+      ws.close(1008, "origin");
+      return;
+    }
     let authed = false;
     const send = (msg: ServerMessage) => ws.send(JSON.stringify(msg));
     const timer = setTimeout(() => {
@@ -212,11 +244,28 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
     ws.on("close", () => {
       clearTimeout(timer);
       clients.delete(ws);
-      // the last panel gone: a review left open no longer holds the app
+      // the last panel gone: a review left open no longer holds the app, now or after a later job
+      if (clients.size === 0) pendingReviews.clear();
       tellBusy();
     });
 
     ws.on("message", async (raw) => {
+      if (!authed) {
+        // only a small hello is read before the token is known: no JSON or schema work for anyone else
+        const bytes = Array.isArray(raw) ? raw.reduce((n, b) => n + b.length, 0) : raw.byteLength;
+        const token = bytes <= MAX_HELLO_BYTES ? helloToken(raw.toString()) : null;
+        if (token === null || !sameToken(token, o.token)) {
+          ws.close(1008, "unauthorized");
+          return;
+        }
+        authed = true;
+        clearTimeout(timer);
+        clients.add(ws);
+        send({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
+        const update = o.appUpdates?.state();
+        if (update) send({ type: "app.update", update });
+        return;
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(raw.toString());
@@ -235,19 +284,6 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
         return;
       }
       const msg = result.data;
-      if (!authed) {
-        if (msg.type !== "hello" || !sameToken(msg.token, o.token)) {
-          ws.close(1008, "unauthorized");
-          return;
-        }
-        authed = true;
-        clearTimeout(timer);
-        clients.add(ws);
-        send({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
-        const update = o.appUpdates?.state();
-        if (update) send({ type: "app.update", update });
-        return;
-      }
       try {
         switch (msg.type) {
           case "hello":
@@ -402,7 +438,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           }
           case "job.cancel":
             if (!queue.cancel(msg.jobId))
-              send({ type: "error", message: "This job has already finished." });
+              send({
+                type: "error",
+                message: "This job has already finished.",
+                ...(msg.ref ? { ref: msg.ref } : {}),
+              });
             break;
           case "review.closed":
             if (msg.outDir) pendingReviews.delete(msg.outDir);
