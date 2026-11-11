@@ -12,6 +12,7 @@ import {
   PLACE_FAILED,
   RENDER_BUSY,
   RENDER_FAILED,
+  UNSET_MARK,
   type HiddenTrack,
   type PlacedTracks,
   type ResolveBridge,
@@ -177,9 +178,9 @@ export function createResolveBridge(
       width: Number(s.timelineResolutionWidth),
       height: Number(s.timelineResolutionHeight),
       startFrame: start,
-      inSeconds: (mark?.in ?? 0) / rate.fps,
+      inSeconds: mark?.in !== undefined ? mark.in / rate.fps : UNSET_MARK,
       // Out is the last frame of the range, inclusive
-      outSeconds: mark?.out !== undefined ? (mark.out + 1) / rate.fps : length / rate.fps,
+      outSeconds: mark?.out !== undefined ? (mark.out + 1) / rate.fps : UNSET_MARK,
       endSeconds: length / rate.fps,
       videoTracks: await tl.GetTrackCount("video"),
       audioTracks: await tl.GetTrackCount("audio"),
@@ -430,8 +431,8 @@ export function createResolveBridge(
       const length = end - start;
       return {
         id,
-        inSeconds: (mark?.in ?? 0) / rate.fps,
-        outSeconds: mark?.out !== undefined ? (mark.out + 1) / rate.fps : length / rate.fps,
+        inSeconds: mark?.in !== undefined ? mark.in / rate.fps : UNSET_MARK,
+        outSeconds: mark?.out !== undefined ? (mark.out + 1) / rate.fps : UNSET_MARK,
         endSeconds: length / rate.fps,
       };
     },

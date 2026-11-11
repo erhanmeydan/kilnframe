@@ -1,6 +1,12 @@
 // What the Resolve panel's page can ask the Electron main process for (over IPC, through preload.ts). The
 // bridge does the Resolve work; the rest are the file and OS calls a sandboxed page cannot make itself.
 
+/**
+ * A mark the editor did not set, as the panel's range reads it (range.ts): sending 0 and the timeline's end
+ * instead made every timeline look marked, so the "mark a range first" checks never fired.
+ */
+export const UNSET_MARK = -1000;
+
 export interface ResolveSequence {
   /** Timeline.GetUniqueId(). */
   id: string;
@@ -13,9 +19,9 @@ export interface ResolveSequence {
   height: number;
   /** Timeline.GetStartFrame(): 90000 for a 25 fps timeline starting at 01:00:00:00. */
   startFrame: number;
-  /** Relative to the timeline start; 0 when no In is set. */
+  /** Relative to the timeline start; UNSET_MARK when no In is set. */
   inSeconds: number;
-  /** Relative to the timeline start; the timeline's length when no Out is set. */
+  /** Relative to the timeline start; UNSET_MARK when no Out is set. */
   outSeconds: number;
   endSeconds: number;
   videoTracks: number;

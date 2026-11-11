@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createFilmCraftBridge, TICKS } from "../src/filmcraft/bridge";
-import { EXPORTS_STOPPED, NOT_RUNNING, PLACE_FAILED, RENDER_FAILED } from "../src/resolve/api";
+import {
+  EXPORTS_STOPPED,
+  NOT_RUNNING,
+  PLACE_FAILED,
+  RENDER_FAILED,
+  UNSET_MARK,
+} from "../src/resolve/api";
+import { pickRange } from "../src/range";
 import { makeFakeFilmCraft, type FakeFilmCraft } from "./fake-filmcraft";
 
 const JOB = "/Users/ed/Movies/Kilnframe/job-1";
@@ -82,12 +89,13 @@ describe("filmcraft bridge", () => {
     });
   });
 
-  it("takes the whole sequence when no In/Out is set", async () => {
+  it("reports unset marks as unset, so the panel takes the whole sequence", async () => {
     const f = makeFakeFilmCraft({ rate: { num: 25, den: 1 } });
     const seq = await bridgeOf(f).currentSequence();
     expect(seq.fps).toBe("25");
-    expect(seq.inSeconds).toBe(0);
-    expect(seq.outSeconds).toBe(seq.endSeconds);
+    expect(seq.inSeconds).toBe(UNSET_MARK);
+    expect(seq.outSeconds).toBe(UNSET_MARK);
+    expect(pickRange(seq.inSeconds, seq.outSeconds, seq.endSeconds).source).toBe("sequence");
   });
 
   it("puts the insert and its sounds on new tracks above the footage, on the frame of atS", async () => {

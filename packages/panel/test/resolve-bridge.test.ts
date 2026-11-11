@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createResolveBridge } from "../src/resolve/bridge";
 import { makeFakeResolve } from "./fake-resolve";
+import { UNSET_MARK } from "../src/resolve/api";
+import { pickRange } from "../src/range";
 
 const fast = { sleep: async () => undefined };
 const bridge = (r: ReturnType<typeof makeFakeResolve>) =>
@@ -39,10 +41,14 @@ describe("resolve bridge", () => {
     await expect(bridge(makeFakeResolve({ noTimeline: true })).quickRange()).rejects.toThrow();
   });
 
-  it("takes the whole timeline when no In/Out is set", async () => {
+  it("reports unset marks as unset, so the panel takes the whole timeline and says no range is marked", async () => {
     const seq = await bridge(makeFakeResolve()).currentSequence();
-    expect(seq.inSeconds).toBe(0);
-    expect(seq.outSeconds).toBeCloseTo(271 / 25);
+    expect(seq.inSeconds).toBe(UNSET_MARK);
+    expect(seq.outSeconds).toBe(UNSET_MARK);
+    expect(pickRange(seq.inSeconds, seq.outSeconds, seq.endSeconds)).toMatchObject({
+      startS: 0,
+      source: "sequence",
+    });
   });
 
   it("says NO_SEQUENCE when there is no project or no timeline", async () => {
