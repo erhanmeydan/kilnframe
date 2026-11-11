@@ -1050,26 +1050,31 @@ export function createPremiereHost(
       // C: copies of each seed into its further pieces, on its own track (alignToVideo for an audio clip,
       // which lands the same way); an overwrite, but only over the clip's own emptied span
       if (plan.clones.length) {
-        // each action is made outside the transaction first, so a refused one names its clip in the log
+        // made inside the transaction, as Premiere wants its actions; a refused one names its clip in the log
         const found = await readFresh();
         const editor = await editorNow();
         const seedStart = new Map(plan.trims.map((tr) => [tr.key, tr.startF]));
-        const actions = plan.clones.map((cl) => {
+        const seeds = plan.clones.map((cl) => {
           const seed = byKey.get(cl.key);
           const where = `${cl.key} at +${cl.offsetF} frames (${seed?.info.plan.startF}-${seed?.info.plan.endF})`;
           if (!seed || !Number.isFinite(cl.offsetF))
             throw new Error(`no seed or offset for ${where}`);
-          const audio = seed.info.plan.kind === "audio";
-          try {
-            const it = found(cl.key, seedStart.get(cl.key) ?? startOf(cl.key));
-            return editor.createCloneTrackItemAction(it, at(cl.offsetF), 0, 0, audio, false);
-          } catch (err) {
-            throw new Error(`${err instanceof Error ? err.message : String(err)} for ${where}`, {
-              cause: err,
-            });
+          const it = found(cl.key, seedStart.get(cl.key) ?? startOf(cl.key));
+          return { cl, it, where, audio: seed.info.plan.kind === "audio" };
+        });
+        runStep(project, "copy clips", (c) => {
+          for (const { cl, it, where, audio } of seeds) {
+            try {
+              c.addAction(
+                editor.createCloneTrackItemAction(it, at(cl.offsetF), 0, 0, audio, false),
+              );
+            } catch (err) {
+              throw new Error(`${err instanceof Error ? err.message : String(err)} for ${where}`, {
+                cause: err,
+              });
+            }
           }
         });
-        runStep(project, "copy clips", (c) => actions.forEach((a) => c.addAction(a)));
       }
       onProgress?.(4, TOTAL);
 
