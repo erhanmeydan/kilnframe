@@ -128,7 +128,7 @@
                 "name": "Hangi yapay zeka modelleriyle çalışır?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla; Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da LM Studio veya Ollama'daki yerel bir modelle. Sadece görsel okuyabilen modeller sunulur. Yukarıdaki benchmark on dokuz modeli aynı klip üzerinde karşılaştırıyor."
+                  "text": "Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla; Antigravity CLI üzerinden Google hesabınızla; Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da LM Studio veya Ollama'daki yerel bir modelle. Sadece görsel okuyabilen modeller sunulur. Yukarıdaki benchmark on dokuz modeli aynı klip üzerinde karşılaştırıyor."
                 }
               },
               {
@@ -705,8 +705,8 @@
             <span class="tc">06 · MÜZİK</span>
             <h2 style="margin-top: 12px">Söylediğinizi izleyen müzik.</h2>
             <p style="color: var(--ink-2); font-size: 18px">
-              Müzik sekmesi timeline'ın tamamını ya da bir aralığı Google Lyria ile konulara göre
-              bölüm bölüm müzikler ve ayrı bir ize yerleştirir.
+              Müzik sekmesi timeline'ın tamamını, In/Out işaretlediyseniz o aralığı, Google Lyria ya
+              da ElevenLabs ile konulara göre bölüm bölüm müzikler ve ayrı bir ize yerleştirir.
             </p>
             <ol>
               <li>
@@ -734,8 +734,9 @@
               </li>
             </ol>
             <p style="color: var(--ink-2); font-size: 14px">
-              Google Gemini anahtarı gerekir, bölüm başına yaklaşık 0,08 dolar. Lyria müzikleri
-              Google'ın duyulmayan SynthID filigranını taşır.
+              Lyria için Google Gemini anahtarı (bölüm başına yaklaşık 0,08 dolar, Google'ın
+              duyulmayan SynthID filigranıyla) ya da ElevenLabs anahtarı (müziğin dakikası yaklaşık
+              0,15 dolar) gerekir.
             </p>
           </div>
           <div>
@@ -830,10 +831,89 @@
         </div>
       </section>
 
+      <section id="pauses">
+        <div class="wrap story">
+          <div>
+            <span class="tc">08 · BOŞLUK KALDIR</span>
+            <h2 style="margin-top: 12px">Boşluklar gider. Sekansınız kalır.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              Boşluk Kaldır sekmesi konuşmanızı bilgisayarınızda dinler, boşlukları bulur ve
+              sekansın boşluksuz bir kopyasını yapar. Bütün izler aynı karelerden kesilir, böylece
+              görüntü, ses ve B-roll birlikte kalır.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Boşlukları bulun:</b> küçük bir ses modeli bilgisayarınızda dinler, hiçbir şey
+                  dışarı çıkmaz.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Ne kadar sıkı olacağını seçin:</b> Yumuşak'ta sadece uzun boşluklar, Sıkı'da
+                  jump cut. Çizgi, kesmeden önce neyin gideceğini gösterir.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Kopyayı yapın:</b> "Sekansınız (Boşluksuz)" kendi sekansınızın yanında açılır.
+                  İşaretçiler, In ve Out içerikleriyle birlikte kayar.</span
+                >
+              </li>
+              <li>
+                <span><b>Önce In ve Out işaretleyin,</b> sadece o bölüm temizlensin.</span>
+              </li>
+            </ol>
+            <p style="color: var(--ink-2); font-size: 14px">
+              Premiere Pro, DaVinci Resolve ve FilmCraft'ta çalışır, anahtar gerekmez, ücreti yok.
+              Resolve'da yeni zaman çizelgesi kaynak kliplerinizden kurulduğu için renk ayarları,
+              efektler ve başlıklar taşınmaz.
+            </p>
+          </div>
+          <div>
+            <svg
+              viewBox="0 0 520 230"
+              role="img"
+              aria-label="Aralarında boşluk olan konuşma, sonra aynı konuşmanın boşlukları kapanmış hali"
+              style="width: 100%; height: auto"
+            >
+              <g font-family="var(--mono)" font-size="11" fill="var(--ink-2)">
+                <text x="20" y="22">ÖNCE</text>
+                <text x="20" y="138">SONRA</text>
+                <text x="418" y="183">2:12 kısa</text>
+              </g>
+              <g fill="var(--line)">
+                <rect x="90" y="34" width="18" height="56" />
+                <rect x="160" y="34" width="16" height="56" />
+                <rect x="272" y="34" width="18" height="56" />
+                <rect x="330" y="34" width="16" height="56" />
+                <rect x="430" y="34" width="16" height="56" />
+              </g>
+              <g fill="var(--clay)">
+                <rect x="20" y="34" width="70" height="56" rx="3" />
+                <rect x="108" y="34" width="52" height="56" rx="3" />
+                <rect x="176" y="34" width="96" height="56" rx="3" />
+                <rect x="290" y="34" width="40" height="56" rx="3" />
+                <rect x="346" y="34" width="84" height="56" rx="3" />
+                <rect x="446" y="34" width="34" height="56" rx="3" />
+              </g>
+              <g fill="var(--clay)">
+                <rect x="20" y="150" width="70" height="56" rx="3" />
+                <rect x="92" y="150" width="52" height="56" rx="3" />
+                <rect x="146" y="150" width="96" height="56" rx="3" />
+                <rect x="244" y="150" width="40" height="56" rx="3" />
+                <rect x="286" y="150" width="84" height="56" rx="3" />
+                <rect x="372" y="150" width="34" height="56" rx="3" />
+              </g>
+            </svg>
+          </div>
+        </div>
+      </section>
+
       <section id="foy">
         <div class="wrap">
           <div class="head">
-            <span class="tc">08 · TEKNİK FÖY</span>
+            <span class="tc">09 · TEKNİK FÖY</span>
             <div>
               <h2>Neler yapar.</h2>
               <p>Ne ürettiği, size nasıl teslim ettiği ve neyle çalıştığı.</p>
@@ -883,6 +963,16 @@
                 Gerçek görüntünüzün üstünde her sahneden bir kare; tek sahneyi notla yeniden
                 yaptırma.
               </dd>
+              <dt>Boşluk Kaldır</dt>
+              <dd>
+                Sekansın boşluksuz bir kopyası, Yumuşak'tan Sıkı'ya, bütün izler aynı karelerden
+                kesilir. Bilgisayarınızda, ücretsiz.
+              </dd>
+              <dt>Ses Düzelt</dt>
+              <dd>
+                Bir cümleyi kendi klonlanmış sesinizle (ElevenLabs) yeniden okutup yeni bir ize
+                yerleştirir.
+              </dd>
               <dt>Hikaye modu</dt>
               <dd>Bir konu; metne, seslendirmeye ve altında müziğe dönüşür, yeni bir sekansta.</dd>
               <dt>Diller</dt>
@@ -890,9 +980,9 @@
               <dt>Yapay zeka</dt>
               <dd>
                 Claude planı <span class="rec">önerilen</span> · ChatGPT planı
-                <span class="rec">önerilen</span> · Grok planı · Claude, OpenAI, Gemini, xAI,
-                MiniMax, OpenRouter anahtarı · bilgisayarınızda LM Studio ya da Ollama. Sadece
-                görsel okuyabilen modeller.
+                <span class="rec">önerilen</span> · Grok planı · Antigravity CLI üzerinden Google
+                hesabınız · Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai, OpenRouter anahtarı ·
+                bilgisayarınızda LM Studio ya da Ollama. Sadece görsel okuyabilen modeller.
               </dd>
               <dt>Gereken</dt>
               <dd>
@@ -913,7 +1003,7 @@
       <section id="benchmark">
         <div class="wrap">
           <div class="head">
-            <span class="tc">09 · BENCHMARK</span>
+            <span class="tc">10 · BENCHMARK</span>
             <div>
               <h2>On dokuz model, tek klip.</h2>
               <p>
@@ -1302,7 +1392,7 @@
       <section class="band">
         <div class="wrap">
           <div class="head">
-            <span class="tc">10 · GÖRÜNTÜNÜZ</span>
+            <span class="tc">11 · GÖRÜNTÜNÜZ</span>
             <div>
               <h2>Bilgisayarınızda kalır.</h2>
               <p>
@@ -1331,7 +1421,7 @@
       <section id="sss">
         <div class="wrap">
           <div class="head">
-            <span class="tc">11 · SORULAR</span>
+            <span class="tc">12 · SORULAR</span>
             <div><h2>Kurmadan önce.</h2></div>
           </div>
           <div class="faq">
@@ -1349,9 +1439,10 @@
               <summary>Hangi yapay zeka modelleriyle çalışır?</summary>
               <p>
                 Claude Code, Codex ya da Grok CLI üzerinden Claude, ChatGPT ya da Grok planınızla;
-                Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai ve OpenRouter API anahtarlarıyla; ya da
-                LM Studio ya da Ollama'daki yerel bir modelle. Sadece görsel okuyabilen modeller
-                sunulur. Yukarıdaki benchmark on dokuz modeli aynı klip üzerinde karşılaştırıyor.
+                Antigravity CLI üzerinden Google hesabınızla; Claude, OpenAI, Gemini, xAI, MiniMax,
+                Z.ai ve OpenRouter API anahtarlarıyla; ya da LM Studio ya da Ollama'daki yerel bir
+                modelle. Sadece görsel okuyabilen modeller sunulur. Yukarıdaki benchmark on dokuz
+                modeli aynı klip üzerinde karşılaştırıyor.
               </p>
             </details>
             <details>

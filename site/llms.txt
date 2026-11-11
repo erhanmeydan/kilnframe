@@ -1,6 +1,6 @@
 # Kilnframe
 
-> Kilnframe is a free, open source (Apache 2.0) plugin for Adobe Premiere Pro and DaVinci Resolve Studio, and it also works with the open source editor FilmCraft. The editor marks an in/out range on the timeline and picks a style; Kilnframe listens to what is said in that range, plans scenes, writes the animation as code (HTML, CSS, JavaScript, GSAP, Three.js), renders it on the editor's own computer with HyperFrames and places the clip and its sound effects on the timeline above the range. It can also score a whole video: it splits the speech into topics, writes music for each (Google Lyria) and keeps it under the voice.
+> Kilnframe is a free, open source (Apache 2.0) plugin for Adobe Premiere Pro and DaVinci Resolve Studio, and it also works with the open source editor FilmCraft. The editor marks an in/out range on the timeline and picks a style; Kilnframe listens to what is said in that range, plans scenes, writes the animation as code (HTML, CSS, JavaScript, GSAP, Three.js), renders it on the editor's own computer with HyperFrames and places the clip and its sound effects on the timeline above the range. It can also score a whole video: it splits the speech into topics, writes music for each (Google Lyria or ElevenLabs) and keeps it under the voice. And it removes the pauses from a talk: a copy of the sequence without them, every track cut at the same frames.
 
 Made by Erhan Meydan, a graphic designer and video creator. No account and no sign-in; the footage never leaves the computer, only text (the transcript and the plan) and a few still frames go to the AI the editor chooses.
 
@@ -13,13 +13,16 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 - Formats: landscape 16:9, portrait 9:16, square 1:1, at the sequence's frame rate.
 - Sound effects synthesised in code, delivered as a separate WAV track.
 - Story mode: no recording needed; write a topic and Kilnframe writes the story, or paste a text of your own; it narrates it (Gemini TTS), adds music and builds a new sequence.
-- Music tab: music for every topic of a video, ducked under the voice, one clip per section.
+- Music tab: music for every topic of a video (Google Lyria or ElevenLabs), ducked under the voice, one clip per section.
+- Remove Pauses tab: a local voice model finds the pauses; the editor sets Gentle to Tight and gets a copy of the sequence without them (In/Out aware, markers follow), in Premiere Pro, DaVinci Resolve and FilmCraft, free.
+- Voice Fix tab: re-read a line in the editor's own cloned voice (ElevenLabs) and place it on a new track.
 - Captions tab: captions for the whole sequence or a range in nine designed looks, written down locally, spelling corrected by the editor's AI without moving the timing, placed as one transparent clip, and saved as an SRT file.
 - Local speech recognition (Whisper) with word timings, Turkish and many other languages.
 
 ## AI it works with
 
 - The plan the editor already pays for: Claude (through Claude Code), ChatGPT (through Codex), Grok (through Grok CLI).
+- The editor's Google account through Google's Antigravity CLI, no API key (experimental).
 - API keys: Anthropic Claude, OpenAI, Google Gemini, xAI, MiniMax, Z.ai (GLM), OpenRouter, a custom endpoint.
 - Local models through LM Studio or Ollama.
 - Only models that can see images are offered.

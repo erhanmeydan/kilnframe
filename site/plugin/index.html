@@ -131,7 +131,7 @@
                 "name": "Which AI models does it work with?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; API keys for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in LM Studio or Ollama. Only models that can see images are offered. The benchmark above compares nineteen of them on the same clip."
+                  "text": "Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; your Google account through Antigravity CLI; API keys for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in LM Studio or Ollama. Only models that can see images are offered. The benchmark above compares nineteen of them on the same clip."
                 }
               },
               {
@@ -710,8 +710,9 @@
             <span class="tc">06 · MUSIC</span>
             <h2 style="margin-top: 12px">Music that follows what you say.</h2>
             <p style="color: var(--ink-2); font-size: 18px">
-              The Music tab scores the whole timeline or a range with Google Lyria, in sections that
-              follow your topics, and places it on its own track.
+              The Music tab scores the whole timeline, or the In/Out range when you mark one, with
+              Google Lyria or ElevenLabs, in sections that follow your topics, and places it on its
+              own track.
             </p>
             <ol>
               <li>
@@ -731,8 +732,8 @@
               </li>
             </ol>
             <p style="color: var(--ink-2); font-size: 14px">
-              Needs a Google Gemini key, about $0.08 per section. Lyria music carries Google's
-              inaudible SynthID watermark.
+              Needs a Google Gemini key for Lyria (about $0.08 per section, with Google's inaudible
+              SynthID watermark) or an ElevenLabs key (about $0.15 per minute of music).
             </p>
           </div>
           <div>
@@ -818,10 +819,89 @@
         </div>
       </section>
 
+      <section id="pauses">
+        <div class="wrap story">
+          <div>
+            <span class="tc">08 · REMOVE PAUSES</span>
+            <h2 style="margin-top: 12px">The pauses go. Your sequence stays.</h2>
+            <p style="color: var(--ink-2); font-size: 18px">
+              The Remove Pauses tab listens to your talk on your computer, finds the pauses and
+              makes a copy of the sequence without them. Every track is cut at the same frames, so
+              picture, sound and B-roll stay together.
+            </p>
+            <ol>
+              <li>
+                <span
+                  ><b>Find the pauses:</b> a small voice model listens on your computer; nothing
+                  leaves it.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Set how tight:</b> from Gentle, only the long pauses, to Tight, a jump cut.
+                  The bar shows what goes before anything is cut.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><b>Make the copy:</b> "Your Sequence (No Pauses)" opens beside your own. Markers,
+                  In and Out move with their content.</span
+                >
+              </li>
+              <li>
+                <span><b>Mark In and Out first</b> to clean up only that part.</span>
+              </li>
+            </ol>
+            <p style="color: var(--ink-2); font-size: 14px">
+              Works in Premiere Pro, DaVinci Resolve and FilmCraft, with no key and no cost. In
+              Resolve the new timeline is built from your source clips, so grades, effects and
+              titles are not carried over.
+            </p>
+          </div>
+          <div>
+            <svg
+              viewBox="0 0 520 230"
+              role="img"
+              aria-label="Speech with pauses between, then the same speech closed up without them"
+              style="width: 100%; height: auto"
+            >
+              <g font-family="var(--mono)" font-size="11" fill="var(--ink-2)">
+                <text x="20" y="22">BEFORE</text>
+                <text x="20" y="138">AFTER</text>
+                <text x="418" y="183">2:12 shorter</text>
+              </g>
+              <g fill="var(--line)">
+                <rect x="90" y="34" width="18" height="56" />
+                <rect x="160" y="34" width="16" height="56" />
+                <rect x="272" y="34" width="18" height="56" />
+                <rect x="330" y="34" width="16" height="56" />
+                <rect x="430" y="34" width="16" height="56" />
+              </g>
+              <g fill="var(--clay)">
+                <rect x="20" y="34" width="70" height="56" rx="3" />
+                <rect x="108" y="34" width="52" height="56" rx="3" />
+                <rect x="176" y="34" width="96" height="56" rx="3" />
+                <rect x="290" y="34" width="40" height="56" rx="3" />
+                <rect x="346" y="34" width="84" height="56" rx="3" />
+                <rect x="446" y="34" width="34" height="56" rx="3" />
+              </g>
+              <g fill="var(--clay)">
+                <rect x="20" y="150" width="70" height="56" rx="3" />
+                <rect x="92" y="150" width="52" height="56" rx="3" />
+                <rect x="146" y="150" width="96" height="56" rx="3" />
+                <rect x="244" y="150" width="40" height="56" rx="3" />
+                <rect x="286" y="150" width="84" height="56" rx="3" />
+                <rect x="372" y="150" width="34" height="56" rx="3" />
+              </g>
+            </svg>
+          </div>
+        </div>
+      </section>
+
       <section id="spec">
         <div class="wrap">
           <div class="head">
-            <span class="tc">08 · SPEC SHEET</span>
+            <span class="tc">09 · SPEC SHEET</span>
             <div>
               <h2>Everything it does.</h2>
               <p>What it makes, how it hands it to you, and what it runs on.</p>
@@ -871,6 +951,15 @@
               </dd>
               <dt>Review</dt>
               <dd>A still per scene over your real footage; redo one scene with a note.</dd>
+              <dt>Remove Pauses</dt>
+              <dd>
+                A copy of the sequence without its pauses, Gentle to Tight, every track cut at the
+                same frames. On your computer, free.
+              </dd>
+              <dt>Voice Fix</dt>
+              <dd>
+                Read a line again in your own cloned voice (ElevenLabs) and place it on a new track.
+              </dd>
               <dt>Story mode</dt>
               <dd>
                 A topic becomes a script, a narration voice and music under it, in a new sequence.
@@ -882,9 +971,9 @@
               <dt>AI</dt>
               <dd>
                 Claude plan <span class="rec">recommended</span> · ChatGPT plan
-                <span class="rec">recommended</span> · Grok plan · API keys for Claude, OpenAI,
-                Gemini, xAI, MiniMax, OpenRouter · LM Studio or Ollama on your computer. Only models
-                that can see images.
+                <span class="rec">recommended</span> · Grok plan · your Google account through
+                Antigravity CLI · API keys for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai,
+                OpenRouter · LM Studio or Ollama on your computer. Only models that can see images.
               </dd>
               <dt>Runs on</dt>
               <dd>
@@ -905,7 +994,7 @@
       <section id="benchmark">
         <div class="wrap">
           <div class="head">
-            <span class="tc">09 · BENCHMARK</span>
+            <span class="tc">10 · BENCHMARK</span>
             <div>
               <h2>Nineteen models, one clip.</h2>
               <p>
@@ -1293,7 +1382,7 @@
       <section class="band">
         <div class="wrap">
           <div class="head">
-            <span class="tc">10 · YOUR FOOTAGE</span>
+            <span class="tc">11 · YOUR FOOTAGE</span>
             <div>
               <h2>It stays on your computer.</h2>
               <p>
@@ -1327,7 +1416,7 @@
       <section id="faq">
         <div class="wrap">
           <div class="head">
-            <span class="tc">11 · QUESTIONS</span>
+            <span class="tc">12 · QUESTIONS</span>
             <div><h2>Before you install.</h2></div>
           </div>
           <div class="faq">
@@ -1344,10 +1433,11 @@
             <details>
               <summary>Which AI models does it work with?</summary>
               <p>
-                Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; API keys
-                for Claude, OpenAI, Gemini, xAI, MiniMax, Z.ai and OpenRouter; or a local model in
-                LM Studio or Ollama. Only models that can see images are offered. The benchmark
-                above compares nineteen of them on the same clip.
+                Your Claude, ChatGPT or Grok plan through Claude Code, Codex or Grok CLI; your
+                Google account through Antigravity CLI; API keys for Claude, OpenAI, Gemini, xAI,
+                MiniMax, Z.ai and OpenRouter; or a local model in LM Studio or Ollama. Only models
+                that can see images are offered. The benchmark above compares nineteen of them on
+                the same clip.
               </p>
             </details>
             <details>
