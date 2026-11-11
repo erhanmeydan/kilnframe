@@ -18,6 +18,7 @@ import {
   type ResolveBridge,
   type ResolveSequence,
 } from "./api";
+import { frameCuts, piecesOf } from "../cut-plan";
 import { frameFor, insertScale } from "../frame";
 import { isOurAnimation, isOurInsert, isVoiceFixTake } from "../our-files";
 import { framesToTimecode, parseRate, rateString, type Rate } from "./timecode";
@@ -31,6 +32,8 @@ const POLL_MS = 2_000;
 const START_TRIES = 5;
 const PAGE_SETTLE_MS = 500;
 const READY_LIMIT_MS = 15_000;
+/** Clip infos per AppendToTimeline call when a cut rebuilds a timeline. */
+const CUT_BATCH = 200;
 
 const dirOf = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
 const baseOf = (p: string) => p.replace(/^.*[\\/]/, "").replace(/\.[^.]+$/, "");
@@ -122,24 +125,28 @@ export function createResolveBridge(
     return parseRate(`${s.timelineFrameRate}${df}`);
   }
 
+  /** The timeline with this id; NO_SEQUENCE when there is none. */
+  async function findTimeline(p: R, id: string): Promise<R> {
+    const count = await p.GetTimelineCount();
+    for (let i = 1; i <= count; i++) {
+      const tl = await p.GetTimelineByIndex(i);
+      if (tl && (await tl.GetUniqueId()) === id) return tl;
+    }
+    throw new Error(NO_SEQUENCE);
+  }
+
   /** The timeline with this id, made current for `fn`, the previous current one restored afterwards. */
   async function onTimeline<T>(id: string, fn: (tl: R, p: R) => Promise<T>): Promise<T> {
     const p = await project();
     const current = await p.GetCurrentTimeline();
     if (current && (await current.GetUniqueId()) === id) return fn(current, p);
-    const count = await p.GetTimelineCount();
-    for (let i = 1; i <= count; i++) {
-      const tl = await p.GetTimelineByIndex(i);
-      if (tl && (await tl.GetUniqueId()) === id) {
-        await p.SetCurrentTimeline(tl);
-        try {
-          return await fn(tl, p);
-        } finally {
-          if (current) await p.SetCurrentTimeline(current);
-        }
-      }
+    const tl = await findTimeline(p, id);
+    await p.SetCurrentTimeline(tl);
+    try {
+      return await fn(tl, p);
+    } finally {
+      if (current) await p.SetCurrentTimeline(current);
     }
-    throw new Error(NO_SEQUENCE);
   }
 
   /** The range marks: the video ones when they say anything, else the audio ones. */
@@ -271,6 +278,53 @@ export function createResolveBridge(
     }
   }
 
+  /** A new timeline's settings: the template's frame rate and size, or `size` instead. */
+  function settingsLike(
+    template: Record<string, string>,
+    size?: { width: number; height: number },
+  ) {
+    return {
+      useCustomSettings: "1",
+      timelineResolutionWidth: size ? String(size.width) : template.timelineResolutionWidth,
+      timelineResolutionHeight: size ? String(size.height) : template.timelineResolutionHeight,
+      timelineFrameRate: template.timelineFrameRate,
+      ...(template.timelineDropFrameTimecode
+        ? { timelineDropFrameTimecode: template.timelineDropFrameTimecode }
+        : {}),
+    };
+  }
+
+  /**
+   * Gives a new timeline the audio tracks of `kinds` ("mono", "stereo"...), in order. Its own first track is
+   * kept when it is of the right kind; otherwise it goes once the source's tracks are added after it.
+   */
+  async function matchAudioTracks(tl: R, kinds: string[]) {
+    const have = (await tl.GetTrackCount("audio")) as number;
+    let same = 0;
+    while (
+      same < have &&
+      same < kinds.length &&
+      (await tl.GetTrackSubType("audio", same + 1)) === kinds[same]
+    )
+      same++;
+    if (same === Math.min(have, kinds.length)) {
+      for (const kind of kinds.slice(have)) await tl.AddTrack("audio", kind);
+      return;
+    }
+    for (const kind of kinds.slice(same)) await tl.AddTrack("audio", kind);
+    for (let n = have; n > same; n--)
+      if (!(await tl.DeleteTrack("audio", n))) throw new Error(PLACE_FAILED);
+  }
+
+  /** A media pool item's own frame rate ("29.97", "50"); the timeline's when it says none. */
+  async function clipRate(media: R, fallback: number): Promise<number> {
+    const fps = Number(parseRate(String((await media.GetClipProperty("FPS")) ?? "")).fps);
+    return Number.isFinite(fps) && fps > 0 ? fps : fallback;
+  }
+
+  /** How far the running cut got, for cutProgress; null when none runs. */
+  let cutting: { done: number; total: number } | null = null;
+
   async function kilnframeFolder(pool: R): Promise<R> {
     const root = await pool.GetRootFolder();
     for (const f of (await root.GetSubFolderList()) ?? [])
@@ -330,19 +384,26 @@ export function createResolveBridge(
     const pool = await p.GetMediaPool();
     const placed = ((await pool.AppendToTimeline(infos)) ?? []) as R[];
     let good = placed.length === infos.length;
+    // each track read once per call: a cut appends hundreds of clips onto the same few tracks
+    const spans = new Map<string, Set<string>>();
+    const spansOn = async (type: "video" | "audio", index: number) => {
+      const key = `${type}${index}`;
+      let found = spans.get(key);
+      if (!found) {
+        found = new Set<string>();
+        for (const x of ((await tl.GetItemListInTrack(type, index)) ?? []) as R[])
+          found.add(`${await x.GetStart()}:${await x.GetEnd()}`);
+        spans.set(key, found);
+      }
+      return found;
+    };
     for (const [i, item] of placed.entries()) {
       const want = infos[i];
       if (!want) continue;
       const type = want.mediaType === 2 ? "audio" : "video";
-      const there = ((await tl.GetItemListInTrack(type, want.trackIndex)) ?? []) as R[];
-      const onTrack = await Promise.all(
-        there.map(
-          async (x) =>
-            (await x.GetStart()) === (await item.GetStart()) &&
-            (await x.GetEnd()) === (await item.GetEnd()),
-        ),
-      );
-      if ((await item.GetStart()) !== want.recordFrame || !onTrack.some(Boolean)) good = false;
+      const from = (await item.GetStart()) as number;
+      const onTrack = (await spansOn(type, want.trackIndex)).has(`${from}:${await item.GetEnd()}`);
+      if (from !== want.recordFrame || !onTrack) good = false;
     }
     if (!good) {
       if (placed.length) await tl.DeleteClips(placed, false);
@@ -776,16 +837,7 @@ export function createResolveBridge(
       await p.SetCurrentTimeline(tl);
       const w = Number(template.timelineResolutionWidth);
       const h = Number(template.timelineResolutionHeight);
-      const size = format ? frameFor(format, w, h) : { width: w, height: h };
-      await tl.SetSettings({
-        useCustomSettings: "1",
-        timelineResolutionWidth: String(size.width),
-        timelineResolutionHeight: String(size.height),
-        timelineFrameRate: template.timelineFrameRate,
-        ...(template.timelineDropFrameTimecode
-          ? { timelineDropFrameTimecode: template.timelineDropFrameTimecode }
-          : {}),
-      });
+      await tl.SetSettings(settingsLike(template, format ? frameFor(format, w, h) : undefined));
       if (bed) await tl.AddTrack("audio", "stereo");
       const start = (await tl.GetStartFrame()) as number;
       // whole clips: a WAV's "Frames" property comes back empty, so no start/end frames are given
@@ -803,6 +855,129 @@ export function createResolveBridge(
         recordFrame: start,
       }));
       await append(tl, p, infos);
+    },
+
+    // There is no razor in Resolve's scripting API: the cut rebuilds the timeline from its source clips into a
+    // new one (MediaPool.CreateEmptyTimeline, AppendToTimeline with startFrame/endFrame in source frames,
+    // TimelineItem.GetSourceStartFrame). Grades, effects, titles and transitions do not come along; the
+    // original timeline is only read.
+    async cutToNewTimeline(id, cuts, name) {
+      const p = await project();
+      const editorTimeline = await p.GetCurrentTimeline();
+      const source = await findTimeline(p, id);
+      const settings = (await source.GetSetting()) as Record<string, string>;
+      const rate = await rateOf(source);
+      const start = (await source.GetStartFrame()) as number;
+      const frames = frameCuts(cuts, rate.fps, ((await source.GetEndFrame()) as number) - start);
+
+      // everything is read before anything is made
+      const audioKinds: string[] = [];
+      let videoTracks = 0;
+      const off: HiddenTrack[] = [];
+      const pieces: {
+        media: R;
+        startFrame: number;
+        endFrame: number;
+        mediaType: 1 | 2;
+        trackIndex: number;
+        at: number;
+      }[] = [];
+      let leftOut = 0;
+      for (const type of ["video", "audio"] as const) {
+        const count = (await source.GetTrackCount(type)) as number;
+        if (type === "video") videoTracks = count;
+        for (let i = 1; i <= count; i++) {
+          if (type === "audio")
+            audioKinds.push((await source.GetTrackSubType("audio", i)) as string);
+          if (!(await source.GetIsTrackEnabled(type, i))) off.push({ type, index: i });
+          for (const item of ((await source.GetItemListInTrack(type, i)) ?? []) as R[]) {
+            const from = ((await item.GetStart()) as number) - start;
+            const to = ((await item.GetEnd()) as number) - start;
+            const kept = piecesOf(
+              { key: "", track: i, kind: type, startF: from, endF: to },
+              frames,
+            );
+            // wholly inside the cuts: meant to go
+            if (!kept.length) continue;
+            // a title, generator or Fusion clip has no real media pool item
+            const media = (await item.GetMediaPoolItem()) as R | null | undefined;
+            if (!media || typeof media.GetClipProperty !== "function") {
+              leftOut++;
+              continue;
+            }
+            // source frames count at the clip's own rate (50 fps B-roll on a 25 fps timeline runs two per
+            // timeline frame); only a real speed change is left out. Within one frame: whether the source end
+            // frame is inclusive is not documented
+            const ratio = (await clipRate(media, rate.fps)) / rate.fps;
+            const sourceIn = (await item.GetSourceStartFrame()) as number;
+            const sourceLength = ((await item.GetSourceEndFrame()) as number) - sourceIn;
+            if (Math.abs(sourceLength / ratio - (to - from)) > 1) {
+              leftOut++;
+              continue;
+            }
+            const sourceAt = (f: number) => sourceIn + Math.round((f - from) * ratio);
+            for (const piece of kept)
+              pieces.push({
+                media,
+                startFrame: sourceAt(piece.fromF),
+                // exclusive, as measured for AppendToTimeline
+                endFrame: sourceAt(piece.toF),
+                mediaType: type === "audio" ? 2 : 1,
+                trackIndex: i,
+                at: piece.newStartF,
+              });
+          }
+        }
+      }
+
+      const pool = await p.GetMediaPool();
+      const tl = await pool.CreateEmptyTimeline(name);
+      if (!tl) throw new Error(PLACE_FAILED);
+      cutting = { done: 0, total: pieces.length };
+      try {
+        // appends act on the current timeline
+        await p.SetCurrentTimeline(tl);
+        await tl.SetSettings(settingsLike(settings));
+        for (let n = (await tl.GetTrackCount("video")) as number; n < videoTracks; n++)
+          await tl.AddTrack("video");
+        await matchAudioTracks(tl, audioKinds);
+        const at = (await tl.GetStartFrame()) as number;
+        for (let i = 0; i < pieces.length; i += CUT_BATCH) {
+          const batch = pieces.slice(i, i + CUT_BATCH);
+          await append(
+            tl,
+            p,
+            batch.map((c) => ({
+              mediaPoolItem: c.media,
+              startFrame: c.startFrame,
+              endFrame: c.endFrame,
+              mediaType: c.mediaType,
+              trackIndex: c.trackIndex,
+              recordFrame: at + c.at,
+            })),
+          );
+          cutting.done += batch.length;
+        }
+        // switched off after the appends, as on the original: whether Resolve appends onto a disabled track
+        // is not measured
+        for (const t of off) await tl.SetTrackEnable(t.type, t.index, false);
+        return {
+          id: (await tl.GetUniqueId()) as string,
+          name: (await tl.GetName()) as string,
+          leftOut,
+          rebuilt: true,
+        };
+      } catch {
+        await pool.DeleteTimelines([tl]).catch(() => false);
+        if (editorTimeline) await p.SetCurrentTimeline(editorTimeline).catch(() => false);
+        throw new Error(PLACE_FAILED);
+      } finally {
+        cutting = null;
+      }
+    },
+
+    async cutProgress() {
+      return cutting && { ...cutting };
     },
   };
 }

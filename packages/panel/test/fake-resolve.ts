@@ -1,6 +1,7 @@
 // An in-memory DaVinci Resolve with the promise API the bridge uses, including the quirks seen in Resolve
 // Studio 21.1.1: AppendToTimeline clears In/Out and moves the playhead, slides a clip off an occupied spot,
 // and "places" nothing on a locked track while still returning the item.
+import { parseRate } from "../src/resolve/timecode";
 
 export interface FakeItem {
   start: number;
@@ -8,6 +9,8 @@ export interface FakeItem {
   sourceIn: number;
   sourceOut: number;
   path: string;
+  /** The clip's own frame rate (its media pool item's "FPS"); the timeline's when absent. */
+  fps?: string;
   /** What TimelineItem.SetProperty set (Scaling for a 4K clip on a larger timeline). */
   props?: Record<string, unknown>;
 }
@@ -15,6 +18,8 @@ export interface FakeTrack {
   items: FakeItem[];
   enabled: boolean;
   locked: boolean;
+  /** Timeline.GetTrackSubType ("mono", "stereo", "5.1"...); an audio track without one is stereo. */
+  subType?: string;
 }
 export interface FakeTimeline {
   id: string;
@@ -53,6 +58,8 @@ export interface FakeOptions {
   refuseDisable?: number[];
   /** GetTrackCount throws, as on a timeline deleted while the job ran. */
   failTrackCount?: boolean;
+  /** Called before each AppendToTimeline, to look at the bridge while a cut runs. */
+  onAppend?: () => Promise<void> | void;
 }
 
 const track = (items: FakeItem[] = []): FakeTrack => ({ items, enabled: true, locked: false });
@@ -73,6 +80,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     timecodes: [] as string[],
     stills: [] as string[],
     formats: [] as string[],
+    /** The number of clip infos of each AppendToTimeline call. */
+    appends: [] as number[],
   };
   const newTimeline = (id: string, name: string): FakeTimeline => ({
     id,
@@ -139,11 +148,17 @@ export function makeFakeResolve(o: FakeOptions = {}) {
   const root = { name: "Master", subs: folders };
 
   // a title or compound clip ("" here) hands back a media pool item without GetClipProperty
-  const mpi = (path: string) =>
+  const mpi = (path: string, fps?: string) =>
     path
       ? {
           path,
-          GetClipProperty: async (k?: string) => (k === "File Path" ? path : { "File Path": path }),
+          fps,
+          GetClipProperty: async (k?: string) =>
+            k === "File Path"
+              ? path
+              : k === "FPS"
+                ? (fps ?? "")
+                : { "File Path": path, ...(fps ? { FPS: fps } : {}) },
         }
       : {};
   const wrapItem = (tl: FakeTimeline, type: "video" | "audio", idx: number, it: FakeItem) => ({
@@ -153,7 +168,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     GetSourceStartFrame: async () => it.sourceIn,
     GetSourceEndFrame: async () => it.sourceOut,
     GetTrackTypeAndIndex: async () => [type, idx],
-    GetMediaPoolItem: async () => mpi(it.path),
+    GetMediaPoolItem: async () => mpi(it.path, it.fps),
     SetProperty: async (k: string, v: unknown) => {
       if (o.refuseProperties) return false;
       it.props = { ...it.props, [k]: v };
@@ -215,8 +230,9 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         list(type).splice(i - 1, 1);
         return true;
       },
-      AddTrack: async (type: "video" | "audio") => {
+      AddTrack: async (type: "video" | "audio", subType?: string) => {
         const t = track();
+        if (type === "audio") t.subType = subType ?? "stereo";
         if (type === "video" && o.lockTopVideoTrackOnAdd) t.locked = true;
         list(type).push(t);
         return true;
@@ -231,6 +247,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         if (page !== "deliver") t.enabled = on;
         return true;
       },
+      GetTrackSubType: async (type: "video" | "audio", i: number) =>
+        type === "audio" ? (list(type)[i - 1]?.subType ?? "stereo") : "",
       GetIsTrackEnabled: async (type: "video" | "audio", i: number) =>
         list(type)[i - 1]?.enabled ?? false,
       GetIsTrackLocked: async (type: "video" | "audio", i: number) =>
@@ -251,15 +269,24 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       return folderApi(f);
     },
     SetCurrentFolder: async () => true,
-    ImportMedia: async (paths: string[]) => paths.map(mpi),
+    ImportMedia: async (paths: string[]) => paths.map((x) => mpi(x)),
     CreateEmptyTimeline: async (name: string) => {
       const tl = newTimeline(`tl-${timelines.length + 1}`, name);
       timelines.push(tl);
       return timelineApi(tl);
     },
+    DeleteTimelines: async (tls: { raw: FakeTimeline }[]) => {
+      for (const t of tls) {
+        const i = timelines.indexOf(t.raw);
+        if (i < 0) return false;
+        timelines.splice(i, 1);
+        if (project.current === t.raw) project.current = null;
+      }
+      return true;
+    },
     AppendToTimeline: async (
       infos: {
-        mediaPoolItem: { path: string };
+        mediaPoolItem: { path: string; fps?: string };
         startFrame?: number;
         endFrame?: number;
         mediaType: number;
@@ -267,6 +294,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         recordFrame: number;
       }[],
     ) => {
+      await o.onAppend?.();
+      log.appends.push(infos.length);
       const tl = project.current as FakeTimeline;
       const out = [];
       for (const info of infos) {
@@ -275,7 +304,14 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         const t = tl.tracks[type][info.trackIndex - 1] as FakeTrack;
         // a whole clip when no frames are given (a WAV of the fake is 250 frames long); endFrame is exclusive,
         // as measured in Resolve Studio 21.1.1 (12 Oct 2026: 20..891 placed 871 frames)
-        const len = info.endFrame !== undefined ? info.endFrame - (info.startFrame ?? 0) : 250;
+        // startFrame/endFrame count the clip's own frames: a 50 fps clip's 100 frames fill 50 of a 25 fps timeline
+        const ratio = info.mediaPoolItem.fps
+          ? parseRate(info.mediaPoolItem.fps).fps / parseRate(tl.settings.timelineFrameRate!).fps
+          : 1;
+        const len =
+          info.endFrame !== undefined
+            ? Math.round((info.endFrame - (info.startFrame ?? 0)) / ratio)
+            : 250;
         let start = info.recordFrame;
         for (const it of t.items) if (start < it.end && start + len > it.start) start = it.end;
         const it: FakeItem = {
@@ -284,6 +320,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
           sourceIn: info.startFrame ?? 0,
           sourceOut: info.endFrame ?? len,
           path: info.mediaPoolItem.path,
+          ...(info.mediaPoolItem.fps ? { fps: info.mediaPoolItem.fps } : {}),
         };
         if (!t.locked) t.items.push(it);
         out.push(wrapItem(tl, type, info.trackIndex, it));
