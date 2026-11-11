@@ -38,11 +38,12 @@ export function leadPadS(strictness: number): number {
 }
 
 /**
- * Silence kept after speech ends (a piece's end): 0.12 s up to the middle, 0.08 s at Tight. The voice
- * model marks the end where the voice fades, so a short tail keeps the ending without a long hang.
+ * Silence kept after speech ends (a piece's end): 0.05 s up to the middle, 0.03 s at Tight. The voice
+ * model marks the end where the voice fades (on a real talk within 40 ms of the sound falling to the room);
+ * the 0.12 s kept before left an audible hang after each sentence.
  */
 export function tailPadS(strictness: number): number {
-  return 0.12 + (0.08 - 0.12) * past(strictness);
+  return 0.05 + (0.03 - 0.05) * past(strictness);
 }
 
 /**

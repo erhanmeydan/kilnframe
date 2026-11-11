@@ -20,8 +20,8 @@ test("silenceGapS runs from 1.2 s at strictness 0 to 0.775 s at the middle, and 
   // a piece starts close to its first word at Tight; a word's fading end keeps most of its pad
   expect(leadPadS(0.5)).toBeCloseTo(0.1);
   expect(leadPadS(1)).toBeCloseTo(0.06);
-  expect(tailPadS(0.5)).toBeCloseTo(0.12);
-  expect(tailPadS(1)).toBeCloseTo(0.08);
+  expect(tailPadS(0.5)).toBeCloseTo(0.05);
+  expect(tailPadS(1)).toBeCloseTo(0.03);
 });
 
 test("strictness outside 0..1 is clamped", () => {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ffmpegPath } from "../src/config.js";
-import { VAD_FRAME_S, findSpeech, type VadStream } from "../src/index.js";
+import { VAD_FRAME_S, findSpeech, speechStartsEarlier, type VadStream } from "../src/index.js";
 
 function hasFfmpeg(): boolean {
   try {
@@ -143,5 +143,33 @@ describe.skipIf(!hasFfmpeg())("findSpeech", () => {
     await expect(
       findSpeech({ audioPath: "/no/such/file.wav", model: "unused", vad: energyVad() }),
     ).rejects.toThrow(/FFmpeg could not read/);
+  });
+});
+
+describe("speech starts at its sound", () => {
+  // the room at -70 dB, a word's soft start at -45 dB from 0.80 s, its voiced part from 1.00 s
+  const levels = (soft: number, voiced: number, until: number) => {
+    const l = new Float32Array(300).fill(-70);
+    for (let i = Math.round(soft * 100); i < Math.round(voiced * 100); i++) l[i] = -45;
+    for (let i = Math.round(voiced * 100); i < Math.round(until * 100); i++) l[i] = -25;
+    return l;
+  };
+
+  it("moves a start back to where the word's soft sound begins", () => {
+    expect(speechStartsEarlier([[1, 2]], levels(0.8, 1, 2))).toEqual([[0.8, 2]]);
+  });
+
+  it("goes back at most 250 ms, never into the speech before, and leaves a hard start alone", () => {
+    expect(speechStartsEarlier([[1, 2]], levels(0.3, 1, 2))[0]![0]).toBeCloseTo(0.75);
+    expect(
+      speechStartsEarlier(
+        [
+          [0, 0.9],
+          [1, 2],
+        ],
+        levels(0.8, 1, 2),
+      )[1]![0],
+    ).toBeCloseTo(0.9, 1);
+    expect(speechStartsEarlier([[1, 2]], levels(1, 1, 2))).toEqual([[1, 2]]);
   });
 });
