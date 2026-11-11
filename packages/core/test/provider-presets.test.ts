@@ -316,6 +316,35 @@ describe("retries", () => {
     expect(calls).toBe(1);
   });
 
+  it("ends a cancelled call during its pause before trying again, not when the pause is over", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(JSON.stringify({ error: { message: "busy" } }), {
+          status: 429,
+          headers: { "retry-after": "30" },
+        }),
+    );
+    const stop = new AbortController();
+    const started = Date.now();
+    const asked = provider().complete({ ...request, signal: stop.signal });
+    setTimeout(() => stop.abort(new Error("Cancelled")), 50);
+    await expect(asked).rejects.toThrow("Cancelled");
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  it("ends a cancelled call waiting for a turn among the requests the provider takes at once", async () => {
+    vi.stubGlobal("fetch", async () => ok());
+    const p = provider();
+    // the provider has taken as many requests as it allows
+    (p as unknown as { limit: number }).limit = 0;
+    const stop = new AbortController();
+    const asked = p.complete({ ...request, signal: stop.signal });
+    setTimeout(() => stop.abort(new Error("Cancelled")), 20);
+    await expect(asked).rejects.toThrow("Cancelled");
+    expect((p as unknown as { queue: unknown[] }).queue).toHaveLength(0);
+  });
+
   it("gives up after three tries, and never retries a refused key", async () => {
     let calls = 0;
     vi.stubGlobal("fetch", async () => {

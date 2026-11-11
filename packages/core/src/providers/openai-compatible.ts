@@ -450,8 +450,8 @@ export class OpenAICompatibleProvider implements TextProvider {
     let waits = 0;
     for (let attempt = 1; ; attempt++) {
       req.signal?.throwIfAborted();
-      await this.slot();
-      let pauseMs = 0;
+      await this.slot(req.signal);
+      let pauseMs: number;
       try {
         const reply = await this.once(req, effort);
         this.succeeded();
@@ -485,8 +485,8 @@ export class OpenAICompatibleProvider implements TextProvider {
       } finally {
         this.release();
       }
-      // the pause is taken outside the slot, so the other scenes keep going meanwhile
-      await new Promise((r) => setTimeout(r, pauseMs));
+      // the pause is taken outside the slot, so the other scenes keep going meanwhile; a cancel ends it
+      await pause(pauseMs, req.signal);
     }
   }
 
@@ -509,9 +509,25 @@ export class OpenAICompatibleProvider implements TextProvider {
   private limit = Number.POSITIVE_INFINITY;
   private queue: (() => void)[] = [];
 
-  /** Waits until fewer requests run than the provider takes at once, then counts this one in. */
-  private async slot(): Promise<void> {
-    while (this.running >= this.limit) await new Promise<void>((r) => this.queue.push(r));
+  /**
+   * Waits until fewer requests run than the provider takes at once, then counts this one in. A cancel ends the wait
+   * and takes it out of the queue.
+   */
+  private async slot(signal?: AbortSignal): Promise<void> {
+    while (this.running >= this.limit)
+      await new Promise<void>((resolve, reject) => {
+        const turn = () => {
+          signal?.removeEventListener("abort", cancelled);
+          resolve();
+        };
+        const cancelled = () => {
+          this.queue = this.queue.filter((r) => r !== turn);
+          reject(signal?.reason);
+        };
+        if (signal?.aborted) return cancelled();
+        this.queue.push(turn);
+        signal?.addEventListener("abort", cancelled, { once: true });
+      });
     this.running++;
   }
 
@@ -746,6 +762,22 @@ export function retryAfterMs(header: string | null, now: number = Date.now()): n
   const ms = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - now;
   if (!Number.isFinite(ms)) return null;
   return Math.min(Math.max(0, ms), 60_000);
+}
+
+/** Waits ms, or until the signal cancels, then rejects with its reason. */
+function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const cancelled = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", cancelled);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", cancelled, { once: true });
+  });
 }
 
 /** "Could not reach" with the reason fetch gave, so a timeout reads as a timeout. */
