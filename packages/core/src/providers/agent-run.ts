@@ -20,6 +20,8 @@ export interface AgentRunOptions {
   platform?: NodeJS.Platform;
   /** Ends the process and its children; replaced in tests. */
   kill?: (proc: ChildProcess) => void;
+  /** The caller's cancel: the process is ended and the run rejects with the signal's reason. */
+  signal?: AbortSignal | undefined;
 }
 
 /**
@@ -65,10 +67,16 @@ export function runAgentProcess(
     let settled = false;
     let timedOut = false;
     const timers: NodeJS.Timeout[] = [];
+    const kill = () => (o.kill ?? ((p) => killTree(p, o.platform, o.killGraceMs)))(proc);
+    const cancelled = () => {
+      kill();
+      settle(() => reject(o.signal?.reason));
+    };
     const settle = (fn: () => void) => {
       if (settled) return;
       settled = true;
       for (const t of timers) clearTimeout(t);
+      o.signal?.removeEventListener("abort", cancelled);
       fn();
     };
     const timeoutError = () =>
@@ -79,7 +87,7 @@ export function runAgentProcess(
     timers.push(
       setTimeout(() => {
         timedOut = true;
-        (o.kill ?? ((p) => killTree(p, o.platform, o.killGraceMs)))(proc);
+        kill();
         // a process that cannot be ended must not hold the job forever
         timers.push(setTimeout(() => settle(() => reject(timeoutError())), 15_000));
       }, o.timeoutMs),
@@ -97,6 +105,11 @@ export function runAgentProcess(
     });
     // a CLI that exits before reading its prompt breaks the pipe; close then reports what it printed
     proc.stdin.on("error", () => {});
+    if (o.signal?.aborted) {
+      cancelled();
+      return;
+    }
+    o.signal?.addEventListener("abort", cancelled, { once: true });
     proc.stdin.end(input);
   });
 }

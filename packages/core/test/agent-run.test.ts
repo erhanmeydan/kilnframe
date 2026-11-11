@@ -56,4 +56,29 @@ describe("running an agent CLI", () => {
     expect(r.stdout).toBe("done");
     expect(Date.now() - t).toBeLessThan(3_000);
   });
+
+  it("ends the CLI and its run when the caller cancels", async () => {
+    const proc = node("setInterval(()=>{},1000)");
+    const stop = new AbortController();
+    const run = runAgentProcess(proc, "", {
+      label: "Test",
+      timeoutMs: 10_000,
+      killGraceMs: 200,
+      signal: stop.signal,
+    });
+    setTimeout(() => stop.abort(new Error("Cancelled")), 50);
+    await expect(run).rejects.toThrow("Cancelled");
+    await new Promise((r) => setTimeout(r, 300));
+    if (process.platform === "win32") expect(proc.exitCode !== null || proc.killed).toBe(true);
+    else expect(proc.signalCode).not.toBeNull();
+  });
+
+  it("does not start a run already cancelled", async () => {
+    const proc = node("setInterval(()=>{},1000)");
+    const stop = new AbortController();
+    stop.abort(new Error("Cancelled"));
+    await expect(
+      runAgentProcess(proc, "", { label: "Test", timeoutMs: 10_000, signal: stop.signal }),
+    ).rejects.toThrow("Cancelled");
+  });
 });

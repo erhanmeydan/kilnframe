@@ -324,7 +324,7 @@ export class ClaudeCodeProvider implements TextProvider {
       ];
       if (hasImages) args.push("--allowedTools", "Read", "--add-dir", imageDir);
       const prompt = conversationPrompt(req.messages, imagePaths);
-      const out = await run(args, prompt, work, cliEnv(this.usePlan));
+      const out = await run(args, prompt, work, cliEnv(this.usePlan), req.signal);
       return readClaudeCodeResult(out, { model: this.model, purpose: req.purpose });
     } finally {
       rmSync(work, { recursive: true, force: true });
@@ -337,10 +337,12 @@ function run(
   input: string,
   cwd: string,
   env: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
 ): Promise<AgentRunResult> {
   // a scene can take minutes; a CLI stuck on the network or a prompt must still end
   return runAgentProcess(spawnAgent("claude", args, { cwd, env }), input, {
     label: "Claude Code",
     timeoutMs: 30 * 60_000,
+    signal,
   });
 }

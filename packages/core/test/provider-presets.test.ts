@@ -300,6 +300,22 @@ describe("retries", () => {
     expect(calls).toBe(2);
   });
 
+  it("hands the caller's signal to fetch, and a cancelled call is not tried again", async () => {
+    let calls = 0;
+    const stop = new AbortController();
+    vi.stubGlobal("fetch", (_url: string, init: RequestInit) => {
+      calls++;
+      expect(init.signal).toBe(stop.signal);
+      return new Promise((_, reject) =>
+        init.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
+      );
+    });
+    const asked = provider().complete({ ...request, signal: stop.signal });
+    setTimeout(() => stop.abort(new Error("Cancelled")), 10);
+    await expect(asked).rejects.toThrow("Cancelled");
+    expect(calls).toBe(1);
+  });
+
   it("gives up after three tries, and never retries a refused key", async () => {
     let calls = 0;
     vi.stubGlobal("fetch", async () => {

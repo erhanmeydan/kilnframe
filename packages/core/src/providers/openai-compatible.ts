@@ -449,6 +449,7 @@ export class OpenAICompatibleProvider implements TextProvider {
     let effort = this.o.reasoningEffort;
     let waits = 0;
     for (let attempt = 1; ; attempt++) {
+      req.signal?.throwIfAborted();
       await this.slot();
       let pauseMs = 0;
       try {
@@ -456,6 +457,8 @@ export class OpenAICompatibleProvider implements TextProvider {
         this.succeeded();
         return reply;
       } catch (err) {
+        // cancelled by the caller: never tried again
+        if (req.signal?.aborted) throw req.signal.reason;
         const others = this.running - 1;
         // Some accounts may hold only a few requests at once (a custom endpoint allowed 4 while a job
         // composed 6 scenes together): learn that limit, and wait for a running request to finish
@@ -572,6 +575,7 @@ export class OpenAICompatibleProvider implements TextProvider {
           ...(withNoThinking ? { reasoning_effort: "none" } : {}),
           ...this.o.extraBody,
         }),
+        ...(req.signal ? { signal: req.signal } : {}),
       });
     let res: Response;
     try {

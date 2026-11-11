@@ -102,18 +102,23 @@ export class AnthropicProvider implements TextProvider {
     let message: Anthropic.Beta.BetaMessage;
     try {
       message = await this.client.beta.messages
-        .stream({
-          model: this.model,
-          max_tokens: req.maxTokens,
-          system: [{ type: "text", text: req.system, cache_control: { type: "ephemeral" } }],
-          messages: toParams(req.messages),
-          thinking: { type: "adaptive" },
-          output_config: { effort: this.effort },
-          betas: ["server-side-fallback-2026-07-01"],
-          fallbacks: "default",
-        })
+        .stream(
+          {
+            model: this.model,
+            max_tokens: req.maxTokens,
+            system: [{ type: "text", text: req.system, cache_control: { type: "ephemeral" } }],
+            messages: toParams(req.messages),
+            thinking: { type: "adaptive" },
+            output_config: { effort: this.effort },
+            betas: ["server-side-fallback-2026-07-01"],
+            fallbacks: "default",
+          },
+          req.signal ? { signal: req.signal } : undefined,
+        )
         .finalMessage();
     } catch (err) {
+      // cancelled by the caller: said as the caller said it, never as a connection problem to try again
+      if (req.signal?.aborted) throw req.signal.reason;
       if (err instanceof Anthropic.AuthenticationError) {
         throw new ProviderError(
           "The Anthropic API key was rejected. Check the key in the settings.",

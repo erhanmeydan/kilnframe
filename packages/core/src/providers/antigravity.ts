@@ -370,7 +370,7 @@ export class AntigravityProvider implements TextProvider {
           content: [{ type: "text", text: antigravityPrompt(req, images) }],
         },
       });
-      const out = await run(args, `${message}\n`, dir);
+      const out = await run(args, `${message}\n`, dir, req.signal);
       const r = readAgyResult(out.stdout);
       if (!r) {
         // a capacity error can come on stderr alone, without a result line
@@ -443,10 +443,12 @@ function run(
   args: string[],
   input: string,
   cwd: string,
+  signal?: AbortSignal,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   // a scene can take minutes; a stuck run must still end
   return runAgentProcess(spawnAgent("agy", args, { cwd }), input, {
     label: "Antigravity CLI",
     timeoutMs: 30 * 60_000,
+    signal,
   });
 }

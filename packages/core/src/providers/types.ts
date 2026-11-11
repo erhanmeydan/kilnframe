@@ -15,6 +15,11 @@ export interface TextRequest {
   maxTokens: number;
   /** Short label for logs and usage accounting, e.g. "plan" or "compose s2". */
   purpose: string;
+  /**
+   * Cancels the call: an agent CLI is ended, an HTTP request is dropped, and the call rejects with the signal's
+   * reason instead of being tried again. Without it a cancelled job's call ran on, and was billed, to its end.
+   */
+  signal?: AbortSignal | undefined;
 }
 
 export interface Usage {

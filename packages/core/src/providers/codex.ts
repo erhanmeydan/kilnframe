@@ -206,7 +206,7 @@ export class CodexProvider implements TextProvider {
         ...(this.model ? ["-m", this.model] : []),
         ...images.flatMap((f) => ["-i", f]),
       ];
-      const out = await this.run(args, codexPrompt(req, images.length), dir);
+      const out = await this.run(args, codexPrompt(req, images.length), dir, req.signal);
       const r = readCodexEvents(out.stdout);
       if (r.error) {
         const unavailable = mentionsUnavailableModel(r.error);
@@ -235,11 +235,17 @@ export class CodexProvider implements TextProvider {
     }
   }
 
-  private run(args: string[], prompt: string, cwd: string): Promise<AgentRunResult> {
+  private run(
+    args: string[],
+    prompt: string,
+    cwd: string,
+    signal?: AbortSignal,
+  ): Promise<AgentRunResult> {
     // a scene can take minutes; a stuck run must still end
     return runAgentProcess(spawnAgent("codex", args, { cwd }), prompt, {
       label: "Codex",
       timeoutMs: 30 * 60_000,
+      signal,
     });
   }
 }
