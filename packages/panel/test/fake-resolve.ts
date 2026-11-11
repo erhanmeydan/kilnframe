@@ -15,6 +15,8 @@ export interface FakeTrack {
   items: FakeItem[];
   enabled: boolean;
   locked: boolean;
+  /** Timeline.GetTrackSubType ("mono", "stereo", "5.1"...); an audio track without one is stereo. */
+  subType?: string;
 }
 export interface FakeTimeline {
   id: string;
@@ -53,6 +55,8 @@ export interface FakeOptions {
   refuseDisable?: number[];
   /** GetTrackCount throws, as on a timeline deleted while the job ran. */
   failTrackCount?: boolean;
+  /** Called before each AppendToTimeline, to look at the bridge while a cut runs. */
+  onAppend?: () => Promise<void> | void;
 }
 
 const track = (items: FakeItem[] = []): FakeTrack => ({ items, enabled: true, locked: false });
@@ -73,6 +77,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     timecodes: [] as string[],
     stills: [] as string[],
     formats: [] as string[],
+    /** The number of clip infos of each AppendToTimeline call. */
+    appends: [] as number[],
   };
   const newTimeline = (id: string, name: string): FakeTimeline => ({
     id,
@@ -215,8 +221,9 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         list(type).splice(i - 1, 1);
         return true;
       },
-      AddTrack: async (type: "video" | "audio") => {
+      AddTrack: async (type: "video" | "audio", subType?: string) => {
         const t = track();
+        if (type === "audio") t.subType = subType ?? "stereo";
         if (type === "video" && o.lockTopVideoTrackOnAdd) t.locked = true;
         list(type).push(t);
         return true;
@@ -231,6 +238,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         if (page !== "deliver") t.enabled = on;
         return true;
       },
+      GetTrackSubType: async (type: "video" | "audio", i: number) =>
+        type === "audio" ? (list(type)[i - 1]?.subType ?? "stereo") : "",
       GetIsTrackEnabled: async (type: "video" | "audio", i: number) =>
         list(type)[i - 1]?.enabled ?? false,
       GetIsTrackLocked: async (type: "video" | "audio", i: number) =>
@@ -257,6 +266,15 @@ export function makeFakeResolve(o: FakeOptions = {}) {
       timelines.push(tl);
       return timelineApi(tl);
     },
+    DeleteTimelines: async (tls: { raw: FakeTimeline }[]) => {
+      for (const t of tls) {
+        const i = timelines.indexOf(t.raw);
+        if (i < 0) return false;
+        timelines.splice(i, 1);
+        if (project.current === t.raw) project.current = null;
+      }
+      return true;
+    },
     AppendToTimeline: async (
       infos: {
         mediaPoolItem: { path: string };
@@ -267,6 +285,8 @@ export function makeFakeResolve(o: FakeOptions = {}) {
         recordFrame: number;
       }[],
     ) => {
+      await o.onAppend?.();
+      log.appends.push(infos.length);
       const tl = project.current as FakeTimeline;
       const out = [];
       for (const info of infos) {
