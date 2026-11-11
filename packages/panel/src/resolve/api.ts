@@ -1,5 +1,6 @@
 // What the Resolve panel's page can ask the Electron main process for (over IPC, through preload.ts). The
 // bridge does the Resolve work; the rest are the file and OS calls a sandboxed page cannot make itself.
+import type { CutSequenceResult, TimelineCut } from "../host";
 
 /**
  * A mark the editor did not set, as the panel's range reads it (range.ts): sending 0 and the timeline's end
@@ -111,6 +112,13 @@ export interface ResolveBridge {
     music: string | null,
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
+  /**
+   * A new timeline, `name`, holding timeline `id` with `cuts` taken out of every track; it becomes the current
+   * one. Optional: a bridge without it cannot cut.
+   */
+  cutToNewTimeline?(id: string, cuts: TimelineCut[], name: string): Promise<CutSequenceResult>;
+  /** Progress of a running cutToNewTimeline, asked while it runs (IPC has no callback); null when idle. */
+  cutProgress?(): Promise<{ done: number; total: number } | null>;
 }
 
 export interface KilnframeResolveApi extends ResolveBridge {
@@ -144,3 +152,5 @@ export const NOT_RUNNING = "FILMCRAFT_NOT_RUNNING";
 export const CONNECTION_LOST = "FILMCRAFT_CONNECTION_LOST";
 /** FilmCraft did not reply in time. */
 export const TIMED_OUT = "FILMCRAFT_TIMED_OUT";
+/** The editor lacks a command the cut needs (an older FilmCraft). */
+export const CUT_UNSUPPORTED = "CUT_UNSUPPORTED";
