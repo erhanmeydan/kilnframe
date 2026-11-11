@@ -7,6 +7,7 @@ import { audioRangeParams } from "./audio-range";
 import { host, type Host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
+import { cleanProviderSettings, offersAddress, presetModel } from "./provider-settings";
 import {
   musicAct,
   musicBox,
@@ -1673,9 +1674,12 @@ function modelFor(id: string): string {
   // empty: the model the Google account uses by default
   if (id === "antigravity") return state.settings.models.antigravity ?? "";
   const chosen = state.settings.models[id];
-  if (chosen) return chosen;
-  if (LOCAL_PROVIDERS.has(id)) return lmStudioDefault(setup.served[id] ?? []);
-  return setup.list.find((p) => p.id === id)?.models[0] ?? "";
+  if (LOCAL_PROVIDERS.has(id)) return chosen || lmStudioDefault(setup.served[id] ?? []);
+  return presetModel(
+    id,
+    chosen,
+    setup.list.find((p) => p.id === id),
+  );
 }
 
 /**
@@ -1690,7 +1694,13 @@ function providerParams(): {
 } {
   const id = state.settings.provider;
   const model = modelFor(id);
-  const baseURL = state.settings.baseURLs[id]?.trim();
+  // an address only where the settings offer one: a stray one would send this provider's key elsewhere
+  const baseURL = offersAddress(
+    id,
+    setup.list.find((p) => p.id === id),
+  )
+    ? state.settings.baseURLs[id]?.trim()
+    : undefined;
   return {
     provider: id,
     ...(model ? { model } : {}),
@@ -1906,6 +1916,11 @@ async function refreshProviders() {
   try {
     const r = await session.request<ServerMessage>({ type: "providers.list" }, "providers", 30_000);
     setup.list = r.providers as ProviderEntry[];
+    const cleaned = cleanProviderSettings(state.settings, setup.list);
+    if (JSON.stringify(cleaned) !== JSON.stringify(state.settings)) {
+      state.settings = cleaned;
+      store("settings", JSON.stringify(state.settings));
+    }
     setup.claudeCode = r.claudeCode as typeof setup.claudeCode;
     setup.codex = r.codex as typeof setup.codex;
     setup.grok = r.grok as typeof setup.grok;
@@ -2111,11 +2126,11 @@ function providerDetail(id: string): string {
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
-      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
+      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" data-provider="${esc(id)}" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
       : "";
     const model =
       id === "custom"
-        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
+        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" data-provider="custom" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
         : "";
     body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
@@ -2659,6 +2674,23 @@ function lightboxScreen(): string {
   <div class="btn mt" data-act="lb-close">${t("lightbox.close")}</div>`;
 }
 
+/**
+ * The address and model fields belong to the provider whose detail was drawn: read them under that id, or
+ * the custom endpoint's address would be saved under the next provider (and its key sent there).
+ */
+function readProviderFields() {
+  const baseField = document.getElementById("base-input") as HTMLInputElement | null;
+  const modelField = document.getElementById("model-input") as HTMLInputElement | null;
+  if (!baseField && !modelField) return;
+  const id = (baseField ?? modelField)?.getAttribute("data-provider") ?? state.settings.provider;
+  state.settings = {
+    ...state.settings,
+    ...(baseField ? { baseURLs: { ...state.settings.baseURLs, [id]: baseField.value ?? "" } } : {}),
+    ...(modelField ? { models: { ...state.settings.models, [id]: modelField.value ?? "" } } : {}),
+  };
+  store("settings", JSON.stringify(state.settings));
+}
+
 function render() {
   const sceneNote = document.getElementById("scenenote") as HTMLTextAreaElement | null;
   if (sceneNote && state.review) state.review.note = sceneNote.value ?? "";
@@ -2690,19 +2722,7 @@ function render() {
   voiceFixReadFields(state.voiceFix);
   const keyField = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyField) setup.keyDraft = keyField.value ?? "";
-  const baseField = document.getElementById("base-input") as HTMLInputElement | null;
-  const modelField = document.getElementById("model-input") as HTMLInputElement | null;
-  if (baseField || modelField) {
-    const id = state.settings.provider;
-    state.settings = {
-      ...state.settings,
-      ...(baseField
-        ? { baseURLs: { ...state.settings.baseURLs, [id]: baseField.value ?? "" } }
-        : {}),
-      ...(modelField ? { models: { ...state.settings.models, [id]: modelField.value ?? "" } } : {}),
-    };
-    store("settings", JSON.stringify(state.settings));
-  }
+  readProviderFields();
   if (state.own) {
     const desc = document.getElementById("own-desc") as HTMLTextAreaElement | null;
     if (desc) state.own.description = desc.value ?? "";
@@ -4418,6 +4438,7 @@ function runAction(el: HTMLElement) {
   } else if (act === "ontop") {
     host().onTop?.set(val === "on");
   } else if (act === "provider") {
+    readProviderFields();
     state.settings = { ...state.settings, provider: val };
     store("settings", JSON.stringify(state.settings));
     setup.editingKey = null;
