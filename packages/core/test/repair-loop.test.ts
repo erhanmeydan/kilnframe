@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,7 +54,8 @@ vi.mock("../src/stages/render.js", async (orig) => ({
   })),
 }));
 
-const { recomposeScene } = await import("../src/stages/review.js");
+const { recomposeScene, renderApproved } = await import("../src/stages/review.js");
+const { renderPlan } = await import("../src/stages/render.js");
 const { runPipeline } = await import("../src/stages/run.js");
 
 const scene = (word: string) =>
@@ -163,6 +172,37 @@ describe("recomposeScene", () => {
     ).rejects.toThrow(/could not run on this computer[\s\S]*Failed to launch/);
     expect(provider.calls).toBe(1); // the compose, no repair
     expect(hf.checkCalls).toBe(2); // tried once more
+    expect(readFileSync(compositionFile(), "utf8")).toBe(original);
+  });
+
+  it("keeps the approved scenes beside a recompose until it ends, and clears them after", async () => {
+    const approved = join(dir, ".approved-scenes", "s1.html");
+    const seen: (string | null)[] = [];
+    const provider = fakeProvider([scene("new")]);
+    const complete = provider.complete.bind(provider);
+    provider.complete = async (...args: Parameters<typeof complete>) => {
+      // a kill now would leave this copy for the next read of the job folder
+      seen.push(existsSync(approved) ? readFileSync(approved, "utf8") : null);
+      return complete(...args);
+    };
+    hf.checks = [{ errors: [sceneError], environmentError: null }];
+    await expect(
+      recomposeScene({ outDir: dir, sceneId: "s1", note: "", provider, defaults }),
+    ).rejects.toThrow(/still fails validation/);
+    expect(seen.length).toBeGreaterThan(1);
+    expect(seen.every((html) => html === original)).toBe(true);
+    expect(existsSync(approved)).toBe(false);
+  });
+
+  it("puts the approved scenes back before rendering when a recompose never finished", async () => {
+    const approved = join(dir, ".approved-scenes");
+    mkdirSync(approved, { recursive: true });
+    writeFileSync(join(approved, "s1.html"), original);
+    writeFileSync(compositionFile(), "<template><!-- an unchecked repair --></template>");
+    vi.mocked(renderPlan).mockClear();
+    await renderApproved({ outDir: dir });
+    const scenes = vi.mocked(renderPlan).mock.calls[0]![0].scenes;
+    expect(scenes.s1).toBe(original);
     expect(readFileSync(compositionFile(), "utf8")).toBe(original);
   });
 

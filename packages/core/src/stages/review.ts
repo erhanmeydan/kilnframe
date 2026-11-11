@@ -1,6 +1,6 @@
 import { recipesForPlan } from "../recipes.js";
 import { isRecipeScene } from "../recipe-fill.js";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { assetPreview } from "../assets.js";
 import { readFrames } from "../frames.js";
@@ -31,8 +31,20 @@ interface JobFolder {
   speechPath: string | undefined;
 }
 
+/**
+ * The scenes as approved, kept beside the job while a recompose runs. A recompose ended by Stop (its process
+ * group killed) leaves an unchecked repair attempt in compositions/, which Render takes as checked; the next
+ * read of the job folder puts these back first.
+ */
+const APPROVED_DIR = ".approved-scenes";
+
 function readJobFolder(outDirIn: string): JobFolder {
   const outDir = resolve(outDirIn);
+  const approved = join(outDir, APPROVED_DIR);
+  if (existsSync(approved)) {
+    cpSync(approved, join(outDir, "project", "compositions"), { recursive: true });
+    rmSync(approved, { recursive: true, force: true });
+  }
   const plan = PlanSchema.parse(JSON.parse(readFileSync(join(outDir, "plan.json"), "utf8")));
   const scenes = Object.fromEntries(
     plan.scenes.map((s) => {
@@ -126,6 +138,11 @@ export async function recomposeScene(
   }
   log(`Composing ${o.sceneId} again`);
   const note = o.note.trim();
+  // written before any attempt touches compositions/, removed only once the new scene passed and has stills
+  const approved = join(job.outDir, APPROVED_DIR);
+  mkdirSync(approved, { recursive: true });
+  for (const [id, html] of Object.entries(job.scenes))
+    writeFileSync(join(approved, `${id}.html`), html);
   try {
     const redo = await composeScene(ctx, {
       ...scene,
@@ -151,11 +168,13 @@ export async function recomposeScene(
       speechPath: job.speechPath,
       onProgress: log,
     });
+    rmSync(approved, { recursive: true, force: true });
     return { plan: job.plan, render, usage, repairRounds };
   } catch (err) {
     // the repair rounds wrote their attempts into compositions/; Render takes that folder as checked, so
     // the scenes the editor approved go back in place of a version that never passed
     restoreScenes(job);
+    rmSync(approved, { recursive: true, force: true });
     throw err;
   } finally {
     if (usage.calls.length)
