@@ -402,25 +402,43 @@ describe("helpers", () => {
 });
 
 describe("ClaudeCodeProvider", () => {
-  it("folds a conversation into one prompt and points at reference images", async () => {
+  it("folds a conversation into one prompt", async () => {
     const { conversationPrompt } = await import("../src/index.js");
-    const single = conversationPrompt(
-      [{ role: "user", content: [{ type: "text", text: "plan this" }] }],
-      [[]],
-    );
-    expect(single).toBe("plan this");
-    const folded = conversationPrompt(
-      [
-        { role: "user", content: [{ type: "text", text: "write s1" }] },
-        { role: "assistant", content: [{ type: "text", text: "<html>v1</html>" }] },
-        { role: "user", content: [{ type: "text", text: "fix the error" }] },
-      ],
-      [["/tmp/a.png"], [], []],
-    );
-    expect(folded).toContain("<user>\nReference images for this message");
-    expect(folded).toContain("/tmp/a.png");
+    expect(
+      conversationPrompt([{ role: "user", content: [{ type: "text", text: "plan this" }] }]),
+    ).toBe("plan this");
+    const folded = conversationPrompt([
+      { role: "user", content: [{ type: "text", text: "write s1" }] },
+      { role: "assistant", content: [{ type: "text", text: "<html>v1</html>" }] },
+      { role: "user", content: [{ type: "text", text: "fix the error" }] },
+    ]);
+    expect(folded).toContain("<user>\nwrite s1\n</user>");
     expect(folded).toContain("<assistant>\n<html>v1</html>\n</assistant>");
-    expect(folded.endsWith("fix the error")).toBe(true);
+    expect(folded.endsWith("Now answer this message:\n\nfix the error")).toBe(true);
+  });
+
+  it("keeps each message's images inline, at their place in the history", async () => {
+    const { conversationContent } = await import("../src/index.js");
+    const img = { type: "image" as const, mediaType: "image/png" as const, base64: "AAA" };
+    const blocks = conversationContent([
+      { role: "user", content: [img, { type: "text", text: "write s1" }] },
+      { role: "assistant", content: [{ type: "text", text: "v1" }] },
+      { role: "user", content: [{ type: "text", text: "fix" }] },
+    ]);
+    expect(blocks.map((b) => b.type)).toEqual(["text", "image", "text"]);
+    expect(blocks[1]).toEqual({
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: "AAA" },
+    });
+    expect((blocks[0] as { text: string }).text.endsWith("<user>\n")).toBe(true);
+    expect((blocks[2] as { text: string }).text).toMatch(/^write s1\n<\/user>[\s\S]*fix$/);
+  });
+
+  it("reads the result line of stream-json output", async () => {
+    const { streamResult } = await import("../src/index.js");
+    const out =
+      '{"type":"system"}\n{"type":"assistant"}\n{"type":"result","subtype":"success","result":"ok"}\n';
+    expect(JSON.parse(streamResult(out)).result).toBe("ok");
   });
 
   // the fake CLI is a shell script, which Windows cannot start
