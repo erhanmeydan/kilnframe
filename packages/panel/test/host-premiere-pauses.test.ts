@@ -248,7 +248,16 @@ function fakePremiere(
         const items: Item[] = [];
         inSelection = true;
         try {
-          cb({ items, addItem: (it: Item) => (items.push(it), true) });
+          cb({
+            items,
+            addItem: (it: Item) => {
+              // the selection belongs to the active sequence: a clip of another one crashed Premiere 26.5
+              if (![...active.video, ...active.audio].includes(it.track))
+                throw new Error("Premiere crashed: a clip of a sequence that is not active");
+              items.push(it);
+              return true;
+            },
+          });
         } finally {
           inSelection = false;
         }
@@ -430,7 +439,8 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
     expect(f.project.deleteSequence).toHaveBeenCalledTimes(1);
     expect(f.seqs).toHaveLength(1);
     expect(f.originalUntouched()).toBe(true);
-    expect(f.project.setActiveSequence).not.toHaveBeenCalled();
+    // the copy was active while it was cut; the editor's own sequence is the active one again
+    expect(f.active()).toBe(f.seqs[0]);
   });
 
   it("deletes the copy when the read back differs from the plan", async () => {

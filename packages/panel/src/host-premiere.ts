@@ -926,6 +926,10 @@ export function createPremiereHost(
       clone = await cloneSequence(project, sequence);
       onProgress?.(1, TOTAL);
       const copy = clone;
+      // the copy is the active sequence while it is cut: a TrackItemSelection works on the active sequence,
+      // and making one for clips of a sequence that was not open crashed Premiere 26.5 (11 Nov 2026)
+      await project.openSequence(copy);
+      await project.setActiveSequence(copy);
       // the sequence and its editor are fetched again before each step too: an object read before a transaction
       // may no longer be valid after it, and the copy is found by its guid
       const guid = copy.guid.toString();
@@ -1150,7 +1154,12 @@ export function createPremiereHost(
       const id = guid;
       return { id, name, leftOut: plan.leftOut, rebuilt: false };
     } catch (err) {
-      if (clone) await project.deleteSequence(clone).catch(() => false);
+      if (clone) {
+        // the editor's own sequence comes back to the front before the copy goes
+        await project.openSequence(sequence).catch(() => false);
+        await project.setActiveSequence(sequence).catch(() => false);
+        await project.deleteSequence(clone).catch(() => false);
+      }
       if (err instanceof CutRefused) throw new Error(err.message, { cause: err });
       // the reason (which clip, which frames) goes with it for the log; the editor reads that nothing was lost
       // the step goes on the reason, which the tab logs from `cause`
