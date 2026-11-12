@@ -892,13 +892,23 @@ export function createPremiereHost(
    */
   async function cutToNewSequence(
     project: Project,
-    sequence: Sequence,
+    held: Sequence,
     cuts: TimelineCut[],
     _name: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<CutSequenceResult> {
     const TOTAL = 7;
-    const settings = await sequence.getSettings();
+    // the sequence and its editor are fetched fresh before each step: an object read before a transaction
+    // may no longer be valid after it, and Find Pauses ran transactions of its own (the tracks it switched
+    // off to listen) after this sequence object was read. Found by its guid
+    const guid = held.guid.toString();
+    const live = async () => {
+      const now = (await project.getSequences()).find((x) => x.guid.toString() === guid);
+      if (!now) throw new Error("The sequence is gone");
+      return now;
+    };
+    const editorNow = async () => ppro.SequenceEditor.getEditor(await live());
+    const settings = await (await live()).getSettings();
     const rate = await premiereCall<Awaited<ReturnType<typeof settings.getVideoFrameRate>>>(
       settings,
       "getVideoFrameRate",
@@ -912,20 +922,16 @@ export function createPremiereHost(
     let stage = "open the sequence";
     try {
       // the sequence is the active one while it is cut: a TrackItemSelection works on the active sequence,
-      // and making one for clips of a sequence that was not open crashed Premiere 26.5 (11 Nov 2026)
-      await project.openSequence(sequence);
-      await project.setActiveSequence(sequence);
+      // and making one for clips of a sequence that was not open crashed Premiere 26.5 (11 Nov 2026). Left
+      // alone when it already is
+      const active = await project.getActiveSequence();
+      if (!active || active.guid.toString() !== guid) {
+        const sequence = await live();
+        await project.openSequence(sequence);
+        await project.setActiveSequence(sequence);
+      }
       onProgress?.(1, TOTAL);
-      // the sequence and its editor are fetched again before each step too: an object read before a transaction
-      // may no longer be valid after it, and the sequence is found by its guid
-      const guid = sequence.guid.toString();
-      const live = async () => {
-        const now = (await project.getSequences()).find((x) => x.guid.toString() === guid);
-        if (!now) throw new Error("The sequence is gone");
-        return now;
-      };
-      const editorNow = async () => ppro.SequenceEditor.getEditor(await live());
-      const endF = Math.round(ticksOf(await sequence.getEndTime()) / tpf);
+      const endF = Math.round(ticksOf(await (await live()).getEndTime()) / tpf);
       const frames = frameCuts(cuts, ppro.TickTime.TIME_ONE_SECOND.ticksNumber / tpf, endF);
 
       // a transaction leaves the clip objects read before it no longer valid ("The script object is no longer
