@@ -5,9 +5,15 @@ import { framesToSeconds, parseFps } from "../fps.js";
 import type { Plan } from "../schemas/plan.js";
 import { styleHome, stylesDir } from "../styles.js";
 
+/**
+ * A style's sound palette. Its room tone stays off whatever the file says (a style the editor made may
+ * turn it on): the editor's recording has its own room, and a noise bed under the whole insert was heard
+ * as hiss under the effects.
+ */
 export function loadPalette(style: string, dir = styleHome(style) ?? stylesDir()): SfxPalette {
   const path = join(dir, style, "sfx.json");
-  return parsePalette(JSON.parse(readFileSync(path, "utf8")), path);
+  const palette = parsePalette(JSON.parse(readFileSync(path, "utf8")), path);
+  return { ...palette, room: { ...palette.room, enabled: false } };
 }
 
 /** Plan cues are body frames; the delivered files start with the handle, so shift by it. */

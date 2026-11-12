@@ -3,7 +3,7 @@
   "master_db": -5.5,
   "pan": 0.2,
   "room": {
-    "enabled": true,
+    "enabled": false,
     "db": -54
   },
   "sounds": {

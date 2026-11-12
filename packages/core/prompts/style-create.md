@@ -44,7 +44,7 @@ Reply with one JSON object and nothing else (no prose, no code fence):
   technique of the request; mark techniques the style cannot do as "Not supported: reason"),
   `## User images` (how photos, screenshots and logos are dressed; logos are never altered), `## Sound palette`,
   `## Forbidden`. Concrete and visual, written for an animator, in English.
-- `sfx` follows the example sfx.json: version 1, master_db, pan, room, and 3 to 6 named sounds, each a synth
+- `sfx` follows the example sfx.json: version 1, master_db, pan, room (always `{ "enabled": false, "db": -60 }`), and 3 to 6 named sounds, each a synth
   from the list with its parameters and a gain.
 - Turkish text uses Turkish letters and no dashes. Nowhere in on-screen text examples use dashes.
 
