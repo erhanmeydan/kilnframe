@@ -36,6 +36,10 @@ vi.mock("../src/empty.js", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   emptySceneFindings: vi.fn(async () => []),
 }));
+vi.mock("../src/shots.js", async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  takeShots: vi.fn(async () => async () => []),
+}));
 vi.mock("../src/failure-picture.js", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   failurePicture: vi.fn(async () => null),

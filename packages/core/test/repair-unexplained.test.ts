@@ -22,7 +22,15 @@ vi.mock("../src/hyperframes.js", async (actual) => {
     },
   };
 });
-vi.mock("../src/empty.js", () => ({ emptySceneFindings: () => Promise.resolve([]) }));
+vi.mock("../src/empty.js", async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  emptySceneFindings: () => Promise.resolve([]),
+}));
+// the pixel checks' one snapshot run (shots.ts) takes no frames here
+vi.mock("../src/shots.js", async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  takeShots: async () => async () => [],
+}));
 
 const golden = join(import.meta.dirname, "..", "..", "..", "examples", "golden", "flat-infografik");
 const silent = JSON.stringify({ ok: false, layout: { ok: false, errorCount: 0, findings: [] } });

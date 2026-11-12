@@ -2,10 +2,10 @@
 // only the background (a Three.js camera looking past its objects, a scene that never draws, 11 Oct 2026).
 // Measured in pixels at two points of each scene; such a scene goes back to repair instead of reaching review.
 import { spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
 import { ffmpegPath } from "./config.js";
 import { framesToSeconds, parseFps } from "./fps.js";
-import { snapshotProject, snapshotStills, type CheckFinding } from "./hyperframes.js";
+import type { CheckFinding } from "./hyperframes.js";
+import { snapshotShooter, type Shooter } from "./shots.js";
 import { sceneMode, type Plan } from "./schemas/plan.js";
 import { fullness } from "./stages/still-pick.js";
 
@@ -50,6 +50,16 @@ export function looksEmpty(frames: string[], mode: "fullscreen" | "overlay"): bo
   );
 }
 
+/** Per scene, when the empty check looks: the still time and, unless it is that late already, just before the end. */
+export function emptyCheckTimes(plan: Plan, stillTimes: number[]): number[][] {
+  const fps = parseFps(plan.fps);
+  return plan.scenes.map((s, i) => {
+    const end = framesToSeconds(s.end_frame, fps) - 0.2;
+    const usual = stillTimes[i] as number;
+    return end - usual > 0.3 ? [usual, end] : [usual];
+  });
+}
+
 /**
  * Renders every scene at its still time and just before it ends, in one snapshot run, and reports the scenes
  * that show nothing in both.
@@ -59,16 +69,10 @@ export async function emptySceneFindings(
   projectDir: string,
   stillTimes: number[],
   workDir: string,
+  shoot: Shooter = snapshotShooter(projectDir, workDir),
 ): Promise<CheckFinding[]> {
-  const fps = parseFps(plan.fps);
-  const times = plan.scenes.map((s, i) => {
-    const end = framesToSeconds(s.end_frame, fps) - 0.2;
-    const usual = stillTimes[i] as number;
-    return end - usual > 0.3 ? [usual, end] : [usual];
-  });
-  rmSync(workDir, { recursive: true, force: true });
-  await snapshotProject(projectDir, times.flat(), workDir);
-  const shots = snapshotStills(workDir);
+  const times = emptyCheckTimes(plan, stillTimes);
+  const shots = await shoot(times.flat());
   const findings: CheckFinding[] = [];
   let at = 0;
   plan.scenes.forEach((s, i) => {

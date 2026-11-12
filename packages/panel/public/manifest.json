@@ -1,7 +1,7 @@
 {
   "id": "kilnframe",
   "name": "Kilnframe",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "main": "index.html",
   "manifestVersion": 5,
   "host": {
