@@ -270,7 +270,11 @@ describe("remove pauses panel", () => {
     // 4.5 s asked, 4.52 s on the 25 fps grid (12.5 s is mid frame: the cut ends on the nearest frame, up)
     expect(html).toContain("2 pauses, 5 s shorter. 12:40 becomes 12:35.");
     expect(html).toContain('data-act="pauses-apply"');
-    expect(html).toContain("Create Sequence Without Pauses");
+    // Premiere cuts the sequence itself; Resolve builds a new timeline
+    expect(html).toContain("Remove Pauses</div>");
+    expect(pausesBox(st, fakeCtx({ kind: "resolve" }).ctx)).toContain(
+      "Create Sequence Without Pauses",
+    );
   });
 
   it("says when no speech was found", async () => {
@@ -406,13 +410,27 @@ describe("remove pauses panel", () => {
     expect(jobs(g.sent)).toHaveLength(1);
   });
 
-  it("offers no Stop while the new sequence is built", () => {
+  it("offers no Stop while the pauses are cut", () => {
     const html = pausesBox(
       atPreview({ stage: "applying", progress: { done: 3, total: 9 } }),
       fakeCtx().ctx,
     );
-    expect(html).toContain("Building the new sequence, 3 of 9.");
+    expect(html).toContain("Cutting the pauses, 3 of 9.");
     expect(html).not.toContain("pauses-stop");
+  });
+
+  it("says a cut in place can be undone, and a new sequence where one was built", () => {
+    const done = (inPlace: boolean, name: string) =>
+      atPreview({
+        stage: "done",
+        result: { id: "x", name, leftOut: 0, rebuilt: !inPlace, inPlace },
+      });
+    expect(pausesBox(done(true, "Main"), fakeCtx().ctx)).toContain(
+      'The pauses are cut from "Main". Undo',
+    );
+    expect(pausesBox(done(false, "Main (No Pauses)"), fakeCtx({ kind: "resolve" }).ctx)).toContain(
+      "is open. Your original sequence is unchanged.",
+    );
   });
 
   it("shows and clears a slider error in place, without a full render that would end the drag", async () => {

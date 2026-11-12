@@ -38,7 +38,7 @@ export interface TimelineCut {
   endS: number;
 }
 
-/** The sequence a cut made: it is open and active, the original untouched. */
+/** The sequence a cut left: the editor's own one cut in place, or a new one beside it (Resolve). */
 export interface CutSequenceResult {
   id: string;
   name: string;
@@ -46,6 +46,8 @@ export interface CutSequenceResult {
   leftOut: number;
   /** Built from source clips: effects, grades and titles are not on it. */
   rebuilt: boolean;
+  /** The editor's own sequence was cut (undo takes it back); false: a new sequence holds the cut. */
+  inPlace: boolean;
 }
 
 export interface Host {
@@ -156,8 +158,9 @@ export interface Host {
     format?: "landscape" | "portrait" | "square",
   ): Promise<void>;
   /**
-   * A new sequence, `name`, holding `seq` with `cuts` taken out of every track, which becomes the active one;
-   * `seq` itself is not edited. Missing where the editor cannot cut: the tab says it is not available here.
+   * `seq` with `cuts` taken out of every track: in place where the editor can (Premiere, FilmCraft), else a
+   * new sequence, `name`, which becomes the active one. Missing where the editor cannot cut: the tab says it
+   * is not available here.
    */
   cutToNewSequence?(
     seq: HostSequence,

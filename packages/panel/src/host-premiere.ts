@@ -139,7 +139,7 @@ export interface ExpectedClip {
   inTicks: number | null;
 }
 
-/** The edits of a cut, phase by phase; each phase is one transaction on the copy of the sequence. */
+/** The edits of a cut, phase by phase; each phase is one transaction on the sequence. */
 export interface PremiereCutPlan {
   /** A: clips with nothing left. */
   remove: string[];
@@ -157,7 +157,7 @@ export interface PremiereCutPlan {
 }
 
 /**
- * The cut of a copy of a sequence through Premiere's public track item actions, as measured in Premiere 26.5:
+ * The cut of a sequence through Premiere's public track item actions, as measured in Premiere 26.5:
  * set start trims (the in point follows), set end shrinks and grows into free space, a cloned track item lands
  * at the item's start plus an offset on its own track with the same in point and length and overwrites what
  * lies under it, a move is a relative shift that never overwrites, and a video clip's linked audio is not
@@ -824,24 +824,9 @@ export function createPremiereHost(
     if (!ok) throw new Error(`Premiere refused the step "${step}"`);
   }
 
-  /** A copy of `sequence`: the sequence whose guid was not there before the clone action. */
-  async function cloneSequence(project: Project, sequence: Sequence): Promise<Sequence> {
-    const before = new Set((await project.getSequences()).map((s) => s.guid.toString()));
-    const added = async () =>
-      (await project.getSequences()).filter((s) => !before.has(s.guid.toString()));
-    runStep(project, "copy the sequence", (c) => c.addAction(sequence.createCloneAction()));
-    const clone = (await added())[0];
-    if (!clone) {
-      // the transaction went through: whatever it made is the copy, and must not stay behind
-      for (const s of await added()) await project.deleteSequence(s).catch(() => false);
-      throw new Error("The copy of the sequence was not found");
-    }
-    return clone;
-  }
-
   /**
    * Transitions on `sequence` that touch a cut (an edge a pause is cut at, or a clip that goes): a trim or a
-   * move next to one may be refused, so they come off the copy first.
+   * move next to one may be refused, so they come off first.
    */
   async function transitionsAtCuts(sequence: Sequence, cuts: FrameCut[], tpf: number) {
     const TRANSITION = ppro.Constants.TrackItemType.TRANSITION;
@@ -899,15 +884,17 @@ export function createPremiereHost(
   class CutRefused extends Error {}
 
   /**
-   * Remove Pauses: a copy of the sequence with every track cut at the pauses and closed up, made the active
-   * sequence. The editor's sequence is never touched; the copy is deleted again when any step fails or the cut
-   * does not read back as planned (a locked track, say: Premiere does not tell a plugin about locks).
+   * Remove Pauses: every track of the editor's own sequence cut at the pauses and closed up, so a long talk
+   * can be cleaned up range by range. Each step is a transaction Premiere can undo; when a step fails or the
+   * cut does not read back as planned (a locked track, say: Premiere does not tell a plugin about locks), the
+   * editor is told to undo what was cut. Linked clips come apart where a clip is split: a plugin can copy a
+   * clip but not link the copies (no razor and no link action in Premiere 27.0).
    */
   async function cutToNewSequence(
     project: Project,
     sequence: Sequence,
     cuts: TimelineCut[],
-    name: string,
+    _name: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<CutSequenceResult> {
     const TOTAL = 7;
@@ -919,42 +906,38 @@ export function createPremiereHost(
     const tpf = rate.ticksPerFrame;
     // whole ticks: seconds at 29.97 fps would land a hair off the frame
     const at = (frames: number) => ppro.TickTime.createWithTicks(String(Math.round(frames * tpf)));
-    let clone: Sequence | null = null;
+    // once a step changed the sequence, a failure asks the editor to undo instead of saying nothing changed
+    let changed = false;
     // the step a failure came from, for the log
-    let stage = "copy the sequence";
+    let stage = "open the sequence";
     try {
-      clone = await cloneSequence(project, sequence);
-      onProgress?.(1, TOTAL);
-      const copy = clone;
-      // the copy is the active sequence while it is cut: a TrackItemSelection works on the active sequence,
+      // the sequence is the active one while it is cut: a TrackItemSelection works on the active sequence,
       // and making one for clips of a sequence that was not open crashed Premiere 26.5 (11 Nov 2026)
-      await project.openSequence(copy);
-      await project.setActiveSequence(copy);
+      await project.openSequence(sequence);
+      await project.setActiveSequence(sequence);
+      onProgress?.(1, TOTAL);
       // the sequence and its editor are fetched again before each step too: an object read before a transaction
-      // may no longer be valid after it, and the copy is found by its guid
-      const guid = copy.guid.toString();
+      // may no longer be valid after it, and the sequence is found by its guid
+      const guid = sequence.guid.toString();
       const live = async () => {
         const now = (await project.getSequences()).find((x) => x.guid.toString() === guid);
-        if (!now) throw new Error("The copy of the sequence is gone");
+        if (!now) throw new Error("The sequence is gone");
         return now;
       };
       const editorNow = async () => ppro.SequenceEditor.getEditor(await live());
-      const endF = Math.round(ticksOf(await copy.getEndTime()) / tpf);
+      const endF = Math.round(ticksOf(await sequence.getEndTime()) / tpf);
       const frames = frameCuts(cuts, ppro.TickTime.TIME_ONE_SECOND.ticksNumber / tpf, endF);
-      stage = "name the copy";
-      // a sequence is renamed through its project item
-      const projectItem = await copy.getProjectItem();
-      runStep(project, "name the copy", (c) => c.addAction(projectItem.createSetNameAction(name)));
 
       // a transaction leaves the clip objects read before it no longer valid ("The script object is no longer
       // valid", 11 Nov 2026): the transitions come off first, the clips are read after
       stage = "remove transitions";
-      // 0: transitions at the cuts come off the copy (the pieces meet in hard cuts there); when Premiere will
-      // not take them off, the cut is refused before any clip is touched
+      // 0: transitions at the cuts come off (the pieces meet in hard cuts there); when Premiere will not take
+      // them off, the cut is refused before any clip is touched
       const transitions = await transitionsAtCuts(await live(), frames, tpf);
       if (transitions.length) {
         const editor = await editorNow();
         try {
+          changed = true;
           withSelection(transitions, (selection) =>
             runStep(project, "remove transitions", (c) =>
               c.addAction(
@@ -1000,6 +983,7 @@ export function createPremiereHost(
       const startOf = (key: string) => (byKey.get(key) as ReadClip).info.plan.startF;
 
       stage = "remove clips";
+      changed = true;
       // A: clips with nothing left. One selection per media type: an ANY removal may take a linked partner
       // that still has pieces. The selections live only inside their callbacks, nothing async in them
       if (plan.remove.length) {
@@ -1142,29 +1126,22 @@ export function createPremiereHost(
       const why = cutMismatch(plan.expected, after, tpf);
       if (why) throw new Error(`The cut sequence differs from the plan: ${why}`);
 
-      // the copy's markers and In/Out were cloned at their old times: they follow their content
+      // the markers and In/Out are still at their old times: they follow their content
       stage = "move markers, In and Out";
       await followMarks(project, live, frames, tpf);
       onProgress?.(TOTAL, TOTAL);
 
       const done = await live();
-      await project.openSequence(done);
-      await project.setActiveSequence(done);
       known.set(guid, { project, sequence: done });
-      const id = guid;
-      return { id, name, leftOut: plan.leftOut, rebuilt: false };
+      return { id: guid, name: done.name, leftOut: plan.leftOut, rebuilt: false, inPlace: true };
     } catch (err) {
-      if (clone) {
-        // the editor's own sequence comes back to the front before the copy goes
-        await project.openSequence(sequence).catch(() => false);
-        await project.setActiveSequence(sequence).catch(() => false);
-        await project.deleteSequence(clone).catch(() => false);
-      }
       if (err instanceof CutRefused) throw new Error(err.message, { cause: err });
-      // the reason (which clip, which frames) goes with it for the log; the editor reads that nothing was lost
-      // the step goes on the reason, which the tab logs from `cause`
+      // the reason (which clip, which frames) goes with it for the log, from `cause`; the editor reads whether
+      // anything needs undoing
       if (err instanceof Error) err.message = `${stage}: ${err.message}`;
-      throw new Error(t("premiere.cutFailed"), { cause: err });
+      throw new Error(t(changed ? "premiere.cutFailedInPlace" : "premiere.cutFailed"), {
+        cause: err,
+      });
     }
   }
 
@@ -1183,7 +1160,7 @@ export function createPremiereHost(
   }
 
   /**
-   * Sequence markers and the In/Out on the cut copy: each moves left by the frames cut before it; a marker
+   * Sequence markers and the In/Out on the cut sequence: each moves left by the frames cut before it; a marker
    * inside a cut goes with it, an In or Out inside one goes to its edge.
    */
   async function followMarks(

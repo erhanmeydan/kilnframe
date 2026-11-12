@@ -44,8 +44,6 @@ function fakePremiere(
     setInPoint: "slip" as "slip" | "trim" | "throw",
     /** Removing a transition is refused (a selection takes clips only). */
     keepTransitions: false,
-    /** getSequences does not list the copy the first time after the clone. */
-    copyLate: false,
     /**
      * Clip objects read before a transaction are no longer valid after it (seen live on a long linked clip
      * trimmed in one step and cloned in the next): a stale object throws when used.
@@ -181,17 +179,10 @@ function fakePremiere(
   });
   seqs.push(active);
   const original = JSON.stringify({ tracks, marks });
-  let late = false;
 
   const project = {
     getActiveSequence: async () => active,
-    getSequences: async () => {
-      if (quirks.copyLate && seqs.length > 1 && !late) {
-        late = true;
-        return seqs.slice(0, 1);
-      }
-      return [...seqs];
-    },
+    getSequences: async () => [...seqs],
     lockedAccess: (fn: () => void) => fn(),
     executeTransaction: (fn: (c: { addAction(a: () => void): boolean }) => void, label: string) => {
       log.push(label);
@@ -344,8 +335,8 @@ const sorted = (t: Rec[]) =>
 /** Seconds at 25 fps. */
 const s = (f: number) => f / FPS;
 
-describe("Premiere cutToNewSequence (clone and cut)", () => {
-  it("cuts one linked clip at three pauses on both tracks into a new, active sequence", async () => {
+describe("Premiere cutToNewSequence (in place)", () => {
+  it("cuts one linked clip at three pauses on both tracks of the sequence itself", async () => {
     // a 10 s clip from 2 s into its media; pauses 2-3 s, 5-5.5 s, 8-9 s
     const f = fakePremiere({ video: [[clip("v", 0, 250, 50)]], audio: [[clip("a", 0, 250, 50)]] });
     const progress: number[] = [];
@@ -366,13 +357,14 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       [n, 100, 162, 188],
       [n, 162, 187, 275],
     ];
-    const clone = f.seqs[1];
-    expect(sorted(clone.video[0])).toEqual(pieces("v"));
-    expect(sorted(clone.audio[0])).toEqual(pieces("a"));
-    expect(r).toEqual({ id: "guid-2", name: "Main Pauses Removed", leftOut: 0, rebuilt: false });
-    expect(clone.name).toBe("Main Pauses Removed");
-    expect(f.active()).toBe(clone);
-    expect(f.originalUntouched()).toBe(true);
+    const main = f.seqs[0];
+    expect(sorted(main.video[0])).toEqual(pieces("v"));
+    expect(sorted(main.audio[0])).toEqual(pieces("a"));
+    expect(r).toEqual({ id: "guid-1", name: "Main", leftOut: 0, rebuilt: false, inPlace: true });
+    // no copy, no new name: the editor's own sequence, still the active one
+    expect(f.seqs).toHaveLength(1);
+    expect(main.name).toBe("Main");
+    expect(f.active()).toBe(main);
     expect(progress.at(-1)).toBeGreaterThan(progress[0]);
   });
 
@@ -388,7 +380,7 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       ],
       "Main Pauses Removed",
     );
-    expect(sorted(f.seqs[1].video[0]).map((p) => p.slice(1, 3))).toEqual([
+    expect(sorted(f.seqs[0].video[0]).map((p) => p.slice(1, 3))).toEqual([
       [0, 50],
       [50, 175],
       [175, 200],
@@ -401,7 +393,7 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       audio: [[]],
     });
     await f.host.cutToNewSequence!(f.seq, [{ startS: s(50), endS: s(75) }], "X");
-    expect(sorted(f.seqs[1].video[0])).toEqual([
+    expect(sorted(f.seqs[0].video[0])).toEqual([
       ["a", 0, 50, 0],
       ["c", 50, 125, 0],
     ]);
@@ -413,17 +405,17 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       audio: [[clip("a", 0, 200)]],
     });
     await f.host.cutToNewSequence!(f.seq, [{ startS: s(50), endS: s(100) }], "X");
-    expect(sorted(f.seqs[1].video[1])).toEqual([
+    expect(sorted(f.seqs[0].video[1])).toEqual([
       ["title", 25, 50, 0],
       ["title", 50, 75, 75],
     ]);
-    expect(sorted(f.seqs[1].video[0])).toEqual([
+    expect(sorted(f.seqs[0].video[0])).toEqual([
       ["v", 0, 50, 0],
       ["v", 50, 150, 100],
     ]);
   });
 
-  it("deletes the copy and leaves the original alone when a step fails", async () => {
+  it("asks the editor to undo when a step fails after the sequence changed", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     f.quirks.setInPoint = "throw";
     await expect(
@@ -435,15 +427,13 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
         ],
         "X",
       ),
-    ).rejects.toThrow();
-    expect(f.project.deleteSequence).toHaveBeenCalledTimes(1);
+    ).rejects.toThrow("Undo");
+    expect(f.project.deleteSequence).not.toHaveBeenCalled();
     expect(f.seqs).toHaveLength(1);
-    expect(f.originalUntouched()).toBe(true);
-    // the copy was active while it was cut; the editor's own sequence is the active one again
     expect(f.active()).toBe(f.seqs[0]);
   });
 
-  it("deletes the copy when the read back differs from the plan", async () => {
+  it("names the track when the read back differs from the plan, and asks to undo", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     f.quirks.setInPoint = "trim";
     const err = await f.host.cutToNewSequence!(
@@ -455,17 +445,18 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       "X",
     ).catch((e: Error) => e);
     expect(String((err as Error).cause)).toMatch(/V1/);
+    expect((err as Error).message).toContain("Undo");
     expect(f.seqs).toHaveLength(1);
   });
 
   it("runs every phase as one transaction and skips the empty ones", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
-    // clone, rename, trim to the seed, clone the seed, set its in point and end, move left
-    expect(f.log).toHaveLength(6);
+    // trim to the seed, clone the seed, set its in point and end, move left
+    expect(f.log).toHaveLength(4);
   });
 
-  it("moves the copy's markers and In/Out with their content; a marker inside a cut goes", async () => {
+  it("moves the markers and In/Out with their content; a marker inside a cut goes", async () => {
     const f = fakePremiere(
       { video: [[clip("v", 0, 250)]], audio: [[clip("a", 0, 250)]] },
       {
@@ -479,24 +470,23 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       },
     );
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
-    const copy = f.seqs[1]!;
-    expect(copy.marks.markers).toEqual([
+    const main = f.seqs[0]!;
+    expect(main.marks.markers).toEqual([
       { name: "before", f: 10 },
       { name: "after", f: 175 },
     ]);
     // In after the cut moves left; an Out inside it goes to its edge
-    expect(copy.marks.inF).toBe(75);
-    expect(copy.marks.outF).toBe(50);
-    expect(f.originalUntouched()).toBe(true);
+    expect(main.marks.inF).toBe(75);
+    expect(main.marks.outF).toBe(50);
   });
 
   it("leaves an unset In and Out unset", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
-    expect(f.seqs[1]!.marks).toEqual({ markers: [], inF: null, outF: null });
+    expect(f.seqs[0]!.marks).toEqual({ markers: [], inF: null, outF: null });
   });
 
-  it("takes transitions at the cuts off the copy and keeps the others", async () => {
+  it("takes transitions at the cuts off and keeps the others", async () => {
     const tr = (name: string, start: number, end: number): Rec => ({
       ...clip(name, start, end),
       transition: true,
@@ -506,12 +496,12 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       audio: [[clip("a", 0, 250)]],
     });
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
-    const left = f.seqs[1]!.video[0]!.filter((r) => r.transition).map((r) => r.name);
+    const left = f.seqs[0]!.video[0]!.filter((r) => r.transition).map((r) => r.name);
     expect(left).toEqual(["far"]);
     expect(f.removals[0]).toEqual({ mediaType: 0, names: ["at-cut"] });
   });
 
-  it("refuses with the editor's words when Premiere keeps the transitions, and deletes the copy", async () => {
+  it("refuses with the editor's words when Premiere keeps the transitions, before any clip is cut", async () => {
     const f = fakePremiere({
       video: [[clip("v", 0, 250), { ...clip("t", 45, 55), transition: true }]],
       audio: [[]],
@@ -536,21 +526,12 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
     ]);
   });
 
-  it("deletes a copy found only on a second look, before saying it was not found", async () => {
-    const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
-    f.quirks.copyLate = true;
-    const err = await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X").catch(
-      (e: Error) => e,
-    );
-    expect(String((err as Error).cause)).toMatch(/not found/);
-    expect(f.seqs).toHaveLength(1);
-  });
-
-  it("changes nothing but the copy's name when there are no pauses", async () => {
+  it("changes nothing when there are no pauses", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     await f.host.cutToNewSequence!(f.seq, [], "X");
-    expect(sorted(f.seqs[1].video[0])).toEqual([["v", 0, 250, 0]]);
-    expect(f.log).toHaveLength(2);
+    expect(sorted(f.seqs[0].video[0])).toEqual([["v", 0, 250, 0]]);
+    expect(f.log).toHaveLength(0);
+    expect(f.originalUntouched()).toBe(true);
   });
 });
 

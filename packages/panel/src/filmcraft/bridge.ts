@@ -8,8 +8,8 @@
 // - media.status gives an item's file path (null for generated media); timeline.setTrack {enabled} switches
 //   video and audio tracks off for exports.
 import {
-  COPY_LEFT,
   CUT_FAILED,
+  CUT_UNDO,
   CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
   NO_SEQUENCE,
@@ -68,12 +68,6 @@ interface ProjectNode {
 }
 
 const seconds = (ticks: number) => ticks / TICKS;
-/** Every project item named `name`, through the bins. */
-const itemsNamed = (node: ProjectNode, name: string, out: number[] = []): number[] => {
-  if (node.item !== undefined && node.name === name) out.push(node.item);
-  for (const c of node.children ?? []) itemsNamed(c, name, out);
-  return out;
-};
 /** The channel failed, not the command: said as it is, never as a missing sequence or a failed render. */
 const channelError = (err: unknown) =>
   [NOT_RUNNING, CONNECTION_LOST, TIMED_OUT].includes((err as Error).message);
@@ -84,7 +78,7 @@ const samePath = (a: string, b: string) => {
 };
 
 /** The engine commands a pause cut needs (FilmCraft 0.16.0). */
-const CUT_COMMANDS = ["sequence.simplify", "markers.markIn", "markers.markOut", "sequence.extract"];
+const CUT_COMMANDS = ["markers.markIn", "markers.markOut", "sequence.extract"];
 
 /** Every edit point of every track, in frames, as `piecesOf` says they lie after the cuts. */
 function editPoints(s: Sequence, cuts: FrameCut[] | null): number[][] {
@@ -688,11 +682,10 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
       if (bed !== undefined) await whole(bed, s.audio[1]!);
     },
 
-    // The editor's own Extract on a copy: sequence.simplify with every option off copies the sequence whole
-    // (effects, titles, links) and opens the copy; each pause is marked In to Out and extracted, which cuts all
-    // tracks and closes the gap (measured on 0.16.0). Last pause first, so the earlier frames stay where they
-    // were. The editor's sequence is never touched.
-    async cutToNewTimeline(id, cuts, name) {
+    // The editor's own Extract on the editor's sequence: each pause is marked In to Out and extracted, which
+    // cuts all tracks, keeps linked clips linked and closes the gap (measured on 0.16.0). Last pause first, so
+    // the earlier frames stay where they were. Each extract is an undo step of FilmCraft's own.
+    async cutToNewTimeline(id, cuts) {
       const listed = await commandList();
       if (!listed || CUT_COMMANDS.some((c) => !listed.has(c))) throw new Error(CUT_UNSUPPORTED);
       const editorSeq = await inspect();
@@ -702,40 +695,25 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
       const frames = frameCuts(cuts, fps, length);
       const removed = frames.reduce((n, c) => n + c.endF - c.startF, 0);
 
+      // the sequence asked for is the one marked and extracted
       if (source !== editorSeq) await fc.exec("sequence.open", { item: source.id });
-      // items already named like the copy: one that appears after a failed simplify is the copy
-      const namedBefore = new Set(
-        itemsNamed((await fc.exec<{ root: ProjectNode }>("project.inspect")).root, name),
-      );
-      let copy: number | null = null;
+      let extracted = 0;
       cutting = { done: 0, total: frames.length };
       try {
-        const made = await fc.exec<{ sequence: number; name: string }>("sequence.simplify", {
-          name,
-          removeDisabled: false,
-          removeEmptyTracks: false,
-          closeGaps: false,
-          moveClipsDown: false,
-          removeVideoEffects: false,
-          removeAudioEffects: false,
-          removeText: false,
-        });
-        copy = made.sequence;
-        // simplify opens the copy; said again so a mark can never land on the editor's sequence
-        await fc.exec("sequence.open", { item: copy });
         for (const c of [...frames].reverse()) {
           await fc.exec("markers.markIn", { frame: c.startF, target: "program" });
           // the Out frame is extracted too (In 48, Out 72 took 25 frames on 0.16.0): the last frame of the
           // pause, not the first one kept
           await fc.exec("markers.markOut", { frame: c.endF - 1, target: "program" });
           await fc.exec("sequence.extract", {});
+          extracted++;
           cutting.done++;
         }
         // extract clears them itself (0.16.0); an older or newer one may not
         await fc.exec("markers.clearInOut", { target: "program" });
 
         // every track must have followed: a locked track or an Out read one frame off shows here
-        const after = await inspect(String(copy));
+        const after = await inspect(String(source.id));
         const afterLength = after.durationFrames ?? frame(after, seconds(after.duration));
         const want = editPoints(source, frames);
         const got = editPoints(after, null);
@@ -748,7 +726,7 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
           );
         if (!same)
           throw new Error(
-            `${CUT_FAILED}: the copy is ${afterLength} frames, ${length - removed} expected, or a track did not follow the cut`,
+            `${CUT_FAILED}: the sequence is ${afterLength} frames, ${length - removed} expected, or a track did not follow the cut`,
           );
         // the editor's In and Out follow their content (a mark inside a pause goes to its edge). Out is the
         // last frame of the range here, as extract showed; a lost mark is not worth failing the cut for
@@ -758,42 +736,22 @@ export function createFilmCraftBridge(fc: FilmCraftClient): ResolveBridge {
           await mark("markers.markIn", newEndF(frameAt(source, source.in), frames));
         if (source.out != null)
           await mark("markers.markOut", newEndF(frameAt(source, source.out) + 1, frames) - 1);
-        return { id: String(copy), name: after.name || made.name, leftOut: 0, rebuilt: false };
+        return {
+          id: String(source.id),
+          name: after.name || source.name,
+          leftOut: 0,
+          rebuilt: false,
+          inPlace: true,
+        };
       } catch (err) {
-        await fc.exec("sequence.open", { item: editorSeq.id }).catch(() => undefined);
-        // simplify failed after making its copy: found by its name, as an item that was not there before
-        if (copy === null && !channelError(err)) {
-          const made = await fc
-            .exec<{ root: ProjectNode }>("project.inspect")
-            .then((p) => itemsNamed(p.root, name).filter((i) => !namedBefore.has(i)))
-            .catch(() => []);
-          if (made.length === 1) copy = made[0]!;
-        }
-        let left = false;
-        if (copy !== null) {
-          // only with a shape FilmCraft lists: a guessed one might fall back to the editor's selection.
-          // Measured on 0.16.0: project.delete {items:[seq]} deleted that sequence ({items:1})
-          const params = listed.get("project.delete") ?? "";
-          const what = /"items"\s*:\s*\[/.test(params)
-            ? { items: [copy] }
-            : /"item"\s*:/.test(params)
-              ? { item: copy }
-              : null;
-          left =
-            !what ||
-            !(await fc.exec("project.delete", what).then(
-              () => true,
-              () => false,
-            ));
-        }
         if (channelError(err)) throw err;
         // FilmCraft's own reason in the message: a cause does not cross from the app to the panel window
         const why = (err instanceof Error ? err.message : String(err)).replace(
           new RegExp(`^${CUT_FAILED}: `),
           "",
         );
-        const leftNote = left ? `${COPY_LEFT}=${JSON.stringify(name)}: ` : "";
-        throw new Error(`${CUT_FAILED}: ${leftNote}${why}`, { cause: err });
+        // a pause already extracted: the editor undoes it (the marks of a refused step change nothing)
+        throw new Error(`${CUT_FAILED}: ${extracted ? `${CUT_UNDO}: ` : ""}${why}`, { cause: err });
       } finally {
         cutting = null;
       }

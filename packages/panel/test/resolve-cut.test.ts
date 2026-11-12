@@ -35,7 +35,13 @@ describe("resolve cut to a new timeline", () => {
       ],
       "Probe (No Pauses)",
     );
-    expect(r).toEqual({ id: "tl-2", name: "Probe (No Pauses)", leftOut: 0, rebuilt: true });
+    expect(r).toEqual({
+      id: "tl-2",
+      name: "Probe (No Pauses)",
+      leftOut: 0,
+      rebuilt: true,
+      inPlace: false,
+    });
     const made = f.project.current;
     expect(made.id).toBe("tl-2");
     // frames 50..75 and 150..175 go; the source frames follow the timeline frames

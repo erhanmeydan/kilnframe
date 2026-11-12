@@ -7,6 +7,7 @@ import {
   CONNECTION_LOST,
   COPY_LEFT,
   CUT_FAILED,
+  CUT_UNDO,
   CUT_UNSUPPORTED,
   EXPORTS_STOPPED,
   NOT_RUNNING,
@@ -61,9 +62,12 @@ export function createResolveHost(
             return null;
           }
         })();
-        throw new Error(name ? t("pauses.copyLeft", { name }) : t("premiere.cutFailed"), {
-          cause: err,
-        });
+        const said = name
+          ? t("pauses.copyLeft", { name })
+          : m.includes(CUT_UNDO)
+            ? t("premiere.cutFailedInPlace")
+            : t("premiere.cutFailed");
+        throw new Error(said, { cause: err });
       }
       if (m.includes(PLACE_FAILED)) throw new Error(t("premiere.placeFailed"), { cause: err });
       if (m.includes(CUT_UNSUPPORTED))
