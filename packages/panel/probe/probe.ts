@@ -315,4 +315,107 @@ button("btn-pauses", async () => {
   };
   log("7. Boşluk denemesi (S1)", out);
 });
+
+// 8. Razor spike (Premiere 27): are the razor actions there, do they cut linked clips together, and does a
+// ripple removal of the razored piece take its linked audio and close the gap? On a clone only.
+button("btn-razor", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const source = await project.getActiveSequence();
+  if (!source) throw new Error("Önce bir sekans aç.");
+  const T = (s: number) => ppro.TickTime.createWithSeconds(s);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const { VIDEO, AUDIO, ANY } = ppro.Constants.MediaType;
+  const run = (what: string, add: (c: any) => void): boolean | string => {
+    let ok: boolean | string = false;
+    try {
+      project.lockedAccess(() => {
+        ok = project.executeTransaction(add, `probe: ${what}`);
+      });
+    } catch (err) {
+      ok = `HATA ${String(err)}`;
+    }
+    return ok;
+  };
+  const r = (t: any) => +Number(t?.seconds ?? NaN).toFixed(3);
+  const items = async (seq: any, kind: "video" | "audio") => {
+    const n = kind === "video" ? await seq.getVideoTrackCount() : await seq.getAudioTrackCount();
+    const all: any[] = [];
+    for (let i = 0; i < n; i++) {
+      const track = kind === "video" ? await seq.getVideoTrack(i) : await seq.getAudioTrack(i);
+      all.push(...track.getTrackItems(CLIP, false));
+    }
+    return all;
+  };
+  const spans = async (seq: any, kind: "video" | "audio") =>
+    Promise.all(
+      (await items(seq, kind)).map(async (it) => [
+        await it.getTrackIndex().catch(() => -1),
+        r(await it.getStartTime()),
+        r(await it.getEndTime()),
+        r(await it.getInPoint()),
+      ]),
+    );
+  const out: Record<string, unknown> = { premiere: ppro.app?.version ?? null };
+
+  const before = new Set((await project.getSequences()).map((s: any) => s.guid.toString()));
+  out.cloneOk = run("clone", (c) => c.addAction(source.createCloneAction()));
+  const findClone = async () =>
+    (await project.getSequences()).find((s: any) => !before.has(s.guid.toString()));
+  let clone = await findClone();
+  if (!clone) return log("8. Razor denemesi", out);
+  const pi = await clone.getProjectItem();
+  run("rename", (c) => c.addAction(pi.createSetNameAction(`${source.name} razor probe`)));
+  clone = await findClone();
+  await project.openSequence(clone);
+  await project.setActiveSequence(clone);
+
+  const editor = ppro.SequenceEditor.getEditor(clone);
+  out.api = {
+    createRazorAllTracksAction: typeof editor.createRazorAllTracksAction,
+    createRazorTrackAction: typeof editor.createRazorTrackAction,
+  };
+  if (typeof editor.createRazorAllTracksAction !== "function") return log("8. Razor denemesi", out);
+
+  const first = (await items(clone, "video"))[0];
+  if (!first) return log("8. Razor denemesi (video klip yok)", out);
+  const a = r(await first.getStartTime());
+  const b = r(await first.getEndTime());
+  // a piece in the middle of the first video clip: 40% to 60% of it
+  const t1 = +(a + (b - a) * 0.4).toFixed(2);
+  const t2 = +(a + (b - a) * 0.6).toFixed(2);
+  out.cutAt = [t1, t2];
+  out.before = { video: await spans(clone, "video"), audio: await spans(clone, "audio") };
+
+  // razor every video and every audio track at both edges, in one transaction
+  const ed1 = ppro.SequenceEditor.getEditor(clone);
+  out.razorOk = run("razor", (c) => {
+    for (const t of [t1, t2]) {
+      c.addAction(ed1.createRazorAllTracksAction(VIDEO, T(t), VIDEO));
+      c.addAction(ed1.createRazorAllTracksAction(AUDIO, T(t), VIDEO));
+    }
+  });
+  clone = await findClone();
+  out.afterRazor = { video: await spans(clone, "video"), audio: await spans(clone, "audio") };
+
+  // the video piece between t1 and t2, removed with ripple and ANY: does its audio go too, does the gap close?
+  let mid: any = null;
+  for (const it of await items(clone, "video"))
+    if (Math.abs(r(await it.getStartTime()) - t1) < 0.05) mid = it;
+  if (!mid) return log("8. Razor denemesi (orta parça bulunamadı)", out);
+  const ed2 = ppro.SequenceEditor.getEditor(clone);
+  let removeOk: unknown = "seçim yapılamadı";
+  ppro.TrackItemSelection.createEmptySelection((sel: any) => {
+    sel.addItem(mid, true);
+    removeOk = run("ripple remove", (c) =>
+      c.addAction(ed2.createRemoveItemsAction(sel, true, ANY, false)),
+    );
+  });
+  out.removeOk = removeOk;
+  clone = await findClone();
+  out.afterRemove = { video: await spans(clone, "video"), audio: await spans(clone, "audio") };
+  out.endBefore = r(await source.getEndTime());
+  out.endAfter = r(await clone.getEndTime());
+  log("8. Razor denemesi", out);
+});
 /* eslint-enable @typescript-eslint/no-explicit-any */
