@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ffmpegPath } from "../src/config.js";
-import { VAD_FRAME_S, findSpeech, speechStartsEarlier, type VadStream } from "../src/index.js";
+import {
+  VAD_FRAME_S,
+  findSpeech,
+  speechEndsLater,
+  speechStartsEarlier,
+  type VadStream,
+} from "../src/index.js";
 
 function hasFfmpeg(): boolean {
   try {
@@ -60,6 +66,8 @@ function ffmpegChildren(): string[] {
 
 // within one frame: a frame the burst reaches counts as loud
 const near = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThanOrEqual(VAD_FRAME_S);
+// an end follows the fading sound, which the denoiser draws out by a few milliseconds
+const nearEnd = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThanOrEqual(0.04);
 
 describe.skipIf(!hasFfmpeg())("findSpeech", () => {
   it("finds the bursts within one frame and reports the length read", async () => {
@@ -79,9 +87,9 @@ describe.skipIf(!hasFfmpeg())("findSpeech", () => {
     });
     expect(r.speech).toHaveLength(2);
     near(r.speech[0]![0], 1);
-    near(r.speech[0]![1], 2);
+    nearEnd(r.speech[0]![1], 2);
     near(r.speech[1]![0], 3.5);
-    near(r.speech[1]![1], 4.5);
+    nearEnd(r.speech[1]![1], 4.5);
     expect(r.durationS).toBeCloseTo(6, 2);
     expect(progress.at(-1)).toBe(1);
     expect(progress.every((p, i) => p >= 0 && p <= 1 && (i === 0 || p >= progress[i - 1]!))).toBe(
@@ -107,7 +115,7 @@ describe.skipIf(!hasFfmpeg())("findSpeech", () => {
     expect(r.durationS).toBeCloseTo(2, 2);
     expect(r.speech).toHaveLength(1);
     near(r.speech[0]![0], 0.5);
-    near(r.speech[0]![1], 1.5);
+    nearEnd(r.speech[0]![1], 1.5);
   });
 
   it.skipIf(process.platform === "win32")(
@@ -159,8 +167,9 @@ describe("speech starts at its sound", () => {
     expect(speechStartsEarlier([[1, 2]], levels(0.8, 1, 2))).toEqual([[0.8, 2]]);
   });
 
-  it("goes back at most 250 ms, never into the speech before, and leaves a hard start alone", () => {
-    expect(speechStartsEarlier([[1, 2]], levels(0.3, 1, 2))[0]![0]).toBeCloseTo(0.75);
+  it("goes back at most 600 ms, never into the speech before, and leaves a hard start alone", () => {
+    expect(speechStartsEarlier([[1, 2]], levels(0.5, 1, 2))[0]![0]).toBeCloseTo(0.5);
+    expect(speechStartsEarlier([[1, 2]], levels(0.2, 1, 2))[0]![0]).toBeCloseTo(0.4);
     expect(
       speechStartsEarlier(
         [
@@ -171,5 +180,36 @@ describe("speech starts at its sound", () => {
       )[1]![0],
     ).toBeCloseTo(0.9, 1);
     expect(speechStartsEarlier([[1, 2]], levels(1, 1, 2))).toEqual([[1, 2]]);
+  });
+});
+
+describe("speech ends at its sound", () => {
+  // the room at -70 dB; a word loud until `loudUntil`, its fading end at -45 dB until `fadeUntil`
+  const levels = (loudUntil: number, fadeUntil: number, dip: [number, number] | null = null) => {
+    const l = new Float32Array(400).fill(-70);
+    for (let i = 100; i < Math.round(loudUntil * 100); i++) l[i] = -25;
+    for (let i = Math.round(loudUntil * 100); i < Math.round(fadeUntil * 100); i++) l[i] = -45;
+    if (dip) for (let i = Math.round(dip[0] * 100); i < Math.round(dip[1] * 100); i++) l[i] = -70;
+    return l;
+  };
+
+  it("moves an end on through the word's fading sound", () => {
+    expect(speechEndsLater([[1, 2]], levels(2, 2.15))).toEqual([[1, 2.15]]);
+  });
+
+  it("keeps going over a short dip, stops at a long one, at most 300 ms and never into the next speech", () => {
+    expect(speechEndsLater([[1, 2]], levels(2, 2.2, [2.05, 2.08]))[0]![1]).toBeCloseTo(2.2);
+    expect(speechEndsLater([[1, 2]], levels(2, 2.2, [2.05, 2.12]))[0]![1]).toBeCloseTo(2.05);
+    expect(speechEndsLater([[1, 2]], levels(2, 3))[0]![1]).toBeCloseTo(2.3);
+    expect(
+      speechEndsLater(
+        [
+          [1, 2],
+          [2.1, 3],
+        ],
+        levels(2, 2.2),
+      )[0]![1],
+    ).toBeLessThan(2.1);
+    expect(speechEndsLater([[1, 2]], levels(2, 2))).toEqual([[1, 2]]);
   });
 });

@@ -147,7 +147,8 @@ export async function findSpeech(
   // back by the denoiser's delay; a padded last frame counts as whole, so its speech ends with the sound
   const end = +durationS.toFixed(3);
   const heard = speechFromProbabilities(probs.subarray(0, frames));
-  const speech = speechStartsEarlier(heard, levels.subarray(0, levelCount))
+  const levelsRead = levels.subarray(0, levelCount);
+  const speech = speechEndsLater(speechStartsEarlier(heard, levelsRead), levelsRead)
     .map(([a, b]): [number, number] => [
       Math.max(0, +(a - DENOISE_DELAY_S).toFixed(3)),
       Math.min(end, +(b - DENOISE_DELAY_S).toFixed(3)),
@@ -160,8 +161,15 @@ export async function findSpeech(
 const LEVEL_STEP = VAD_SAMPLE_RATE / 100;
 /** How far above the room's level a word's soft start must be to count as the word. */
 const ONSET_ABOVE_FLOOR_DB = 12;
-/** How far back a start may move. */
-const ONSET_MAX_S = 0.25;
+/**
+ * How far back a start may move: on a real talk the voice model marked three starts 0.5 s into a loud word
+ * (a 0.25 s limit left them starting hard).
+ */
+const ONSET_MAX_S = 0.6;
+/** How far an end may move on, through a word's fading sound the voice model already let go of. */
+const TAIL_MAX_S = 0.3;
+/** A dip below the room's level this short does not end the sound (a stop consonant before a last syllable). */
+const TAIL_DIP_S = 0.04;
 
 /**
  * Speech moved to where its sound really begins. The voice model marks a word from its first voiced sound,
@@ -188,5 +196,40 @@ export function speechStartsEarlier(
       steps++;
     }
     return [steps ? +(at / 100).toFixed(3) : a, b];
+  });
+}
+
+/**
+ * Speech moved on to where its sound really ends. The voice model lets go of a word while its last sound
+ * is still fading, and on a real talk the cut took 100 to 150 ms of it. Each end moves on while the level
+ * stays well above the room's (short dips allowed, up to the last loud reading), at most 300 ms and never
+ * into the speech after it.
+ */
+export function speechEndsLater(
+  speech: [number, number][],
+  levelsDb: Float32Array,
+): [number, number][] {
+  if (!levelsDb.length) return speech;
+  const sorted = Float32Array.from(levelsDb).sort();
+  const floor = sorted[Math.floor(sorted.length / 10)]!;
+  const loud = floor + ONSET_ABOVE_FLOOR_DB;
+  const maxSteps = Math.round(TAIL_MAX_S * 100);
+  const maxDip = Math.round(TAIL_DIP_S * 100);
+  return speech.map(([a, b], i) => {
+    const next = i + 1 < speech.length ? speech[i + 1]![0] : Infinity;
+    const from = Math.round(b * 100);
+    let lastLoud = -1;
+    let dip = 0;
+    for (
+      let at = from;
+      at < levelsDb.length && at - from < maxSteps && (at + 1) / 100 < next;
+      at++
+    ) {
+      if (levelsDb[at]! > loud) {
+        lastLoud = at;
+        dip = 0;
+      } else if (++dip > maxDip) break;
+    }
+    return [a, lastLoud >= 0 ? Math.max(b, +((lastLoud + 1) / 100).toFixed(3)) : b];
   });
 }
