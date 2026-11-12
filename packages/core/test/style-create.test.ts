@@ -7,6 +7,7 @@ import {
   previewPlan,
   styleDraftProblems,
   styleSlug,
+  withoutRoomTone,
   type StyleDraft,
 } from "../src/stages/style-create.js";
 import { stylesDir } from "../src/styles.js";
@@ -70,6 +71,12 @@ describe("your own style", () => {
     expect(problems).toMatch(/no "## User images" section/);
     expect(problems).toMatch(/unknown synth "laser"/);
     expect(problems).toMatch(/uses a dash/);
+  });
+
+  it("writes a style's sounds with no room tone under them, whatever the draft asked", () => {
+    const sfx = { version: 1, master_db: -6, pan: 0.2, room: { enabled: true, db: -22 }, sounds: {} };
+    expect(withoutRoomTone(sfx)).toEqual({ ...sfx, room: { enabled: false, db: -22 } });
+    expect(sfx.room.enabled).toBe(true);
   });
 
   it("makes a folder name from the display name, Turkish letters folded, never a taken one", () => {

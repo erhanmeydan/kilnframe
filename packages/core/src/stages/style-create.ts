@@ -96,6 +96,16 @@ function fontsIn(node: unknown, out: { family?: unknown; file?: unknown }[] = []
 }
 
 /** Problems with a draft that the model can fix: fonts, sections, sound palette, Turkish text. */
+/**
+ * A style's sounds as they are written: no room tone is laid under the animation's sounds (the owner's call,
+ * 2026-11-12), so a draft that copied an older example with it on is written with it off, its level kept.
+ */
+export function withoutRoomTone(sfx: unknown): unknown {
+  const s = sfx as Record<string, unknown>;
+  const room = s.room as Record<string, unknown>;
+  return { ...s, room: { ...room, enabled: false } };
+}
+
 export function styleDraftProblems(draft: StyleDraft): string[] {
   const problems: string[] = [];
   const catalog = fontCatalog();
@@ -314,7 +324,7 @@ export async function createStyle(o: CreateStyleOptions): Promise<CreatedStyle> 
     join(dir, "style.md"),
     `${draft.style_md.replace(/^#\s+.*$/m, `# ${name}`).trim()}\n`,
   );
-  writeFileSync(join(dir, "sfx.json"), `${JSON.stringify(draft.sfx, null, 2)}\n`);
+  writeFileSync(join(dir, "sfx.json"), `${JSON.stringify(withoutRoomTone(draft.sfx), null, 2)}\n`);
   if (refs.length) {
     // the references become PNGs the model sees until the first preview replaces them in the gallery
     mkdirSync(join(dir, "references"), { recursive: true });
