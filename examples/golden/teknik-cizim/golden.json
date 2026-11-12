@@ -2,15 +2,24 @@
   "name": "teknik-cizim",
   "style": "teknik-cizim",
   "format": "landscape",
-  "modes": ["fullscreen"],
-  "times": [3.92, 8.33, 12.11, 14.72, 19.01, 22.85],
+  "modes": [
+    "fullscreen"
+  ],
+  "times": [
+    3.92,
+    8.33,
+    12.11,
+    14.72,
+    19.01,
+    22.85
+  ],
   "noise": {
-    "mean": 0.26,
+    "mean": 0.24,
     "changed": 0
   },
   "threshold": {
-    "mean": 0.78,
+    "mean": 0.72,
     "changed": 0.002
   },
-  "renderMs": 44761
+  "renderMs": 52420
 }
