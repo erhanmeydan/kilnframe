@@ -419,3 +419,50 @@ button("btn-razor", async () => {
   log("8. Razor denemesi", out);
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+// 9. Off-grid edges: every clip of the active sequence whose start, end, in or out point is not on a whole
+// frame of the sequence. Premiere turns "Show Audio Time Units" on by itself; this checks whether a cut left
+// audio edges between frames.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-grid", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const seq = await project.getActiveSequence();
+  if (!seq) throw new Error("Önce bir sekans aç.");
+  const settings = await seq.getSettings();
+  const rate = await settings.getVideoFrameRate();
+  const tpf = Number(rate.ticksPerFrame);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const ticks = (t: any) => Number(t?.ticks ?? NaN);
+  const off: unknown[] = [];
+  let checked = 0;
+  for (const kind of ["video", "audio"] as const) {
+    const n = kind === "video" ? await seq.getVideoTrackCount() : await seq.getAudioTrackCount();
+    for (let i = 0; i < n; i++) {
+      const track = kind === "video" ? await seq.getVideoTrack(i) : await seq.getAudioTrack(i);
+      for (const it of track.getTrackItems(CLIP, false)) {
+        checked++;
+        const edges = {
+          start: ticks(await it.getStartTime()),
+          end: ticks(await it.getEndTime()),
+          in: ticks(await it.getInPoint()),
+          out: ticks(await it.getOutPoint()),
+        };
+        const bad = Object.entries(edges).filter(([, v]) => Number.isFinite(v) && v % tpf !== 0);
+        if (bad.length)
+          off.push({
+            track: `${kind === "video" ? "V" : "A"}${i + 1}`,
+            name: await it.getName().catch(() => "?"),
+            ...Object.fromEntries(bad.map(([k, v]) => [k, `${(v / tpf).toFixed(3)} kare`])),
+          });
+      }
+    }
+  }
+  log("9. Kare dışı kenarlar", {
+    sequence: seq.name,
+    ticksPerFrame: tpf,
+    checked,
+    offGrid: off.length,
+    off: off.slice(0, 40),
+  });
+});
