@@ -1064,11 +1064,11 @@ export function createPremiereHost(
                 );
               try {
                 copyAt(audio);
-              } catch (first) {
+              } catch {
                 // an audio clip linked to video was refused with alignToVideo ("Illegal Parameter type",
-                // 11 Nov 2026), a lone one took it (probe): the other setting before giving up
-                if (!audio) throw first;
-                copyAt(false);
+                // 11 Nov 2026), a lone one took it (probe); a video clip of the editor's own sequence was
+                // refused without it (12 Nov 2026, cut in place): the other setting before giving up
+                copyAt(!audio);
               }
             } catch (err) {
               throw new Error(`${err instanceof Error ? err.message : String(err)} for ${where}`, {
