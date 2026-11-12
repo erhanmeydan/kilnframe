@@ -213,8 +213,8 @@ describe("resolve cut to a new timeline", () => {
   });
 
   it.each([
-    ["29.97", "1", 30, 59],
-    ["23.976", "0", 24, 47],
+    ["29.97", "1", 30, 60],
+    ["23.976", "0", 24, 48],
   ])("cuts a %s fps timeline (drop frame %s) on its own frame grid", async (rate, df, from, to) => {
     const f = makeFakeResolve();
     Object.assign(f.project.timeline.settings, {

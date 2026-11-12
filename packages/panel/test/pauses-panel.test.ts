@@ -267,8 +267,8 @@ describe("remove pauses panel", () => {
       { type: "pauses.cuts", speech: [[0, 5]], durationS: 760, strictness: 0.5, keepLongS: null },
     ]);
     const html = pausesBox(st, f.ctx);
-    // 4.5 s asked, 4.48 s on the 25 fps grid (12.5 s is mid frame and the cut ends down)
-    expect(html).toContain("2 pauses, 4 s shorter. 12:40 becomes 12:36.");
+    // 4.5 s asked, 4.52 s on the 25 fps grid (12.5 s is mid frame: the cut ends on the nearest frame, up)
+    expect(html).toContain("2 pauses, 5 s shorter. 12:40 becomes 12:35.");
     expect(html).toContain('data-act="pauses-apply"');
     expect(html).toContain("Create Sequence Without Pauses");
   });
@@ -451,10 +451,10 @@ describe("remove pauses panel", () => {
     expect(pausesWatches(atPreview({ stage: "done" }))).toBe(true);
   });
 
-  it("previews what the hosts cut: each cut snapped inward to whole frames, merged when they touch", () => {
+  it("previews what the hosts cut: each cut snapped to whole frames, merged when they touch", () => {
     const cuts = [
-      { startS: 1.01, endS: 3.03 }, // sequence frames 2526..2575 at 25 fps (49 frames), not 2.02 s
-      { startS: 3.03, endS: 3.5 }, // snaps to 2576..2587: does not touch the first
+      { startS: 1.01, endS: 3.03 }, // sequence frames 2526..2576 at 25 fps (start up, end to the nearest)
+      { startS: 3.03, endS: 3.5 }, // snaps to 2576..2588: touches the first, so one cut of 62 frames
       { startS: 10.5, endS: 10.52 }, // under a frame after snapping: not a cut at all
     ];
     const st = atPreview({
@@ -462,12 +462,12 @@ describe("remove pauses panel", () => {
       plan: { cuts, removedS: 2.51, keptS: 97.49, longKept: [], emptied: false },
     });
     const totals = previewTotals(st);
-    expect(totals.count).toBe(2);
-    expect(totals.removedS).toBeCloseTo((49 + 11) / 25, 9);
-    expect(totals.afterS).toBeCloseTo(760 - (49 + 11) / 25, 9);
+    expect(totals.count).toBe(1);
+    expect(totals.removedS).toBeCloseTo(62 / 25, 9);
+    expect(totals.afterS).toBeCloseTo(760 - 62 / 25, 9);
     // the bar shows the snapped cuts, in seconds of the part listened to
     expect(totals.cuts[0]!.startS).toBeCloseTo(2526 / 25 - 100, 9);
-    expect(totals.cuts[0]!.endS).toBeCloseTo(2575 / 25 - 100, 9);
+    expect(totals.cuts[0]!.endS).toBeCloseTo(2588 / 25 - 100, 9);
     // without a frame rate (an older state) the plan's own seconds are shown
     expect(previewTotals(atPreview({ fps: 0, plan: { ...st.plan!, cuts } })).removedS).toBe(2.51);
   });

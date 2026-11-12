@@ -21,9 +21,12 @@ const item = (over: Partial<PlanItem> = {}): PlanItem => ({
 });
 
 describe("frameCuts", () => {
-  it("snaps to the frame grid inward: start up, end down (29.97 fps)", () => {
-    // 1 s is frame 29.97: up to 30; 2 s is frame 59.94: down to 59
-    expect(frameCuts([{ startS: 1, endS: 2 }], NTSC, 1000)).toEqual([{ startF: 30, endF: 59 }]);
+  it("snaps to the frame grid: start up, end to the nearest frame (29.97 fps)", () => {
+    // 1 s is frame 29.97: up to 30; 2 s is frame 59.94: nearest is 60, 2.5 s is frame 74.93: 75
+    expect(frameCuts([{ startS: 1, endS: 2 }], NTSC, 1000)).toEqual([{ startF: 30, endF: 60 }]);
+    expect(frameCuts([{ startS: 2.1, endS: 2.49 }], NTSC, 1000)).toEqual([
+      { startF: 63, endF: 75 },
+    ]);
   });
 
   it("keeps a cut that already lies on frames, despite float noise", () => {
@@ -35,7 +38,7 @@ describe("frameCuts", () => {
 
   it("drops a cut shorter than a frame", () => {
     expect(frameCuts([{ startS: 1.01, endS: 1.05 }], 25, 1000)).toEqual([]);
-    expect(frameCuts([{ startS: 1.01, endS: 1.07 }], 25, 1000)).toEqual([]);
+    expect(frameCuts([{ startS: 1.01, endS: 1.055 }], 25, 1000)).toEqual([]);
   });
 
   it("clips to the sequence and drops what lies outside", () => {

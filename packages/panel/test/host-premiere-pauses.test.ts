@@ -359,12 +359,12 @@ describe("Premiere cutToNewSequence (clone and cut)", () => {
       "Main Pauses Removed",
       (done) => progress.push(done),
     );
-    // on frames: cuts 50-75, 125-137 (5.5 s is frame 137.5, rounded down), 200-225
+    // on frames: cuts 50-75, 125-138 (5.5 s is frame 137.5, to the nearest), 200-225
     const pieces = (n: string) => [
       [n, 0, 50, 50],
       [n, 50, 100, 125],
-      [n, 100, 163, 187],
-      [n, 163, 188, 275],
+      [n, 100, 162, 188],
+      [n, 162, 187, 275],
     ];
     const clone = f.seqs[1];
     expect(sorted(clone.video[0])).toEqual(pieces("v"));

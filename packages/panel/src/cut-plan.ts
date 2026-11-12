@@ -28,13 +28,17 @@ export interface Piece {
 // seconds times a rate like 30000/1001 lands a hair off a whole frame
 const EPS = 1e-6;
 
-/** Cuts on the frame grid: start up, end down, clipped to [0, endF], under one frame dropped, sorted, merged. */
+/**
+ * Cuts on the frame grid, clipped to [0, endF], under one frame dropped, sorted, merged. A cut starts on the
+ * frame after the speech before it (never into a word's end); it ends on the frame nearest the speech after
+ * it, which already starts at its first sound: rounded down, each piece began with up to a frame of room,
+ * a gap the editor saw before almost every clip.
+ */
 export function frameCuts(cuts: TimelineCut[], fps: number, endF: number): FrameCut[] {
   const snapped = cuts
     .map((c) => ({
-      // inward, so a cut never takes a frame of speech
       startF: Math.max(0, Math.ceil(c.startS * fps - EPS)),
-      endF: Math.min(endF, Math.floor(c.endS * fps + EPS)),
+      endF: Math.min(endF, Math.floor(c.endS * fps + 0.5 + EPS)),
     }))
     .filter((c) => c.endF - c.startF >= 1)
     .sort((a, b) => a.startF - b.startF);

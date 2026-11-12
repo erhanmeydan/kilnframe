@@ -367,35 +367,35 @@ describe("filmcraft cut to a new sequence", () => {
       leftOut: 0,
       rebuilt: false,
     });
-    // [60, 89), [150, 194), [300, 329) at 29.97 fps: 102 frames out of 899
+    // [60, 90), [150, 195), [300, 330) at 29.97 fps: 105 frames out of 899
     expect(marks(f).map((l) => [l.command, l.params.frame])).toEqual([
       ["markers.markIn", 300],
-      ["markers.markOut", 328],
+      ["markers.markOut", 329],
       ["sequence.extract", undefined],
       ["markers.markIn", 150],
-      ["markers.markOut", 193],
+      ["markers.markOut", 194],
       ["sequence.extract", undefined],
       ["markers.markIn", 60],
-      ["markers.markOut", 88],
+      ["markers.markOut", 89],
       ["sequence.extract", undefined],
       // the editor's In (1 s, frame 30) and Out (20 s, frame 599, its last frame) follow their content
       ["markers.markIn", 30],
-      ["markers.markOut", 599 - 102],
+      ["markers.markOut", 599 - 105],
     ]);
     expect(
       marks(f)
         .filter((l) => l.command !== "sequence.extract")
         .every((l) => l.params.target === "program"),
     ).toBe(true);
-    expect(Math.round(copy.duration / f.ticksOf(1))).toBe(899 - 102);
+    expect(Math.round(copy.duration / f.ticksOf(1))).toBe(899 - 105);
     // the B-roll moved with the footage: cut at the same frames, the pieces closed up
     expect(copy.video[1]!.items.map(framesOf)).toEqual([
-      [91, 121],
-      [121, 227],
-      [227, 258],
+      [90, 120],
+      [120, 225],
+      [225, 255],
     ]);
     expect(copy.in).toBe(f.ticksOf(30));
-    expect(copy.out).toBe(f.ticksOf(497));
+    expect(copy.out).toBe(f.ticksOf(494));
     // the editor's sequence, In and Out included, as it was
     expect(f.sequence).toEqual(original);
   });
