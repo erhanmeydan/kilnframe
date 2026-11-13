@@ -26,9 +26,10 @@ describe("runProcess", () => {
 
   it("keeps a talking process alive past the idle limit", async () => {
     const [cmd, args] = node(
-      `let n = 0; const t = setInterval(() => { console.log(n); if (++n === 6) clearInterval(t); }, 100);`,
+      `let n = 0; const t = setInterval(() => { console.log(n); if (++n === 6) clearInterval(t); }, 500);`,
     );
-    const r = await runProcess(cmd, [...args], tmpdir(), { idleTimeoutMs: 300 });
+    // talks for 3 s past a 1.5 s limit; the limit is wide enough for Node to start on a slow Windows runner
+    const r = await runProcess(cmd, [...args], tmpdir(), { idleTimeoutMs: 1500 });
     expect(r.stdout.trim().split("\n")).toHaveLength(6);
   });
 });
