@@ -31,7 +31,7 @@ describe("runProcess", () => {
     // talks for 3 s past a 1.5 s limit; the limit is wide enough for Node to start on a slow Windows runner
     const r = await runProcess(cmd, [...args], tmpdir(), { idleTimeoutMs: 1500 });
     expect(r.stdout.trim().split("\n")).toHaveLength(6);
-  });
+  }, 15_000);
 });
 
 describe("parseCheckJson", () => {
