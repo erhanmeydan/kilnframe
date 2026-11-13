@@ -1,8 +1,8 @@
-diff --git a/dist/chunk-VC7JBNPS.js b/dist/chunk-VC7JBNPS.js
-index 8544b14e2f73a310606192584b5dde7ec1f4a715..5600ddb4316a3ab7d395e892375212326b674ebd 100644
---- a/dist/chunk-VC7JBNPS.js
-+++ b/dist/chunk-VC7JBNPS.js
-@@ -2518,7 +2518,9 @@ async function pageScreenshotCapture(page, options) {
+diff --git a/dist/chunk-HCXEKCOW.js b/dist/chunk-HCXEKCOW.js
+index 7adfc63..04b17b3 100644
+--- a/dist/chunk-HCXEKCOW.js
++++ b/dist/chunk-HCXEKCOW.js
+@@ -4056,7 +4056,9 @@ async function pageScreenshotCapture(page, options) {
      // opt into the beyond-viewport path only for known compositor edge cases,
      // such as native video surfaces in tall portrait renders.
      captureBeyondViewport: options.captureBeyondViewport ?? false,
