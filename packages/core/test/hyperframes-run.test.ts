@@ -42,6 +42,25 @@ describe("parseCheckJson", () => {
     selector: "[data-composition-id]",
   });
 
+  it("keeps canvas_covered, a false alarm on a background under a WebGL canvas, as a warning", () => {
+    const r = parseCheckJson(
+      JSON.stringify({
+        ok: false,
+        lint: { ok: true, errorCount: 0, findings: [] },
+        layout: {
+          ok: false,
+          errorCount: 1,
+          findings: [
+            { code: "canvas_covered", severity: "error", message: "covers", selector: "#s1-bg" },
+          ],
+        },
+      }),
+    );
+    expect(r.ok).toBe(true);
+    expect(r.errors).toEqual([]);
+    expect(r.warnings.map((w) => [w.code, w.severity])).toEqual([["canvas_covered", "warning"]]);
+  });
+
   it("reads a crashed browser as a problem of the machine, not of a scene", () => {
     const r = parseCheckJson(
       JSON.stringify({

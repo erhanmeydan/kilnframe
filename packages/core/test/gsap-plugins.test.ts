@@ -73,6 +73,12 @@ describe("GSAP plugins", () => {
   });
 });
 
+describe("root page", () => {
+  it("takes the then off GSAP tweens so a build() returning its timeline still settles", () => {
+    expect(rootHtml(plan)).toContain("delete gsap.core.Animation.prototype.then;");
+  });
+});
+
 describe("SplitText words", () => {
   /** The options SplitText.create receives once SPLIT_WORDS has wrapped it. */
   function splitVars(vars?: Record<string, unknown>): Record<string, unknown> {

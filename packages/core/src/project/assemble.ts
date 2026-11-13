@@ -71,7 +71,10 @@ export function rootHtml(plan: Plan): string {
     <title>${escapeHtml(plan.topic)}</title>
     <script src="vendor/gsap/gsap.min.js"></script>
 ${GSAP_PLUGINS.map((p) => `    <script src="vendor/gsap/${p}.min.js"></script>`).join("\n")}
-    <script>gsap.registerPlugin(${GSAP_PLUGINS.join(", ")});</script>
+    <!-- a GSAP tween is a thenable: a scene whose async build() returns its paused timeline would wait on
+         it forever, and HyperFrames holds the render until every buildReady settles. Seek-safe scenes never
+         await a tween, so the then goes. -->
+    <script>delete gsap.core.Animation.prototype.then; gsap.registerPlugin(${GSAP_PLUGINS.join(", ")});</script>
     <script>
     ${SPLIT_WORDS}
     </script>
