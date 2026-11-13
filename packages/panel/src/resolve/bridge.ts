@@ -415,12 +415,24 @@ export function createResolveBridge(
   }
 
   /**
-   * The file behind a timeline item, or null for a title, a generator, a compound or an offline clip. Some of
-   * these hand back a media pool item that is no object with GetClipProperty, so its presence is checked.
+   * The media pool item behind a timeline item, or null for a title, a generator, a Fusion or compound clip.
+   * Some of these hand back an object with no GetClipProperty, and some Resolve versions refuse the call
+   * outright ("Item is not a media", errorCode 6), so both count as none.
    */
+  async function mediaOf(item: R): Promise<R | null> {
+    let media: R | null | undefined;
+    try {
+      media = (await item.GetMediaPoolItem()) as R | null | undefined;
+    } catch {
+      return null;
+    }
+    return media && typeof media.GetClipProperty === "function" ? media : null;
+  }
+
+  /** The file behind a timeline item, or null for a title, a generator, a compound or an offline clip. */
   async function pathOf(item: R): Promise<string | null> {
-    const media = (await item.GetMediaPoolItem()) as R | null | undefined;
-    if (!media || typeof media.GetClipProperty !== "function") return null;
+    const media = await mediaOf(item);
+    if (!media) return null;
     const path = await media.GetClipProperty("File Path");
     return typeof path === "string" && path ? path : null;
   }
@@ -906,8 +918,8 @@ export function createResolveBridge(
             // wholly inside the cuts: meant to go
             if (!kept.length) continue;
             // a title, generator or Fusion clip has no real media pool item
-            const media = (await item.GetMediaPoolItem()) as R | null | undefined;
-            if (!media || typeof media.GetClipProperty !== "function") {
+            const media = await mediaOf(item);
+            if (!media) {
               leftOut++;
               continue;
             }

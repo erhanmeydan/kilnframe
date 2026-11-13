@@ -170,7 +170,14 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     GetSourceStartFrame: async () => it.sourceIn,
     GetSourceEndFrame: async () => it.sourceOut,
     GetTrackTypeAndIndex: async () => [type, idx],
-    GetMediaPoolItem: async () => mpi(it.path, it.fps),
+    GetMediaPoolItem: async () => {
+      // some Resolve versions refuse the call for a title, generator or Fusion clip instead of answering
+      if (it.path === "!not-media")
+        throw new Error(
+          "GetMediaPoolItem: Error response (errorStr:Item is not a media) (errorCode:6)",
+        );
+      return mpi(it.path, it.fps);
+    },
     SetProperty: async (k: string, v: unknown) => {
       if (o.refuseProperties) return false;
       it.props = { ...it.props, [k]: v };

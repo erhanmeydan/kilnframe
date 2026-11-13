@@ -139,6 +139,23 @@ describe("resolve bridge", () => {
     await expect(b.ourInsertSpans(seq.id)).resolves.toHaveLength(1);
   });
 
+  it("passes over a clip whose media pool item Resolve refuses to give", async () => {
+    const f = makeFakeResolve({ ourInsertOnV2: true });
+    for (const kind of ["video", "audio"] as const)
+      f.project.timeline.tracks[kind][0]!.items.push({
+        start: 86400,
+        end: 86500,
+        sourceIn: 0,
+        sourceOut: 99,
+        path: "!not-media",
+      });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    await expect(b.hideOurInserts(seq.id, 0, 10)).resolves.toEqual([{ type: "video", index: 2 }]);
+    await expect(b.ourInsertSpans(seq.id)).resolves.toHaveLength(1);
+    await expect(b.speechTracks(seq.id, 0, 10)).resolves.toEqual([0]);
+  });
+
   it("hides and shows off the Deliver page when the editor started there, and goes back to it", async () => {
     const f = makeFakeResolve({ ourInsertOnV2: true });
     const b = bridge(f);
