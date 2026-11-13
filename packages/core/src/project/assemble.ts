@@ -83,10 +83,6 @@ ${GSAP_PLUGINS.map((p) => `    <script src="vendor/gsap/${p}.min.js"></script>`)
     <style>
       html, body { margin: 0; background: ${background}; }
       #root { position: relative; width: 100%; height: 100%; overflow: hidden; }
-      /* the runtime hides a scene outside its time with visibility, but an SVG filter in it (a paper grain)
-         was still drawn into every frame: a faint haze over the footage. Only scene hosts, as HyperFrames'
-         check asks; the src rule alone missed them in snapshots and renders, the file rule caught them */
-      [data-composition-src][style*="visibility: hidden"], [data-composition-file][style*="visibility: hidden"] { opacity: 0 !important; }
       .kf-word { white-space: nowrap; }
     </style>
   </head>

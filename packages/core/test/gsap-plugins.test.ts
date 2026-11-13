@@ -73,15 +73,6 @@ describe("GSAP plugins", () => {
   });
 });
 
-describe("root page", () => {
-  it("makes a scene outside its time fully transparent, not only hidden", () => {
-    // a hidden scene's SVG filter (a paper grain) was still drawn into every frame
-    expect(rootHtml(plan)).toContain(
-      '[data-composition-src][style*="visibility: hidden"], [data-composition-file][style*="visibility: hidden"] { opacity: 0 !important; }',
-    );
-  });
-});
-
 describe("SplitText words", () => {
   /** The options SplitText.create receives once SPLIT_WORDS has wrapped it. */
   function splitVars(vars?: Record<string, unknown>): Record<string, unknown> {
