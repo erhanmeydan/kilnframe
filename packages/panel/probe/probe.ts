@@ -466,3 +466,50 @@ button("btn-grid", async () => {
     off: off.slice(0, 40),
   });
 });
+
+// 10. Every clip's edges in ticks: start and end on the timeline, in and out in its source. Pressed after a
+// Remove Pauses cut and again after the project is saved and Premiere reopened, it shows what Premiere changed
+// (14 Nov 2026: after a reopen the audio of a cut sequence played from the wrong place in its source).
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-edges", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const seq = await project.getActiveSequence();
+  if (!seq) throw new Error("Önce bir sekans aç.");
+  const settings = await seq.getSettings();
+  const rate = await settings.getVideoFrameRate();
+  const tpf = Number(rate.ticksPerFrame);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const ticks = (t: any) => Number(t?.ticks ?? NaN);
+  const f = (v: number) => (Number.isFinite(v) ? Number((v / tpf).toFixed(3)) : null);
+  const rows: unknown[] = [];
+  for (const kind of ["video", "audio"] as const) {
+    const n = kind === "video" ? await seq.getVideoTrackCount() : await seq.getAudioTrackCount();
+    for (let i = 0; i < n; i++) {
+      const track = kind === "video" ? await seq.getVideoTrack(i) : await seq.getAudioTrack(i);
+      for (const it of track.getTrackItems(CLIP, false)) {
+        const start = ticks(await it.getStartTime());
+        const end = ticks(await it.getEndTime());
+        const inP = ticks(await it.getInPoint());
+        const outP = ticks(await it.getOutPoint());
+        rows.push({
+          t: `${kind === "video" ? "V" : "A"}${i + 1}`,
+          name: await it.getName().catch(() => "?"),
+          startF: f(start),
+          endF: f(end),
+          inF: f(inP),
+          outF: f(outP),
+          // the source frame that plays at the clip's start; it must match between V and A of one take
+          lenF: f(end - start),
+          srcLenF: f(outP - inP),
+        });
+      }
+    }
+  }
+  log("10. Bütün klip kenarları (kare)", {
+    sequence: seq.name,
+    ticksPerFrame: tpf,
+    clips: rows.length,
+    rows,
+  });
+});

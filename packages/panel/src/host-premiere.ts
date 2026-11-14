@@ -119,6 +119,8 @@ export interface CutClipInfo {
   plan: PlanItem;
   /** Its in point in its media, in ticks; null when it could not be read. */
   inTicks: number | null;
+  /** Its out point in its media, in ticks; null when it could not be read or is not checked. */
+  outTicks?: number | null;
   speed: number;
   reversed: boolean;
 }
@@ -130,13 +132,14 @@ interface ClipAt {
   atF: number;
 }
 
-/** A clip as the finished sequence should hold it; inTicks null when it is not checked. */
+/** A clip as the finished sequence should hold it; inTicks and outTicks null when they are not checked. */
 export interface ExpectedClip {
   kind: PlanItem["kind"];
   track: number;
   startF: number;
   endF: number;
   inTicks: number | null;
+  outTicks?: number | null;
 }
 
 /** The edits of a cut, phase by phase; each phase is one transaction on the sequence. */
@@ -147,8 +150,13 @@ export interface PremiereCutPlan {
   trims: { key: string; startF: number | null; endF: number | null }[];
   /** C: copies of a seed, at its start plus offsetF. */
   clones: { key: string; offsetF: number }[];
-  /** D: a seed or copy, found at atF, gets its in point and grows to its piece's end. */
-  fixes: (ClipAt & { inTicks: number | null; endF: number | null })[];
+  /**
+   * D: a seed or copy, found at atF, gets its in point, grows to its piece's end and gets its out point. A copy
+   * keeps its seed's out point through a set in point, and a set end moves it only by as much as the end
+   * moved; after the project is saved and opened again Premiere plays a clip from its in and out points, so a
+   * copy's sound came from the wrong place (14 Nov 2026). Null: that edge stays.
+   */
+  fixes: (ClipAt & { inTicks: number | null; endF: number | null; outTicks: number | null })[];
   /** E: a piece, found at atF, shifts by byF; per track from left to right. */
   moves: (ClipAt & { byF: number })[];
   expected: ExpectedClip[];
@@ -197,6 +205,11 @@ export function planPremiereCut(
       splittable
         ? (c.inTicks as number) + Math.round((f - startF) * ticksPerFrame * c.speed)
         : null;
+    // the out point a piece must end with: its in point plus its length in media time
+    const outAt = (p: { fromF: number; toF: number }) => {
+      const at = inAt(p.fromF);
+      return at === null ? null : at + Math.round((p.toF - p.fromF) * ticksPerFrame * c.speed);
+    };
     const first = pieces[0];
     const trimStart = first.fromF > startF ? first.fromF : null;
     if (pieces.length === 1) {
@@ -208,7 +221,14 @@ export function planPremiereCut(
       plan.trims.push({ key, startF: trimStart, endF: first.fromF + d });
       // the seed's in point is right already: the start trim moved it
       if (first.fromF + d < first.toF)
-        plan.fixes.push({ kind, track, atF: first.fromF, inTicks: null, endF: first.toF });
+        plan.fixes.push({
+          kind,
+          track,
+          atF: first.fromF,
+          inTicks: null,
+          endF: first.toF,
+          outTicks: outAt(first),
+        });
       for (const p of pieces.slice(1)) {
         plan.clones.push({ key, offsetF: p.fromF - first.fromF });
         plan.fixes.push({
@@ -217,6 +237,7 @@ export function planPremiereCut(
           atF: p.fromF,
           inTicks: inAt(p.fromF),
           endF: p.toF > p.fromF + d ? p.toF : null,
+          outTicks: outAt(p),
         });
       }
     }
@@ -229,6 +250,7 @@ export function planPremiereCut(
         startF: p.newStartF,
         endF: p.newStartF + p.toF - p.fromF,
         inTicks: inAt(p.fromF),
+        outTicks: outAt(p),
       });
     }
   }
@@ -273,6 +295,10 @@ export function cutMismatch(
       const tol = (ticksPerFrame * Math.max(1, b.speed ?? 1)) / 2;
       if (a.inTicks !== null && (b.inTicks === null || Math.abs(a.inTicks - b.inTicks) > tol))
         return `${k}: the clip at frames ${a.startF}-${a.endF} starts at the wrong point of its media`;
+      const aOut = a.outTicks ?? null;
+      const bOut = b.outTicks ?? null;
+      if (aOut !== null && (bOut === null || Math.abs(aOut - bOut) > tol))
+        return `${k}: the clip at frames ${a.startF}-${a.endF} ends at the wrong point of its media`;
     }
   }
   return null;
@@ -855,6 +881,7 @@ export function createPremiereHost(
     const read = async (kind: PlanItem["kind"], track: number, items: TrackItem[]) => {
       for (const [i, item] of items.entries()) {
         const inTicks = await item.getInPoint().then(ticksOf, () => null);
+        const outTicks = await item.getOutPoint().then(ticksOf, () => null);
         out.push({
           item,
           info: {
@@ -866,6 +893,7 @@ export function createPremiereHost(
               endF: frameOf(await item.getEndTime()),
             },
             inTicks,
+            outTicks,
             // a title or a graphic may not say: it has no speed
             speed: await item.getSpeed().catch(() => 1),
             reversed: Boolean(await item.isSpeedReversed().catch(() => 0)),
@@ -1105,6 +1133,11 @@ export function createPremiereHost(
                 it.createSetInPointAction(ppro.TickTime.createWithTicks(String(f.inTicks))),
               );
             if (f.endF !== null) c.addAction(it.createSetEndAction(at(f.endF)));
+            // after the end, which moves the out point by as much as it moved the end
+            if (f.outTicks !== null)
+              c.addAction(
+                it.createSetOutPointAction(ppro.TickTime.createWithTicks(String(f.outTicks))),
+              );
           }
         });
       }
@@ -1126,6 +1159,7 @@ export function createPremiereHost(
       const after = (await readItems(await live(), tpf)).map((r) => ({
         ...r.info.plan,
         inTicks: r.info.inTicks,
+        outTicks: r.info.outTicks ?? null,
         speed: r.info.speed,
       }));
       stage = "check the cut";
