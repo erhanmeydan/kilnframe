@@ -29,12 +29,12 @@ export function silencePadS(strictness: number): number {
 }
 
 /**
- * Room kept before speech starts (a piece's start): 0.05 s up to the middle, 0.03 s at Tight. Speech
- * starts where its sound begins (speechStartsEarlier), so this is only room for a joint's short fade to
- * fall on instead of on the word's first sound; the 0.1 s kept before that showed as a gap before each clip.
+ * Room kept before speech starts (a piece's start): none. Speech starts where its sound begins
+ * (speechStartsEarlier), and the editors cut on whole frames rounded away from the speech, which keeps up to
+ * a frame (40 ms at 25 fps) of the room before the word anyway; 0.03 s more showed as a gap before the clip.
  */
-export function leadPadS(strictness: number): number {
-  return 0.05 + (0.03 - 0.05) * past(strictness);
+export function leadPadS(_strictness: number): number {
+  return 0;
 }
 
 /**

@@ -988,6 +988,7 @@ export function createResolveBridge(
           name: (await tl.GetName()) as string,
           leftOut,
           rebuilt: true,
+          inPlace: false,
         };
       } catch (err) {
         await pool.DeleteTimelines([tl]).catch(() => false);

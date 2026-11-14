@@ -35,7 +35,13 @@ describe("resolve cut to a new timeline", () => {
       ],
       "Probe (No Pauses)",
     );
-    expect(r).toEqual({ id: "tl-2", name: "Probe (No Pauses)", leftOut: 0, rebuilt: true });
+    expect(r).toEqual({
+      id: "tl-2",
+      name: "Probe (No Pauses)",
+      leftOut: 0,
+      rebuilt: true,
+      inPlace: false,
+    });
     const made = f.project.current;
     expect(made.id).toBe("tl-2");
     // frames 50..75 and 150..175 go; the source frames follow the timeline frames
@@ -213,8 +219,8 @@ describe("resolve cut to a new timeline", () => {
   });
 
   it.each([
-    ["29.97", "1", 30, 59],
-    ["23.976", "0", 24, 47],
+    ["29.97", "1", 30, 60],
+    ["23.976", "0", 24, 48],
   ])("cuts a %s fps timeline (drop frame %s) on its own frame grid", async (rate, df, from, to) => {
     const f = makeFakeResolve();
     Object.assign(f.project.timeline.settings, {

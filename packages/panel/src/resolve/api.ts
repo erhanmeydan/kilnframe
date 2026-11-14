@@ -153,8 +153,10 @@ export const NOT_RUNNING = "FILMCRAFT_NOT_RUNNING";
 export const CONNECTION_LOST = "FILMCRAFT_CONNECTION_LOST";
 /** FilmCraft did not reply in time. */
 export const TIMED_OUT = "FILMCRAFT_TIMED_OUT";
-/** Remove Pauses could not make its new sequence; the editor's own is unchanged. `CUT_FAILED: <reason>`. */
+/** Remove Pauses could not cut; the editor's sequence is unchanged unless CUT_UNDO rides along. `CUT_FAILED: <reason>`. */
 export const CUT_FAILED = "CUT_FAILED";
+/** In a CUT_FAILED message: the cut was made in place and stopped part way; undo takes back what was cut. */
+export const CUT_UNDO = "CUT_UNDO";
 /**
  * A failed cut left its copy in the project (the editor lists no way to delete it): `COPY_LEFT=<JSON name>`
  * rides in a CUT_FAILED message.

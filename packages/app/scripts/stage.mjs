@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hyperframesChrome } from "../../../scripts/deps/pins.mjs";
 import { checkProresAlpha, fetchFfmpeg } from "./ffmpeg.mjs";
+import { checkAppPatched } from "./pnpm-patches.mjs";
 
 const app = fileURLToPath(new URL("..", import.meta.url));
 const root = join(app, "..", "..");
@@ -35,18 +36,41 @@ const platform =
 if (!platform) throw new Error("Kilnframe Helper is built on macOS or Windows.");
 const arch = process.arch; // arm64 or x64; one build per architecture
 
+/** Every package in the production copy at a version the lockfile names; anything else stops the build. */
+function checkStageAgainstLockfile() {
+  const lock = readFileSync(join(root, "pnpm-lock.yaml"), "utf8");
+  const nm = join(stage, "node_modules");
+  const names = readdirSync(nm)
+    .filter((d) => !d.startsWith("."))
+    .flatMap((d) => (d.startsWith("@") ? readdirSync(join(nm, d)).map((s) => `${d}/${s}`) : [d]));
+  const off = [];
+  for (const name of names) {
+    if (name.startsWith("@kilnframe/")) continue;
+    const file = join(nm, name, "package.json");
+    if (!existsSync(file)) continue;
+    const { version } = JSON.parse(readFileSync(file, "utf8"));
+    const key = `${name}@${version}`;
+    if (!lock.includes(`\n  ${key}:`) && !lock.includes(`\n  '${key}':`)) off.push(key);
+  }
+  if (off.length)
+    throw new Error(`the production copy has versions the lockfile does not: ${off.join(", ")}`);
+}
+
 console.log("1/4 production copy");
 run("pnpm", ["-r", "build"]);
 rmSync(stage, { recursive: true, force: true });
+// from the lockfile: a --legacy deploy resolved every range afresh, so the app shipped versions no test had run
+// (wasm-feature-detect 1.10 crashed the reading of added images in 0.5.0)
 run("pnpm", [
   "--filter",
   "@kilnframe/app",
   "deploy",
   "--prod",
-  "--legacy",
+  "--config.inject-workspace-packages=true",
   "--config.node-linker=hoisted",
   stage,
 ]);
+checkStageAgainstLockfile();
 // deploy writes its own settings (hoisted, production) into the workspace's install state; a plain
 // install puts the repository's back so the next pnpm command does not try to reinstall everything
 run("pnpm", ["install", "--offline"]);
@@ -212,6 +236,8 @@ writeFileSync(
       electronVersion,
       ...(electronDist ? { electronDist } : {}),
       asar: false,
+      // carries the repository's pnpm patches into the app, which electron-builder fills from the unpatched store
+      afterPack: join(app, "scripts", "after-pack.mjs"),
       // Electron's switches: the companion and its jobs need Electron to run as Node (ELECTRON_RUN_AS_NODE);
       // nothing needs NODE_OPTIONS, the inspector or file:// privileges, so those are off and another program
       // cannot use them to run code as Kilnframe
@@ -322,6 +348,19 @@ run(
   ],
   stage,
 );
+// the unpacked app electron-builder made (mac-arm64/Kilnframe.app, win-unpacked), whatever installer wraps it
+{
+  const out = join(root, "out", "app-build");
+  const apps = readdirSync(out)
+    .map((d) =>
+      platform === "mac"
+        ? join(out, d, "Kilnframe.app", "Contents", "Resources", "app", "node_modules")
+        : join(out, d, "resources", "app", "node_modules"),
+    )
+    .filter((d) => existsSync(d));
+  if (!apps.length) throw new Error(`No unpacked app in ${out}`);
+  for (const nm of apps) checkAppPatched(root, nm);
+}
 
 // electron-builder notarizes the app inside; the installer around it is a separate submission
 if (platform === "mac" && process.argv.includes("--pkg") && process.env.APPLE_KEYCHAIN_PROFILE) {

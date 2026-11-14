@@ -1,0 +1,15 @@
+diff --git a/dist/chunk-HCXEKCOW.js b/dist/chunk-HCXEKCOW.js
+index 7adfc63..04b17b3 100644
+--- a/dist/chunk-HCXEKCOW.js
++++ b/dist/chunk-HCXEKCOW.js
+@@ -4056,7 +4056,9 @@ async function pageScreenshotCapture(page, options) {
+     // opt into the beyond-viewport path only for known compositor edge cases,
+     // such as native video surfaces in tall portrait renders.
+     captureBeyondViewport: options.captureBeyondViewport ?? false,
+-    optimizeForSpeed: !isPng,
++    // Kilnframe patch: PNG frames (renders with alpha) also take Chrome's fast encoder. The pixels are the
++    // same, alpha included; a textured 1080p frame encodes about five times faster.
++    optimizeForSpeed: true,
+     clip
+   });
+   return Buffer.from(result.data, "base64");

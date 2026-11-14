@@ -255,7 +255,12 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
       // no Stop: a half built sequence is the host's to clean up, not the editor's
       const p = st.progress;
       return `${err}<div class="box"><div class="row"><span>${
-        p ? t("pauses.applying", { done: p.done, total: p.total }) : t("pauses.building")
+        p
+          ? t(inPlace(ctx) ? "pauses.applyingInPlace" : "pauses.applying", {
+              done: p.done,
+              total: p.total,
+            })
+          : t(inPlace(ctx) ? "pauses.buildingInPlace" : "pauses.building")
       }</span></div></div>`;
     }
     case "done":
@@ -268,7 +273,7 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
 /** The part listened to: the In/Out when the sequence has one, else the whole sequence (no choice to make). */
 function idleScreen(_st: PausesState, ctx: PausesCtx): string {
   const can = Boolean(ctx.cutToNewSequence);
-  return `<div class="note muted">${t("pauses.intro")}</div>
+  return `<div class="note muted">${t(inPlace(ctx) ? "pauses.introInPlace" : "pauses.intro")}</div>
   ${can ? "" : `<div class="box warn">${t("pauses.unsupported")}</div>`}
   ${ctx.rangeLine()}
   ${can ? `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="pauses-find">${t("pauses.find")}</div>` : ""}`;
@@ -308,7 +313,7 @@ function previewScreen(st: PausesState, ctx: PausesCtx): string {
   ${st.notIsolated ? `<div class="box warn">${t("pauses.notIsolated")}</div>` : ""}
   ${unheardNote(st)}
   ${ctx.hostKind() === "resolve" ? `<div class="note muted">${t("pauses.rebuildNote")}</div>` : ""}
-  <div id="pauses-apply-slot">${applyButton(st)}</div>
+  <div id="pauses-apply-slot">${applyButton(st, ctx)}</div>
   <div class="link mt" data-act="pauses-again">${t("pauses.again")}</div>`;
 }
 
@@ -323,16 +328,21 @@ export function unheardNote(st: PausesState): string {
   return `<div class="note">${t("pauses.unheard", { heard: names(st.listened), others: names(others) })}</div>`;
 }
 
-function applyButton(st: PausesState): string {
+/** Premiere and FilmCraft cut the editor's own sequence; Resolve builds a new timeline. */
+function inPlace(ctx: PausesCtx): boolean {
+  return ctx.hostKind() !== "resolve";
+}
+
+function applyButton(st: PausesState, ctx: PausesCtx): string {
   return canApply(st)
-    ? `<div class="btn mt" data-act="pauses-apply">${t("pauses.apply")}</div>`
+    ? `<div class="btn mt" data-act="pauses-apply">${t(inPlace(ctx) ? "pauses.applyInPlace" : "pauses.apply")}</div>`
     : "";
 }
 
 function doneScreen(st: PausesState, ctx: PausesCtx): string {
   const r = st.result;
   if (!r) return idleScreen(st, ctx);
-  return `<div class="box ok">${t("pauses.done", { name: ctx.esc(r.name) })}</div>
+  return `<div class="box ok">${t(r.inPlace ? "pauses.doneInPlace" : "pauses.done", { name: ctx.esc(r.name) })}</div>
   ${r.leftOut > 0 ? `<div class="box warn">${t("pauses.leftOut", { n: r.leftOut })}</div>` : ""}
   ${r.rebuilt ? `<div class="note muted">${t("pauses.rebuildNote")}</div>` : ""}
   <div class="btn mt" data-act="pauses-again">${t("pauses.again")}</div>`;
@@ -348,7 +358,7 @@ function renderLive(st: PausesState, ctx: PausesCtx): void {
   // an error (a lost connection) shows, and clears on the next good answer, without ending the drag
   errorSlot.innerHTML = errorBoxes(st, ctx);
   live.innerHTML = liveHtml(st);
-  slot.innerHTML = applyButton(st);
+  slot.innerHTML = applyButton(st, ctx);
 }
 
 // ---------- actions ----------

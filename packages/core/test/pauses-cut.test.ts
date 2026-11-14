@@ -17,9 +17,9 @@ test("silenceGapS runs from 1.2 s at strictness 0 to 0.775 s at the middle, and 
   // the pad beside a cut shrinks only past the middle
   expect(silencePadS(0.3)).toBe(0.15);
   expect(silencePadS(1)).toBeCloseTo(0.05);
-  // a piece starts close to its first word at Tight; a word's fading end keeps most of its pad
-  expect(leadPadS(0.5)).toBeCloseTo(0.05);
-  expect(leadPadS(1)).toBeCloseTo(0.03);
+  // a piece starts at its first word's sound (the frame rounding keeps the room before it); the end keeps a pad
+  expect(leadPadS(0.5)).toBe(0);
+  expect(leadPadS(1)).toBe(0);
   expect(tailPadS(0.5)).toBeCloseTo(0.05);
   expect(tailPadS(1)).toBeCloseTo(0.03);
 });
@@ -63,7 +63,7 @@ test("pauses are cut from the speech alone, padded short before speech and a lit
       ],
       3,
       1,
-    ).some((c) => c.startS > 2 && c.endS < 2.3),
+    ).some((c) => c.startS > 2 && c.endS <= 2.3),
   ).toBe(true);
 });
 
