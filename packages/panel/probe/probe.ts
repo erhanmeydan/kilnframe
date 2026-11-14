@@ -466,3 +466,225 @@ button("btn-grid", async () => {
     off: off.slice(0, 40),
   });
 });
+
+// 10. Every clip's edges in ticks: start and end on the timeline, in and out in its source. Pressed after a
+// Remove Pauses cut and again after the project is saved and Premiere reopened, it shows what Premiere changed
+// (14 Nov 2026: after a reopen the audio of a cut sequence played from the wrong place in its source).
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-edges", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const seq = await project.getActiveSequence();
+  if (!seq) throw new Error("Önce bir sekans aç.");
+  const settings = await seq.getSettings();
+  const rate = await settings.getVideoFrameRate();
+  const tpf = Number(rate.ticksPerFrame);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const ticks = (t: any) => Number(t?.ticks ?? NaN);
+  const f = (v: number) => (Number.isFinite(v) ? Number((v / tpf).toFixed(3)) : null);
+  const rows: unknown[] = [];
+  for (const kind of ["video", "audio"] as const) {
+    const n = kind === "video" ? await seq.getVideoTrackCount() : await seq.getAudioTrackCount();
+    for (let i = 0; i < n; i++) {
+      const track = kind === "video" ? await seq.getVideoTrack(i) : await seq.getAudioTrack(i);
+      for (const it of track.getTrackItems(CLIP, false)) {
+        const start = ticks(await it.getStartTime());
+        const end = ticks(await it.getEndTime());
+        const inP = ticks(await it.getInPoint());
+        const outP = ticks(await it.getOutPoint());
+        rows.push({
+          t: `${kind === "video" ? "V" : "A"}${i + 1}`,
+          name: await it.getName().catch(() => "?"),
+          startF: f(start),
+          endF: f(end),
+          inF: f(inP),
+          outF: f(outP),
+          // the source frame that plays at the clip's start; it must match between V and A of one take
+          lenF: f(end - start),
+          srcLenF: f(outP - inP),
+        });
+      }
+    }
+  }
+  log("10. Bütün klip kenarları (kare)", {
+    sequence: seq.name,
+    ticksPerFrame: tpf,
+    clips: rows.length,
+    rows,
+  });
+});
+
+// 11. How Premiere applies a track item's in point, out point and end, one at a time and together, on a clone of
+// the active sequence (never the original). Remove Pauses gave copies the wrong out point (14 Nov 2026); a set
+// out point added to fix it also moved the clip's end. Each step is its own transaction unless it says
+// "together"; every clip edge is in sequence frames.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-outpoint", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const source = await project.getActiveSequence();
+  if (!source) throw new Error("Önce bir sekans aç.");
+  const run = (what: string, add: (c: any) => void): boolean => {
+    let ok = false;
+    project.lockedAccess(() => {
+      ok = project.executeTransaction(add, `probe: ${what}`);
+    });
+    return ok;
+  };
+  const before = new Set((await project.getSequences()).map((q: any) => q.guid.toString()));
+  run("clone", (c) => c.addAction(source.createCloneAction()));
+  const clone = (await project.getSequences()).find((q: any) => !before.has(q.guid.toString()));
+  if (!clone) throw new Error("Kopya sekans bulunamadı.");
+  await project.openSequence(clone);
+  await project.setActiveSequence(clone);
+  const settings = await clone.getSettings();
+  const tpf = Number((await settings.getVideoFrameRate()).ticksPerFrame);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const T = (f: number) => ppro.TickTime.createWithTicks(String(Math.round(f * tpf)));
+  const fr = (t: any) => +(Number(t?.ticks ?? NaN) / tpf).toFixed(3);
+  const first = async () => (await clone.getVideoTrack(0)).getTrackItems(CLIP, false)[0];
+  const edges = async (it: any) => ({
+    start: fr(await it.getStartTime()),
+    end: fr(await it.getEndTime()),
+    in: fr(await it.getInPoint()),
+    out: fr(await it.getOutPoint()),
+  });
+  const out: Record<string, unknown> = { sequence: clone.name, ticksPerFrame: tpf };
+  const step = async (name: string, add: (it: any, e: any, c: any) => void) => {
+    const it = await first();
+    const e = await edges(it);
+    const ok = run(name, (c) => add(it, e, c));
+    out[name] = { ok, before: e, after: await edges(await first()) };
+  };
+  const v = await first();
+  if (!v) throw new Error("V1'de klip yok.");
+  out.start = await edges(v);
+  await step("a. out 25 kare erken", (it, e, c) =>
+    c.addAction(it.createSetOutPointAction(T(e.out - 25))),
+  );
+  await step("b. out 10 kare geç", (it, e, c) =>
+    c.addAction(it.createSetOutPointAction(T(e.out + 10))),
+  );
+  await step("c. in 25 kare geç", (it, e, c) =>
+    c.addAction(it.createSetInPointAction(T(e.in + 25))),
+  );
+  await step("d. end 10 kare erken", (it, e, c) =>
+    c.addAction(it.createSetEndAction(T(e.end - 10))),
+  );
+  await step("e. birlikte: end +5, out +5", (it, e, c) => {
+    c.addAction(it.createSetEndAction(T(e.end + 5)));
+    c.addAction(it.createSetOutPointAction(T(e.out + 5)));
+  });
+  await step("f. in +30 sonra (ayrı adım) out", (it, e, c) =>
+    c.addAction(it.createSetInPointAction(T(e.in + 30))),
+  );
+  await step("g. out = in + uzunluk", (it, e, c) =>
+    c.addAction(it.createSetOutPointAction(T(e.in + (e.end - e.start)))),
+  );
+  log("11. In, out ve end nasıl işliyor", out);
+});
+
+// 12. A way to cut without moving a copy's in point alone: copy the whole clip past the end of the sequence,
+// trim the copy there (start, then end, each its own step), then move it back into a freed span. On a clone of
+// the active sequence. Also: does a set in point inside a copy's range trim its start, as on the clip itself?
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-park", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const source = await project.getActiveSequence();
+  if (!source) throw new Error("Önce bir sekans aç.");
+  const run = (what: string, add: (c: any) => void): boolean => {
+    let ok = false;
+    project.lockedAccess(() => {
+      ok = project.executeTransaction(add, `probe: ${what}`);
+    });
+    return ok;
+  };
+  const before = new Set((await project.getSequences()).map((q: any) => q.guid.toString()));
+  run("clone", (c) => c.addAction(source.createCloneAction()));
+  const seq = (await project.getSequences()).find((q: any) => !before.has(q.guid.toString()));
+  if (!seq) throw new Error("Kopya sekans bulunamadı.");
+  await project.openSequence(seq);
+  await project.setActiveSequence(seq);
+  const tpf = Number((await (await seq.getSettings()).getVideoFrameRate()).ticksPerFrame);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const T = (f: number) => ppro.TickTime.createWithTicks(String(Math.round(f * tpf)));
+  const fr = (t: any) => +(Number(t?.ticks ?? NaN) / tpf).toFixed(3);
+  const edges = async (it: any) => {
+    const e = {
+      start: fr(await it.getStartTime()),
+      end: fr(await it.getEndTime()),
+      in: fr(await it.getInPoint()),
+      out: fr(await it.getOutPoint()),
+    };
+    return { ...e, consistent: Math.abs(e.out - e.in - (e.end - e.start)) < 0.5 };
+  };
+  const v1 = async () => (await seq.getVideoTrack(0)).getTrackItems(CLIP, false);
+  const a1 = async () =>
+    (await seq.getAudioTrackCount()) ? (await seq.getAudioTrack(0)).getTrackItems(CLIP, false) : [];
+  const out: Record<string, unknown> = { sequence: seq.name };
+  const items = await v1();
+  const orig = items[0];
+  if (!orig) throw new Error("V1'de klip yok.");
+  const o = await edges(orig);
+  out.original = o;
+  const seqEndF = Math.max(
+    ...(await Promise.all(items.map(async (it: any) => fr(await it.getEndTime())))),
+  );
+  out.sequenceEndF = seqEndF;
+  out.a1Before = (await a1()).length;
+  // 1. a copy of the whole clip, 50 frames past the end of the sequence
+  const D = seqEndF + 50 - o.start;
+  const editor = ppro.SequenceEditor.getEditor(seq);
+  out.cloneOk = run("park copy", (c) =>
+    c.addAction(editor.createCloneTrackItemAction(orig, T(D), 0, 0, false, false)),
+  );
+  const copy = async () => {
+    for (const it of await v1()) if (fr(await it.getStartTime()) >= seqEndF) return it;
+    return null;
+  };
+  const c0 = await copy();
+  out.copyFound = !!c0;
+  out.a1AfterClone = (await a1()).length;
+  if (!c0) return log("12. Park et ve geri taşı (kopya bulunamadı)", out);
+  out.copy = await edges(c0);
+  // 2. trim the copy's start by 25 frames: does its in point follow (a head trim)?
+  const e1 = await edges(c0);
+  out.setStartOk = run("copy start +25", (c) =>
+    c.addAction(c0.createSetStartAction(T(e1.start + 25))),
+  );
+  out.afterSetStart = await edges((await copy())!);
+  // 3. trim the copy's end: copy 60 frames long
+  const c2 = (await copy())!;
+  const e2 = await edges(c2);
+  out.setEndOk = run("copy end", (c) => c.addAction(c2.createSetEndAction(T(e2.start + 60))));
+  out.afterSetEnd = await edges((await copy())!);
+  // 4. a set in point 5 frames on, inside the copy's range: does its start follow?
+  const c3 = (await copy())!;
+  const e3 = await edges(c3);
+  out.setInOk = run("copy in +5", (c) => c.addAction(c3.createSetInPointAction(T(e3.in + 5))));
+  out.afterSetIn = await edges((await copy())!);
+  // the results so far go to the log even when a later step fails
+  log("12. Park et ve geri taşı (1-4)", out);
+  // 5. free the last 100 frames of the original, then move the copy back into them across the empty space;
+  // the original is read again, as Premiere drops the objects read before a step
+  try {
+    const o5 = (await v1())[0];
+    const oe = await edges(o5);
+    out.shrinkOrigOk = run("original end -100", (c) =>
+      c.addAction(o5.createSetEndAction(T(oe.end - 100))),
+    );
+    const c4 = (await copy())!;
+    const e4 = await edges(c4);
+    const by = oe.end - 90 - e4.start;
+    out.moveBy = by;
+    out.moveOk = run("move copy back", (c) => c.addAction(c4.createMoveAction(T(by))));
+    const after: unknown[] = [];
+    for (const it of await v1()) after.push(await edges(it));
+    out.v1After = after;
+    out.a1After = (await a1()).length;
+  } catch (err) {
+    out.step5Error = err instanceof Error ? err.message : String(err);
+  }
+  log("12. Park et ve geri taşı", out);
+});

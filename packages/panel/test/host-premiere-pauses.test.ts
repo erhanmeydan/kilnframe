@@ -14,8 +14,19 @@ interface Rec {
   start: number;
   end: number;
   inF: number;
+  /**
+   * Its out point in media frames. Premiere keeps it apart from the end, as measured on 14 Nov 2026: a set in
+   * point leaves it, a set end moves it by the same amount, a copy takes its seed's. After a reopen Premiere
+   * plays the clip from in and out, so an out point left behind moves the sound.
+   */
+  outF: number;
   speed: number;
   reversed?: boolean;
+  /**
+   * A copy made by a clone: a set in or out point moves that point alone. On the clip itself a set out point
+   * trims its tail, moving out and end together (measured 14 Nov 2026).
+   */
+  copy?: boolean;
   /** A transition, not a clip: listed for TrackItemType.TRANSITION only. */
   transition?: boolean;
 }
@@ -39,9 +50,9 @@ function fakePremiere(
 ) {
   const tick = (ticks: number) => ({ ticks: String(Math.round(ticks)), seconds: ticks / TPS });
   const ticksOf = (t: { ticks: string }) => Number(t.ticks);
-  /** Optional sabotage: what set in point does instead (to test the failure paths). */
+  /** Optional sabotage: what a move does instead (to test the failure paths). */
   const quirks = {
-    setInPoint: "slip" as "slip" | "trim" | "throw",
+    move: "ok" as "ok" | "throw" | "off",
     /** Removing a transition is refused (a selection takes clips only). */
     keepTransitions: false,
     /**
@@ -87,24 +98,36 @@ function fakePremiere(
             getStartTime: async () => tick(r.start * TPF),
             getEndTime: async () => tick(r.end * TPF),
             getInPoint: async () => tick(r.inF * TPF),
+            getOutPoint: async () => tick(r.outF * TPF),
             getSpeed: async () => r.speed,
             isSpeedReversed: async () => (r.reversed ? 1 : 0),
-            createSetStartAction: (t: { ticks: string }) => () => {
-              const f = ticksOf(t) / TPF;
-              r.inF += (f - r.start) * r.speed;
-              r.start = f;
+            // a trim is a change from the clip as it was when the action was made, as in Premiere: an end and an
+            // out point set in one step both trim the tail, and the end moves twice (measured 14 Nov 2026)
+            createSetStartAction: (t: { ticks: string }) => {
+              const by = ticksOf(t) / TPF - r.start;
+              return () => {
+                r.inF += by * r.speed;
+                r.start += by;
+              };
             },
-            createSetEndAction: (t: { ticks: string }) => () => {
-              r.end = ticksOf(t) / TPF;
+            createSetEndAction: (t: { ticks: string }) => {
+              const by = ticksOf(t) / TPF - r.end;
+              return () => {
+                r.outF += by * r.speed;
+                r.end += by;
+              };
             },
-            createSetInPointAction: (t: { ticks: string }) => () => {
-              if (quirks.setInPoint === "throw") throw new Error("refused");
-              const inF = ticksOf(t) / TPF;
-              if (quirks.setInPoint === "trim") r.start += (inF - r.inF) / r.speed;
-              r.inF = inF;
+            createSetOutPointAction: (t: { ticks: string }) => {
+              const by = ticksOf(t) / TPF - r.outF;
+              return () => {
+                if (!r.copy) r.end += by / r.speed;
+                r.outF += by;
+              };
             },
             createMoveAction: (t: { ticks: string }) => () => {
-              const by = ticksOf(t) / TPF;
+              if (quirks.move === "throw") throw new Error("refused");
+              // "off": a piece lands a frame short of where it was sent
+              const by = ticksOf(t) / TPF + (quirks.move === "off" ? 1 : 0);
               r.start += by;
               r.end += by;
             },
@@ -276,13 +299,15 @@ function fakePremiere(
           () => {
             if (v || a || insert) throw new Error("not measured");
             const by = Math.round(ticksOf(offset) / TPF);
-            const copy = { ...it.rec, start: it.rec.start + by, end: it.rec.end + by };
+            const copy = { ...it.rec, start: it.rec.start + by, end: it.rec.end + by, copy: true };
             // an overwrite: what lay under the copy is cut away
             const kept = it.track.flatMap((r) =>
               r.end <= copy.start || r.start >= copy.end
                 ? [r]
                 : [
-                    ...(r.start < copy.start ? [{ ...r, end: copy.start }] : []),
+                    ...(r.start < copy.start
+                      ? [{ ...r, end: copy.start, outF: r.outF - (r.end - copy.start) * r.speed }]
+                      : []),
                     ...(r.end > copy.end
                       ? [{ ...r, inF: r.inF + (copy.end - r.start) * r.speed, start: copy.end }]
                       : []),
@@ -326,8 +351,14 @@ const clip = (name: string, start: number, end: number, inF = 0, speed = 1): Rec
   start,
   end,
   inF,
+  outF: inF + (end - start) * speed,
   speed,
 });
+/** Clips whose out point is not their in point plus their length: what a reopened project would play wrong. */
+const outOfStep = (t: Rec[]) =>
+  t
+    .filter((r) => !r.transition && Math.abs(r.outF - r.inF - (r.end - r.start) * r.speed) > 1e-6)
+    .map((r) => [r.name, r.start, r.end, r.inF, r.outF]);
 const sorted = (t: Rec[]) =>
   [...t]
     .sort((a, b) => a.start - b.start)
@@ -360,6 +391,10 @@ describe("Premiere cutToNewSequence (in place)", () => {
     const main = f.seqs[0];
     expect(sorted(main.video[0])).toEqual(pieces("v"));
     expect(sorted(main.audio[0])).toEqual(pieces("a"));
+    // every piece plays the same media after the project is saved and opened again (14 Nov 2026: the copies
+    // kept their seed's out point, and after a reopen their sound came from the wrong place)
+    expect(outOfStep(main.video[0])).toEqual([]);
+    expect(outOfStep(main.audio[0])).toEqual([]);
     expect(r).toEqual({ id: "guid-1", name: "Main", leftOut: 0, rebuilt: false, inPlace: true });
     // no copy, no new name: the editor's own sequence, still the active one
     expect(f.seqs).toHaveLength(1);
@@ -417,7 +452,7 @@ describe("Premiere cutToNewSequence (in place)", () => {
 
   it("asks the editor to undo when a step fails after the sequence changed", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
-    f.quirks.setInPoint = "throw";
+    f.quirks.move = "throw";
     await expect(
       f.host.cutToNewSequence!(
         f.seq,
@@ -435,7 +470,7 @@ describe("Premiere cutToNewSequence (in place)", () => {
 
   it("names the track when the read back differs from the plan, and asks to undo", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
-    f.quirks.setInPoint = "trim";
+    f.quirks.move = "off";
     const err = await f.host.cutToNewSequence!(
       f.seq,
       [
@@ -452,8 +487,8 @@ describe("Premiere cutToNewSequence (in place)", () => {
   it("runs every phase as one transaction and skips the empty ones", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
-    // trim to the seed, clone the seed, set its in point and end, move left
-    expect(f.log).toHaveLength(4);
+    // copy the clip whole past the end, trim the clip and the copy, move the copy into place
+    expect(f.log).toHaveLength(3);
   });
 
   it("moves the markers and In/Out with their content; a marker inside a cut goes", async () => {
@@ -552,35 +587,46 @@ describe("planPremiereCut", () => {
     1000,
   );
 
-  it("seeds an item at its shortest piece and clones it into every further piece", () => {
-    // pieces 0-50, 75-150, 160-300: the shortest is 50
+  it("copies the clip whole past the end for every further piece, trims each to its piece and moves it", () => {
+    // pieces 0-50, 75-150, 160-300 land at 0, 50 and 125; the copies wait from frame 400 (end 300 + 100), the
+    // second one past the first and its margin
     const p = planPremiereCut([info()], cuts, TPF);
-    expect(p.trims).toEqual([{ key: "video:0:0", startF: null, endF: 50 }]);
-    expect(p.clones).toEqual([
-      { key: "video:0:0", offsetF: 75 },
-      { key: "video:0:0", offsetF: 160 },
+    expect(p.parks).toEqual([
+      { key: "video:0:0", offsetF: 400 },
+      { key: "video:0:0", offsetF: 800 },
     ]);
-    expect(p.fixes).toEqual([
-      { kind: "video", track: 0, atF: 75, inTicks: 75 * TPF, endF: 150 },
-      { kind: "video", track: 0, atF: 160, inTicks: 160 * TPF, endF: 300 },
+    expect(p.trims).toEqual([
+      { kind: "video", track: 0, atF: 0, startF: null, endF: 50 },
+      { kind: "video", track: 0, atF: 400, startF: 475, endF: 550 },
+      { kind: "video", track: 0, atF: 800, startF: 960, endF: null },
     ]);
     expect(p.moves).toEqual([
-      { kind: "video", track: 0, atF: 75, byF: -25 },
-      { kind: "video", track: 0, atF: 160, byF: -35 },
+      { kind: "video", track: 0, atF: 475, byF: -425 },
+      { kind: "video", track: 0, atF: 960, byF: -835 },
+    ]);
+    // each piece shows its own media, from in to out
+    expect(p.expected).toEqual([
+      { kind: "video", track: 0, startF: 0, endF: 50, inTicks: 0, outTicks: 50 * TPF },
+      { kind: "video", track: 0, startF: 50, endF: 125, inTicks: 75 * TPF, outTicks: 150 * TPF },
+      { kind: "video", track: 0, startF: 125, endF: 265, inTicks: 160 * TPF, outTicks: 300 * TPF },
     ]);
   });
 
-  it("scales the in point by the clip's speed", () => {
+  it("scales the in and out points by the clip's speed", () => {
     const p = planPremiereCut([info({}, { speed: 2, inTicks: 10 * TPF })], cuts, TPF);
-    expect(p.fixes[0].inTicks).toBe(10 * TPF + 150 * TPF);
+    // the piece 75-150 starts 150 media frames in and lasts 150 media frames at twice the speed
+    expect(p.expected[1].inTicks).toBe(10 * TPF + 150 * TPF);
+    expect(p.expected[1].outTicks).toBe(10 * TPF + 300 * TPF);
   });
 
   it("keeps only the first piece of a reversed clip and counts it as left out", () => {
     const p = planPremiereCut([info({}, { reversed: true })], cuts, TPF);
     expect(p.leftOut).toBe(1);
-    expect(p.clones).toEqual([]);
-    expect(p.trims).toEqual([{ key: "video:0:0", startF: null, endF: 50 }]);
-    expect(p.expected).toEqual([{ kind: "video", track: 0, startF: 0, endF: 50, inTicks: null }]);
+    expect(p.parks).toEqual([]);
+    expect(p.trims).toEqual([{ kind: "video", track: 0, atF: 0, startF: null, endF: 50 }]);
+    expect(p.expected).toEqual([
+      { kind: "video", track: 0, startF: 0, endF: 50, inTicks: null, outTicks: null },
+    ]);
   });
 
   it("orders the moves left to right on each track", () => {
@@ -599,5 +645,14 @@ describe("cutMismatch", () => {
     expect(cutMismatch([e], [{ ...e, endF: 11 }], TPF)).toMatch(/A2.*0-10.*0-11/);
     expect(cutMismatch([e], [], TPF)).toMatch(/A2/);
     expect(cutMismatch([e], [{ ...e }], TPF)).toBeNull();
+  });
+
+  it("finds a clip that ends at the wrong point of its media", () => {
+    // a copy left with its seed's out point plays right until the project is opened again
+    const want = { ...e, outTicks: 10 * TPF };
+    expect(cutMismatch([want], [{ ...want, outTicks: 4 * TPF }], TPF)).toMatch(
+      /A2.*0-10.*ends at the wrong point/,
+    );
+    expect(cutMismatch([want], [{ ...want }], TPF)).toBeNull();
   });
 });
