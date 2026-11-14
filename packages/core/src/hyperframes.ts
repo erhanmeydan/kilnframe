@@ -411,7 +411,7 @@ export async function snapshotProject(
     ["snapshot", "--at", at, "--no-end", "--describe", "false", "-o", outDir],
     projectDir,
   );
-  if (r.code !== 0) throw new Error(`hyperframes snapshot failed:\n${tail(r, 4000)}`);
+  if (r.code !== 0) throw new Error(`hyperframes snapshot failed:\n${failureOutput(r)}`);
   const dir = resolve(projectDir, outDir);
   // fewer stills than times, or none under a naming this does not know, says what the folder holds
   const stills = stillsTaken(dir, timesS.length);
@@ -510,6 +510,33 @@ export function capturedFrames(line: string): { done: number; total: number } | 
   }
 }
 
+/** Lines that say why a run failed: a crash prints its reason once, before a native stack far longer than it. */
+const CAUSE_LINE =
+  /\b(error|fatal|failed|failure|exception|abort(ed)?|out of memory|heap|killed|signal|cannot|unable)\b/i;
+/** Lines that only tell how far a run got. */
+const PROGRESS_LINE = /^(@hf-progress |\[INFO\]|\[static-dedup\])/;
+
+/**
+ * A failed run's output for its error, at most about `chars` long: all of it when it fits, else the lines before the
+ * end that name a failure (the head, earliest first) and then the end, so the cause is kept when a long stack follows.
+ */
+export function failureOutput(r: RunResult, chars = 4000): string {
+  const all = r.stderr.trim() || r.stdout.trim();
+  if (all.length <= chars) return all;
+  const end = all.slice(-Math.floor(chars / 2));
+  const before = all.slice(0, all.length - end.length);
+  let head = "";
+  for (const line of before.split("\n")) {
+    const l = line.trim();
+    if (!l || PROGRESS_LINE.test(l) || !CAUSE_LINE.test(l)) continue;
+    const next = head ? `${head}\n${l}` : l;
+    if (next.length > chars - end.length - 2) break;
+    head = next;
+  }
+  const rest = all.slice(-(chars - head.length - 2));
+  return head ? `${head}\n…\n${rest.slice(rest.indexOf("\n") + 1)}` : all.slice(-chars);
+}
+
 export async function renderProject(projectDir: string, o: RenderOptions): Promise<RunResult> {
   // never --quiet: its progress lines are what tells the watchdog a long render is still alive
   const args = ["render", "--fps", o.fps, "-o", o.output, "--format", o.format];
@@ -524,8 +551,7 @@ export async function renderProject(projectDir: string, o: RenderOptions): Promi
         }
       : o.onLine;
   const r = await runHyperframes(args, projectDir, onLine);
-  // without --quiet the log is long: its end holds the failure
-  if (r.code !== 0)
-    throw new Error(`hyperframes render failed:\n${(r.stderr || r.stdout).slice(-4000)}`);
+  // without --quiet the log is long: its end holds the failure, or a crash's stack with the cause before it
+  if (r.code !== 0) throw new Error(`hyperframes render failed:\n${failureOutput(r)}`);
   return r;
 }

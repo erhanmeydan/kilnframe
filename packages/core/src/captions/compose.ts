@@ -332,8 +332,14 @@ const EMPHASIS_MARGIN_EM = 0.08;
 const EMOJI_MAX = 16;
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
-/** The system's colour emoji fonts, as the Graphics panel's. */
-const EMOJI_FONTS = `"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji"`;
+/**
+ * The system's colour emoji fonts (as the Graphics panel's), named through a face of the page's own whose sources are
+ * local(): the export's compiler leaves a family the page declares alone, where a bare system family is read in and
+ * embedded whole (Apple Color Emoji is 183 MB, which took a render minutes and then killed it). The page, the viewer's
+ * and the export's alike, draws from the installed font.
+ */
+const EMOJI_FAMILY = "CaptionEmoji";
+const EMOJI_FACE = `@font-face{font-family:"${EMOJI_FAMILY}";src:${["Apple Color Emoji", "AppleColorEmoji", "Segoe UI Emoji", "SegoeUIEmoji", "Noto Color Emoji", "NotoColorEmoji"].map((n) => `local("${n}")`).join(",")}}`;
 
 function seconds(s: number): string {
   return s.toFixed(6).replace(/\.?0+$/, "") || "0";
@@ -483,9 +489,10 @@ export function captionHtml(
   }
   if (anyEmoji)
     extraCss.push(
+      EMOJI_FACE,
       `.emoji-box{position:relative}`,
       // centred over the block by flex, which overflows both sides alike when the emoji is wider than the block
-      `.emoji{position:absolute;left:0;right:0;bottom:100%;display:flex;justify-content:center;white-space:nowrap;font-family:${EMOJI_FONTS};line-height:1;margin-bottom:.15em}`,
+      `.emoji{position:absolute;left:0;right:0;bottom:100%;display:flex;justify-content:center;white-space:nowrap;font-family:"${EMOJI_FAMILY}";line-height:1;margin-bottom:.15em}`,
     );
 
   const placement =

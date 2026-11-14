@@ -832,7 +832,14 @@ describe("word colour, emphasis and line emoji", () => {
       const css = extras(html);
       expect(css).toContain(".emoji-box{position:relative}");
       expect(css).toContain(
-        '.emoji{position:absolute;left:0;right:0;bottom:100%;display:flex;justify-content:center;white-space:nowrap;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";line-height:1;margin-bottom:.15em}',
+        '.emoji{position:absolute;left:0;right:0;bottom:100%;display:flex;justify-content:center;white-space:nowrap;font-family:"CaptionEmoji";line-height:1;margin-bottom:.15em}',
+      );
+      // the installed emoji font, by local() only: no system family left for the export's compiler to embed whole
+      expect(css).toContain(
+        '@font-face{font-family:"CaptionEmoji";src:local("Apple Color Emoji"),local("AppleColorEmoji"),local("Segoe UI Emoji"),local("SegoeUIEmoji"),local("Noto Color Emoji"),local("NotoColorEmoji")}',
+      );
+      expect(html).not.toMatch(
+        /font-family:[^;}]*(Apple Color Emoji|Segoe UI Emoji|Noto Color Emoji)/,
       );
       expect(html).toContain(
         'tl.fromTo("#l0 .emoji",{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.18,ease:"back.out(2)"},2.000);',
@@ -840,6 +847,29 @@ describe("word colour, emphasis and line emoji", () => {
       expect(html).not.toContain('"#l1 .emoji"');
     }
   });
+
+  it.each(LOOKS)(
+    "names only families the page declares itself, so the export embeds no system font (%s)",
+    (look) => {
+      // the export's compiler reads a family the page names but does not declare from the system and embeds it whole
+      const html = captionHtml(
+        doc([{ ...line("bir iki üç", 2, 4), emoji: "🚀" }]),
+        look,
+        CAPTION_LOOKS[look].colors,
+      );
+      const declared = new Set(
+        [...html.matchAll(/@font-face\{font-family:"([^"]+)"/g)].map((m) => m[1]),
+      );
+      const named = [...html.matchAll(/[{;\s]font-family:([^;}]+)/g)].flatMap((m) =>
+        (m[1] as string).split(",").map((f) => f.trim().replace(/^["']|["']$/g, "")),
+      );
+      expect(named.length).toBeGreaterThan(0);
+      expect(declared).toContain("CaptionEmoji");
+      for (const family of named)
+        if (!/^(serif|sans-serif|monospace|cursive|fantasy|system-ui|inherit)$/.test(family))
+          expect(declared).toContain(family);
+    },
+  );
 
   it.each([
     [1080, 1920],
