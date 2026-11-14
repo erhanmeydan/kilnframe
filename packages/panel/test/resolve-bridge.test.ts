@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createResolveBridge } from "../src/resolve/bridge";
 import { makeFakeResolve } from "./fake-resolve";
 import { UNSET_MARK } from "../src/resolve/api";
@@ -122,6 +122,50 @@ describe("resolve bridge", () => {
     await b.showTracks(seq.id, hidden);
     expect(f.project.timeline.tracks.video[1]!.enabled).toBe(true);
     expect(f.log.pages).toEqual(["deliver", "edit"]);
+  });
+
+  it("puts the editor's tracks, render settings and page back when the window closes during an export", async () => {
+    const f = makeFakeResolve({ ourInsertOnV2: true, renderUntilStopped: true });
+    // a sleep that lets timers run, so the test can act while the export polls
+    const b = createResolveBridge(f.resolve as never, {
+      sleep: () => new Promise((ok) => setTimeout(ok, 1)),
+    });
+    const seq = await b.currentSequence();
+    await b.hideOurInserts(seq.id, 0, 10);
+    expect(f.project.timeline.tracks.video[1]!.enabled).toBe(false);
+    // the export never ends: the window closes while Resolve renders
+    const exporting = b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav");
+    await vi.waitFor(() => expect(f.log.startRendering).toHaveLength(1));
+    await b.restoreEditorState();
+    expect(f.log.stoppedRendering).toBe(1);
+    expect(f.log.deletedJobs).toEqual(["job-1"]);
+    expect(f.log.presets).toEqual([
+      "delete:Kilnframe Temp",
+      "save:Kilnframe Temp",
+      "load:Kilnframe Temp",
+      "delete:Kilnframe Temp",
+    ]);
+    expect(f.project.timeline.tracks.video[1]!.enabled).toBe(true);
+    expect(f.log.pages.at(-1)).toBe("edit");
+    // the export ends as cancelled and puts nothing back a second time
+    await expect(exporting).resolves.toMatchObject({ ok: false });
+    expect(f.log.presets).toHaveLength(4);
+    // nothing left to restore: a second call changes nothing
+    await b.restoreEditorState();
+    expect(f.log.stoppedRendering).toBe(1);
+  });
+
+  it("restores nothing when no job switched anything", async () => {
+    const f = makeFakeResolve({ ourInsertOnV2: true });
+    const b = bridge(f);
+    const seq = await b.currentSequence();
+    const hidden = await b.hideOurInserts(seq.id, 0, 10);
+    await b.exportRangeAudio(seq.id, 0, 1, "/x/a.wav");
+    await b.showTracks(seq.id, hidden);
+    const pages = f.log.pages.length;
+    await b.restoreEditorState();
+    expect(f.log.pages).toHaveLength(pages);
+    expect(f.log.stoppedRendering).toBe(0);
   });
 
   it("passes over titles and compound clips, which have no file path", async () => {

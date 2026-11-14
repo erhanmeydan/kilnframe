@@ -60,6 +60,8 @@ export interface FakeOptions {
   refuseDisable?: number[];
   /** GetTrackCount throws, as on a timeline deleted while the job ran. */
   failTrackCount?: boolean;
+  /** A started render keeps rendering until StopRendering, as a long range does. */
+  renderUntilStopped?: boolean;
   /** Called before each AppendToTimeline, to look at the bridge while a cut runs. */
   onAppend?: () => Promise<void> | void;
 }
@@ -78,6 +80,7 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     startRendering: [] as string[][],
     deletedJobs: [] as string[],
     presets: [] as string[],
+    stoppedRendering: 0,
     pages: [] as string[],
     timecodes: [] as string[],
     stills: [] as string[],
@@ -397,8 +400,15 @@ export function makeFakeResolve(o: FakeOptions = {}) {
     },
     GetRenderJobStatus: async (id: string) =>
       started.has(id)
-        ? { JobStatus: "Complete", CompletionPercentage: 100 }
+        ? o.renderUntilStopped
+          ? log.stoppedRendering
+            ? { JobStatus: "Cancelled", CompletionPercentage: 40 }
+            : { JobStatus: "Rendering", CompletionPercentage: 40 }
+          : { JobStatus: "Complete", CompletionPercentage: 100 }
         : { JobStatus: "Ready", CompletionPercentage: 0 },
+    StopRendering: async () => {
+      log.stoppedRendering++;
+    },
     DeleteRenderJob: async (id: string) => (log.deletedJobs.push(id), true),
     ExportCurrentFrameAsStill: async (p: string) => {
       stillCalls++;

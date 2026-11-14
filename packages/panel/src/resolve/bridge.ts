@@ -44,10 +44,20 @@ const samePath = (a: string, b: string) => {
   return norm(a) === norm(b);
 };
 
+/** The bridge, with what the panel's main process needs when its window closes. */
+export type ClosableResolveBridge = ResolveBridge & {
+  /**
+   * Puts back what a job in flight changed in Resolve: stops its render, brings back the editor's render
+   * settings, switches the tracks it hid back on and opens the editor's page again. The window closing ends
+   * the page, so its own clean-up never runs.
+   */
+  restoreEditorState(): Promise<void>;
+};
+
 export function createResolveBridge(
   resolve: R,
   opts: { sleep?: (ms: number) => Promise<void> } = {},
-): ResolveBridge {
+): ClosableResolveBridge {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)));
 
   /** Counts the editor's stops: a wait that sees it change ends. */
@@ -55,6 +65,22 @@ export function createResolveBridge(
 
   /** The editor's page before a job's exports changed it; showTracks brings it back. */
   let pageBefore: string | null = null;
+
+  /** Tracks a job switched off and has not switched back on yet, by timeline id. */
+  const switchedOff = new Map<string, HiddenTrack[]>();
+  const noteOff = (id: string, tracks: HiddenTrack[]) => {
+    if (tracks.length) switchedOff.set(id, [...(switchedOff.get(id) ?? []), ...tracks]);
+  };
+  const noteOn = (id: string, tracks: HiddenTrack[]) => {
+    const left = (switchedOff.get(id) ?? []).filter(
+      (h) => !tracks.some((t) => t.type === h.type && t.index === h.index),
+    );
+    if (left.length) switchedOff.set(id, left);
+    else switchedOff.delete(id);
+  };
+
+  /** The render under way: its job and whether the editor's settings wait in the temp preset. */
+  let rendering: { p: R; job: string | null; saved: boolean } | null = null;
 
   /**
    * Resolve 21.1.1 answers true to SetTrackEnable on the Deliver page but leaves the track as it was (12 Oct
@@ -228,6 +254,8 @@ export function createResolveBridge(
     // no copy of the editor's settings: the export goes on, and the panel says they changed
     if (!saved) settingsLost = true;
     let job: string | null = null;
+    const mine = { p, job: null as string | null, saved: Boolean(saved) };
+    rendering = mine;
     try {
       if (format) {
         // codec ids differ between Resolve versions and machines: take the one Resolve lists for the name
@@ -251,6 +279,7 @@ export function createResolveBridge(
         });
         if (!ok) return false;
         job = (await p.AddRenderJob()) as string;
+        mine.job = job;
         if (!job) return false;
         if (await p.StartRendering([job], false)) {
           for (let idle = 0; ;) {
@@ -268,14 +297,19 @@ export function createResolveBridge(
         }
         await p.DeleteRenderJob(job);
         job = null;
+        mine.job = null;
         await sleep(POLL_MS * attempt);
       }
       throw new Error(RENDER_FAILED);
     } finally {
-      if (job) await p.DeleteRenderJob(job);
-      if (saved) {
-        if (!(await p.LoadRenderPreset(TEMP_PRESET))) settingsLost = true;
-        await p.DeleteRenderPreset(TEMP_PRESET);
+      // restoreEditorState may have put things back already (the window closed): not a second time
+      if (rendering === mine) {
+        rendering = null;
+        if (job) await p.DeleteRenderJob(job);
+        if (saved) {
+          if (!(await p.LoadRenderPreset(TEMP_PRESET))) settingsLost = true;
+          await p.DeleteRenderPreset(TEMP_PRESET);
+        }
       }
     }
   }
@@ -578,7 +612,9 @@ export function createResolveBridge(
 
     async hideOurInserts(id, startS, endS) {
       try {
-        return await hideOn(id, startS, endS);
+        const hidden = await hideOn(id, startS, endS);
+        noteOff(id, hidden);
+        return hidden;
       } catch (err) {
         // no showTracks follows a failed hide: the page it left comes back now, not at a later job's end
         await restorePage();
@@ -610,10 +646,12 @@ export function createResolveBridge(
     },
     async soloAudioTrack(id, track) {
       try {
-        return await soloOn(
+        const hidden = await soloOn(
           id,
           new Set((Array.isArray(track) ? track : [track]).map((t) => t + 1)),
         );
+        noteOff(id, hidden);
+        return hidden;
       } catch (err) {
         // no showTracks follows a failed switch: the page it left comes back now
         await restorePage();
@@ -627,8 +665,27 @@ export function createResolveBridge(
         if ((await resolve.GetCurrentPage()) === "deliver")
           await resolve.OpenPage(back && back !== "deliver" ? back : "edit");
         for (const t of tracks) await tl.SetTrackEnable(t.type, t.index, true);
+        noteOn(id, tracks);
         if (back === "deliver") await resolve.OpenPage("deliver");
       });
+    },
+
+    async restoreEditorState() {
+      const r = rendering;
+      rendering = null;
+      if (r) {
+        await Promise.resolve(r.p.StopRendering()).catch(() => undefined);
+        if (r.job) await Promise.resolve(r.p.DeleteRenderJob(r.job)).catch(() => undefined);
+        if (r.saved) {
+          await Promise.resolve(r.p.LoadRenderPreset(TEMP_PRESET)).catch(() => undefined);
+          await Promise.resolve(r.p.DeleteRenderPreset(TEMP_PRESET)).catch(() => undefined);
+        }
+      }
+      // showTracks brings the page back too; with no tracks off, the page alone
+      for (const [id, tracks] of [...switchedOff])
+        await this.showTracks(id, tracks).catch(() => undefined);
+      switchedOff.clear();
+      await restorePage().catch(() => undefined);
     },
 
     placeInsert(id, files, atS, handlesS, durationS, tracks) {
