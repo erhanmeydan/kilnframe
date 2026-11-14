@@ -32,7 +32,7 @@
       /* the range tab's main button never scrolls away (panel design, 8 Oct 2026) */
       .actionbar {
         box-sizing: border-box;
-        border-top: 1px solid #333;
+        border-top: 1px solid #303030;
         background: #262626;
         padding: 8px 12px 10px;
       }
@@ -49,7 +49,7 @@
       }
       /* fewer boxes (panel design 2, 8 Oct 2026): frames only on things that are clicked or typed in */
       .rangeline {
-        padding: 2px 0 9px;
+        padding: 2px 0 8px;
         border-bottom: 1px solid #303030;
         margin-top: 10px;
       }
@@ -64,7 +64,7 @@
         cursor: pointer;
       }
       .style-row .rec-text {
-        margin-left: 9px;
+        margin-left: 8px;
       }
       .link {
         color: #9db6ff;
@@ -76,8 +76,8 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        color: #d0d0d0;
-        padding: 5px 0;
+        color: #d6d6d6;
+        padding: 4px 0;
         cursor: pointer;
       }
       .add .plus {
@@ -85,10 +85,10 @@
         height: 18px;
         line-height: 16px;
         text-align: center;
-        border: 1px dashed #5a5a5a;
+        border: 1px dashed #6a6a6a;
         border-radius: 4px;
-        color: #aaa;
-        margin-right: 7px;
+        color: #b4b4b4;
+        margin-right: 8px;
       }
       .vlist .vrow {
         display: flex;
@@ -96,10 +96,10 @@
         justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid #303030;
-        padding: 3px 4px;
+        padding: 4px 4px;
       }
       .vlist .vrow.on {
-        background: #262b36;
+        background: #262a31;
         border-radius: 4px;
       }
       .vname {
@@ -120,7 +120,7 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        padding: 7px 4px;
+        padding: 8px 4px;
         border-bottom: 1px solid #303030;
         cursor: pointer;
       }
@@ -145,18 +145,14 @@
       }
       .ptag {
         font-size: 10px;
-        border-radius: 3px;
-        padding: 1px 5px;
-        border: 1px solid #484848;
-        color: #b5b5b5;
+        border-radius: 4px;
+        padding: 1px 4px;
+        border: 1px solid #4a4a4a;
+        color: #b4b4b4;
       }
       .ptag.recommended {
-        color: #a9e0bd;
+        color: #8fd6a8;
         border-color: #2f5a3d;
-      }
-      .ptag.works {
-        color: #b9c7e6;
-        border-color: #3d4a66;
       }
       .ptag.none {
         border-color: transparent;
@@ -166,7 +162,7 @@
         margin-left: 10px;
         white-space: nowrap;
         text-align: right;
-        font-size: 10.5px;
+        font-size: 11px;
         color: #8f8f8f;
       }
       .pkey.set {
@@ -180,14 +176,14 @@
         background: #262a31;
         border: 1px solid #353c48;
         border-radius: 6px;
-        padding: 9px 10px;
+        padding: 8px 10px;
         margin: 6px 0 4px;
       }
       .pfield {
         background: #2b2b2b;
         border: 1px solid #3a3a3a;
-        border-radius: 5px;
-        padding: 6px 7px;
+        border-radius: 4px;
+        padding: 6px 8px;
         margin: 6px 0;
       }
       .pbtns {
@@ -201,7 +197,7 @@
         padding: 6px 10px;
         margin-right: 6px;
         color: #d6d6d6;
-        font-size: 11.5px;
+        font-size: 12px;
         cursor: pointer;
       }
       .pbtn.primary {
@@ -211,7 +207,7 @@
         font-weight: 700;
       }
       .ptest {
-        margin-top: 7px;
+        margin-top: 8px;
         font-size: 11px;
       }
       .mrow {
@@ -224,7 +220,7 @@
         cursor: pointer;
       }
       .mrow.on {
-        background: #262b36;
+        background: #262a31;
         border-radius: 4px;
       }
       .mname {
@@ -236,14 +232,14 @@
       }
       /* setup guide (onboarding design, 8 Oct 2026): one line per step, the current one opens */
       .hello {
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 700;
-        color: #f0f0f0;
-        margin-bottom: 3px;
+        color: #e6e6e6;
+        margin-bottom: 4px;
       }
       .ostep {
         border-bottom: 1px solid #303030;
-        padding: 9px 2px;
+        padding: 8px 2px;
       }
       .otop {
         display: flex;
@@ -258,9 +254,9 @@
         text-align: center;
         font-size: 10px;
         font-weight: 700;
-        margin-right: 9px;
-        border: 1px solid #555;
-        color: #777;
+        margin-right: 8px;
+        border: 1px solid #6a6a6a;
+        color: #7a7a7a;
       }
       .omark.done {
         background: #24432f;
@@ -285,7 +281,7 @@
         font-weight: 700;
       }
       .ostatus {
-        font-size: 10.5px;
+        font-size: 11px;
         color: #8f8f8f;
       }
       .ostep.done .ostatus {
@@ -295,26 +291,16 @@
         color: #e0b050;
       }
       .obody {
-        margin: 8px 0 2px 27px;
+        margin: 8px 0 2px 26px;
       }
       .info {
         background: #262a31;
         border: 1px solid #353c48;
         border-radius: 6px;
-        padding: 7px 8px;
-        color: #c4cad4;
+        padding: 8px 8px;
+        color: #d6d6d6;
         font-size: 11px;
         margin: 6px 0;
-      }
-      .chg {
-        border: 1px solid #4a4a4a;
-        border-radius: 5px;
-        padding: 4px 8px;
-        font-size: 11px;
-        color: #d6d6d6;
-        cursor: pointer;
-        align-self: center;
-        margin-left: 6px;
       }
       .strip {
         display: flex;
@@ -322,8 +308,8 @@
         margin-top: 6px;
       }
       .strip-img {
-        border-radius: 3px;
-        margin-right: 5px;
+        border-radius: 4px;
+        margin-right: 4px;
         cursor: pointer;
       }
       .head {
@@ -335,7 +321,7 @@
       .title {
         font-size: 13px;
         font-weight: 700;
-        color: #f0f0f0;
+        color: #e6e6e6;
       }
       .brand {
         display: flex;
@@ -344,7 +330,7 @@
       .brand img {
         width: 18px;
         height: 18px;
-        margin-right: 7px;
+        margin-right: 8px;
       }
       .icon {
         color: #b4b4b4;
@@ -353,7 +339,7 @@
         height: 28px;
         line-height: 28px;
         text-align: center;
-        border-radius: 5px;
+        border-radius: 4px;
         border: 1px solid #3a3a3a;
         cursor: pointer;
       }
@@ -423,7 +409,7 @@
       }
       .ok {
         border-color: #2f5a3d;
-        color: #9fe0b5;
+        color: #8fd6a8;
       }
       .ok-text {
         color: #8fd6a8;
@@ -434,7 +420,7 @@
         flex-direction: row;
         padding: 6px;
         border: 1px solid #3a3a3a;
-        border-radius: 7px;
+        border-radius: 6px;
         background: #2b2b2b;
       }
       .rec.sel {
@@ -456,7 +442,7 @@
         color: #fff;
         font-weight: 700;
         font-size: 12px;
-        margin-bottom: 3px;
+        margin-bottom: 4px;
       }
       .tiles {
         display: flex;
@@ -476,7 +462,7 @@
       }
       .tile-img {
         border-radius: 4px;
-        border: 2px solid #383838;
+        border: 2px solid #3a3a3a;
         background: #333;
         display: block;
       }
@@ -489,7 +475,7 @@
         background: #262626;
       }
       .soon-mark {
-        color: #8a8a8a;
+        color: #8f8f8f;
         font-size: 11px;
       }
       .soon-mark.plus {
@@ -497,25 +483,25 @@
         line-height: 26px;
       }
       .tile.soon .tile-name {
-        color: #8a8a8a;
+        color: #8f8f8f;
       }
       .tile-name {
         font-size: 10px;
         color: #b4b4b4;
         text-align: center;
-        margin-top: 3px;
+        margin-top: 4px;
       }
       .seg {
         display: flex;
         flex-direction: row;
-        border: 1px solid #3f3f3f;
+        border: 1px solid #4a4a4a;
         border-radius: 6px;
         overflow: hidden;
       }
       .seg .opt {
         flex: 1;
         text-align: center;
-        color: #bdbdbd;
+        color: #b4b4b4;
         padding: 6px 0;
         font-size: 11px;
         cursor: pointer;
@@ -531,8 +517,8 @@
       }
       .seg.tabs .opt {
         flex: 1 1 auto;
-        padding: 6px 3px;
-        font-size: 10.5px;
+        padding: 6px 4px;
+        font-size: 10px;
         white-space: nowrap;
       }
       /* Remove Pauses: the slider and the bar of kept speech and cut pauses */
@@ -588,7 +574,7 @@
         background: #2d64c8;
         color: #fff;
         border-radius: 6px;
-        padding: 9px;
+        padding: 8px;
         font-size: 12px;
         font-weight: 700;
         text-align: center;
@@ -596,7 +582,7 @@
       }
       .btn.off {
         background: #3a3a3a;
-        color: #8a8a8a;
+        color: #8f8f8f;
       }
       /* Premiere in the background: the first click only brings it forward (docs/ilk-animasyon.md) */
       #app.asleep .btn {
@@ -605,7 +591,7 @@
       }
       #app.asleep .btn2 {
         color: #7a7a7a;
-        border-color: #383838;
+        border-color: #3a3a3a;
       }
       .btn2 {
         color: #d6d6d6;
@@ -621,7 +607,7 @@
         padding: 1px 6px;
         border-radius: 4px;
         background: #3a3a3a;
-        color: #c8c8c8;
+        color: #d6d6d6;
       }
       .img-slot {
         box-sizing: border-box;
@@ -641,7 +627,7 @@
         align-items: center;
         justify-content: center;
         border-radius: 4px;
-        border: 1px solid #383838;
+        border: 1px solid #3a3a3a;
         background: #2b2b2b;
         overflow: hidden;
       }
@@ -709,7 +695,7 @@
         border-radius: 6px;
         background: #2b2b2b;
         font-size: 12px;
-        color: #e0e0e0;
+        color: #e6e6e6;
       }
       .voice.on {
         border-color: #5b8cff;
@@ -726,7 +712,7 @@
       .gallery {
         display: flex;
         flex-direction: row;
-        margin-top: 7px;
+        margin-top: 8px;
       }
       .gal-img {
         cursor: pointer;
@@ -745,7 +731,7 @@
       }
       .still-label {
         cursor: pointer;
-        margin-top: 3px;
+        margin-top: 4px;
       }
       .stills {
         display: flex;
@@ -759,18 +745,18 @@
       .still-img,
       .still-empty {
         display: block;
-        border-radius: 5px;
+        border-radius: 4px;
         border: 2px solid transparent;
         background: #333;
       }
       .still.redo .still-img,
       .still.redo .still-empty {
-        border-color: #e0a040;
+        border-color: #e0b050;
       }
       .step {
         display: flex;
         flex-direction: row;
-        padding: 3px 0;
+        padding: 4px 0;
       }
       .step .mark {
         width: 18px;
@@ -791,7 +777,7 @@
         height: 4px;
         background: #3a3a3a;
         border-radius: 2px;
-        margin: 10px 0 5px;
+        margin: 10px 0 4px;
       }
       .bar div {
         height: 4px;
@@ -807,7 +793,7 @@
         flex-direction: column;
         justify-content: flex-end;
         align-items: center;
-        background: #484848;
+        background: #4a4a4a;
         overflow: hidden;
       }
       .cap-sample {
@@ -836,7 +822,7 @@
       }
       /* "Play" while its preview is made: in the links' place, not clickable */
       .cap-wait {
-        color: #8a8a8a;
+        color: #8f8f8f;
         cursor: default;
       }
       .cap-still {
@@ -851,8 +837,8 @@
         background: #262626;
       }
       .cw.pill {
-        border-radius: 5px;
-        padding: 0 3px;
+        border-radius: 4px;
+        padding: 0 4px;
       }
       .swatches {
         display: flex;
@@ -886,7 +872,7 @@
         flex-direction: row;
         align-items: center;
         cursor: pointer;
-        color: #d0d0d0;
+        color: #d6d6d6;
         padding: 4px 0;
       }
       .box-mark {
@@ -897,7 +883,7 @@
         font-size: 10px;
         color: #fff;
         border: 1px solid #6a6a6a;
-        border-radius: 3px;
+        border-radius: 4px;
         margin-right: 8px;
       }
       .box-mark.on {
@@ -912,7 +898,7 @@
       .cline {
         border-bottom: 1px solid #303030;
         border-left: 2px solid transparent;
-        padding: 6px 0 3px 8px;
+        padding: 6px 0 4px 8px;
       }
       .cline.changed {
         border-left-color: #5b8cff;
@@ -923,7 +909,7 @@
       }
       .cline-text {
         min-height: 36px;
-        margin-top: 3px;
+        margin-top: 4px;
         font-family: inherit;
       }
     </style>
