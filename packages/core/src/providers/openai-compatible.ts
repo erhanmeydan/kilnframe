@@ -440,7 +440,8 @@ export class OpenAICompatibleProvider implements TextProvider {
   }
 
   /**
-   * A dropped connection, a rate limit or a 5xx is tried again, twice, after a short pause: one reset in a
+   * A dropped connection, a rate limit or a 5xx is tried again, twice, after a short pause (an overloaded
+   * model three times, after 15, 30 and 60 s; see overloadPauseMs): one reset in a
    * six-minute xAI reply used to fail the whole job (8 Oct 2026). The Anthropic SDK does the same on its own.
    * A reply cut off at the output limit is tried only once more: a model that thinks at great length tends to
    * hit the limit again, and each try can take many minutes.
@@ -473,12 +474,17 @@ export class OpenAICompatibleProvider implements TextProvider {
           continue;
         }
         if (!(err instanceof ProviderError) || !err.retryable) throw err;
-        if (attempt >= (err.kind === "cut-off" ? 2 : 3)) throw err;
+        if (attempt >= (err.kind === "cut-off" ? 2 : err.kind === "overloaded" ? 4 : 3)) throw err;
         // the thinking counts against the limit: the try again thinks little (OpenRouter takes the level
         // for any model; elsewhere only where the preset sets one)
         if (err.kind === "cut-off" && (effort || this.name === "openrouter")) effort = "low";
+        const header = err instanceof RetryAfterError ? err.waitMs : null;
         pauseMs =
-          err instanceof RetryAfterError ? err.waitMs : (this.o.retryDelayMs ?? 5_000) * attempt;
+          err.kind === "overloaded"
+            ? this.o.retryDelayMs === 0
+              ? 0
+              : Math.max(header ?? 0, overloadPauseMs(attempt))
+            : (header ?? (this.o.retryDelayMs ?? 5_000) * attempt);
       } finally {
         this.release();
       }
@@ -635,6 +641,7 @@ export class OpenAICompatibleProvider implements TextProvider {
         res.status === 404 ||
         ((res.status === 400 || res.status === 422) && mentionsUnavailableModel(detail));
       const waitMs = noBalance ? null : retryAfterMs(res.headers.get("retry-after"));
+      const overloaded = res.status === 503 || OVERLOADED.test(detail);
       throw new (waitMs !== null ? RetryAfterError : ProviderError)(
         unavailable
           ? `${this.name} does not offer the model "${this.model}": ${detail}`
@@ -644,7 +651,9 @@ export class OpenAICompatibleProvider implements TextProvider {
           ? "model-unavailable"
           : res.status === 429 && !noBalance
             ? "rate-limited"
-            : undefined,
+            : overloaded && res.status >= 500
+              ? "overloaded"
+              : undefined,
         waitMs ?? 0,
       );
     }
@@ -721,6 +730,17 @@ export function readChatStream(sse: string): ChatCompletion {
   // a connection closed cleanly halfway looks like a whole stream otherwise
   if (!done && !finish) out.incomplete = true;
   return out;
+}
+
+/** How a provider says the model is busy for everyone (Gemini: "high demand", status UNAVAILABLE). */
+const OVERLOADED = /high demand|overloaded|UNAVAILABLE/i;
+
+/**
+ * The pause before try `attempt + 1` on an overloaded model: 15, 30, then 60 s. Gemini's high demand lasts
+ * minutes, and the 5 and 10 s of other errors gave up after 15 s (14 Nov 2026, a Gemini 3.8 Flash job).
+ */
+export function overloadPauseMs(attempt: number): number {
+  return [15_000, 30_000, 60_000][Math.min(attempt, 3) - 1] ?? 60_000;
 }
 
 /** A 429 or 5xx whose Retry-After header says how long to wait. */
