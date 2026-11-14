@@ -513,3 +513,73 @@ button("btn-edges", async () => {
     rows,
   });
 });
+
+// 11. How Premiere applies a track item's in point, out point and end, one at a time and together, on a clone of
+// the active sequence (never the original). Remove Pauses gave copies the wrong out point (14 Nov 2026); a set
+// out point added to fix it also moved the clip's end. Each step is its own transaction unless it says
+// "together"; every clip edge is in sequence frames.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-outpoint", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const source = await project.getActiveSequence();
+  if (!source) throw new Error("Önce bir sekans aç.");
+  const run = (what: string, add: (c: any) => void): boolean => {
+    let ok = false;
+    project.lockedAccess(() => {
+      ok = project.executeTransaction(add, `probe: ${what}`);
+    });
+    return ok;
+  };
+  const before = new Set((await project.getSequences()).map((q: any) => q.guid.toString()));
+  run("clone", (c) => c.addAction(source.createCloneAction()));
+  const clone = (await project.getSequences()).find((q: any) => !before.has(q.guid.toString()));
+  if (!clone) throw new Error("Kopya sekans bulunamadı.");
+  await project.openSequence(clone);
+  await project.setActiveSequence(clone);
+  const settings = await clone.getSettings();
+  const tpf = Number((await settings.getVideoFrameRate()).ticksPerFrame);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const T = (f: number) => ppro.TickTime.createWithTicks(String(Math.round(f * tpf)));
+  const fr = (t: any) => +(Number(t?.ticks ?? NaN) / tpf).toFixed(3);
+  const first = async () => (await clone.getVideoTrack(0)).getTrackItems(CLIP, false)[0];
+  const edges = async (it: any) => ({
+    start: fr(await it.getStartTime()),
+    end: fr(await it.getEndTime()),
+    in: fr(await it.getInPoint()),
+    out: fr(await it.getOutPoint()),
+  });
+  const out: Record<string, unknown> = { sequence: clone.name, ticksPerFrame: tpf };
+  const step = async (name: string, add: (it: any, e: any, c: any) => void) => {
+    const it = await first();
+    const e = await edges(it);
+    const ok = run(name, (c) => add(it, e, c));
+    out[name] = { ok, before: e, after: await edges(await first()) };
+  };
+  const v = await first();
+  if (!v) throw new Error("V1'de klip yok.");
+  out.start = await edges(v);
+  await step("a. out 25 kare erken", (it, e, c) =>
+    c.addAction(it.createSetOutPointAction(T(e.out - 25))),
+  );
+  await step("b. out 10 kare geç", (it, e, c) =>
+    c.addAction(it.createSetOutPointAction(T(e.out + 10))),
+  );
+  await step("c. in 25 kare geç", (it, e, c) =>
+    c.addAction(it.createSetInPointAction(T(e.in + 25))),
+  );
+  await step("d. end 10 kare erken", (it, e, c) =>
+    c.addAction(it.createSetEndAction(T(e.end - 10))),
+  );
+  await step("e. birlikte: end +5, out +5", (it, e, c) => {
+    c.addAction(it.createSetEndAction(T(e.end + 5)));
+    c.addAction(it.createSetOutPointAction(T(e.out + 5)));
+  });
+  await step("f. in +30 sonra (ayrı adım) out", (it, e, c) =>
+    c.addAction(it.createSetInPointAction(T(e.in + 30))),
+  );
+  await step("g. out = in + uzunluk", (it, e, c) =>
+    c.addAction(it.createSetOutPointAction(T(e.in + (e.end - e.start)))),
+  );
+  log("11. In, out ve end nasıl işliyor", out);
+});

@@ -22,6 +22,11 @@ interface Rec {
   outF: number;
   speed: number;
   reversed?: boolean;
+  /**
+   * A copy made by a clone: a set in or out point moves that point alone. On the clip itself a set out point
+   * trims its tail, moving out and end together (measured 14 Nov 2026).
+   */
+  copy?: boolean;
   /** A transition, not a clip: listed for TrackItemType.TRANSITION only. */
   transition?: boolean;
 }
@@ -96,18 +101,28 @@ function fakePremiere(
             getOutPoint: async () => tick(r.outF * TPF),
             getSpeed: async () => r.speed,
             isSpeedReversed: async () => (r.reversed ? 1 : 0),
-            createSetStartAction: (t: { ticks: string }) => () => {
-              const f = ticksOf(t) / TPF;
-              r.inF += (f - r.start) * r.speed;
-              r.start = f;
+            // a trim is a change from the clip as it was when the action was made, as in Premiere: an end and an
+            // out point set in one step both trim the tail, and the end moves twice (measured 14 Nov 2026)
+            createSetStartAction: (t: { ticks: string }) => {
+              const by = ticksOf(t) / TPF - r.start;
+              return () => {
+                r.inF += by * r.speed;
+                r.start += by;
+              };
             },
-            createSetEndAction: (t: { ticks: string }) => () => {
-              const f = ticksOf(t) / TPF;
-              r.outF += (f - r.end) * r.speed;
-              r.end = f;
+            createSetEndAction: (t: { ticks: string }) => {
+              const by = ticksOf(t) / TPF - r.end;
+              return () => {
+                r.outF += by * r.speed;
+                r.end += by;
+              };
             },
-            createSetOutPointAction: (t: { ticks: string }) => () => {
-              r.outF = ticksOf(t) / TPF;
+            createSetOutPointAction: (t: { ticks: string }) => {
+              const by = ticksOf(t) / TPF - r.outF;
+              return () => {
+                if (!r.copy) r.end += by / r.speed;
+                r.outF += by;
+              };
             },
             createSetInPointAction: (t: { ticks: string }) => () => {
               if (quirks.setInPoint === "throw") throw new Error("refused");
@@ -288,7 +303,7 @@ function fakePremiere(
           () => {
             if (v || a || insert) throw new Error("not measured");
             const by = Math.round(ticksOf(offset) / TPF);
-            const copy = { ...it.rec, start: it.rec.start + by, end: it.rec.end + by };
+            const copy = { ...it.rec, start: it.rec.start + by, end: it.rec.end + by, copy: true };
             // an overwrite: what lay under the copy is cut away
             const kept = it.track.flatMap((r) =>
               r.end <= copy.start || r.start >= copy.end
@@ -476,8 +491,8 @@ describe("Premiere cutToNewSequence (in place)", () => {
   it("runs every phase as one transaction and skips the empty ones", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
-    // trim to the seed, clone the seed, set its in point and end, move left
-    expect(f.log).toHaveLength(4);
+    // trim to the seed, clone the seed, set its in point and end, set the copy's out point, move left
+    expect(f.log).toHaveLength(5);
   });
 
   it("moves the markers and In/Out with their content; a marker inside a cut goes", async () => {

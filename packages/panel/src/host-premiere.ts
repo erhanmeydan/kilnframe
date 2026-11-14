@@ -151,10 +151,11 @@ export interface PremiereCutPlan {
   /** C: copies of a seed, at its start plus offsetF. */
   clones: { key: string; offsetF: number }[];
   /**
-   * D: a seed or copy, found at atF, gets its in point, grows to its piece's end and gets its out point. A copy
-   * keeps its seed's out point through a set in point, and a set end moves it only by as much as the end
-   * moved; after the project is saved and opened again Premiere plays a clip from its in and out points, so a
-   * copy's sound came from the wrong place (14 Nov 2026). Null: that edge stays.
+   * D: a seed or copy, found at atF, gets its in point, grows to its piece's end and, a copy only, gets its out
+   * point. On a copy a set in point moves the in point alone, not its start, so the copy kept its seed's out
+   * point (a set end moves it only by as much as the end moved); after the project was saved and opened
+   * again Premiere played each copy from its in and out points, from the wrong place (14 Nov 2026). On the
+   * clip itself in and start, and out and end, move together. Null: that edge stays.
    */
   fixes: (ClipAt & { inTicks: number | null; endF: number | null; outTicks: number | null })[];
   /** E: a piece, found at atF, shifts by byF; per track from left to right. */
@@ -221,13 +222,16 @@ export function planPremiereCut(
       plan.trims.push({ key, startF: trimStart, endF: first.fromF + d });
       // the seed's in point is right already: the start trim moved it
       if (first.fromF + d < first.toF)
+        // the seed is the clip itself, trimmed: Premiere keeps its out point with its end (a set end and a
+        // set out point are both a trim of its tail, measured 14 Nov 2026), so it needs none, and one given
+        // together with its end moved the end twice
         plan.fixes.push({
           kind,
           track,
           atF: first.fromF,
           inTicks: null,
           endF: first.toF,
-          outTicks: outAt(first),
+          outTicks: null,
         });
       for (const p of pieces.slice(1)) {
         plan.clones.push({ key, offsetF: p.fromF - first.fromF });
@@ -1133,12 +1137,21 @@ export function createPremiereHost(
                 it.createSetInPointAction(ppro.TickTime.createWithTicks(String(f.inTicks))),
               );
             if (f.endF !== null) c.addAction(it.createSetEndAction(at(f.endF)));
-            // after the end, which moves the out point by as much as it moved the end
-            if (f.outTicks !== null)
-              c.addAction(
-                it.createSetOutPointAction(ppro.TickTime.createWithTicks(String(f.outTicks))),
-              );
           }
+        });
+      }
+      // each copy's out point, in a step of its own: actions of one step are applied from the clip as it was
+      // when the step began, and the set end above moves the out point too, so given together the out point
+      // landed off by as much as the end moved
+      const outs = plan.fixes.filter((f) => f.outTicks !== null);
+      if (outs.length) {
+        const find = await placedNow();
+        const items = outs.map((f) => ({ f, it: find(f) }));
+        runStep(project, "set out points", (c) => {
+          for (const { f, it } of items)
+            c.addAction(
+              it.createSetOutPointAction(ppro.TickTime.createWithTicks(String(f.outTicks))),
+            );
         });
       }
       onProgress?.(5, TOTAL);
