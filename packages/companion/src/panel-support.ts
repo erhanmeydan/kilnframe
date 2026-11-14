@@ -475,21 +475,29 @@ export function stopSound(): boolean {
   return true;
 }
 
+/**
+ * How a sound file is played. On Windows the path travels in the environment, not inside the script: PowerShell
+ * takes the typographic quotes (‘ ’ ‚ ‛) as quote marks too, so a folder named "Mom’s birthday" ended
+ * a quoted path and the clip never played.
+ */
+export function soundCommand(
+  file: string,
+  platform: NodeJS.Platform = process.platform,
+): { cmd: string; args: string[]; env?: NodeJS.ProcessEnv } {
+  return platform === "win32"
+    ? {
+        cmd: "powershell",
+        args: ["-NoProfile", "-Command", "(New-Object Media.SoundPlayer $env:KF_SOUND).PlaySync()"],
+        env: { ...process.env, KF_SOUND: file },
+      }
+    : { cmd: "afplay", args: [file] };
+}
+
 /** Plays a sound file on the computer's speakers; a sample already playing stops first. */
 export function playSound(file: string, onEnd?: () => void): void {
   stopSound();
-  const cmd =
-    process.platform === "win32"
-      ? [
-          "powershell",
-          [
-            "-NoProfile",
-            "-Command",
-            `(New-Object Media.SoundPlayer '${file.replace(/'/g, "''")}').PlaySync()`,
-          ],
-        ]
-      : ["afplay", [file]];
-  const child = spawn(cmd[0] as string, cmd[1] as string[], { stdio: "ignore" });
+  const c = soundCommand(file);
+  const child = spawn(c.cmd, c.args, { stdio: "ignore", ...(c.env ? { env: c.env } : {}) });
   playing = child;
   const ended = () => {
     if (playing !== child) return;

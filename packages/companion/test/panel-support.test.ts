@@ -15,6 +15,7 @@ import {
   insideFolder,
   withoutLongPathPrefix,
   safeName,
+  soundCommand,
   styleCards,
 } from "../src/panel-support.js";
 
@@ -287,5 +288,23 @@ describe("caption previews", () => {
     expect(clip).toMatch(/^data:video\/mp4;base64,/);
     const mp4 = Buffer.from(clip!.split(",")[1]!, "base64");
     expect(mp4.subarray(4, 8).toString()).toBe("ftyp");
+  });
+});
+
+describe("soundCommand", () => {
+  it("never puts a Windows path in the PowerShell script, whatever quotes it holds", () => {
+    const file = "C:\\Users\\x\\Videos\\Mom\u2019s 'cut'\\Kilnframe\\music\\s1.wav";
+    const c = soundCommand(file, "win32");
+    expect(c.cmd).toBe("powershell");
+    expect(c.args.join(" ")).not.toContain("Mom");
+    expect(c.args.join(" ")).toContain("$env:KF_SOUND");
+    expect(c.env?.KF_SOUND).toBe(file);
+  });
+
+  it("hands afplay the path as its own argument on macOS", () => {
+    expect(soundCommand("/m/music/s1.wav", "darwin")).toEqual({
+      cmd: "afplay",
+      args: ["/m/music/s1.wav"],
+    });
   });
 });
