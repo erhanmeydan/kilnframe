@@ -40,11 +40,15 @@ export interface CompanionClient {
   close(): void;
 }
 
-/** Opens the socket, authenticates with the token and resolves on "ready". */
+/**
+ * Opens the socket, authenticates with the token and resolves on "ready". Not ready within `timeout.ms`: the
+ * socket is closed and this rejects with `timeout.message`, so a connect given up on never authenticates later.
+ */
 export function connect(
   host: string,
   info: ConnectionInfo,
   onMessage: (message: { type: string } & Record<string, unknown>) => void,
+  timeout?: { ms: number; message: string },
 ): Promise<CompanionClient> {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(`ws://${host}:${info.port}`);
@@ -55,6 +59,13 @@ export function connect(
       close: () => socket.close(),
     };
     let ready = false;
+    const timer = timeout
+      ? setTimeout(() => {
+          if (ready) return;
+          reject(new Error(timeout.message));
+          socket.close();
+        }, timeout.ms)
+      : undefined;
     socket.onopen = () =>
       client.send({
         type: "hello",
@@ -66,6 +77,7 @@ export function connect(
       const message = JSON.parse(String(event.data)) as { type: string } & Record<string, unknown>;
       if (!ready && message.type === "ready") {
         ready = true;
+        clearTimeout(timer);
         client.ready = {
           protocol: Number(message.protocol) || 0,
           version: String(message.version ?? ""),
@@ -78,6 +90,7 @@ export function connect(
       if (!ready) reject(new Error(t("conn.failed", { host, port: info.port })));
     };
     socket.onclose = (event: CloseEvent) => {
+      clearTimeout(timer);
       if (!ready)
         reject(new Error(t("conn.closedCode", { code: event.code, reason: event.reason })));
     };

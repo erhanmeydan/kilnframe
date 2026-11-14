@@ -25,11 +25,26 @@ export class CompanionSession {
     return this.client !== null;
   }
 
-  /** Reads ~/.kilnframe/companion.json and authenticates. UXP only allows ws://localhost. */
-  async open(onClose: () => void): Promise<void> {
+  /**
+   * Reads ~/.kilnframe/companion.json and authenticates. UXP only allows ws://localhost. Not ready within
+   * `timeoutMs`: the socket is closed and this rejects with `timeoutMessage`, so a companion that answers late
+   * cannot take over a connection made after it. Only the current socket's close ends the session.
+   */
+  async open(
+    onClose: () => void,
+    timeoutMs = 10_000,
+    timeoutMessage = t("conn.noReply"),
+  ): Promise<void> {
+    const started = Date.now();
     const info = await readConnection();
-    this.client = await connect("localhost", info, (m) => this.dispatch(m));
-    this.client.socket.addEventListener("close", () => this.closed(onClose));
+    const client = await connect("localhost", info, (m) => this.dispatch(m), {
+      ms: Math.max(0, timeoutMs - (Date.now() - started)),
+      message: timeoutMessage,
+    });
+    this.client = client;
+    client.socket.addEventListener("close", () => {
+      if (this.client === client) this.closed(onClose);
+    });
   }
 
   private dispatch(m: ServerMessage) {

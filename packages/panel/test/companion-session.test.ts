@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CompanionSession, type ServerMessage } from "../src/companion-session";
+import { setHost, type Host } from "../src/host";
 
 /** A session over a stand-in socket: records what is sent, and lets the test answer. */
 function fakeSession() {
@@ -106,5 +107,67 @@ describe("companion session", () => {
     expect(lost.map((m) => m.jobId)).toEqual(["job-1"]);
     expect(lost[0]!.connectionLost).toBe(true);
     expect(session.connected).toBe(false);
+  });
+});
+
+/** A stand-in for the browser WebSocket: the test opens it, answers it, and sees whether it was closed. */
+class FakeSocket {
+  static all: FakeSocket[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((e: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  onclose: ((e: { code: number; reason: string }) => void) | null = null;
+  closed = false;
+  private listeners: (() => void)[] = [];
+  constructor(readonly url: string) {
+    FakeSocket.all.push(this);
+  }
+  send() {}
+  addEventListener(_type: "close", l: () => void) {
+    this.listeners.push(l);
+  }
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    this.onclose?.({ code: 1000, reason: "" });
+    for (const l of this.listeners) l();
+  }
+  ready() {
+    this.onopen?.();
+    this.onmessage?.({ data: JSON.stringify({ type: "ready", protocol: 2, version: "t" }) });
+  }
+}
+
+describe("companion session connect", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    FakeSocket.all = [];
+  });
+
+  it("closes a socket that did not get ready in time, so it never takes over a later connection", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    setHost({
+      kind: "premiere",
+      homedir: () => "/Users/e",
+      platform: () => "mac",
+      readTextFile: async () => JSON.stringify({ port: 1, token: "x", version: "t" }),
+    } as unknown as Host);
+    const session = new CompanionSession();
+    let closes = 0;
+    await expect(session.open(() => closes++, 30, "too slow")).rejects.toThrow("too slow");
+    const [stalled] = FakeSocket.all;
+    expect(stalled?.closed).toBe(true);
+    // Try Again: a second socket connects
+    const second = session.open(() => closes++, 1000, "too slow");
+    await vi.waitFor(() => expect(FakeSocket.all).toHaveLength(2));
+    FakeSocket.all[1]!.ready();
+    await second;
+    // the stalled socket answering late changes nothing
+    stalled!.ready();
+    expect(session.connected).toBe(true);
+    expect(closes).toBe(0);
+    FakeSocket.all[1]!.close();
+    expect(session.connected).toBe(false);
+    expect(closes).toBe(1);
   });
 });

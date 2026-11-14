@@ -3019,13 +3019,13 @@ async function connectOnce() {
   render();
   trace("connect: start");
   try {
-    await withTimeout(
-      session.open(() => {
+    await session.open(
+      () => {
         state.conn = "down";
         state.connError = t("conn.closed");
         trace("connect: closed");
         render();
-      }),
+      },
       10_000,
       t("conn.timeout"),
     );
@@ -4137,22 +4137,6 @@ async function continueReview(action: "render" | "recompose") {
   } catch (err) {
     failJob(err);
   }
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(message)), ms);
-    p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e: unknown) => {
-        clearTimeout(t);
-        reject(e);
-      },
-    );
-  });
 }
 
 /**
