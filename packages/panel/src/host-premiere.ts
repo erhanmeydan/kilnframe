@@ -12,15 +12,7 @@ import type {
   VideoClipTrackItem,
   premierepro,
 } from "@adobe/premierepro";
-import {
-  frameCuts,
-  newEndF,
-  piecesOf,
-  seedLength,
-  shiftAt,
-  type FrameCut,
-  type PlanItem,
-} from "./cut-plan";
+import { frameCuts, newEndF, piecesOf, shiftAt, type FrameCut, type PlanItem } from "./cut-plan";
 import { frameFor, insertScale } from "./frame";
 import { formatRational, rationalFps } from "./fps";
 import { withoutLongPathPrefix } from "./home";
@@ -146,34 +138,29 @@ export interface ExpectedClip {
 export interface PremiereCutPlan {
   /** A: clips with nothing left. */
   remove: string[];
-  /** B: every clip with pieces trimmed to its seed (null: that edge stays). */
-  trims: { key: string; startF: number | null; endF: number | null }[];
-  /** C: copies of a seed, at its start plus offsetF. */
-  clones: { key: string; offsetF: number }[];
-  /**
-   * D: a seed or copy, found at atF, gets its in point, grows to its piece's end and, a copy only, gets its out
-   * point. On a copy a set in point moves the in point alone, not its start, so the copy kept its seed's out
-   * point (a set end moves it only by as much as the end moved); after the project was saved and opened
-   * again Premiere played each copy from its in and out points, from the wrong place (14 Nov 2026). On the
-   * clip itself in and start, and out and end, move together. Null: that edge stays.
-   */
-  fixes: (ClipAt & { inTicks: number | null; endF: number | null; outTicks: number | null })[];
-  /** E: a piece, found at atF, shifts by byF; per track from left to right. */
+  /** B: whole copies of a clip, at its start plus offsetF, past the end of the sequence. */
+  parks: { key: string; offsetF: number }[];
+  /** C: a clip or copy, found at atF, trimmed to its piece (null: that edge stays). */
+  trims: (ClipAt & { startF: number | null; endF: number | null })[];
+  /** D: a piece, found at atF, shifts by byF; per track in the order of where the pieces end up. */
   moves: (ClipAt & { byF: number })[];
   expected: ExpectedClip[];
-  /** Clips that could only keep their first piece (reversed, or an in point that could not be read). */
+  /** Clips that could only keep their first piece (reversed). */
   leftOut: number;
 }
 
 /**
- * The cut of a sequence through Premiere's public track item actions, as measured in Premiere 26.5:
- * set start trims (the in point follows), set end shrinks and grows into free space, a cloned track item lands
- * at the item's start plus an offset on its own track with the same in point and length and overwrites what
- * lies under it, a move is a relative shift that never overwrites, and a video clip's linked audio is not
- * touched by its edits, so every clip is planned on its own. Each clip is trimmed to a seed as long as its
- * shortest piece; the seed is cloned into each further piece (inside the clip's own old span, so a clone can
- * never overwrite a neighbour), every copy gets its in point and end, and the pieces shift left in order, only
- * ever into space already emptied.
+ * The cut of a sequence through Premiere's public track item actions, as measured in Premiere 26.5 and 27.0:
+ * a set start trims the head (the in point moves with it), a set end trims the tail (the out point moves with
+ * it), a cloned track item lands at the item's start plus an offset on its own track with the same in and out
+ * points, a move is a relative shift that never overwrites, and a video clip's linked audio is not touched by
+ * its edits, so every clip is planned on its own.
+ *
+ * A clip with several pieces is first copied whole, once per further piece, past the end of the sequence;
+ * then the clip is trimmed to its first piece and each copy to its own piece, and every piece moves to where
+ * it ends up. A copy is never given an in point: one moved past the out point changed the in point alone, and
+ * after the project was saved and opened again Premiere played such pieces from the wrong place in their
+ * media (14 Nov 2026). Trims and moves keep each clip's in and out points together.
  */
 export function planPremiereCut(
   clips: CutClipInfo[],
@@ -182,13 +169,16 @@ export function planPremiereCut(
 ): PremiereCutPlan {
   const plan: PremiereCutPlan = {
     remove: [],
+    parks: [],
     trims: [],
-    clones: [],
-    fixes: [],
     moves: [],
     expected: [],
     leftOut: 0,
   };
+  // the copies wait past the end of the sequence, each track filling its own run of free frames
+  const MARGIN = 100;
+  const parkFrom = Math.max(0, ...clips.map((c) => c.plan.endF)) + MARGIN;
+  const nextPark = new Map<string, number>();
   for (const c of clips) {
     const { key, kind, track, startF, endF } = c.plan;
     let pieces = piecesOf(c.plan, cuts);
@@ -196,58 +186,52 @@ export function planPremiereCut(
       plan.remove.push(key);
       continue;
     }
-    const splittable = !c.reversed && c.inTicks !== null;
-    if (!splittable && pieces.length > 1) {
-      // a copy's in point cannot be set right without the source's direction and start: keep the first piece
+    if (c.reversed && pieces.length > 1) {
+      // a reversed clip's trims run the other way in its media: keep the first piece
       pieces = [pieces[0]];
       plan.leftOut++;
     }
     const inAt = (f: number) =>
-      splittable
-        ? (c.inTicks as number) + Math.round((f - startF) * ticksPerFrame * c.speed)
-        : null;
-    // the out point a piece must end with: its in point plus its length in media time
+      c.inTicks === null || c.reversed
+        ? null
+        : c.inTicks + Math.round((f - startF) * ticksPerFrame * c.speed);
+    // the out point a piece ends with: its in point plus its length in media time
     const outAt = (p: { fromF: number; toF: number }) => {
       const at = inAt(p.fromF);
       return at === null ? null : at + Math.round((p.toF - p.fromF) * ticksPerFrame * c.speed);
     };
     const first = pieces[0];
-    const trimStart = first.fromF > startF ? first.fromF : null;
-    if (pieces.length === 1) {
-      const trimEnd = first.toF < endF ? first.toF : null;
-      if (trimStart !== null || trimEnd !== null)
-        plan.trims.push({ key, startF: trimStart, endF: trimEnd });
-    } else {
-      const d = seedLength(pieces);
-      plan.trims.push({ key, startF: trimStart, endF: first.fromF + d });
-      // the seed's in point is right already: the start trim moved it
-      if (first.fromF + d < first.toF)
-        // the seed is the clip itself, trimmed: Premiere keeps its out point with its end (a set end and a
-        // set out point are both a trim of its tail, measured 14 Nov 2026), so it needs none, and one given
-        // together with its end moved the end twice
-        plan.fixes.push({
-          kind,
-          track,
-          atF: first.fromF,
-          inTicks: null,
-          endF: first.toF,
-          outTicks: null,
-        });
-      for (const p of pieces.slice(1)) {
-        plan.clones.push({ key, offsetF: p.fromF - first.fromF });
-        plan.fixes.push({
-          kind,
-          track,
-          atF: p.fromF,
-          inTicks: inAt(p.fromF),
-          endF: p.toF > p.fromF + d ? p.toF : null,
-          outTicks: outAt(p),
-        });
-      }
+    const edge = (want: number, now: number) => (want !== now ? want : null);
+    if (first.fromF !== startF || first.toF !== endF)
+      plan.trims.push({
+        kind,
+        track,
+        atF: startF,
+        startF: edge(first.fromF, startF),
+        endF: edge(first.toF, endF),
+      });
+    const placed: { fromF: number; toF: number; newStartF: number; atF: number }[] = [
+      { ...first, atF: first.fromF },
+    ];
+    const slot = `${kind}:${track}`;
+    for (const p of pieces.slice(1)) {
+      const parkAt = nextPark.get(slot) ?? parkFrom;
+      nextPark.set(slot, parkAt + (endF - startF) + MARGIN);
+      const off = parkAt - startF;
+      plan.parks.push({ key, offsetF: off });
+      // the copy, found at its parking place, trimmed to its piece there
+      plan.trims.push({
+        kind,
+        track,
+        atF: parkAt,
+        startF: edge(p.fromF + off, parkAt),
+        endF: edge(p.toF + off, endF + off),
+      });
+      placed.push({ ...p, atF: p.fromF + off });
     }
-    for (const p of pieces) {
-      if (p.newStartF !== p.fromF)
-        plan.moves.push({ kind, track, atF: p.fromF, byF: p.newStartF - p.fromF });
+    for (const p of placed) {
+      if (p.newStartF !== p.atF)
+        plan.moves.push({ kind, track, atF: p.atF, byF: p.newStartF - p.atF });
       plan.expected.push({
         kind,
         track,
@@ -258,7 +242,10 @@ export function planPremiereCut(
       });
     }
   }
-  plan.moves.sort((a, b) => a.kind.localeCompare(b.kind) || a.track - b.track || a.atF - b.atF);
+  // per track in the order the pieces end up: each one lands only in space already emptied
+  plan.moves.sort(
+    (a, b) => a.kind.localeCompare(b.kind) || a.track - b.track || a.atF + a.byF - (b.atF + b.byF),
+  );
   return plan;
 }
 
@@ -1057,42 +1044,24 @@ export function createPremiereHost(
       }
       onProgress?.(2, TOTAL);
 
-      stage = "trim to the seed";
-      // B: trim to the seed; the end first, so the clip only ever shrinks. A start trim moves the in point too
-      if (plan.trims.length) {
-        const found = await readFresh();
-        const trims = plan.trims.map((tr) => ({ tr, it: found(tr.key, startOf(tr.key)) }));
-        runStep(project, "trim clips", (c) => {
-          for (const { tr, it } of trims) {
-            if (tr.endF !== null) c.addAction(it.createSetEndAction(at(tr.endF)));
-            if (tr.startF !== null) c.addAction(it.createSetStartAction(at(tr.startF)));
-          }
-        });
-      }
-      onProgress?.(3, TOTAL);
-
-      stage = "copy the pieces";
-      // C: copies of each seed into its further pieces, on its own track (alignToVideo for an audio clip,
-      // which lands the same way); an overwrite, but only over the clip's own emptied span
-      if (plan.clones.length) {
-        // made inside the transaction, as Premiere wants its actions; a refused one names its clip in the log
+      stage = "copy the clips";
+      // B: a whole copy of each clip with pieces, one per further piece, past the end of the sequence where
+      // nothing lies; copied before any trim, so each copy carries the clip's own media at the clip's own
+      // timing and only ever gets trims and a move, the edits that keep a clip's in and out points together
+      if (plan.parks.length) {
         const found = await readFresh();
         const editor = await editorNow();
-        const seedStart = new Map(plan.trims.map((tr) => [tr.key, tr.startF]));
-        const seeds = plan.clones.map((cl) => {
-          const seed = byKey.get(cl.key);
-          const where = `${cl.key} at +${cl.offsetF} frames (${seed?.info.plan.startF}-${seed?.info.plan.endF})`;
-          if (!seed || !Number.isFinite(cl.offsetF))
-            throw new Error(`no seed or offset for ${where}`);
-          const it = found(cl.key, seedStart.get(cl.key) ?? startOf(cl.key));
-          return { cl, it, where, audio: seed.info.plan.kind === "audio" };
+        const copies = plan.parks.map((pk) => {
+          const info = (byKey.get(pk.key) as ReadClip).info.plan;
+          const where = `${pk.key} to frame ${info.startF + pk.offsetF}`;
+          return { pk, it: found(pk.key, startOf(pk.key)), where, audio: info.kind === "audio" };
         });
         runStep(project, "copy clips", (c) => {
-          for (const { cl, it, where, audio } of seeds) {
+          for (const { pk, it, where, audio } of copies) {
             try {
               const copyAt = (align: boolean) =>
                 c.addAction(
-                  editor.createCloneTrackItemAction(it, at(cl.offsetF), 0, 0, align, false),
+                  editor.createCloneTrackItemAction(it, at(pk.offsetF), 0, 0, align, false),
                 );
               try {
                 copyAt(audio);
@@ -1110,9 +1079,9 @@ export function createPremiereHost(
           }
         });
       }
-      onProgress?.(4, TOTAL);
+      onProgress?.(3, TOTAL);
 
-      // seeds and copies are found again by track and start frame, unique on a track
+      // the clips and copies are found again by track and start frame, unique on a track
       const atKey = (c: ClipAt) => `${c.kind}:${c.track}:${c.atF}`;
       const placedNow = async () => {
         const placed = new Map<string, TrackItem>();
@@ -1125,42 +1094,27 @@ export function createPremiereHost(
         };
       };
 
-      stage = "set in points and ends";
-      // D: each copy's in point, then every piece grows to its end into its own emptied span
-      if (plan.fixes.length) {
+      stage = "trim the clips";
+      // C: each clip and each copy trimmed to its piece; a start trim moves the in point with it, an end trim
+      // the out point. The two edges of one clip in one step: each is applied from the clip as it was when the
+      // step began, and they touch different points
+      if (plan.trims.length) {
         const find = await placedNow();
-        const fixes = plan.fixes.map((f) => ({ f, it: find(f) }));
-        runStep(project, "set in and end points", (c) => {
-          for (const { f, it } of fixes) {
-            if (f.inTicks !== null)
-              c.addAction(
-                it.createSetInPointAction(ppro.TickTime.createWithTicks(String(f.inTicks))),
-              );
-            if (f.endF !== null) c.addAction(it.createSetEndAction(at(f.endF)));
+        const trims = plan.trims.map((tr) => ({ tr, it: find(tr) }));
+        runStep(project, "trim clips", (c) => {
+          for (const { tr, it } of trims) {
+            if (tr.endF !== null) c.addAction(it.createSetEndAction(at(tr.endF)));
+            if (tr.startF !== null) c.addAction(it.createSetStartAction(at(tr.startF)));
           }
         });
       }
-      // each copy's out point, in a step of its own: actions of one step are applied from the clip as it was
-      // when the step began, and the set end above moves the out point too, so given together the out point
-      // landed off by as much as the end moved
-      const outs = plan.fixes.filter((f) => f.outTicks !== null);
-      if (outs.length) {
-        const find = await placedNow();
-        const items = outs.map((f) => ({ f, it: find(f) }));
-        runStep(project, "set out points", (c) => {
-          for (const { f, it } of items)
-            c.addAction(
-              it.createSetOutPointAction(ppro.TickTime.createWithTicks(String(f.outTicks))),
-            );
-        });
-      }
+      onProgress?.(4, TOTAL);
       onProgress?.(5, TOTAL);
 
       stage = "move the pieces";
-      // E: a move is a relative shift and does not overwrite; left to right, each piece only moves into
-      // space already emptied
+      // D: a move is a relative shift and does not overwrite; per track in the order of where the pieces end
+      // up, each one only lands in space already emptied
       if (plan.moves.length) {
-        // D's in points and ends leave each start where it was: found again at the same frames
         const find = await placedNow();
         const moves = plan.moves.map((m) => ({ m, it: find(m) }));
         runStep(project, "close the pauses", (c) => {

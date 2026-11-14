@@ -50,9 +50,9 @@ function fakePremiere(
 ) {
   const tick = (ticks: number) => ({ ticks: String(Math.round(ticks)), seconds: ticks / TPS });
   const ticksOf = (t: { ticks: string }) => Number(t.ticks);
-  /** Optional sabotage: what set in point does instead (to test the failure paths). */
+  /** Optional sabotage: what a move does instead (to test the failure paths). */
   const quirks = {
-    setInPoint: "slip" as "slip" | "trim" | "throw",
+    move: "ok" as "ok" | "throw" | "off",
     /** Removing a transition is refused (a selection takes clips only). */
     keepTransitions: false,
     /**
@@ -124,14 +124,10 @@ function fakePremiere(
                 r.outF += by;
               };
             },
-            createSetInPointAction: (t: { ticks: string }) => () => {
-              if (quirks.setInPoint === "throw") throw new Error("refused");
-              const inF = ticksOf(t) / TPF;
-              if (quirks.setInPoint === "trim") r.start += (inF - r.inF) / r.speed;
-              r.inF = inF;
-            },
             createMoveAction: (t: { ticks: string }) => () => {
-              const by = ticksOf(t) / TPF;
+              if (quirks.move === "throw") throw new Error("refused");
+              // "off": a piece lands a frame short of where it was sent
+              const by = ticksOf(t) / TPF + (quirks.move === "off" ? 1 : 0);
               r.start += by;
               r.end += by;
             },
@@ -456,7 +452,7 @@ describe("Premiere cutToNewSequence (in place)", () => {
 
   it("asks the editor to undo when a step fails after the sequence changed", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
-    f.quirks.setInPoint = "throw";
+    f.quirks.move = "throw";
     await expect(
       f.host.cutToNewSequence!(
         f.seq,
@@ -474,7 +470,7 @@ describe("Premiere cutToNewSequence (in place)", () => {
 
   it("names the track when the read back differs from the plan, and asks to undo", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
-    f.quirks.setInPoint = "trim";
+    f.quirks.move = "off";
     const err = await f.host.cutToNewSequence!(
       f.seq,
       [
@@ -491,8 +487,8 @@ describe("Premiere cutToNewSequence (in place)", () => {
   it("runs every phase as one transaction and skips the empty ones", async () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
-    // trim to the seed, clone the seed, set its in point and end, set the copy's out point, move left
-    expect(f.log).toHaveLength(5);
+    // copy the clip whole past the end, trim the clip and the copy, move the copy into place
+    expect(f.log).toHaveLength(3);
   });
 
   it("moves the markers and In/Out with their content; a marker inside a cut goes", async () => {
@@ -591,37 +587,43 @@ describe("planPremiereCut", () => {
     1000,
   );
 
-  it("seeds an item at its shortest piece and clones it into every further piece", () => {
-    // pieces 0-50, 75-150, 160-300: the shortest is 50
+  it("copies the clip whole past the end for every further piece, trims each to its piece and moves it", () => {
+    // pieces 0-50, 75-150, 160-300 land at 0, 50 and 125; the copies wait from frame 400 (end 300 + 100), the
+    // second one past the first and its margin
     const p = planPremiereCut([info()], cuts, TPF);
-    expect(p.trims).toEqual([{ key: "video:0:0", startF: null, endF: 50 }]);
-    expect(p.clones).toEqual([
-      { key: "video:0:0", offsetF: 75 },
-      { key: "video:0:0", offsetF: 160 },
+    expect(p.parks).toEqual([
+      { key: "video:0:0", offsetF: 400 },
+      { key: "video:0:0", offsetF: 800 },
     ]);
-    expect(p.fixes).toEqual([
-      // each copy ends where its piece ends in its media, not where its seed did
-      { kind: "video", track: 0, atF: 75, inTicks: 75 * TPF, endF: 150, outTicks: 150 * TPF },
-      { kind: "video", track: 0, atF: 160, inTicks: 160 * TPF, endF: 300, outTicks: 300 * TPF },
+    expect(p.trims).toEqual([
+      { kind: "video", track: 0, atF: 0, startF: null, endF: 50 },
+      { kind: "video", track: 0, atF: 400, startF: 475, endF: 550 },
+      { kind: "video", track: 0, atF: 800, startF: 960, endF: null },
     ]);
     expect(p.moves).toEqual([
-      { kind: "video", track: 0, atF: 75, byF: -25 },
-      { kind: "video", track: 0, atF: 160, byF: -35 },
+      { kind: "video", track: 0, atF: 475, byF: -425 },
+      { kind: "video", track: 0, atF: 960, byF: -835 },
+    ]);
+    // each piece shows its own media, from in to out
+    expect(p.expected).toEqual([
+      { kind: "video", track: 0, startF: 0, endF: 50, inTicks: 0, outTicks: 50 * TPF },
+      { kind: "video", track: 0, startF: 50, endF: 125, inTicks: 75 * TPF, outTicks: 150 * TPF },
+      { kind: "video", track: 0, startF: 125, endF: 265, inTicks: 160 * TPF, outTicks: 300 * TPF },
     ]);
   });
 
-  it("scales the in point by the clip's speed", () => {
+  it("scales the in and out points by the clip's speed", () => {
     const p = planPremiereCut([info({}, { speed: 2, inTicks: 10 * TPF })], cuts, TPF);
-    expect(p.fixes[0].inTicks).toBe(10 * TPF + 150 * TPF);
-    // the piece 75-150 lasts 75 frames, 150 frames of media at twice the speed
-    expect(p.fixes[0].outTicks).toBe(10 * TPF + 150 * TPF + 150 * TPF);
+    // the piece 75-150 starts 150 media frames in and lasts 150 media frames at twice the speed
+    expect(p.expected[1].inTicks).toBe(10 * TPF + 150 * TPF);
+    expect(p.expected[1].outTicks).toBe(10 * TPF + 300 * TPF);
   });
 
   it("keeps only the first piece of a reversed clip and counts it as left out", () => {
     const p = planPremiereCut([info({}, { reversed: true })], cuts, TPF);
     expect(p.leftOut).toBe(1);
-    expect(p.clones).toEqual([]);
-    expect(p.trims).toEqual([{ key: "video:0:0", startF: null, endF: 50 }]);
+    expect(p.parks).toEqual([]);
+    expect(p.trims).toEqual([{ kind: "video", track: 0, atF: 0, startF: null, endF: 50 }]);
     expect(p.expected).toEqual([
       { kind: "video", track: 0, startF: 0, endF: 50, inTicks: null, outTicks: null },
     ]);
