@@ -288,22 +288,27 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
         return;
       }
       const msg = result.data;
+      // the ref is read from the raw message (the schema strips it where it declares none) and comes back on
+      // every reply to this request: two models.list or styles.list asked at once are never swapped
+      const rawRef = (parsed as { ref?: unknown } | null)?.ref;
+      const ref = typeof rawRef === "string" && rawRef ? { ref: rawRef } : {};
+      const reply = (m: ServerMessage) => send({ ...m, ...ref } as ServerMessage);
       try {
         switch (msg.type) {
           case "hello":
-            send({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
+            reply({ type: "ready", protocol: PROTOCOL_VERSION, version: o.version });
             break;
           case "app.update.install":
             if (!o.appUpdates)
-              send({ type: "error", message: "This companion cannot update itself." });
-            else if (queue.busy()) send({ type: "app.update.busy" });
+              reply({ type: "error", message: "This companion cannot update itself." });
+            else if (queue.busy()) reply({ type: "app.update.busy" });
             else o.appUpdates.install();
             break;
           case "status":
-            send({ type: "status", jobs: queue.summaries() });
+            reply({ type: "status", jobs: queue.summaries() });
             break;
           case "models.list":
-            send({
+            reply({
               type: "models",
               provider: msg.provider,
               models: o.listModels ? await o.listModels(msg.provider, msg.baseURL) : [],
@@ -323,63 +328,58 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             }
             break;
           case "system.check":
-            send({ type: "system", report: o.systemCheck ? await o.systemCheck() : null });
+            reply({ type: "system", report: o.systemCheck ? await o.systemCheck() : null });
             break;
           case "job.start": {
             const jobId = queue.enqueue(msg.params);
-            send({ type: "job.accepted", jobId, ...(msg.ref ? { ref: msg.ref } : {}) });
+            reply({ type: "job.accepted", jobId });
             break;
           }
           case "styles.list":
-            send({ type: "styles", styles: o.listStyles ? await o.listStyles() : [] });
+            reply({ type: "styles", styles: o.listStyles ? await o.listStyles() : [] });
             break;
           case "job.prepare":
             if (!o.prepareJob) throw new Error("job folders are not supported");
-            send({
+            reply({
               type: "job.prepared",
               jobDir: await o.prepareJob(msg.projectPath, msg.sequenceName, msg.jobRoot),
-              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "captions.previews":
             if (!o.captionPreviews) throw new Error("captions are not supported");
-            send({
+            reply({
               type: "captions.previews",
               dir: await o.captionPreviews(),
-              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "pauses.cuts":
-            send({
+            reply({
               type: "pauses.cuts",
               ...planPauseCuts(msg.speech, msg.durationS, {
                 strictness: msg.strictness,
                 keepLongS: msg.keepLongS,
                 rangeEdges: msg.rangeEdges ?? false,
               }),
-              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "captions.save":
             if (!o.saveCaptions) throw new Error("captions are not supported");
             await o.saveCaptions(msg.jobDir, msg.state);
-            send({
+            reply({
               type: "captions.saved",
               jobDir: msg.jobDir,
-              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "captions.load":
-            send({
+            reply({
               type: "captions.loaded",
               jobDir: msg.jobDir,
               state: o.loadCaptions ? await o.loadCaptions(msg.jobDir) : null,
-              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "speech.voices": {
             if (!o.listVoices) throw new Error("story mode is not supported");
-            send({ type: "voices", ...(await o.listVoices(msg.provider)) });
+            reply({ type: "voices", ...(await o.listVoices(msg.provider)) });
             break;
           }
           case "speech.preview":
@@ -390,7 +390,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               () => broadcast({ type: "speech.ended", voice: msg.voice }),
               { provider: msg.provider, label: msg.label },
             );
-            send({ type: "speech.played", voice: msg.voice });
+            reply({ type: "speech.played", voice: msg.voice });
             break;
           case "audio.play":
             // only the Music tab's clips and Voice Fix's takes and sample: never any file a page names
@@ -401,11 +401,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               throw new Error("Only music clips and voice fix takes can be played.");
             if (!o.playAudio) throw new Error("playing music is not supported");
             o.playAudio(msg.file, () => broadcast({ type: "audio.ended" }));
-            send({ type: "audio.played" });
+            reply({ type: "audio.played" });
             break;
           case "speech.clone": {
             if (!o.cloneVoice) throw new Error("voice cloning is not supported");
-            send({
+            reply({
               type: "speech.cloned",
               ...(await o.cloneVoice({
                 audioPath: msg.audioPath,
@@ -426,10 +426,10 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           case "styles.delete":
             if (!o.deleteStyle) throw new Error("deleting styles is not supported");
             await o.deleteStyle(msg.name);
-            send({ type: "styles.deleted", name: msg.name });
+            reply({ type: "styles.deleted", name: msg.name });
             break;
           case "assets.inspect":
-            send({
+            reply({
               type: "assets",
               assets: o.inspectImages ? await o.inspectImages(msg.paths) : [],
             });
@@ -438,25 +438,24 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             // the same message the broadcast sent, for a panel that missed it
             const job = queue.get(msg.jobId);
             if (job?.state === "done")
-              send({ type: "job.done", jobId: msg.jobId, result: job.result });
+              reply({ type: "job.done", jobId: msg.jobId, result: job.result });
             else if (job?.state === "failed")
-              send({
+              reply({
                 type: "job.error",
                 jobId: msg.jobId,
                 message: job.error ?? "",
                 kind: job.errorKind,
                 ...pictureOf(msg.jobId, job.error ?? ""),
               });
-            else if (job?.state === "cancelled") send({ type: "job.cancelled", jobId: msg.jobId });
-            else send({ type: "job.state", jobId: msg.jobId, state: job?.state ?? "unknown" });
+            else if (job?.state === "cancelled") reply({ type: "job.cancelled", jobId: msg.jobId });
+            else reply({ type: "job.state", jobId: msg.jobId, state: job?.state ?? "unknown" });
             break;
           }
           case "job.cancel":
             if (!queue.cancel(msg.jobId))
-              send({
+              reply({
                 type: "error",
                 message: "This job has already finished.",
-                ...(msg.ref ? { ref: msg.ref } : {}),
               });
             break;
           case "review.closed":
@@ -472,16 +471,16 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               pendingReviews.add(msg.outDir);
               tellBusy();
             }
-            send({ type: "review", outDir: msg.outDir, review });
+            reply({ type: "review", outDir: msg.outDir, review });
             break;
           }
           case "agent.update":
             if (o.updateAgent) await o.updateAgent(msg.agent);
-            send({ type: "agent.update.opened", agent: msg.agent });
+            reply({ type: "agent.update.opened", agent: msg.agent });
             break;
           case "agent.login":
             if (o.loginAgent) await o.loginAgent(msg.agent);
-            send({ type: "agent.login.opened", agent: msg.agent });
+            reply({ type: "agent.login.opened", agent: msg.agent });
             break;
           case "agent.logout": {
             // a running job may be using that agent, and the sign-out holds the companion for seconds
@@ -490,7 +489,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               : o.logoutAgent
                 ? await o.logoutAgent(msg.agent)
                 : { ok: false };
-            send({ type: "agent.logout.done", agent: msg.agent, ...r });
+            reply({ type: "agent.logout.done", agent: msg.agent, ...r });
             break;
           }
           case "providers.list": {
@@ -504,11 +503,11 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
                   antigravity: null,
                   updates: null,
                 };
-            send({ type: "providers", ...r });
+            reply({ type: "providers", ...r });
             break;
           }
           case "providers.test":
-            send({
+            reply({
               type: "providers.tested",
               provider: msg.provider,
               result: o.testProvider
@@ -518,10 +517,10 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
           case "keys.set":
             await o.keys.set(msg.provider, msg.key);
-            send({ type: "keys.saved", provider: msg.provider });
+            reply({ type: "keys.saved", provider: msg.provider });
             break;
           case "keys.has":
-            send({
+            reply({
               type: "keys.has",
               provider: msg.provider,
               present: (await o.keys.get(msg.provider)) !== undefined,
@@ -530,7 +529,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
           case "keys.delete":
             await o.keys.delete(msg.provider);
-            send({ type: "keys.deleted", provider: msg.provider });
+            reply({ type: "keys.deleted", provider: msg.provider });
             break;
         }
       } catch (err) {
@@ -541,10 +540,8 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
           !SECRET_REQUESTS.has(msg.type) && err instanceof Error && err.message
             ? err.message
             : `Could not complete ${msg.type}: ${err instanceof Error ? err.name : "error"}`;
-        // the ref is read from the raw message: the schema strips it from requests that do not declare it,
-        // and the panel fails only the request that names it
-        const ref = (parsed as { ref?: unknown } | null)?.ref;
-        send({ type: "error", message: reason, ...(typeof ref === "string" ? { ref } : {}) });
+        // with the request's ref: the panel fails only the request that names it
+        reply({ type: "error", message: reason });
       }
     });
   };

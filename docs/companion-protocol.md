@@ -11,6 +11,8 @@ contract between `packages/panel` (M4) and `packages/companion`.
 - The first message must be `{ "type": "hello", "token": "<token>" }` within 5 seconds. Anything else, a
   wrong token or a non-loopback peer closes the socket with code 1008.
 - After `hello` the server answers `{ "type": "ready", "protocol": 2, "version": "..." }`.
+- Any request may carry a string `ref`. The direct answer to it, and an `error` about it, carry the same
+  `ref`, so two requests of one type in flight are never swapped. Broadcasts carry none.
 
 ## Client messages
 

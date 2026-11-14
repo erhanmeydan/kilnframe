@@ -430,6 +430,36 @@ describe("companion server", () => {
     expect(JSON.stringify(keyed)).not.toContain("sk-secret");
   });
 
+  it("echoes the ref on every reply, so two model lists asked at once are not swapped", async () => {
+    let lmstudio = () => {};
+    companion = await startCompanion({
+      token: TOKEN,
+      keys: new MemoryKeyStore(),
+      runner: async () => null,
+      listModels: (provider) =>
+        provider === "lmstudio"
+          ? new Promise((r) => (lmstudio = () => r([{ id: "lm-model" }] as never)))
+          : Promise.resolve([{ id: "ollama-model" }] as never),
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "models.list", provider: "lmstudio", ref: "a" });
+    c.send({ type: "models.list", provider: "ollama", ref: "b" });
+    expect(await c.next((m) => m.type === "models")).toMatchObject({
+      provider: "ollama",
+      ref: "b",
+    });
+    lmstudio();
+    expect(await c.next((m) => m.type === "models" && m.provider === "lmstudio")).toMatchObject({
+      ref: "a",
+    });
+    c.send({ type: "styles.list", ref: "s" });
+    expect(await c.next((m) => m.type === "styles")).toMatchObject({ ref: "s" });
+  });
+
   it("passes a failed job's kind along, also to a panel that asks again", async () => {
     companion = await startCompanion({
       token: TOKEN,
