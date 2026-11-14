@@ -1,7 +1,7 @@
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import type { Defaults } from "../config.js";
-import { modelsDir } from "../config.js";
+import { loadFromDisk } from "../local-models.js";
 import { WHISPER_SAMPLE_RATE, decodeAudio } from "../media/audio.js";
 import { TranscriptSchema, type Transcript, type Word } from "../schemas/transcript.js";
 import { UNSPACED } from "../unspaced.js";
@@ -142,7 +142,6 @@ export async function loadSpeechModel(
 ): Promise<AsrPipeline> {
   const { model, dtype } = defaults.whisper;
   const { env, pipeline } = await import("@huggingface/transformers");
-  env.cacheDir = modelsDir();
   try {
     // KILNFRAME_ONNX_DEVICE: an app may run the model on the graphics card ("dml", DirectML on Windows);
     // one that will not load there is loaded on the CPU
@@ -161,7 +160,8 @@ export async function loadSpeechModel(
         } as never,
         progress_callback: downloadProgress((p) => onProgress?.(`Downloading speech model: ${p}%`)),
       });
-    const asr = device ? await load(device).catch(() => load()) : await load();
+    // from the models folder with no network once the model is there (a missing model is fetched, as before)
+    const asr = await loadFromDisk(env, () => (device ? load(device).catch(() => load()) : load()));
     return asr as unknown as AsrPipeline;
   } catch (err) {
     throw downloadError(err);

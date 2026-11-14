@@ -30,6 +30,7 @@ export * from "./stages/story.js";
 export * from "./stages/review.js";
 export * from "./system.js";
 export * from "./models.js";
+export * from "./local-models.js";
 export * from "./ocr.js";
 export * from "./speech/index.js";
 export * from "./parts.js";

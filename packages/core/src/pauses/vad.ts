@@ -6,7 +6,7 @@
  * and works in any language.
  */
 import type { Tensor } from "@huggingface/transformers";
-import { modelsDir } from "../config.js";
+import { loadFromDisk } from "../local-models.js";
 import { downloadError, downloadProgress } from "../stages/transcribe.js";
 
 export const VAD_SAMPLE_RATE = 16000;
@@ -43,15 +43,16 @@ const loading = new Map<string, Promise<VadModel>>();
 
 async function fromPretrained(model: string, onProgress?: (message: string) => void) {
   const { AutoModel, env } = await import("@huggingface/transformers");
-  env.cacheDir = modelsDir();
-  return AutoModel.from_pretrained(model, {
-    // the repo's config names no architecture transformers knows; the ONNX file is run as it is
-    config: { model_type: "custom" } as never,
-    dtype: "fp32",
-    ...(onProgress && {
-      progress_callback: downloadProgress((p) => onProgress(`Downloading voice model: ${p}%`)),
+  return loadFromDisk(env, () =>
+    AutoModel.from_pretrained(model, {
+      // the repo's config names no architecture transformers knows; the ONNX file is run as it is
+      config: { model_type: "custom" } as never,
+      dtype: "fp32",
+      ...(onProgress && {
+        progress_callback: downloadProgress((p) => onProgress(`Downloading voice model: ${p}%`)),
+      }),
     }),
-  });
+  );
 }
 
 /** The model, loaded once per process (downloaded into modelsDir() on first use). */
