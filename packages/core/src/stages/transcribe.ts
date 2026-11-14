@@ -161,7 +161,13 @@ export async function loadSpeechModel(
         progress_callback: downloadProgress((p) => onProgress?.(`Downloading speech model: ${p}%`)),
       });
     // from the models folder with no network once the model is there (a missing model is fetched, as before)
-    const asr = await loadFromDisk(env, () => (device ? load(device).catch(() => load()) : load()));
+    const asr = await loadFromDisk(
+      env,
+      () => (device ? load(device).catch(() => load()) : load()),
+      {
+        onWait: onProgress,
+      },
+    );
     return asr as unknown as AsrPipeline;
   } catch (err) {
     throw downloadError(err);

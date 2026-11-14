@@ -37,7 +37,7 @@ export async function findSpeech(
   o: FindSpeechOptions,
 ): Promise<{ speech: [number, number][]; durationS: number }> {
   o.signal?.throwIfAborted();
-  const vad = o.vad ?? (await openVad(o.model));
+  const vad = o.vad ?? (await openVad(o.model, undefined, o.signal));
   o.signal?.throwIfAborted();
   const start = o.rangeStartS ?? 0;
   const args = ["-hide_banner", "-nostats", "-nostdin"];

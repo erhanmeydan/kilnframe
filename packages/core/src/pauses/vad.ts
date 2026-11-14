@@ -39,36 +39,55 @@ export interface VadStream {
   push(frame: Float32Array): Promise<number>;
 }
 
-const loading = new Map<string, Promise<VadModel>>();
+const loading = new Map<string, { model: Promise<VadModel>; signal: AbortSignal | undefined }>();
 
-async function fromPretrained(model: string, onProgress?: (message: string) => void) {
+async function fromPretrained(
+  model: string,
+  onProgress?: (message: string) => void,
+  signal?: AbortSignal,
+) {
   const { AutoModel, env } = await import("@huggingface/transformers");
-  return loadFromDisk(env, () =>
-    AutoModel.from_pretrained(model, {
-      // the repo's config names no architecture transformers knows; the ONNX file is run as it is
-      config: { model_type: "custom" } as never,
-      dtype: "fp32",
-      ...(onProgress && {
-        progress_callback: downloadProgress((p) => onProgress(`Downloading voice model: ${p}%`)),
+  return loadFromDisk(
+    env,
+    () =>
+      AutoModel.from_pretrained(model, {
+        // the repo's config names no architecture transformers knows; the ONNX file is run as it is
+        config: { model_type: "custom" } as never,
+        dtype: "fp32",
+        ...(onProgress && {
+          progress_callback: downloadProgress((p) => onProgress(`Downloading voice model: ${p}%`)),
+        }),
       }),
-    }),
+    { signal, onWait: onProgress },
   );
 }
 
-/** The model, loaded once per process (downloaded into modelsDir() on first use). */
-function loadVad(model: string): Promise<VadModel> {
-  let p = loading.get(model);
-  if (!p) {
-    p = fromPretrained(model).then(
-      (m) => m as unknown as VadModel,
-      (err: unknown) => {
-        loading.delete(model);
-        throw downloadError(err);
-      },
-    );
-    loading.set(model, p);
+/**
+ * The model, loaded once per process (downloaded into modelsDir() on first use). The load is shared: one
+ * stopped by the job that started it is started again for a caller still going.
+ */
+async function loadVad(model: string, signal?: AbortSignal): Promise<VadModel> {
+  for (;;) {
+    let shared = loading.get(model);
+    if (!shared) {
+      const p = fromPretrained(model, undefined, signal).then(
+        (m) => m as unknown as VadModel,
+        (err: unknown) => {
+          loading.delete(model);
+          throw downloadError(err);
+        },
+      );
+      shared = { model: p, signal };
+      loading.set(model, shared);
+    }
+    try {
+      return await shared.model;
+    } catch (err) {
+      signal?.throwIfAborted();
+      // stopped by another job than this one: this one loads it again
+      if (!shared.signal?.aborted) throw err;
+    }
   }
-  return p;
 }
 
 /**
@@ -78,9 +97,11 @@ function loadVad(model: string): Promise<VadModel> {
 export async function openVad(
   model: string,
   /** Tests: a stand-in for the model. */
-  load: (model: string) => Promise<VadModel> = loadVad,
+  load: (model: string, signal?: AbortSignal) => Promise<VadModel> = loadVad,
+  /** The job's stop: a load not yet started never starts, nor fetches the model. */
+  signal?: AbortSignal,
 ): Promise<VadStream> {
-  const run = await load(model);
+  const run = await load(model, signal);
   const { Tensor } = await import("@huggingface/transformers");
   const sr = new Tensor("int64", [BigInt(VAD_SAMPLE_RATE)], []);
   let state = new Tensor("float32", new Float32Array(2 * 128), [2, 1, 128]);
@@ -141,7 +162,7 @@ export async function vadSpeechSpans(
   model: string,
   o: VadOptions & { signal?: AbortSignal } = {},
 ): Promise<[number, number][]> {
-  const vad = await openVad(model);
+  const vad = await openVad(model, undefined, o.signal);
   const frames = Math.floor(audio.length / VAD_FRAME);
   const probs = new Float32Array(frames);
   for (let f = 0; f < frames; f++) {

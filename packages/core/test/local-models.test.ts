@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { env } from "@huggingface/transformers";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { loadFromDisk } from "../src/local-models.js";
+import { WAITING_FOR_DOWNLOAD, loadFromDisk } from "../src/local-models.js";
 import { downloadVadModel, openVad } from "../src/pauses/vad.js";
 
 // --- a voice model small enough to write here: an ONNX graph that says "speech, 0.75" whatever it hears ---
@@ -144,4 +144,87 @@ test("loadFromDisk keeps the network off while it loads, and tries again with it
   const broken = vi.fn(() => Promise.reject(new Error("bad model")));
   await expect(loadFromDisk(at, broken)).rejects.toThrow("bad model");
   expect(broken).toHaveBeenCalledTimes(1);
+});
+
+test("a load stopped while it waits its turn answers at once and never runs, nor fetches (I4)", async () => {
+  process.env.KILNFRAME_MODELS_DIR = mkdtempSync(join(tmpdir(), "kf-models-"));
+  const at = {
+    cacheDir: null as string | null,
+    localModelPath: "",
+    allowLocalModels: false,
+    allowRemoteModels: false,
+  };
+  let release = () => {};
+  const first = loadFromDisk(
+    at,
+    () => new Promise<string>((resolve) => (release = () => resolve("first"))),
+  );
+  const stop = new AbortController();
+  const queued = vi.fn(() => Promise.resolve("second"));
+  const second = loadFromDisk(at, queued, { signal: stop.signal });
+  stop.abort();
+  await expect(second).rejects.toThrow(/abort/i);
+  release();
+  expect(await first).toBe("first");
+  // its turn has come and gone
+  expect(await loadFromDisk(at, () => Promise.resolve("third"))).toBe("third");
+  expect(queued).not.toHaveBeenCalled();
+});
+
+test("a load stopped before its model is fetched never fetches it (I4)", async () => {
+  process.env.KILNFRAME_MODELS_DIR = mkdtempSync(join(tmpdir(), "kf-models-"));
+  const at = {
+    cacheDir: null as string | null,
+    localModelPath: "",
+    allowLocalModels: false,
+    allowRemoteModels: false,
+  };
+  const missing = Object.assign(new Error("model.onnx not found locally"), {
+    name: "ModelFileNotFoundError",
+  });
+  const stop = new AbortController();
+  const seen: boolean[] = [];
+  const load = vi.fn(() => {
+    seen.push(at.allowRemoteModels);
+    stop.abort();
+    return Promise.reject(missing);
+  });
+  await expect(loadFromDisk(at, load, { signal: stop.signal })).rejects.toThrow(/abort/i);
+  expect(seen).toEqual([false]);
+});
+
+test("a load waiting behind a first download is told so (I4)", async () => {
+  process.env.KILNFRAME_MODELS_DIR = mkdtempSync(join(tmpdir(), "kf-models-"));
+  const at = {
+    cacheDir: null as string | null,
+    localModelPath: "",
+    allowLocalModels: false,
+    allowRemoteModels: false,
+  };
+  const missing = Object.assign(new Error("model.onnx not found locally"), {
+    name: "ModelFileNotFoundError",
+  });
+  let finish = () => {};
+  let fetching = () => {};
+  const started = new Promise<void>((resolve) => (fetching = resolve));
+  const download = loadFromDisk(at, () => {
+    if (!at.allowRemoteModels) return Promise.reject(missing);
+    fetching();
+    return new Promise<string>((resolve) => (finish = () => resolve("fetched")));
+  });
+  const told: string[] = [];
+  const waiter = loadFromDisk(at, () => Promise.resolve("on disk"), {
+    onWait: (m) => told.push(m),
+  });
+  await started;
+  expect(told).toEqual([WAITING_FOR_DOWNLOAD]);
+  // one that comes in while the download runs is told at once
+  const late: string[] = [];
+  const later = loadFromDisk(at, () => Promise.resolve("later"), { onWait: (m) => late.push(m) });
+  expect(late).toEqual([WAITING_FOR_DOWNLOAD]);
+  finish();
+  expect(await download).toBe("fetched");
+  expect(await waiter).toBe("on disk");
+  expect(await later).toBe("later");
+  expect(told).toHaveLength(1);
 });
