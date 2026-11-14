@@ -79,7 +79,12 @@ export interface TextProvider {
 
 /** A provider failure with a message a user can act on. Never contains the API key. */
 export type ProviderErrorKind =
-  "model-unavailable" | "cut-off" | "context-exceeded" | "rate-limited";
+  | "model-unavailable"
+  | "cut-off"
+  | "context-exceeded"
+  | "rate-limited"
+  /** A 503 for high demand on the model: it lasts minutes, so it is waited out longer than other errors. */
+  | "overloaded";
 
 export class ProviderError extends Error {
   constructor(

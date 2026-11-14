@@ -7,6 +7,7 @@ import {
   presetNeedsKey,
   testProvider,
   type TextProvider,
+  overloadPauseMs,
 } from "../src/index.js";
 
 const defaults = loadDefaults();
@@ -227,6 +228,31 @@ describe("retries", () => {
     new Response('data: {"choices":[{"delta":{"content":"fine"},"finish_reason":"stop"}]}\n\n', {
       headers: { "content-type": "text/event-stream" },
     });
+
+  it("waits out a model that is overloaded, with four tries instead of three", async () => {
+    // Gemini answers high demand with a 503 that lasts minutes (14 Nov 2026: a job stopped after 15 s)
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      if (calls < 4)
+        return new Response(
+          JSON.stringify({
+            error: {
+              message: "This model is currently experiencing high demand.",
+              status: "UNAVAILABLE",
+            },
+          }),
+          { status: 503 },
+        );
+      return ok();
+    });
+    expect((await provider().complete(request)).text).toBe("fine");
+    expect(calls).toBe(4);
+  });
+
+  it("waits longer between tries on an overloaded model than on other errors", () => {
+    expect([1, 2, 3].map((a) => overloadPauseMs(a))).toEqual([15_000, 30_000, 60_000]);
+  });
 
   it("tries a dropped connection again", async () => {
     let calls = 0;
