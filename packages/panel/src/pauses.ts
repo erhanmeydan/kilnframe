@@ -235,10 +235,10 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
   switch (st.stage) {
     case "track":
       return `${err}<div class="note">${t("pauses.pickTrack")}</div>
-  <div class="pbtns mt">${st.tracks
+  <div class="btns mt">${st.tracks
     .map(
       (n) =>
-        `<div class="pbtn${st.picked.includes(n) ? " on" : ""}" data-act="pauses-track" data-val="${n}">${
+        `<div class="btn2 sm${st.picked.includes(n) ? " on" : ""}" data-act="pauses-track" data-val="${n}">${
           st.picked.includes(n) ? "✓ " : ""
         }${t("pauses.trackN", { n: n + 1 })}</div>`,
     )

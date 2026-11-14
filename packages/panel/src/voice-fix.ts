@@ -215,8 +215,8 @@ export function voiceFixBox(st: VoiceFixState, ctx: VoiceFixCtx): string {
       return err + busy(st, t("fix.saying"), true);
     case "track":
       return `${err}<div class="note">${t("fix.pickTrack")}</div>
-  <div class="pbtns mt">${st.tracks
-    .map((n) => `<div class="pbtn" data-act="fix-track" data-val="${n}">A${n + 1}</div>`)
+  <div class="btns mt">${st.tracks
+    .map((n) => `<div class="btn2 sm" data-act="fix-track" data-val="${n}">A${n + 1}</div>`)
     .join("")}</div>
   ${startOver()}`;
     case "edit":
@@ -302,7 +302,7 @@ function listenScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   <div class="btn mt" data-act="fix-new">${t("fix.another")}</div>
   ${recloneLink(st, ctx)}`;
   return `${head}
-  <div class="pbtns mt"><div class="pbtn" data-act="fix-again">${t("fix.again")}</div><div class="pbtn primary${st.placing ? " off" : ""}" data-act="fix-place">${t("fix.place")}</div></div>
+  <div class="btns mt"><div class="btn2 sm" data-act="fix-again">${t("fix.again")}</div><div class="btn sm${st.placing ? " off" : ""}" data-act="fix-place">${t("fix.place")}</div></div>
   ${recloneLink(st, ctx)}
   ${startOver()}`;
 }

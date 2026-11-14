@@ -186,26 +186,6 @@
         padding: 6px 8px;
         margin: 6px 0;
       }
-      .pbtns {
-        display: flex;
-        flex-direction: row;
-        margin-top: 6px;
-      }
-      .pbtn {
-        border: 1px solid #4a4a4a;
-        border-radius: 6px;
-        padding: 6px 10px;
-        margin-right: 6px;
-        color: #d6d6d6;
-        font-size: 12px;
-        cursor: pointer;
-      }
-      .pbtn.primary {
-        background: #2d64c8;
-        border-color: #2d64c8;
-        color: #fff;
-        font-weight: 700;
-      }
       .ptest {
         margin-top: 8px;
         font-size: 11px;
@@ -369,10 +349,6 @@
       /* links side by side (No Music next to Join With Next) */
       .row2 .link + .link {
         margin-left: 16px;
-      }
-      .btn2.stop {
-        color: #e8a598;
-        border-color: #6a3a33;
       }
       .small {
         font-size: 11px;
@@ -572,38 +548,66 @@
       #scenenote {
         min-height: 64px;
       }
-      .btn {
-        margin-top: 10px;
-        background: #2d64c8;
-        color: #fff;
+      /* one button family: .btn is the main action, .btn2 the others, both full width; .sm makes either a
+         small button in a .btns row; .on marks a picked one (a track), .danger stops, .off cannot be pressed */
+      .btn,
+      .btn2 {
         border-radius: 6px;
         padding: 8px;
         font-size: 12px;
-        font-weight: 700;
         text-align: center;
         cursor: pointer;
       }
+      .btn {
+        margin-top: 10px;
+        background: #2d64c8;
+        border: 1px solid #2d64c8;
+        color: #fff;
+        font-weight: 700;
+      }
+      .btn2 {
+        color: #d6d6d6;
+        border: 1px solid #4a4a4a;
+      }
       .btn.off {
         background: #3a3a3a;
+        border-color: #3a3a3a;
         color: #8f8f8f;
+      }
+      .btn2.off {
+        color: #7a7a7a;
+        cursor: default;
+      }
+      .btn2.on {
+        background: #26304a;
+        border-color: #5b8cff;
+        color: #fff;
+        font-weight: 700;
+      }
+      .btn2.danger {
+        color: #e8a598;
+        border-color: #6a3a33;
+      }
+      .btns {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .btn.sm,
+      .btn2.sm {
+        margin: 0 6px 6px 0;
+        padding: 6px 10px;
       }
       /* Premiere in the background: the first click only brings it forward (docs/ilk-animasyon.md) */
       #app.asleep .btn {
         background: #263a63;
+        border-color: #263a63;
         color: #9aa6c2;
       }
       #app.asleep .btn2 {
         color: #7a7a7a;
         border-color: #3a3a3a;
-      }
-      .btn2 {
-        color: #d6d6d6;
-        border: 1px solid #4a4a4a;
-        border-radius: 6px;
-        padding: 8px;
-        font-size: 12px;
-        text-align: center;
-        cursor: pointer;
       }
       .tag2 {
         font-size: 10px;
@@ -684,10 +688,6 @@
       .cmd-row .img-note.cmd {
         flex: 1;
         margin-right: 6px;
-      }
-      .btn2.off {
-        color: #7a7a7a;
-        cursor: default;
       }
       .voice {
         box-sizing: border-box;

@@ -557,7 +557,7 @@ function lineRows(st: CaptionsState, ctx: CaptionsCtx): string {
 function clearText(st: CaptionsState): string {
   return st.confirmClear
     ? `<div class="box warn small mt">${t("captions.clearAsk")}</div>
-  <div class="row2 mt"><div class="btn2 stop" data-act="captions-clear-yes">${t("captions.clearYes")}</div><div class="btn2" data-act="captions-clear-no">${t("captions.clearNo")}</div></div>`
+  <div class="row2 mt"><div class="btn2 danger" data-act="captions-clear-yes">${t("captions.clearYes")}</div><div class="btn2" data-act="captions-clear-no">${t("captions.clearNo")}</div></div>`
     : `<div class="link mt" data-act="captions-clear">${t("captions.clear")}</div>`;
 }
 

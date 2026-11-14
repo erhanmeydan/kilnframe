@@ -970,7 +970,7 @@ function seriesBox(): string {
   const ready = series.parts.filter((p) => p.state === "stills").length;
   return `<div class="pdetail"><div><b>${esc(series.title)}</b></div>
   <div class="small muted">${t("series.status", { placed, ready, n })}</div>
-  <div class="pbtns"><div class="pbtn primary" data-act="series-continue">${t("series.continue")}</div><div class="pbtn" data-act="series-drop">${t("series.drop")}</div></div></div>`;
+  <div class="btns"><div class="btn sm" data-act="series-continue">${t("series.continue")}</div><div class="btn2 sm" data-act="series-drop">${t("series.drop")}</div></div></div>`;
 }
 
 /** "This animation used 83k input and 166k output tokens, about $0.09." On a plan: what it would cost as API. */
@@ -1451,7 +1451,7 @@ function cloneBox(): string {
   ${check("clone-noise", c.noise, t("clone.noise"))}
   ${check("clone-consent", c.consent, t("clone.consent"))}
   ${c.error ? `<div class="box error mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
-  <div class="pbtns mt"><div class="pbtn primary" data-act="clone-go">${t("clone.go")}</div><div class="pbtn" data-act="clone-close">${t("prov.cancel")}</div></div>
+  <div class="btns mt"><div class="btn sm" data-act="clone-go">${t("clone.go")}</div><div class="btn2 sm" data-act="clone-close">${t("prov.cancel")}</div></div>
 </div>`;
 }
 
@@ -1875,8 +1875,8 @@ function progress(): string {
   ${
     job.confirmStop
       ? `<div class="box warn small mt">${t("progress.stopAsk")}</div>
-  <div class="row2 mt"><div class="btn2 stop" data-act="stop-yes">${t("progress.stopYes")}</div><div class="btn2" data-act="stop-no">${t("progress.stopNo")}</div></div>`
-      : `<div class="row2 mt"><div class="btn2" data-act="home">${t("progress.background")}</div><div class="btn2 stop" data-act="stop">${t("progress.stop")}</div></div>`
+  <div class="row2 mt"><div class="btn2 danger" data-act="stop-yes">${t("progress.stopYes")}</div><div class="btn2" data-act="stop-no">${t("progress.stopNo")}</div></div>`
+      : `<div class="row2 mt"><div class="btn2" data-act="home">${t("progress.background")}</div><div class="btn2 danger" data-act="stop">${t("progress.stop")}</div></div>`
   }`;
 }
 
@@ -2074,21 +2074,21 @@ function keyBlock(id: string, entry: ProviderEntry | undefined, withTest: boolea
     : "";
   const head = `<div class="row small"><span>${t("prov.apiKey")}</span>${link}</div>`;
   const test = withTest
-    ? `<div class="pbtn primary" data-act="prov-test" data-val="${esc(id)}">${t("prov.test")}</div>`
+    ? `<div class="btn sm" data-act="prov-test" data-val="${esc(id)}">${t("prov.test")}</div>`
     : "";
   if (set && setup.editingKey !== id) {
     const del =
       setup.confirmDelete === id
-        ? `<div class="pbtn" data-act="key-delete-yes" data-val="${esc(id)}">${t("prov.deleteYes")}</div><div class="pbtn" data-act="key-delete-no">${t("prov.deleteNo")}</div>`
-        : `<div class="pbtn" data-act="key-edit" data-val="${esc(id)}">${t("prov.change")}</div><div class="pbtn" data-act="key-delete" data-val="${esc(id)}">${t("prov.delete")}</div>`;
+        ? `<div class="btn2 sm" data-act="key-delete-yes" data-val="${esc(id)}">${t("prov.deleteYes")}</div><div class="btn2 sm" data-act="key-delete-no">${t("prov.deleteNo")}</div>`
+        : `<div class="btn2 sm" data-act="key-edit" data-val="${esc(id)}">${t("prov.change")}</div><div class="btn2 sm" data-act="key-delete" data-val="${esc(id)}">${t("prov.delete")}</div>`;
     return `${head}<div class="pfield muted">•••••••••••• ${t("prov.keySaved")}</div>
     ${setup.confirmDelete === id ? `<div class="note warn-text">${t("prov.deleteAsk")}</div>` : ""}
-    <div class="pbtns">${del}${setup.confirmDelete === id ? "" : test}</div>`;
+    <div class="btns">${del}${setup.confirmDelete === id ? "" : test}</div>`;
   }
   return `${head}<input class="img-note" id="key-input" type="password" placeholder="${t("prov.keyPlaceholder")}">
-  <div class="pbtns"><div class="pbtn primary" data-act="key-save" data-val="${esc(id)}">${t("prov.save")}</div>${
+  <div class="btns"><div class="btn sm" data-act="key-save" data-val="${esc(id)}">${t("prov.save")}</div>${
     setup.editingKey === id
-      ? `<div class="pbtn" data-act="key-cancel">${t("prov.cancel")}</div>`
+      ? `<div class="btn2 sm" data-act="key-cancel">${t("prov.cancel")}</div>`
       : ""
   }</div>`;
 }
@@ -2133,14 +2133,14 @@ function providerDetail(id: string): string {
       body +=
         setup.updating === id
           ? `<div class="ptest muted">${t("prov.updating")}</div>`
-          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : id === "antigravity" ? "agy update" : "grok update" })}</div>`;
+          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="btns"><div class="btn sm" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : id === "antigravity" ? "agy update" : "grok update" })}</div>`;
     if (!a?.installed)
-      body += `<div class="ptest warn-text">${t("prov.agentMissing")}</div>${agentInstallHelp(id)}<div class="pbtns"><div class="pbtn primary" data-act="open-url" data-val="${install}">${t("prov.howInstall")} ↗</div><div class="pbtn" data-act="agent-recheck">${t("prov.recheck")}</div></div>`;
+      body += `<div class="ptest warn-text">${t("prov.agentMissing")}</div>${agentInstallHelp(id)}<div class="btns"><div class="btn sm" data-act="open-url" data-val="${install}">${t("prov.howInstall")} ↗</div><div class="btn2 sm" data-act="agent-recheck">${t("prov.recheck")}</div></div>`;
     else if (!a.loggedIn)
       body +=
         setup.signingIn === id
           ? `<div class="ptest muted">${t("prov.signingIn")}</div>`
-          : `<div class="ptest warn-text">${t("prov.agentSignedOut")}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-login" data-val="${id}">${t("prov.signIn")}</div><div class="pbtn" data-act="agent-recheck">${t("prov.recheck")}</div></div><div class="note muted">${t(
+          : `<div class="ptest warn-text">${t("prov.agentSignedOut")}</div><div class="btns"><div class="btn sm" data-act="agent-login" data-val="${id}">${t("prov.signIn")}</div><div class="btn2 sm" data-act="agent-recheck">${t("prov.recheck")}</div></div><div class="note muted">${t(
               "prov.orRun",
               {
                 command:
@@ -2156,22 +2156,22 @@ function providerDetail(id: string): string {
     else if (setup.signingOut === id)
       body += `<div class="ptest muted">${t("prov.signingOut")}</div>`;
     else if (setup.confirmLogout === id)
-      body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="pbtns"><div class="pbtn" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="pbtn" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
+      body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="btns"><div class="btn2 sm" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="btn2 sm" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
     else {
       // Antigravity CLI signs out only from its own screen
       const signOut =
         id === "antigravity"
           ? ""
-          : `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
+          : `<div class="btn2 sm" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
       body +=
         id === "grok"
           ? // its image reading could not be checked yet (only models that read images)
-            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="pbtns">${signOut}</div>`
-          : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
+            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="btns">${signOut}</div>`
+          : `<div class="ptest ok-text">${okLine}</div><div class="btns"><div class="btn sm" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
     }
   } else if (LOCAL_PROVIDERS.has(id)) {
     body = `<div class="small">${t(id === "ollama" ? "prov.ollamaNote" : "prov.localNote")}</div>
-    <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
+    <div class="btns"><div class="btn sm" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
@@ -2324,7 +2324,7 @@ function speechKeys(): string {
   const eleven =
     elevenKey || setup.editingKey === "elevenlabs"
       ? keyBlock("elevenlabs", elevenEntry, false)
-      : `<div class="pbtns"><div class="pbtn" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
+      : `<div class="btns"><div class="btn2 sm" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
   return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div><div class="note muted">${t("prov.elevenPermissions")}</div>`;
 }
 
@@ -2405,7 +2405,7 @@ function setupBody(i: number, st: StepState): string {
     return state.opening
       ? `<div class="small muted">${t("conn.opening")}</div>`
       : st === "warn"
-        ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="open-app">${t("conn.openApp")}</div><div class="pbtn" data-act="reconnect">${t("conn.retry")}</div></div>`
+        ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="btns"><div class="btn sm" data-act="open-app">${t("conn.openApp")}</div><div class="btn2 sm" data-act="reconnect">${t("conn.retry")}</div></div>`
         : "";
   if (i === 1) {
     if (st !== "warn") return "";
@@ -2418,17 +2418,17 @@ function setupBody(i: number, st: StepState): string {
   if (i === 2) {
     const d = onboard.download;
     if (st === "warn")
-      return `<div class="small err-text">${esc(d.error ?? "")}</div><div class="pbtns"><div class="pbtn primary" data-act="setup-download">${t("setup.tryAgain")}</div></div>`;
+      return `<div class="small err-text">${esc(d.error ?? "")}</div><div class="btns"><div class="btn sm" data-act="setup-download">${t("setup.tryAgain")}</div></div>`;
     if (st !== "now") return "";
     return `<div class="small">${t("setup.speechNote")}</div>${
       d.running
         ? `<div class="bar"><div style="width:${d.pct}%"></div></div><div class="small muted">%${d.pct} · ${esc(state.system?.speechModel?.name ?? "")}</div>`
-        : `<div class="pbtns"><div class="pbtn primary" data-act="setup-download">${t("setup.download")}</div></div>`
+        : `<div class="btns"><div class="btn sm" data-act="setup-download">${t("setup.download")}</div></div>`
     }`;
   }
   if (i === 3)
     return st === "now"
-      ? `${providerList(true)}${modelList()}<div class="pbtns"><div class="pbtn primary" data-act="setup-pass" data-val="3">${t("setup.continue")}</div></div>`
+      ? `${providerList(true)}${modelList()}<div class="btns"><div class="btn sm" data-act="setup-pass" data-val="3">${t("setup.continue")}</div></div>`
       : "";
   if (i === 4)
     return st === "now"
@@ -2436,11 +2436,11 @@ function setupBody(i: number, st: StepState): string {
           "gemini",
           setup.list.find((p) => p.id === "gemini"),
           false,
-        )}<div class="pbtns"><div class="pbtn" data-act="setup-pass" data-val="4">${t("setup.skip")}</div></div>`
+        )}<div class="btns"><div class="btn2 sm" data-act="setup-pass" data-val="4">${t("setup.skip")}</div></div>`
       : "";
   if (i === 5)
     return st === "now"
-      ? `<div class="small">${t("setup.firstTryNote")}</div><div class="pbtns"><div class="pbtn primary" data-act="setup-story">${t("setup.tryStory")}</div><div class="pbtn" data-act="setup-range">${t("setup.tryRange")}</div></div>`
+      ? `<div class="small">${t("setup.firstTryNote")}</div><div class="btns"><div class="btn sm" data-act="setup-story">${t("setup.tryStory")}</div><div class="btn2 sm" data-act="setup-range">${t("setup.tryRange")}</div></div>`
       : "";
   return "";
 }
@@ -4870,7 +4870,7 @@ function agentInstallHelp(id: AgentId): string {
   const copy = setup.copied === id ? t("prov.copied") : t("prov.copy");
   return `<div class="note">${t(`prov.cliOnly.${id}`)}</div>
   <div class="note muted">${t("prov.installPaste", { terminal: win ? "PowerShell" : "Terminal" })}</div>
-  <div class="cmd-row"><input class="img-note cmd" type="text" value="${esc(installCommand(id))}"><div class="pbtn" data-act="copy-install" data-val="${id}">${copy}</div></div>
+  <div class="cmd-row"><input class="img-note cmd" type="text" value="${esc(installCommand(id))}"><div class="btn2 sm" data-act="copy-install" data-val="${id}">${copy}</div></div>
   <div class="note muted">${t("prov.installThen", { command: signIn[id] })}</div>`;
 }
 
