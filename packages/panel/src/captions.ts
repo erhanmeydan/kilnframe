@@ -593,9 +593,9 @@ function busyBox(st: CaptionsState, ctx: CaptionsCtx): string {
 export function captionsBox(st: CaptionsState, ctx: CaptionsCtx): string {
   const notes =
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") +
-    (st.notice ? `<div class="info">${ctx.esc(st.notice)}</div>` : "") +
+    (st.notice ? `<div class="box info">${ctx.esc(st.notice)}</div>` : "") +
     (st.stage === "placed" && st.placed
       ? `<div class="box ok">${t("captions.placed", { v: st.placed.videoTrack + 1 })}</div>`
       : "");

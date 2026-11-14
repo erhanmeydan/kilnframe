@@ -220,7 +220,7 @@ export function previewTotals(st: PausesState): {
 function errorBoxes(st: PausesState, ctx: PausesCtx): string {
   return (
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "")
   );
 }

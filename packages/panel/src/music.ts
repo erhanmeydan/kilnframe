@@ -297,7 +297,7 @@ function busyBox(st: MusicState): string {
 export function musicBox(st: MusicState, ctx: MusicCtx): string {
   const err =
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "");
   if (st.stage === "planning" || st.stage === "making" || st.stage === "placing")
     return `${err}${busyBox(st)}`;
@@ -368,7 +368,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       if (!s || s.silent) return "";
       const head = `<div class="row"><span><b>${clock(s.startS)} · ${clock(s.endS)}</b> ${ctx.esc(s.title)}</span>`;
       if (!m.file)
-        return `<div class="box small">${head}<span class="warn-text">${t("music.failed")}</span></div>
+        return `<div class="box small">${head}<span class="err-text">${t("music.failed")}</span></div>
     ${m.error ? `<div class="small muted mt">${ctx.esc(readableJobText(m.error) ?? m.error)}</div>` : ""}
     <div class="link" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
       const lv = levelNote(m, ctx.slider());
@@ -378,7 +378,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
           : "";
       const playing = st.playing === m.id;
       return `<div class="box small">${head}<span class="link" data-act="${playing ? "music-stop" : "music-play"}" data-val="${m.id}">${playing ? t("music.stop") : t("music.play")}</span></div>
-    ${levels}${m.error ? `<div class="warn-text mt">${t("music.redoFailed")}</div>` : ""}
+    ${levels}${m.error ? `<div class="err-text mt">${t("music.redoFailed")}</div>` : ""}
     <input class="img-note" id="music-edit-${m.id}" type="text" placeholder="${t("music.sectionNote")}">
     <div class="link mt" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
     })

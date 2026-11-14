@@ -204,7 +204,7 @@ const startOver = () => `<div class="link mt" data-act="fix-new">${t("fix.startO
 export function voiceFixBox(st: VoiceFixState, ctx: VoiceFixCtx): string {
   const err =
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "");
   switch (st.stage) {
     case "reading":

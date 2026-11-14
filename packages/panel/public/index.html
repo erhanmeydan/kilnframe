@@ -293,15 +293,6 @@
       .obody {
         margin: 8px 0 2px 26px;
       }
-      .info {
-        background: #262a31;
-        border: 1px solid #353c48;
-        border-radius: 6px;
-        padding: 8px 8px;
-        color: #d6d6d6;
-        font-size: 11px;
-        margin: 6px 0;
-      }
       .strip {
         display: flex;
         flex-direction: row;
@@ -396,20 +387,32 @@
         font-size: 11px;
         margin: 2px 2px 6px;
       }
-      .warn {
-        border-color: #6b5320;
-      }
-      /* the app's own update: calm, like the provider panel, not a warning */
-      .box.update {
+      /* message boxes by what they say: info is calm (an update, a notice), warn asks for something
+         before going on (a key, a range, a version), error says something failed, ok says it is done */
+      .box.info {
         background: #262a31;
         border-color: #353c48;
+      }
+      .box.warn {
+        border-color: #6b5320;
+      }
+      .box.error {
+        background: #2c2422;
+        border-color: #6a3a33;
+      }
+      .box.ok {
+        border-color: #2f5a3d;
+        color: #8fd6a8;
+      }
+      /* a box right under the range line keeps clear of it */
+      .rangeline + .box {
+        margin-top: 10px;
       }
       .warn-text {
         color: #e0b050;
       }
-      .ok {
-        border-color: #2f5a3d;
-        color: #8fd6a8;
+      .err-text {
+        color: #e8a598;
       }
       .ok-text {
         color: #8fd6a8;

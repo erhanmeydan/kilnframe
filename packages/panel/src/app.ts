@@ -650,13 +650,13 @@ function updateBox(): string {
   // the site's changelog, in the editor's language: GitHub's release page made people download by hand
   const notes = changelogUrl();
   if (u.status === "available")
-    return `<div class="box update"><div>${t("update.ready", { v })}</div>${
+    return `<div class="box info"><div>${t("update.ready", { v })}</div>${
       state.updateBusy ? `<div class="small muted mt">${t("update.busy")}</div>` : ""
     }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div><div class="small mt"><span class="link" data-act="open-url" data-val="${notes}">${t("update.whatsNew")} ↗</span></div></div>`;
   if (u.status === "downloading")
-    return `<div class="box update">${t("update.downloading", { p: u.percent ?? 0 })}</div>`;
-  if (u.status === "ready") return `<div class="box update">${t("update.restarting")}</div>`;
-  return `<div class="box warn"><div>${t("update.failed")}</div><div class="small muted">${esc(
+    return `<div class="box info">${t("update.downloading", { p: u.percent ?? 0 })}</div>`;
+  if (u.status === "ready") return `<div class="box info">${t("update.restarting")}</div>`;
+  return `<div class="box error"><div>${t("update.failed")}</div><div class="small muted">${esc(
     u.error ?? "",
   )}</div><div class="btn2 mt" data-act="app-update">${t("conn.retry")}</div></div>`;
 }
@@ -722,7 +722,7 @@ function rangeBox(): string {
   return `<div class="rangeline row"><span>${label} ${formatTimecode(r.startS)} → ${formatTimecode(
     r.endS,
   )}</span><span class="muted">${formatDuration(r.durationS)} · ${esc(formatFps(state.seq.fps, state.seq.fpsValue))} fps</span></div>${
-    warning ? `<div class="info">${esc(warning)}</div>` : ""
+    warning ? `<div class="box info">${esc(warning)}</div>` : ""
   }`;
 }
 
@@ -924,7 +924,7 @@ function jobErrorBox(job: JobView): string {
   const retry = job.retry
     ? `<div class="small mt">${t("job.checksRetry")}</div><div class="btn2 mt" data-act="generate">${t("job.retry")}</div>`
     : "";
-  return `<div class="box warn">${esc(error)}${picture}${retry}${job.reportable ? reportLink(error) : ""}</div>`;
+  return `<div class="box ${job.retry ? "warn" : "error"}">${esc(error)}${picture}${retry}${job.reportable ? reportLink(error) : ""}</div>`;
 }
 
 function home(): string {
@@ -1003,10 +1003,10 @@ function rangeHome(done: JobView["placed"]): string {
   const many = state.job?.partsPlaced;
   return `${done ? `<div class="box ok">${many ? t("home.placedParts", { n: many, v: done.videoTrack + 1, a: done.audioTrack + 1 }) : t("home.placed", { v: done.videoTrack + 1, a: done.audioTrack + 1 })}</div>` : ""}
   ${done && state.job?.cost ? `<div class="small muted">${esc(costLine(state.job.cost))}</div>` : ""}
-  ${state.job?.error ? jobErrorBox(state.job) : ""}
-  ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   ${seriesBox()}
   ${rangeBox()}
+  ${state.job?.error ? jobErrorBox(state.job) : ""}
+  ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   <div class="lbl">${t("home.style")}</div>
   ${
     chosen && !state.styleOpen
@@ -1147,7 +1147,7 @@ function ownScreen(): string {
   <div class="rec sel"><div class="rec-text"><div class="rec-name">${esc(localized(r.displayName))}</div></div></div>
   <div class="row mt" style="justify-content:flex-start">${stills}</div>
   ${notes ? `<div class="lbl">${t("own.notes")}</div><div class="box small">${esc(notes)}</div>` : ""}
-  ${o.error ? `<div class="box warn">${esc(o.error)}</div>` : ""}
+  ${o.error ? `<div class="box error">${esc(o.error)}</div>` : ""}
   <div class="btn mt" data-act="own-keep">${t("own.keep")}</div>
   <div class="lbl">${t("own.redo")}</div>
   <textarea id="own-redo" rows="2" placeholder="${t("own.redoPlaceholder")}">${esc(o.redoNote)}</textarea>
@@ -1160,7 +1160,7 @@ function ownScreen(): string {
   }
   // always enabled: typing does not re-render, so a disabled button would stay disabled; the action checks
   return `${header(t("own.title"), close)}
-  ${o.error ? `<div class="box warn">${esc(o.error)}</div>` : ""}
+  ${o.error ? `<div class="box error">${esc(o.error)}</div>` : ""}
   <div class="lbl">${t("own.describe")}</div>
   <textarea id="own-desc" rows="4" placeholder="${t("own.describePlaceholder")}">${esc(o.description)}</textarea>
   ${imagesBox("ref")}
@@ -1234,7 +1234,9 @@ async function startStyleJob(params: Record<string, unknown>) {
 /** The story tab: brief, then the narration to edit, a voice, and the new sequence. */
 function storyBox(): string {
   const st = state.story;
-  const err = st.error ? `<div class="box warn">${esc(st.error)}${reportLink(st.error)}</div>` : "";
+  const err = st.error
+    ? `<div class="box error">${esc(st.error)}${reportLink(st.error)}</div>`
+    : "";
   if (st.stage === "writing" || st.stage === "voicing")
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
@@ -1285,7 +1287,7 @@ function storyBox(): string {
     ["elevenlabs", "ElevenLabs"],
   ])}
   ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}</div>`}
-  ${st.voicesError ? `<div class="box warn">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
+  ${st.voicesError ? `<div class="box error">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
   ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
   ${st.speechProvider === "elevenlabs" && st.keySet ? cloneBox() : ""}
@@ -1448,7 +1450,7 @@ function cloneBox(): string {
   <input class="img-note" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}">
   ${check("clone-noise", c.noise, t("clone.noise"))}
   ${check("clone-consent", c.consent, t("clone.consent"))}
-  ${c.error ? `<div class="box warn mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
+  ${c.error ? `<div class="box error mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
   <div class="pbtns mt"><div class="pbtn primary" data-act="clone-go">${t("clone.go")}</div><div class="pbtn" data-act="clone-close">${t("prov.cancel")}</div></div>
 </div>`;
 }
@@ -2061,7 +2063,7 @@ function testLine(id: string): string {
   if (r.ok && r.vision)
     return `<div class="ptest ok-text">✓ ${t("prov.testOk", { s: (r.ms / 1000).toFixed(1).replace(".", lang() === "tr" ? "," : ".") })}</div>`;
   if (r.ok) return `<div class="ptest warn-text">${t("prov.testNoVision")}</div>`;
-  return `<div class="ptest warn-text">${esc((r.message && readableJobText(r.message)) ?? r.message ?? t("prov.testFailed"))}</div>`;
+  return `<div class="ptest err-text">${esc((r.message && readableJobText(r.message)) ?? r.message ?? t("prov.testFailed"))}</div>`;
 }
 
 /** The key part of a provider's details: the stored key, or a field to enter one. */
@@ -2245,7 +2247,7 @@ function modelList(): string {
       ...(setup.served.antigravity ?? []).map((m) => [m.id, ""] as [string, string]),
     ];
     if (setup.servedError.antigravity)
-      note = `<div class="note warn-text">${esc(readableJobText(setup.servedError.antigravity) ?? setup.servedError.antigravity)}</div>`;
+      note = `<div class="note err-text">${esc(readableJobText(setup.servedError.antigravity) ?? setup.servedError.antigravity)}</div>`;
   } else if (id === "openrouter") {
     // the suggested models first; every other model that reads images behind All Models
     const seeing = (setup.served.openrouter ?? []).filter((m) => m.vision);
@@ -2264,7 +2266,7 @@ function modelList(): string {
     if (!suggested.includes(modelFor(id)) && !rest.some((m) => m.id === modelFor(id)))
       options.unshift([modelFor(id), ""]);
     note = setup.servedError.openrouter
-      ? `<div class="note warn-text">${esc(setup.servedError.openrouter)}</div>`
+      ? `<div class="note err-text">${esc(setup.servedError.openrouter)}</div>`
       : `<div class="link more" data-act="or-all">${onboard.allModels ? t("prov.fewerModels") : t("prov.allModels", { n: seeing.length })}</div><div class="note muted">${t("prov.openrouterNote")}</div>`;
   } else if (LOCAL_PROVIDERS.has(id)) {
     const served = setup.served[id] ?? [];
@@ -2272,7 +2274,7 @@ function modelList(): string {
     options = rows.map((r) => [r.id, r.info]);
     const hidden = served.length - rows.length;
     note = setup.servedError[id]
-      ? `<div class="note warn-text">${esc(setup.servedError[id])}</div>`
+      ? `<div class="note err-text">${esc(setup.servedError[id])}</div>`
       : !served.length
         ? `<div class="note muted">${t(id === "ollama" ? "prov.ollamaNone" : "prov.lmNone")}</div>`
         : hidden
@@ -2416,7 +2418,7 @@ function setupBody(i: number, st: StepState): string {
   if (i === 2) {
     const d = onboard.download;
     if (st === "warn")
-      return `<div class="small warn-text">${esc(d.error ?? "")}</div><div class="pbtns"><div class="pbtn primary" data-act="setup-download">${t("setup.tryAgain")}</div></div>`;
+      return `<div class="small err-text">${esc(d.error ?? "")}</div><div class="pbtns"><div class="pbtn primary" data-act="setup-download">${t("setup.tryAgain")}</div></div>`;
     if (st !== "now") return "";
     return `<div class="small">${t("setup.speechNote")}</div>${
       d.running
@@ -2519,7 +2521,7 @@ function settings(): string {
     ["tr", "Türkçe"],
   ])}
   <div class="lbl">${t("settings.ai")}</div>
-  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box warn">${esc(setup.error)}</div>` : ""}
+  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box error">${esc(setup.error)}</div>` : ""}
   ${providerList()}
   ${modelList()}
   <div class="lbl">${t("settings.review")}</div>

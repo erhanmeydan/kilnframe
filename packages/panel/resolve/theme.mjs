@@ -44,6 +44,7 @@ export const STATUS_COLOURS = [
   "#6b5320",
   "#e8a598",
   "#6a3a33",
+  "#2c2422",
   // Kilnframe's clay: the Remove Pauses bar looks the same in every editor
   "#d9875f",
   "#c4683e",
