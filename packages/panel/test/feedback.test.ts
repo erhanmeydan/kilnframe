@@ -43,6 +43,18 @@ describe("feedback page link", () => {
     expect(f.v).toContain("DaVinci Resolve · Windows");
   });
 
+  it("takes the known home folder out of the error and never sends it", () => {
+    const url = feedbackPage({
+      kind: "error",
+      error: "Could not write D:/Profiles/Ayse Yilmaz/Videos/a.wav",
+      lang: "en",
+      home: "D:\\Profiles\\Ayse Yilmaz",
+      ...info,
+    });
+    expect(fields(url).e).toBe("Could not write ~/Videos/a.wav");
+    expect(url).not.toContain("Yilmaz");
+  });
+
   it("names FilmCraft as the editor", () => {
     const f = fields(feedbackPage({ kind: "feedback", lang: "en", ...info, editor: "FilmCraft" }));
     expect(f.v).toContain("FilmCraft · macOS");
@@ -107,6 +119,29 @@ describe("withoutUserName", () => {
     expect(withoutUserName("C:\\Users\\Erhan Meydan\\Videos\\a.wav")).toBe("~\\Videos\\a.wav");
     expect(withoutUserName("/home/ali/x")).toBe("~/x");
     expect(withoutUserName("no path here")).toBe("no path here");
+  });
+
+  it("takes a name with a space whole, also in a Windows path written with /", () => {
+    expect(withoutUserName("C:/Users/Ayse Yilmaz/Videos/Kilnframe/x/sequence.wav")).toBe(
+      "~/Videos/Kilnframe/x/sequence.wav",
+    );
+    expect(withoutUserName("Could not read /Users/ayse yilmaz/Movies/x.wav.")).toBe(
+      "Could not read ~/Movies/x.wav.",
+    );
+    // a home folder at the end of the text: the name ends at the space, the words after it stay
+    expect(withoutUserName("Nothing in /Users/ayse could be read")).toBe(
+      "Nothing in ~ could be read",
+    );
+  });
+
+  it("takes out the known home folder first, whichever slashes and case it comes with", () => {
+    expect(
+      withoutUserName(
+        "D:/Profiles/ayse y/Videos/a.wav and d:\\profiles\\AYSE Y\\b.wav",
+        "D:\\Profiles\\ayse y",
+      ),
+    ).toBe("~/Videos/a.wav and ~\\b.wav");
+    expect(withoutUserName("/Volumes/Home/ayse y/x.wav", "/Volumes/Home/ayse y")).toBe("~/x.wav");
   });
 
   describe("errors that are the editor's own", () => {

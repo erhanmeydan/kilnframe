@@ -2720,6 +2720,7 @@ function mailAbout() {
     os: host().platform(),
     lang: lang(),
     ai: reportProvider(),
+    home: homeDirNow(),
   };
 }
 

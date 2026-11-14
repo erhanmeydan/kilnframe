@@ -19,11 +19,29 @@ export interface FeedbackInfo {
   lang: "en" | "tr";
   /** Who does the animation work ("Google Gemini · gemini-3.8-flash"); never a key or an address. */
   ai?: string;
+  /** The user's home folder, taken out of an error's paths; never sent. */
+  home?: string | null;
 }
 
-/** A path's home folder as "~": "/Users/ayse/x" -> "~/x", "C:\Users\Ayse Y\x" -> "~\x". */
-export function withoutUserName(text: string): string {
-  return text.replace(/\/(?:Users|home)\/[^/\s]+/g, "~").replace(/[A-Za-z]:\\Users\\[^\\]+/g, "~");
+/**
+ * A path's home folder as "~": "/Users/ayse/x" -> "~/x", "C:\Users\Ayse Y\x" and "C:/Users/Ayse Y/x" -> "~\x"
+ * and "~/x". The known home folder goes first (any slashes, any case on Windows); then any Users or home
+ * folder, whose name runs to the next slash (it may hold a space) or, at the end of a path, to a space.
+ */
+export function withoutUserName(text: string, home?: string | null): string {
+  let out = text;
+  const h = home?.replace(/[\\/]+$/, "");
+  if (h) {
+    const parts = h.split(/[\\/]+/).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const windows = /^[A-Za-z]:/.test(h);
+    out = out.replace(
+      new RegExp(`${parts.join("[\\\\/]+")}(?=[\\\\/\\s"'.,:;)\\]]|$)`, windows ? "gi" : "g"),
+      "~",
+    );
+  }
+  return out
+    .replace(/[A-Za-z]:[\\/]Users[\\/](?:[^\\/\n]+(?=[\\/])|[^\\/\s]+)/gi, "~")
+    .replace(/\/(?:Users|home)\/(?:[^/\n]+(?=\/)|[^/\s]+)/g, "~");
 }
 
 /** Messages that are the editor's own doing (a stop, an empty field, an old Premiere): no report link. */
@@ -55,7 +73,7 @@ export function feedbackPage(
   };
   if (o.kind === "feedback") return link();
   // the error is shortened until the link fits; the versions always stay
-  let error = withoutUserName(o.error);
+  let error = withoutUserName(o.error, o.home);
   let url = link(error);
   while (url.length > MAX_URL && error.length) {
     error = error.slice(0, Math.floor(error.length * 0.9));
