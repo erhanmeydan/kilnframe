@@ -332,30 +332,36 @@ async function styleJob(
     `${Date.now()}`,
   );
   mkdirSync(work, { recursive: true });
-  const made = await createStyle({
-    description: params.description,
-    references: params.references,
-    provider,
-    workDir: work,
-    ...(params.revise ? { revise: { name: params.revise, note: params.note ?? "" } } : {}),
-    onProgress: progress,
-  });
-  const preview = await previewStyle({
-    name: made.name,
-    provider,
-    outDir: join(work, "preview"),
-    onProgress: progress,
-  });
-  const total = (made.usage.total().listPriceUsd || 0) + (preview.usage.total().listPriceUsd || 0);
-  return {
-    kind: "style",
-    name: made.name,
-    displayName: made.displayName,
-    notes: made.notes,
-    stillImages: stillImages(preview.stills, ["s1", "s2", "s3"]),
-    listPriceUsd: total,
-    billing: provider.billing ?? "api",
-  };
+  // the style is saved in the editor's styles folder and its stills travel as data URLs: the work files go
+  try {
+    const made = await createStyle({
+      description: params.description,
+      references: params.references,
+      provider,
+      workDir: work,
+      ...(params.revise ? { revise: { name: params.revise, note: params.note ?? "" } } : {}),
+      onProgress: progress,
+    });
+    const preview = await previewStyle({
+      name: made.name,
+      provider,
+      outDir: join(work, "preview"),
+      onProgress: progress,
+    });
+    const total =
+      (made.usage.total().listPriceUsd || 0) + (preview.usage.total().listPriceUsd || 0);
+    return {
+      kind: "style",
+      name: made.name,
+      displayName: made.displayName,
+      notes: made.notes,
+      stillImages: stillImages(preview.stills, ["s1", "s2", "s3"]),
+      listPriceUsd: total,
+      billing: provider.billing ?? "api",
+    };
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 }
 
 /**

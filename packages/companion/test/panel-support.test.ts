@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ffmpegPath, stylesDir } from "@kilnframe/core";
@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   captionClip,
   captionFrames,
+  clearWorkLeftovers,
   deleteUserStyle,
   findWavPreset,
   inspectImages,
@@ -174,6 +175,8 @@ describe("panel support", () => {
     expect(cards[0]).toMatchObject({ name: "logo.png", width: 300, height: 120, hasAlpha: true });
     expect(cards[0]?.thumb).toMatch(/^data:image\/png;base64,/);
     expect(cards.slice(1).map((c) => c.error)).toEqual(["unsupported", "missing", "unreadable"]);
+    // the thumbnail travels as a data URL; its file is not kept
+    expect(readdirSync(join(dir, "cache"))).toEqual([]);
   });
 
   it("deletes only styles the editor made", () => {
@@ -306,5 +309,25 @@ describe("soundCommand", () => {
       cmd: "afplay",
       args: ["/m/music/s1.wav"],
     });
+  });
+});
+
+describe("clearWorkLeftovers", () => {
+  it("removes old style job and image check files, and keeps the rest of the cache", () => {
+    const home = mkdtempSync(join(tmpdir(), "mi-cache-"));
+    const before = process.env.KILNFRAME_HOME;
+    process.env.KILNFRAME_HOME = home;
+    try {
+      for (const d of ["style-jobs/123/preview", "images", "voices", "thumbs"])
+        mkdirSync(join(home, "cache", d), { recursive: true });
+      writeFileSync(join(home, "cache", "images", "img-1-0.jpg"), "x");
+      writeFileSync(join(home, "cache", "voices", "v.wav"), "x");
+      clearWorkLeftovers();
+      expect(readdirSync(join(home, "cache")).sort()).toEqual(["thumbs", "voices"]);
+      expect(existsSync(join(home, "cache", "voices", "v.wav"))).toBe(true);
+    } finally {
+      if (before === undefined) delete process.env.KILNFRAME_HOME;
+      else process.env.KILNFRAME_HOME = before;
+    }
   });
 });

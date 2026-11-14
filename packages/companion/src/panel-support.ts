@@ -431,16 +431,13 @@ export function inspectImages(paths: string[], cacheDir: string): ImageCard[] {
       ...(info.hasAlpha ? [] : ["-q:v", "5"]),
       out,
     ]);
-    return {
-      path,
-      name,
-      ...info,
-      ...(r.status === 0
-        ? {
-            thumb: `data:image/${info.hasAlpha ? "png" : "jpeg"};base64,${readFileSync(out).toString("base64")}`,
-          }
-        : {}),
-    };
+    const thumb =
+      r.status === 0
+        ? `data:image/${info.hasAlpha ? "png" : "jpeg"};base64,${readFileSync(out).toString("base64")}`
+        : null;
+    // the card carries the thumbnail as a data URL: its file is never read again
+    rmSync(out, { force: true });
+    return { path, name, ...info, ...(thumb ? { thumb } : {}) };
   });
 }
 
@@ -584,6 +581,16 @@ export function captionPreviewRun(): string {
 /** Removes every caption preview file; the app calls it when it starts. */
 export function clearCaptionPreviews(): void {
   rmSync(captionPreviewRoot(), { recursive: true, force: true });
+}
+
+/**
+ * Removes the work files style jobs and image checks of earlier versions left under the cache folder (nothing
+ * read them again); the app calls it when it starts, before any job runs.
+ */
+export function clearWorkLeftovers(): void {
+  const cache = join(process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"), "cache");
+  for (const dir of ["style-jobs", "images"])
+    rmSync(join(cache, dir), { recursive: true, force: true });
 }
 
 /** The caption job folder's own file: the text job's words, and the tab's lines and choices under `panel`. */

@@ -51,6 +51,7 @@ import { copyLegacyKeys, moveLegacyFolders } from "./legacy.js";
 import {
   captionPreviewFrames,
   clearCaptionPreviews,
+  clearWorkLeftovers,
   deleteUserStyle,
   loadCaptionsState,
   saveCaptionsState,
@@ -90,6 +91,8 @@ async function main() {
   for (const moved of moveLegacyFolders()) process.stderr.write(`moved old data to ${moved}\n`);
   // caption previews a stopped job or a quit left behind
   clearCaptionPreviews();
+  // style job work files and image thumbnails older versions kept
+  clearWorkLeftovers();
   const token = randomBytes(32).toString("hex");
   const keys = new OsKeyStore();
   const defaults = loadDefaults();
