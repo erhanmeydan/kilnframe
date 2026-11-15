@@ -273,9 +273,10 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
 /** The part listened to: the In/Out when the sequence has one, else the whole sequence (no choice to make). */
 function idleScreen(_st: PausesState, ctx: PausesCtx): string {
   const can = Boolean(ctx.cutToNewSequence);
-  return `<div class="note intro muted">${t(inPlace(ctx) ? "pauses.introInPlace" : "pauses.intro")}</div>
+  // the range first, as on the other tabs, then what the tab does
+  return `${ctx.rangeLine()}
+  <div class="note intro muted">${t(inPlace(ctx) ? "pauses.introInPlace" : "pauses.intro")}</div>
   ${can ? "" : `<div class="box warn">${t("pauses.unsupported")}</div>`}
-  ${ctx.rangeLine()}
   ${can ? `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="pauses-find">${t("pauses.find")}</div>` : ""}`;
 }
 

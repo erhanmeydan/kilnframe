@@ -744,7 +744,11 @@ function contentWidth(): number {
  */
 function scrollInnerWidth(): number {
   const scroller = document.getElementById("scroll");
-  return scroller && scroller.clientWidth > 0 ? scroller.clientWidth - 24 : contentWidth();
+  if (!scroller || scroller.clientWidth <= 0) return contentWidth();
+  // UXP reports the width with its scrollbar in it (400 for a 400 px panel whose tiles get 360, measured in
+  // Premiere 26.5): the bar comes off there, or the third tile of a row wraps
+  const bar = host().kind === "premiere" && scroller.offsetWidth === scroller.clientWidth ? SCROLLBAR : 0;
+  return scroller.clientWidth - 24 - bar;
 }
 
 /** 16:9 height for a width, like the video. */
@@ -2238,7 +2242,10 @@ function providerRow(id: string, act = "provider"): string {
         : id === "grok" || id === "custom"
           ? null
           : (entry?.tier ?? null);
-  return `<div class="prow${on ? " on" : ""}" data-act="${act}" data-val="${esc(id)}"><span class="pdot"></span><span class="pname">${esc(providerName(id))}</span>${tierTag(tier)}${keyStatus(entry, id)}</div>`;
+  // the list keeps an empty status slot so its tags line up; the card alone drops it, its tag to the right
+  const status = keyStatus(entry, id);
+  const card = act === "provider-change" && status === `<span class="pkey"></span>`;
+  return `<div class="prow${on ? " on" : ""}" data-act="${act}" data-val="${esc(id)}"><span class="pdot"></span><span class="pname">${esc(providerName(id))}</span>${tierTag(tier)}${card ? "" : status}</div>`;
 }
 
 const PLAN_PROVIDERS = ["claude-code", "codex", "antigravity", "grok"];
