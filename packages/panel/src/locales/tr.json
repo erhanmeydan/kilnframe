@@ -604,6 +604,8 @@
   "captions.color.accent": "Vurgu",
   "captions.color.box": "Kutu",
   "captions.colorsReset": "Stilin Kendi Renkleri",
+  "captions.pickerShades": "Tonlar",
+  "captions.pickerDone": "Tamam",
   "captions.glossary": "Özel Adlar (İsteğe Bağlı)",
   "captions.glossaryPlaceholder": "Virgülle ayırın: TopView, Claude, Kilnframe",
   "captions.mode": "Yazım",

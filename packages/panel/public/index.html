@@ -920,6 +920,44 @@
         margin-right: 6px;
         flex-shrink: 0;
       }
+      .chip {
+        cursor: pointer;
+      }
+      .chip.on {
+        border-color: #fff;
+      }
+      /* the colour picker under the swatches: quiet colours, then the picked one from dark to light */
+      .picker {
+        margin-top: 8px;
+        padding: 8px;
+        background: #2b2b2b;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+      }
+      .pk-row {
+        display: flex;
+        flex-direction: row;
+      }
+      .pk-row + .pk-row {
+        margin-top: 4px;
+      }
+      .pk {
+        flex: 1;
+        height: 22px;
+        border-radius: 4px;
+        border: 1px solid #4a4a4a;
+      }
+      .pk + .pk {
+        margin-left: 4px;
+      }
+      .pk.on {
+        border-color: #fff;
+      }
+      .pk-label {
+        color: #8f8f8f;
+        font-size: 11px;
+        margin: 8px 0 4px;
+      }
       .swatch-text {
         flex: 1;
       }

@@ -103,6 +103,8 @@ export interface CaptionsState {
   restoredFor: string | null;
   /** The editor pressed Delete Text and is asked to confirm. */
   confirmClear: boolean;
+  /** The colour whose picker is open under the swatches. */
+  picking: ColorKey | null;
   /** The line being prepared for "Play". */
   playing: number | null;
   /** The last "Play": its frames (and a small clip where the panel plays video). */
@@ -156,6 +158,7 @@ export function newCaptions(): CaptionsState {
     previewDir: null,
     restoredFor: null,
     confirmClear: false,
+    picking: null,
     playing: null,
     play: null,
   };
@@ -318,6 +321,99 @@ function glossaryOf(text: string): string[] {
 }
 
 const COLOR_KEYS = ["text", "accent", "box"] as const;
+type ColorKey = (typeof COLOR_KEYS)[number];
+
+/**
+ * The picker's colours: quiet tones that sit beside flat, low-contrast footage, the neutrals first. Below
+ * them the picked colour runs from dark to light.
+ */
+export const PICKER_COLOURS = [
+  "#ffffff",
+  "#efe8dd",
+  "#c9c4bb",
+  "#8a8680",
+  "#3a3a3a",
+  "#1c1c1c",
+  "#000000",
+  "#1c2537",
+  "#d9875f",
+  "#d8b25a",
+  "#8fae8b",
+  "#5f9ea0",
+  "#6f93c0",
+  "#9a8cc4",
+  "#c97b8e",
+  "#b5523b",
+];
+
+/** `#rgb`/`#rrggbb` (an alpha pair after it is kept apart) as hue, saturation and lightness, or null. */
+function hslOf(colour: string): { h: number; s: number; l: number } | null {
+  let hex = colour.trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(hex)) hex = [...hex].map((c) => c + c).join("");
+  if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(hex)) return null;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: h * 60, s, l };
+}
+
+function hexOf(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    h < 60
+      ? [c, x, 0]
+      : h < 120
+        ? [x, c, 0]
+        : h < 180
+          ? [0, x, c]
+          : h < 240
+            ? [0, c, x]
+            : h < 300
+              ? [x, 0, c]
+              : [c, 0, x];
+  return `#${[r, g, b]
+    .map((v) =>
+      Math.round((v + m) * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+/** Seven steps of a colour's own hue from dark to light (none for a colour that is not a hex code). */
+export function shadesOf(colour: string): string[] {
+  const hsl = hslOf(colour);
+  if (!hsl) return [];
+  return [0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88].map((l) => hexOf(hsl.h, hsl.s, l));
+}
+
+/** A picked colour, keeping the alpha pair the field's colour had (a see-through box stays see-through). */
+export function pickedColour(current: string, picked: string): string {
+  const alpha = /^#[0-9a-f]{6}([0-9a-f]{2})$/i.exec(current.trim())?.[1];
+  return alpha ? `${picked}${alpha}` : picked;
+}
+
+function pickerRow(
+  key: ColorKey,
+  colours: string[],
+  current: string,
+  esc: (s: string) => string,
+): string {
+  const now = current.trim().toLowerCase().slice(0, 7);
+  return `<div class="pk-row">${colours
+    .map(
+      (c) =>
+        `<div class="pk${c === now ? " on" : ""}" style="background:${esc(c)}" data-act="captions-color-set" data-val="${key}:${esc(c)}"></div>`,
+    )
+    .join("")}</div>`;
+}
 type ColorFields = Partial<Record<(typeof COLOR_KEYS)[number], { shown: string; typed: string }>>;
 
 /**
@@ -452,11 +548,25 @@ function colorRow(st: CaptionsState, ctx: CaptionsCtx, look: CaptionLook): strin
   return `<div class="swatches">${keys
     .map(
       (k) =>
-        `<div class="swatch"><div class="chip" id="cap-chip-${k}" style="background:${ctx.esc(colors[k] ?? "")}"></div><div class="swatch-text"><div class="small muted">${t(`captions.color.${k}`)}</div><textarea class="one" id="cap-color-${k}" rows="1" value="${ctx.esc(colors[k] ?? "")}">${ctx.esc(colors[k] ?? "")}</textarea></div></div>`,
+        `<div class="swatch"><div class="chip${st.picking === k ? " on" : ""}" id="cap-chip-${k}" style="background:${ctx.esc(colors[k] ?? "")}" data-act="captions-pick" data-val="${k}"></div><div class="swatch-text"><div class="small muted">${t(`captions.color.${k}`)}</div><textarea class="one" id="cap-color-${k}" rows="1" value="${ctx.esc(colors[k] ?? "")}">${ctx.esc(colors[k] ?? "")}</textarea></div></div>`,
     )
     .join(
       "",
-    )}</div>${own ? `<div class="link" data-act="captions-colors-reset">${t("captions.colorsReset")}</div>` : ""}`;
+    )}</div>${picker(st, ctx, colors, keys)}${own ? `<div class="link" data-act="captions-colors-reset">${t("captions.colorsReset")}</div>` : ""}`;
+}
+
+/** The open swatch's picker: the quiet colours in two rows, then the picked colour from dark to light. */
+function picker(
+  st: CaptionsState,
+  ctx: CaptionsCtx,
+  colors: CaptionColors,
+  keys: ColorKey[],
+): string {
+  const key = st.picking;
+  if (!key || !keys.includes(key)) return "";
+  const current = colors[key] ?? "";
+  const shades = shadesOf(current);
+  return `<div class="picker">${pickerRow(key, PICKER_COLOURS.slice(0, 8), current, ctx.esc)}${pickerRow(key, PICKER_COLOURS.slice(8), current, ctx.esc)}${shades.length ? `<div class="pk-label">${t("captions.pickerShades")}</div>${pickerRow(key, shades, current, ctx.esc)}` : ""}<div class="btn2 sm mt" data-act="captions-pick" data-val="${key}">${t("captions.pickerDone")}</div></div>`;
 }
 
 /** What the captions are for: the editor's pick, else the In/Out when there is one. */
@@ -1707,6 +1817,8 @@ const CAPTIONS_ACTS = new Set([
   "captions-scope",
   "captions-look",
   "captions-colors-reset",
+  "captions-pick",
+  "captions-color-set",
   "captions-mode",
   "captions-over",
   "captions-make",
@@ -1727,6 +1839,7 @@ const CAPTIONS_ACTS = new Set([
 const KEPT_ACTS = new Set([
   "captions-look",
   "captions-colors-reset",
+  "captions-color-set",
   "captions-mode",
   "captions-over",
   "captions-back",
@@ -1750,11 +1863,28 @@ export function captionsAct(
     settleColorFields();
     const look = CAPTION_LOOKS[val as CaptionStyleId];
     st.settings = { ...st.settings, look: look.id, colors: { ...look.colors } };
+    st.picking = null;
     saveSettings(st, ctx);
   } else if (act === "captions-colors-reset") {
     settleColorFields();
     st.settings = { ...st.settings, colors: null };
     saveSettings(st, ctx);
+  } else if (act === "captions-pick") {
+    const key = COLOR_KEYS.find((k) => k === val) ?? null;
+    st.picking = st.picking === key ? null : key;
+  } else if (act === "captions-color-set") {
+    const [key, picked] = val.split(":") as [string, string];
+    const k = COLOR_KEYS.find((c) => c === key);
+    if (k && picked && COLOR.test(picked)) {
+      settleColorFields();
+      const colors = colorsOf(st, lookOf(st, ctx.videoStyle()));
+      st.settings = {
+        ...st.settings,
+        colors: { ...colors, [k]: pickedColour(colors[k] ?? "", picked) },
+      };
+      saveSettings(st, ctx);
+      wantTint(st, ctx);
+    }
   } else if (act === "captions-mode") {
     st.settings = { ...st.settings, mode: val === "spoken" ? "spoken" : "written" };
     saveSettings(st, ctx);

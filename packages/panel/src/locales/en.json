@@ -604,6 +604,8 @@
   "captions.color.accent": "Accent",
   "captions.color.box": "Box",
   "captions.colorsReset": "Look's Own Colours",
+  "captions.pickerShades": "Shades",
+  "captions.pickerDone": "Done",
   "captions.glossary": "Names and Terms (Optional)",
   "captions.glossaryPlaceholder": "Comma separated: TopView, Claude, Kilnframe",
   "captions.mode": "Spelling",
