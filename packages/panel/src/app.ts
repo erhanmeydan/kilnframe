@@ -1329,10 +1329,15 @@ function storyBox(): string {
   }
   <div class="btn mt" data-act="story-make">${t("story.make")}</div>`;
   }
-  const source = seg("story-source", st.source, [
-    ["write", t("story.sourceWrite")],
-    ["own", t("story.sourceOwn")],
-  ]);
+  const source = seg(
+    "story-source",
+    st.source,
+    [
+      ["write", t("story.sourceWrite")],
+      ["own", t("story.sourceOwn")],
+    ],
+    "sub",
+  );
   if (st.source === "own")
     return `${err}${source}
   <div class="lbl">${t("story.ownLabel")}</div>
@@ -1366,7 +1371,7 @@ function storyBox(): string {
   ])}
   <div class="lbl">${t("story.tone")}</div>
   <input class="img-note" id="story-tone" type="text" placeholder="${t("story.tonePlaceholder")}" value="${esc(st.tone)}">
-  <div class="row small muted mt"><span>${providerLabel()}</span></div>
+  <div class="row small muted mt2"><span>${providerLabel()}</span></div>
   <div class="btn" data-act="story-write">${t("story.write")}</div>`;
 }
 

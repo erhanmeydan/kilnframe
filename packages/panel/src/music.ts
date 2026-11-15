@@ -311,7 +311,7 @@ export function musicBox(st: MusicState, ctx: MusicCtx): string {
   <textarea id="music-note" placeholder="${t("music.notePlaceholder")}"></textarea>
   ${providerChoice(ctx)}
   ${ctx.keySet() ? "" : `<div class="box warn">${t(eleven(ctx) ? "music.noKeyEleven" : "music.noKey")}</div>`}
-  <div class="small muted mt">${t(eleven(ctx) ? "music.licenceEleven" : "music.licence")} <span class="link" data-act="music-terms">${t("music.terms")}</span></div>
+  <div class="note muted">${t(eleven(ctx) ? "music.licenceEleven" : "music.licence")} <span class="link" data-act="music-terms">${t("music.terms")}</span></div>
   <div class="btn mt${ready ? "" : " off"}" data-act="music-plan">${t("music.plan")}</div>`;
 }
 
@@ -355,7 +355,7 @@ function planScreen(st: MusicState, ctx: MusicCtx): string {
   <input class="img-note" id="music-world" type="text">
   <div class="lbl">${t("music.sections")}</div>
   ${rows}
-  <div class="small muted mt">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.price(planProvider(st, ctx))), turkish()) })}</div>
+  <div class="note muted">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.price(planProvider(st, ctx))), turkish()) })}</div>
   <div class="btn mt${ctx.keySet(planProvider(st, ctx)) ? "" : " off"}" data-act="music-make">${t("music.make")}</div>
   <div class="link mt" data-act="music-new">${t("music.newPlan")}</div>`;
 }
@@ -389,7 +389,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       : "";
   return `${placed}<div class="lbl">${t("music.listen")}</div>
   ${rows}
-  <div class="small muted mt">${t("music.spent", { usd: formatUsd(st.spent, turkish()) })}</div>
+  <div class="note muted">${t("music.spent", { usd: formatUsd(st.spent, turkish()) })}</div>
   ${st.placedTrack === null && st.made!.some((m) => m.file) ? `<div class="btn mt" data-act="music-place">${t("music.place")}</div>` : ""}
   <div class="link mt" data-act="music-new">${t("music.newPlan")}</div>`;
 }

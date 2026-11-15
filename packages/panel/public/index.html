@@ -335,6 +335,10 @@
         justify-content: space-between;
         align-items: center;
       }
+      /* lines of a box (System: companion, GPU, WAV preset) a little apart */
+      .box .row + .row {
+        margin-top: 4px;
+      }
       /* two buttons side by side, equal width (Stop next to Keep Running) */
       .row2 {
         display: flex;
@@ -359,9 +363,18 @@
       .mt {
         margin-top: 8px;
       }
+      .mt2 {
+        margin-top: 12px;
+      }
+      /* a second row of choices under the tabs (Story: write or own text) */
+      .seg.sub {
+        margin-top: 10px;
+      }
+      /* a note under a field or a choice: clear of both, its lines a little apart */
       .note {
         font-size: 11px;
-        margin: 2px 2px 6px;
+        line-height: 1.4;
+        margin: 8px 0 12px;
       }
       /* a tab's opening line keeps the same distance from the tabs as the range line does */
       .note.intro {
@@ -873,7 +886,7 @@
         flex: 1;
       }
       .swatch-text .img-note {
-        margin-top: 2px;
+        margin-top: 4px;
       }
       .check {
         display: flex;
