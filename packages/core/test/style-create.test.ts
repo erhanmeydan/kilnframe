@@ -1,8 +1,13 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { vendorDir } from "../src/project/assemble.js";
+import { ffmpegPath } from "../src/config.js";
+import type { TextRequest, TextProvider } from "../src/providers/types.js";
 import {
+  createStyle,
   fontCatalog,
   previewPlan,
   styleDraftProblems,
@@ -92,5 +97,54 @@ describe("your own style", () => {
     expect(transcript.words.length).toBeGreaterThan(15);
     const words = transcript.words.map((w) => w.text).join(" ");
     expect(words).toContain("yetmiş");
+  });
+
+  it("takes up to twelve references and a reference video's measured motion, which the model is told", async () => {
+    const work = mkdtempSync(join(tmpdir(), "kf-style-refs-"));
+    const home = mkdtempSync(join(tmpdir(), "kf-user-styles-"));
+    const before = process.env.KILNFRAME_USER_STYLES_DIR;
+    process.env.KILNFRAME_USER_STYLES_DIR = home;
+    try {
+      const refs = [0, 1, 2, 3, 4, 5].map((i) => {
+        const file = join(work, `ref-${i}.png`);
+        const r = spawnSync(ffmpegPath(), ["-v", "error", "-y", "-f", "lavfi", "-i", `color=c=0x${(i * 30).toString(16).padStart(2, "0")}4060:s=64x36`, "-frames:v", "1", file]);
+        expect(r.status).toBe(0);
+        return { path: file, note: i ? `frame ${i} of the video` : "a poster" };
+      });
+      const draft = draftFrom("gazete-editoryal");
+      // the rows this older guide leaves out, added so the draft is whole
+      const rows = styleDraftProblems(draft)
+        .map((p) => /no row for ([a-z0-9-]+)/.exec(p)?.[1])
+        .filter(Boolean)
+        .map((t) => `| ${t} | Not supported: test |`)
+        .join("\n");
+      const tableAt = draft.style_md.indexOf("\n## User images");
+      const whole = { ...draft, style_md: `${draft.style_md.slice(0, tableAt)}\n${rows}\n${draft.style_md.slice(tableAt)}`, display_name: { en: "Test Video Look", tr: "Deneme Video Görünümü" } };
+      expect(styleDraftProblems(whole)).toEqual([]);
+      const asked: TextRequest[] = [];
+      const provider: TextProvider = {
+        name: "test",
+        model: "test",
+        complete: async (request) => {
+          asked.push(request);
+          return { text: JSON.stringify(whole), model: "test", usage: { inputTokens: 0, outputTokens: 0 } } as never;
+        },
+      } as TextProvider;
+      const made = await createStyle({ description: "", references: refs, motion: "Cuts per minute: 42\nAverage shot: 1.4 s", provider, workDir: work });
+      const content = asked[0]?.messages[0]?.content ?? [];
+      expect(content.filter((c) => c.type === "image")).toHaveLength(6);
+      const text = content.filter((c) => c.type === "text").map((c) => (c as { text: string }).text).join("\n");
+      expect(text).toContain("Cuts per minute: 42");
+      expect(text).toContain("- 2: frame 1 of the video");
+      expect(made.name).toBe("test-video-look");
+      expect(readdirSync(join(home, made.name, "references"))).toHaveLength(6);
+      const many = Array.from({ length: 13 }, () => refs[0] as { path: string });
+      await expect(createStyle({ description: "", references: many, provider, workDir: work })).rejects.toThrow(/at most 12/);
+    } finally {
+      if (before === undefined) delete process.env.KILNFRAME_USER_STYLES_DIR;
+      else process.env.KILNFRAME_USER_STYLES_DIR = before;
+      rmSync(work, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 });

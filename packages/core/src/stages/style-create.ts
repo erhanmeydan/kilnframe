@@ -25,7 +25,7 @@ import { validateAndRepair } from "./run.js";
 
 /**
  * "Your Own Style": the editor describes a look in words,
- * shows 1 to 4 reference images, or both; the model writes the preset files (tokens.json, style.md,
+ * shows 1 to 12 reference images (frames of a reference video among them, with its measured motion), or both; the model writes the preset files (tokens.json, style.md,
  * sfx.json) into userStylesDir(), and previewStyle renders the three fixed sample scenes with it, so the
  * gallery shows what the tool really draws.
  */
@@ -159,9 +159,13 @@ export function styleSlug(name: string, taken: string[] = listStyles()): string 
   return slug;
 }
 
+/** At most this many reference images: a few pictures, or frames picked from a reference video. */
+export const MAX_STYLE_REFERENCES = 12;
+
 function requestText(o: {
   description: string;
   references: AssetInput[];
+  motion?: string | undefined;
   example: ReturnType<typeof loadStyle>;
   exampleSfx: string;
   previous?: { tokens: string; styleMd: string; sfx: string; note: string };
@@ -173,6 +177,13 @@ function requestText(o: {
     o.references.length
       ? `Reference images above (${o.references.length}), in order, with the editor's notes:\n${o.references.map((r, i) => `- ${i + 1}: ${r.note?.trim() || "(no note)"}`).join("\n")}`
       : "No reference images.",
+    ...(o.motion?.trim()
+      ? [
+          "",
+          "Motion measured in the editor's reference video (ground the Motion section and tokens.motion in these numbers, do not guess from the stills):",
+          o.motion.trim(),
+        ]
+      : []),
     "",
     `Techniques the table must cover: ${STYLE_TECHNIQUES.join(", ")}`,
     "",
@@ -209,6 +220,8 @@ function requestText(o: {
 export interface CreateStyleOptions {
   description: string;
   references: AssetInput[];
+  /** What was measured of a reference video's motion (cut rhythm, movement, transitions), in plain lines. */
+  motion?: string;
   provider: TextProvider;
   /** Scratch folder for the reference previews. */
   workDir: string;
@@ -231,7 +244,8 @@ export interface CreatedStyle {
 export async function createStyle(o: CreateStyleOptions): Promise<CreatedStyle> {
   if (!o.description.trim() && !o.references.length && !o.revise)
     throw new Error("Describe the style or add at least one reference image.");
-  if (o.references.length > 4) throw new Error("Use at most 4 reference images.");
+  if (o.references.length > MAX_STYLE_REFERENCES)
+    throw new Error(`Use at most ${MAX_STYLE_REFERENCES} reference images.`);
   const log = o.onProgress ?? (() => {});
   const usage = new UsageMeter();
   const provider = usage.wrap(o.provider);
@@ -264,6 +278,7 @@ export async function createStyle(o: CreateStyleOptions): Promise<CreatedStyle> 
           text: requestText({
             description: o.description,
             references: o.references,
+            motion: o.motion,
             example,
             exampleSfx,
             ...(previous ? { previous } : {}),

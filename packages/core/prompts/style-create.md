@@ -48,5 +48,9 @@ Reply with one JSON object and nothing else (no prose, no code fence):
   from the list with its parameters and a gain.
 - Turkish text uses Turkish letters and no dashes. Nowhere in on-screen text examples use dashes.
 
+If the request includes motion measured in a reference video (cuts per minute, shot length, how much moves,
+transitions), the `## Motion` section and `tokens.motion` follow those numbers: a fast cutting video gets short
+holds and quick transitions, a calm one long holds and soft moves. Say the numbers you used in the section.
+
 If the request includes the editor's note on a previous version, keep what they did not mention and change
 what they asked for.

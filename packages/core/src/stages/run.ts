@@ -373,7 +373,12 @@ export async function runPipeline(o: PipelineOptions): Promise<PipelineResult> {
     const assets = prepareAssets(o.assets ?? [], outDir);
     if (assets.length) {
       log(`Images: ${assets.length} added by the editor`);
-      await readAssetText(assets, outDir, o.defaults.ocr, log);
+      // the text in screenshots lets a scene mark the exact line; without it (no reader data offline) the images are still used
+      try {
+        await readAssetText(assets, outDir, o.defaults.ocr, log);
+      } catch (err) {
+        log(`Text in the images could not be read: ${err instanceof Error ? err.message : String(err)}`);
+      }
       const read = assets.filter((a) => a.lines?.length);
       if (read.length)
         log(`Text read: ${read.map((a) => `${a.id} ${a.lines?.length} line(s)`).join(", ")}`);
