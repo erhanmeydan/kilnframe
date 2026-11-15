@@ -1092,7 +1092,7 @@ function imagesBox(kind: ImageList): string {
         : "";
       return `<div class="img-card" style="width:${width}px">${thumb}<div class="row small"><span class="img-name">${esc(img.name)}</span><span class="img-x" data-act="remove-${kind}" data-val="${i}" title="${t("images.remove")}">×</span></div>${
         problem ||
-        `<div class="fieldbox"><input class="field" id="${kind}-note-${i}" type="text" placeholder="${t("images.notePlaceholder")}" value="${esc(img.note)}"></div>`
+        `<textarea class="one" id="${kind}-note-${i}" placeholder="${t("images.notePlaceholder")}" rows="1">${esc(img.note)}</textarea>`
       }</div>`;
     })
     .join("");
@@ -1385,7 +1385,7 @@ function storyBox(): string {
   ])}
   ${
     st.lengthChoice === "custom"
-      ? `<div class="fieldbox mt"><input class="field" id="story-length-input" type="text" placeholder="${t("story.lengthPlaceholder")}" value="${esc(st.customLength)}"></div>`
+      ? `<textarea class="one mt" id="story-length-input" placeholder="${t("story.lengthPlaceholder")}" rows="1">${esc(st.customLength)}</textarea>`
       : ""
   }
   <div class="lbl">${t("story.language")}</div>
@@ -1394,7 +1394,7 @@ function storyBox(): string {
     ["en", t("story.lang.en")],
   ])}
   <div class="lbl">${t("story.tone")}</div>
-  <div class="fieldbox"><input class="field" id="story-tone" type="text" placeholder="${t("story.tonePlaceholder")}" value="${esc(st.tone)}"></div>
+  <textarea class="one" id="story-tone" rows="1" placeholder="${t("story.tonePlaceholder")}">${esc(st.tone)}</textarea>
   <div class="row small muted mt2"><span>${providerLabel()}</span></div>
   <div class="btn" data-act="story-write">${t("story.write")}</div>`;
 }
@@ -1476,7 +1476,7 @@ function cloneBox(): string {
   ${musicRangeLine("range")}
   ${length}
   <div class="lbl">${t("clone.name")}</div>
-  <div class="fieldbox"><input class="field" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}"></div>
+  <textarea class="one" id="story-clone-name" maxlength="60" placeholder="${t("clone.namePlaceholder")}" rows="1">${esc(state.story.cloneName)}</textarea>
   ${check("clone-noise", c.noise, t("clone.noise"))}
   ${check("clone-consent", c.consent, t("clone.consent"))}
   ${c.error ? `<div class="box error mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
@@ -2210,11 +2210,11 @@ function providerDetail(id: string): string {
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
-      ? `<div class="small mt">${t("prov.address")}</div><div class="fieldbox"><input class="field" id="base-input" data-provider="${esc(id)}" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}"></div>`
+      ? `<div class="small mt">${t("prov.address")}</div><textarea class="one" id="base-input" data-provider="${esc(id)}" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" rows="1">${esc(state.settings.baseURLs[id] ?? "")}</textarea>`
       : "";
     const model =
       id === "custom"
-        ? `<div class="small mt">${t("prov.modelName")}</div><div class="fieldbox"><input class="field" id="model-input" data-provider="custom" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}"></div>`
+        ? `<div class="small mt">${t("prov.modelName")}</div><textarea class="one" id="model-input" data-provider="custom" placeholder="${t("prov.modelPlaceholder")}" rows="1">${esc(state.settings.models.custom ?? "")}</textarea>`
         : "";
     body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
@@ -2967,6 +2967,16 @@ function render() {
   voiceFixWriteFields(state.voiceFix);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
+  // the address and model boxes are textareas too: until set, UXP reports them empty and the next read
+  // would save the provider's address as blank
+  for (const [fieldId, saved] of [
+    ["base-input", state.settings.baseURLs],
+    ["model-input", state.settings.models],
+  ] as const) {
+    const el = document.getElementById(fieldId) as HTMLTextAreaElement | null;
+    const id = el?.getAttribute("data-provider");
+    if (el && id) el.value = saved[id] ?? "";
+  }
   if (state.own) {
     const desc = document.getElementById("own-desc") as HTMLTextAreaElement | null;
     if (desc) desc.value = state.own.description;
@@ -4258,8 +4268,16 @@ root.addEventListener("focusin", (event) => {
 root.addEventListener("focusout", (event) => {
   if (event.target === focusedField) focusedField = null;
 });
-root.addEventListener("keydown", () => {
+root.addEventListener("keydown", (event) => {
   lastTyped = Date.now();
+  // a one-line text box is a textarea (UXP draws its own frame on a one-line input): Enter adds no line
+  const el = event.target as HTMLElement | null;
+  if (
+    (event as KeyboardEvent).key === "Enter" &&
+    el?.tagName === "TEXTAREA" &&
+    el.classList.contains("one")
+  )
+    event.preventDefault();
 });
 // the Captions tab previews the selected look in the colours being typed, once the typing pauses
 root.addEventListener("input", (event) => {

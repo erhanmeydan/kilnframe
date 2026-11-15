@@ -452,7 +452,7 @@ function colorRow(st: CaptionsState, ctx: CaptionsCtx, look: CaptionLook): strin
   return `<div class="swatches">${keys
     .map(
       (k) =>
-        `<div class="swatch"><div class="chip" id="cap-chip-${k}" style="background:${ctx.esc(colors[k] ?? "")}"></div><div class="swatch-text"><div class="small muted">${t(`captions.color.${k}`)}</div><div class="fieldbox"><input class="field" id="cap-color-${k}" type="text" value="${ctx.esc(colors[k] ?? "")}"></div></div></div>`,
+        `<div class="swatch"><div class="chip" id="cap-chip-${k}" style="background:${ctx.esc(colors[k] ?? "")}"></div><div class="swatch-text"><div class="small muted">${t(`captions.color.${k}`)}</div><textarea class="one" id="cap-color-${k}" rows="1" value="${ctx.esc(colors[k] ?? "")}">${ctx.esc(colors[k] ?? "")}</textarea></div></div>`,
     )
     .join(
       "",
@@ -497,7 +497,7 @@ function stepOne(st: CaptionsState, ctx: CaptionsCtx): string {
   <div class="lbl">${t("captions.colors")}</div>
   ${colorRow(st, ctx, look)}
   <div class="lbl">${t("captions.glossary")}</div>
-  <div class="fieldbox"><input class="field" id="cap-glossary" type="text" placeholder="${t("captions.glossaryPlaceholder")}"></div>
+  <textarea class="one" id="cap-glossary" placeholder="${t("captions.glossaryPlaceholder")}" rows="1"></textarea>
   ${
     turkishSpeech(st)
       ? `<div class="lbl">${t("captions.mode")}</div>${ctx.seg("captions-mode", st.settings.mode, [

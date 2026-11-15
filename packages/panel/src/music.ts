@@ -342,7 +342,7 @@ function planScreen(st: MusicState, ctx: MusicCtx): string {
           : t("music.crossfade");
       return `<div class="box small${s.silent ? " muted" : ""}">
     <div class="row"><span><b>${clock(s.startS)} · ${clock(s.endS)}</b> ${ctx.esc(s.title)}</span><span class="muted">${s.silent ? t("music.silent") : how}</span></div>
-    ${s.silent ? "" : `<div class="muted mt">${ctx.esc(s.mood)}</div><div class="fieldbox"><input class="field" id="music-edit-${s.id}" type="text" placeholder="${t("music.sectionNote")}"></div>`}
+    ${s.silent ? "" : `<div class="muted mt">${ctx.esc(s.mood)}</div><textarea class="one" id="music-edit-${s.id}" placeholder="${t("music.sectionNote")}" rows="1"></textarea>`}
     <div class="row2 mt"><div class="link" data-act="music-silent" data-val="${s.id}">${s.silent ? t("music.withMusic") : t("music.silent")}</div>${
       s.final
         ? ""
@@ -352,7 +352,7 @@ function planScreen(st: MusicState, ctx: MusicCtx): string {
     .join("");
   const n = plan.sections.filter((s) => !s.silent).length;
   return `<div class="lbl">${t("music.world")}</div>
-  <div class="fieldbox"><input class="field" id="music-world" type="text"></div>
+  <textarea class="one" id="music-world" rows="1"></textarea>
   <div class="lbl">${t("music.sections")}</div>
   ${rows}
   <div class="note muted">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.price(planProvider(st, ctx))), turkish()) })}</div>
@@ -379,7 +379,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       const playing = st.playing === m.id;
       return `<div class="box small">${head}<span class="link" data-act="${playing ? "music-stop" : "music-play"}" data-val="${m.id}">${playing ? t("music.stop") : t("music.play")}</span></div>
     ${levels}${m.error ? `<div class="err-text mt">${t("music.redoFailed")}</div>` : ""}
-    <div class="fieldbox"><input class="field" id="music-edit-${m.id}" type="text" placeholder="${t("music.sectionNote")}"></div>
+    <textarea class="one" id="music-edit-${m.id}" placeholder="${t("music.sectionNote")}" rows="1"></textarea>
     <div class="link mt" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
     })
     .join("");

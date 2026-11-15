@@ -597,6 +597,14 @@
       textarea {
         min-height: 48px;
       }
+      /* a one-line text box: a textarea, since UXP's one-line input draws a frame of its own and drops
+         side padding */
+      textarea.one {
+        min-height: 0;
+        height: 28px;
+        padding: 4px 2px;
+        overflow: hidden;
+      }
       #own-desc {
         min-height: 110px;
       }
@@ -915,7 +923,8 @@
       .swatch-text {
         flex: 1;
       }
-      .swatch-text .field {
+      .swatch-text .field,
+      .swatch-text textarea.one {
         margin-top: 4px;
       }
       .check {
