@@ -310,7 +310,7 @@ export function musicBox(st: MusicState, ctx: MusicCtx): string {
   <div class="lbl">${t("music.note")}</div>
   <textarea id="music-note" placeholder="${t("music.notePlaceholder")}"></textarea>
   ${providerChoice(ctx)}
-  ${ctx.keySet() ? "" : `<div class="box warn">${t(eleven(ctx) ? "music.noKeyEleven" : "music.noKey")}</div>`}
+  ${ctx.keySet() ? "" : `<div class="box warn">${t(eleven(ctx) ? "music.noKeyEleven" : "music.noKey")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>`}
   <div class="note muted">${t(eleven(ctx) ? "music.licenceEleven" : "music.licence")} <span class="link" data-act="music-terms">${t("music.terms")}</span></div>
   <div class="btn mt${ready ? "" : " off"}" data-act="music-plan">${t("music.plan")}</div>`;
 }

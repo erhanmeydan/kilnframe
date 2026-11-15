@@ -236,7 +236,7 @@ function idleScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   const ready = ctx.connected() && st.keySet !== false && range !== null;
   return `${ctx.rangeLine()}
   <div class="note muted">${t("fix.hint")}</div>
-  ${st.keySet === false ? `<div class="box warn">${t("fix.noKey")}</div>` : ""}
+  ${st.keySet === false ? `<div class="box warn">${t("fix.noKey")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>` : ""}
   ${range ? "" : `<div class="box warn">${t("clone.needRange")}</div>`}
   <div class="btn mt${ready ? "" : " off"}" data-act="fix-go">${t("fix.go")}</div>`;
 }

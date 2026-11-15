@@ -386,6 +386,8 @@ function wordsAround(text: string, n: number, from: "start" | "end"): string {
 
 const state = {
   screen: "home" as "home" | "progress" | "settings" | "review" | "own" | "setup",
+  /** The settings' part on show: the AI, voice and music, general, about. */
+  settingsTab: "ai" as SettingsTab,
   review: null as Review | null,
   conn: "connecting" as "connecting" | "ok" | "down",
   connError: "",
@@ -1286,7 +1288,7 @@ function storyBox(): string {
     ["gemini", "Gemini"],
     ["elevenlabs", "ElevenLabs"],
   ])}
-  ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}</div>`}
+  ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>`}
   ${st.voicesError ? `<div class="box error">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
   ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
@@ -1310,7 +1312,7 @@ function storyBox(): string {
       ? `${seg("music-provider", storedMusicProvider(), [
           ["gemini", "Lyria"],
           ["elevenlabs", "ElevenLabs"],
-        ])}${musicKeyFor(storedMusicProvider()) ? "" : `<div class="box warn">${t("story.musicNoKey")}</div>`}`
+        ])}${musicKeyFor(storedMusicProvider()) ? "" : `<div class="box warn">${t("story.musicNoKey")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>`}`
       : ""
   }
   ${
@@ -2516,33 +2518,64 @@ function finishSetup() {
   state.screen = "home";
 }
 
+type SettingsTab = "ai" | "voice" | "general" | "about";
+const SETTINGS_TABS: SettingsTab[] = ["ai", "voice", "general", "about"];
+
+/** The settings in four parts under one row of tabs; Close stays under each. */
 function settings(): string {
-  const s = state.settings;
-  const gpu = state.system?.gpu;
-  const okWarn = (ok: boolean) => (ok ? "ok-text" : "warn-text");
+  const tab = state.settingsTab;
+  const body =
+    tab === "voice"
+      ? settingsVoice()
+      : tab === "general"
+        ? settingsGeneral()
+        : tab === "about"
+          ? settingsAbout()
+          : settingsAi();
   return `${header(t("settings.title"), `<div class="icon" data-act="home" title="${t("settings.close")}">×</div>`)}
-  <div class="lbl">${t("settings.language")}</div>
+  ${seg(
+    "settings-tab",
+    tab,
+    SETTINGS_TABS.map((k) => [k, t(`settings.tab.${k}`)] as [SettingsTab, string]),
+    "tabs",
+  )}
+  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box error">${esc(setup.error)}</div>` : ""}
+  ${body}
+  <div class="btn mt" data-act="home">${t("settings.close")}</div>`;
+}
+
+/** The provider, its key or sign-in, and the model. */
+function settingsAi(): string {
+  return `<div class="lbl">${t("settings.provider")}</div>
+  ${providerList()}
+  ${modelList()}`;
+}
+
+/** The narration and music keys, and how loud the music sits under speech. */
+function settingsVoice(): string {
+  return `${speechKeys()}
+  <div class="lbl">${t("settings.musicLevel")}</div>
+  ${seg(
+    "music-level",
+    String(state.settings.musicLevel ?? -21),
+    ["-27", "-24", "-21", "-18", "-15"].map((v) => [v, `${v} dB`] as [string, string]),
+  )}`;
+}
+
+/** The panel's language, the frame review before rendering and, where the editor has one, the window. */
+function settingsGeneral(): string {
+  const s = state.settings;
+  return `<div class="lbl">${t("settings.language")}</div>
   ${seg("lang", s.lang, [
     ["auto", t("settings.langAuto")],
     ["en", "English"],
     ["tr", "Türkçe"],
   ])}
-  <div class="lbl">${t("settings.ai")}</div>
-  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box error">${esc(setup.error)}</div>` : ""}
-  ${providerList()}
-  ${modelList()}
   <div class="lbl">${t("settings.review")}</div>
   ${seg("review", s.review, [
     ["on", t("settings.reviewOn")],
     ["off", t("settings.reviewOff")],
   ])}
-  ${speechKeys()}
-  <div class="lbl">${t("settings.musicLevel")}</div>
-  ${seg(
-    "music-level",
-    String(s.musicLevel ?? -21),
-    ["-27", "-24", "-21", "-18", "-15"].map((v) => [v, `${v} dB`] as [string, string]),
-  )}
   ${
     host().onTop
       ? `<div class="lbl">${t("settings.window")}</div>
@@ -2551,16 +2584,21 @@ function settings(): string {
     ["off", t("settings.onTopOff")],
   ])}`
       : ""
-  }
-  <div class="lbl">${t("settings.system")}</div>
+  }`;
+}
+
+/** The computer check, the setup guide, the versions and the feedback page. */
+function settingsAbout(): string {
+  const gpu = state.system?.gpu;
+  const okWarn = (ok: boolean) => (ok ? "ok-text" : "warn-text");
+  return `<div class="lbl">${t("settings.system")}</div>
   <div class="box small">
     <div class="row"><span>${t("settings.companion")}</span><span class="${okWarn(state.conn === "ok")}">${state.conn === "ok" ? t("settings.running") : t("settings.notConnected")}</span></div>
     <div class="row"><span>${t("settings.gpu")}</span><span class="${okWarn(gpu?.mode === "hardware")}">${gpu?.mode === "hardware" ? t("settings.hardware") : esc(gpu?.mode ?? t("settings.unknown"))}</span></div>
     ${host().kind === "premiere" ? `<div class="row"><span>${t("settings.wav")}</span><span class="${okWarn(!!state.system?.wavPreset)}">${state.system?.wavPreset ? t("settings.found") : t("settings.notFound")}</span></div>` : ""}
   </div>
   <div class="link mt" data-act="setup-open">${t("setup.reopenLink")}</div>
-  ${versionLine()}
-  <div class="btn mt" data-act="home">${t("settings.close")}</div>`;
+  ${versionLine()}`;
 }
 
 /**
@@ -4725,8 +4763,12 @@ function runAction(el: HTMLElement) {
   } else if (act === "setup-range") {
     finishSetup();
     state.tab = "range";
+  } else if (act === "settings-tab") {
+    if ((SETTINGS_TABS as string[]).includes(val)) state.settingsTab = val as SettingsTab;
   } else if (act === "settings") {
     state.screen = "settings";
+    // a box that sends the editor to one part of the settings names it (a missing narration key: voice)
+    if ((SETTINGS_TABS as string[]).includes(val)) state.settingsTab = val as SettingsTab;
     void refreshProviders();
     if (listsServedModels(state.settings.provider)) void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
