@@ -1068,7 +1068,7 @@ function imagesBox(kind: ImageList): string {
         : "";
       return `<div class="img-card" style="width:${width}px">${thumb}<div class="row small"><span class="img-name">${esc(img.name)}</span><span class="img-x" data-act="remove-${kind}" data-val="${i}" title="${t("images.remove")}">×</span></div>${
         problem ||
-        `<input class="img-note" id="${kind}-note-${i}" type="text" placeholder="${t("images.notePlaceholder")}" value="${esc(img.note)}">`
+        `<input class="field" id="${kind}-note-${i}" type="text" placeholder="${t("images.notePlaceholder")}" value="${esc(img.note)}">`
       }</div>`;
     })
     .join("");
@@ -1361,7 +1361,7 @@ function storyBox(): string {
   ])}
   ${
     st.lengthChoice === "custom"
-      ? `<input class="img-note mt" id="story-length-input" type="text" placeholder="${t("story.lengthPlaceholder")}" value="${esc(st.customLength)}">`
+      ? `<input class="field mt" id="story-length-input" type="text" placeholder="${t("story.lengthPlaceholder")}" value="${esc(st.customLength)}">`
       : ""
   }
   <div class="lbl">${t("story.language")}</div>
@@ -1370,7 +1370,7 @@ function storyBox(): string {
     ["en", t("story.lang.en")],
   ])}
   <div class="lbl">${t("story.tone")}</div>
-  <input class="img-note" id="story-tone" type="text" placeholder="${t("story.tonePlaceholder")}" value="${esc(st.tone)}">
+  <input class="field" id="story-tone" type="text" placeholder="${t("story.tonePlaceholder")}" value="${esc(st.tone)}">
   <div class="row small muted mt2"><span>${providerLabel()}</span></div>
   <div class="btn" data-act="story-write">${t("story.write")}</div>`;
 }
@@ -1452,7 +1452,7 @@ function cloneBox(): string {
   ${musicRangeLine("range")}
   ${length}
   <div class="lbl">${t("clone.name")}</div>
-  <input class="img-note" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}">
+  <input class="field" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}">
   ${check("clone-noise", c.noise, t("clone.noise"))}
   ${check("clone-consent", c.consent, t("clone.consent"))}
   ${c.error ? `<div class="box error mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
@@ -2090,7 +2090,7 @@ function keyBlock(id: string, entry: ProviderEntry | undefined, withTest: boolea
     ${setup.confirmDelete === id ? `<div class="note warn-text">${t("prov.deleteAsk")}</div>` : ""}
     <div class="btns">${del}${setup.confirmDelete === id ? "" : test}</div>`;
   }
-  return `${head}<input class="img-note" id="key-input" type="password" placeholder="${t("prov.keyPlaceholder")}">
+  return `${head}<input class="field" id="key-input" type="password" placeholder="${t("prov.keyPlaceholder")}">
   <div class="btns"><div class="btn sm" data-act="key-save" data-val="${esc(id)}">${t("prov.save")}</div>${
     setup.editingKey === id
       ? `<div class="btn2 sm" data-act="key-cancel">${t("prov.cancel")}</div>`
@@ -2180,11 +2180,11 @@ function providerDetail(id: string): string {
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
-      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" data-provider="${esc(id)}" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
+      ? `<div class="small mt">${t("prov.address")}</div><input class="field" id="base-input" data-provider="${esc(id)}" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
       : "";
     const model =
       id === "custom"
-        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" data-provider="custom" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
+        ? `<div class="small mt">${t("prov.modelName")}</div><input class="field" id="model-input" data-provider="custom" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
         : "";
     body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
@@ -4875,7 +4875,7 @@ function agentInstallHelp(id: AgentId): string {
   const copy = setup.copied === id ? t("prov.copied") : t("prov.copy");
   return `<div class="note">${t(`prov.cliOnly.${id}`)}</div>
   <div class="note muted">${t("prov.installPaste", { terminal: win ? "PowerShell" : "Terminal" })}</div>
-  <div class="cmd-row"><input class="img-note cmd" type="text" value="${esc(installCommand(id))}"><div class="btn2 sm" data-act="copy-install" data-val="${id}">${copy}</div></div>
+  <div class="cmd-row"><input class="field cmd" type="text" value="${esc(installCommand(id))}"><div class="btn2 sm" data-act="copy-install" data-val="${id}">${copy}</div></div>
   <div class="note muted">${t("prov.installThen", { command: signIn[id] })}</div>`;
 }
 

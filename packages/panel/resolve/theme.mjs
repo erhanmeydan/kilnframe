@@ -76,7 +76,7 @@ const FONT = `
       textarea {
         padding: 6px 8px;
       }
-      .img-note {
+      .field {
         padding: 4px 8px;
       }
       body,

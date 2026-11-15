@@ -90,25 +90,42 @@
         color: #b4b4b4;
         margin-right: 8px;
       }
-      .vlist .vrow {
+      /* one list row for voices, providers and models: a hairline under each, the picked one on a calm
+         ground in bold white */
+      .vlist .vrow,
+      .prow,
+      .mrow {
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
+        padding: 8px 4px;
         border-bottom: 1px solid #303030;
-        padding: 4px 4px;
+        cursor: pointer;
       }
-      .vlist .vrow.on {
+      /* a voice row is clicked on its name, which carries the row's height */
+      .vlist .vrow {
+        padding: 4px;
+      }
+      .vlist .vrow.on,
+      .prow.on,
+      .mrow.on {
         background: #262a31;
         border-radius: 4px;
       }
-      .vname {
+      .vname,
+      .pname,
+      .mname {
         flex: 1;
-        padding: 4px 0;
-        cursor: pointer;
         color: #e6e6e6;
       }
-      .vrow.on .vname {
+      .vname {
+        padding: 4px 0;
+        cursor: pointer;
+      }
+      .vrow.on .vname,
+      .prow.on .pname,
+      .mrow.on .mname {
         color: #fff;
         font-weight: 700;
       }
@@ -116,14 +133,6 @@
         margin-top: 4px;
       }
       /* settings: providers, keys, models (settings design, 8 Oct 2026) */
-      .prow {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        padding: 8px 4px;
-        border-bottom: 1px solid #303030;
-        cursor: pointer;
-      }
       .pdot {
         width: 10px;
         height: 10px;
@@ -134,14 +143,6 @@
       .prow.on .pdot {
         border-color: #5b8cff;
         background: #5b8cff;
-      }
-      .pname {
-        flex: 1;
-        color: #e6e6e6;
-      }
-      .prow.on .pname {
-        color: #fff;
-        font-weight: 700;
       }
       .ptag {
         font-size: 10px;
@@ -157,19 +158,23 @@
       .ptag.none {
         border-color: transparent;
       }
-      .pkey {
-        min-width: 64px;
-        margin-left: 10px;
-        white-space: nowrap;
-        text-align: right;
+      /* a status word at a row's end, in settings and in the setup guide: muted, green when set */
+      .pkey,
+      .ostatus {
         font-size: 11px;
         color: #8f8f8f;
       }
-      .pkey.set {
+      .pkey {
+        white-space: nowrap;
+        min-width: 64px;
+        margin-left: 10px;
+        text-align: right;
+      }
+      .pkey.set,
+      .pkey.upd {
         color: #8fd6a8;
       }
       .pkey.upd {
-        color: #8fd6a8;
         font-weight: 700;
       }
       .pdetail {
@@ -189,26 +194,6 @@
       .ptest {
         margin-top: 8px;
         font-size: 11px;
-      }
-      .mrow {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 4px;
-        border-bottom: 1px solid #303030;
-        cursor: pointer;
-      }
-      .mrow.on {
-        background: #262a31;
-        border-radius: 4px;
-      }
-      .mname {
-        color: #e6e6e6;
-      }
-      .mrow.on .mname {
-        color: #fff;
-        font-weight: 700;
       }
       /* setup guide (onboarding design, 8 Oct 2026): one line per step, the current one opens */
       .hello {
@@ -259,10 +244,6 @@
       .ostep.now .oname {
         color: #fff;
         font-weight: 700;
-      }
-      .ostatus {
-        font-size: 11px;
-        color: #8f8f8f;
       }
       .ostep.done .ostatus {
         color: #8fd6a8;
@@ -546,9 +527,9 @@
         border-left: 1px solid #c4683e;
         border-right: 1px solid #c4683e;
       }
-      /* UXP ignores rows, so heights are set here */
-      textarea {
-        min-height: 48px;
+      /* one field look for text boxes and one-line inputs */
+      textarea,
+      .field {
         width: 100%;
         box-sizing: border-box;
         background: #2b2b2b;
@@ -558,6 +539,10 @@
         /* UXP's native field pads itself; our padding showed as a thick black ring around the text */
         padding: 0;
         font-size: 12px;
+      }
+      /* UXP ignores rows, so heights are set here */
+      textarea {
+        min-height: 48px;
       }
       #own-desc {
         min-height: 110px;
@@ -682,19 +667,11 @@
         background: #3a3a3a;
         color: #fff;
       }
-      .img-note {
-        width: 100%;
-        box-sizing: border-box;
+      .field {
         margin-top: 4px;
-        font-size: 11px;
-        background: #2b2b2b;
-        color: #e6e6e6;
-        border: 1px solid #3a3a3a;
-        border-radius: 4px;
-        padding: 0;
       }
       /* an install command the editor copies into a terminal */
-      .img-note.cmd {
+      .field.cmd {
         font-family: Menlo, Consolas, monospace;
         margin: 4px 0 6px;
       }
@@ -703,7 +680,7 @@
         flex-direction: row;
         align-items: center;
       }
-      .cmd-row .img-note.cmd {
+      .cmd-row .field.cmd {
         flex: 1;
         margin-right: 6px;
       }
@@ -885,7 +862,7 @@
       .swatch-text {
         flex: 1;
       }
-      .swatch-text .img-note {
+      .swatch-text .field {
         margin-top: 4px;
       }
       .check {
