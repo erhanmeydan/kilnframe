@@ -17,9 +17,21 @@ export function userStylesDir(): string {
   return process.env.KILNFRAME_USER_STYLES_DIR ?? join(homedir(), ".kilnframe", "styles");
 }
 
-/** The folder that holds a style: the shipped presets first, then the editor's own styles. */
+/**
+ * The styles a project carries with it (an app keeps a copy of each of the editor's styles its animations use, so
+ * the project opens anywhere): set per job, none by default.
+ */
+export function projectStylesDir(): string | null {
+  return process.env.KILNFRAME_PROJECT_STYLES_DIR || null;
+}
+
+/**
+ * The folder that holds a style: the project's own copy first, then the shipped presets, then the editor's own
+ * styles (a preset's name is never taken by an editor's style, so those two never meet).
+ */
 export function styleHome(name: string): string | null {
-  for (const dir of [stylesDir(), userStylesDir()])
+  const project = projectStylesDir();
+  for (const dir of [...(project ? [project] : []), stylesDir(), userStylesDir()])
     if (existsSync(join(dir, name, "style.md"))) return dir;
   return null;
 }
@@ -60,7 +72,7 @@ function localizedField(value: unknown, fallback: string): LocalizedText {
 
 export interface StyleInfo {
   name: string;
-  /** True for a style the editor made (it lives in userStylesDir()). */
+  /** True for a style the editor made (it lives in userStylesDir(), or is a project's copy of one). */
   custom: boolean;
   /** Name shown to editors per panel language ({ en: "Paper Cut", tr: "Kağıt Kesik" }); falls back to the slug. */
   displayName: LocalizedText;
@@ -153,7 +165,7 @@ export function loadStyle(name: string, dirIn?: string): StyleInfo {
       (JSON.parse(tokensJson) as { description?: unknown }).description,
       "",
     ),
-    custom: dir === userStylesDir(),
+    custom: dir !== stylesDir(),
     styleMd,
     tokensJson,
     stills,

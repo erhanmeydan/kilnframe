@@ -1,9 +1,11 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { loadDefaults } from "../src/config.js";
 import {
   closeOcr,
+  ensureOcrData,
   mergeLines,
   normalizeText,
   ocrScale,
@@ -88,4 +90,33 @@ describe("reading text in screenshots", () => {
     },
     60_000,
   );
+});
+
+describe("the app's own language files", () => {
+  it("are read where the app ships them, and nothing is downloaded", async () => {
+    const shipped = mkdtempSync(join(tmpdir(), "kf-tessdata-"));
+    for (const l of ocr.languages) writeFileSync(join(shipped, `${l}.traineddata`), "data");
+    const before = process.env.KILNFRAME_TESSDATA_DIR;
+    process.env.KILNFRAME_TESSDATA_DIR = shipped;
+    try {
+      expect(tessdataDir(ocr.languages)).toBe(shipped);
+      // a data address that cannot be reached: a fetch would fail the call
+      await ensureOcrData({ ...ocr, dataUrl: "http://127.0.0.1:9/none" });
+      // a language the app does not ship is still downloaded where the others are
+      expect(tessdataDir(["deu"])).not.toBe(shipped);
+      // the real files, read from where an app would ship them, with no address to fetch from
+      if (haveData) {
+        delete process.env.KILNFRAME_TESSDATA_DIR;
+        const real = tessdataDir();
+        process.env.KILNFRAME_TESSDATA_DIR = real;
+        await closeOcr();
+        const lines = await readText(fixture, 1280, { ...ocr, dataUrl: "http://127.0.0.1:9/none" });
+        expect(lines.length).toBeGreaterThan(0);
+      }
+    } finally {
+      if (before === undefined) delete process.env.KILNFRAME_TESSDATA_DIR;
+      else process.env.KILNFRAME_TESSDATA_DIR = before;
+      rmSync(shipped, { recursive: true, force: true });
+    }
+  });
 });

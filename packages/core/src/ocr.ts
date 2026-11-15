@@ -31,7 +31,20 @@ export interface OcrLine {
 
 const MIN_CONFIDENCE = 60;
 
-export function tessdataDir(): string {
+/** Language files an app ships with it (read only, beside its other resources), when it sets KILNFRAME_TESSDATA_DIR. */
+export function bundledTessdataDir(): string | null {
+  return process.env.KILNFRAME_TESSDATA_DIR || null;
+}
+
+/**
+ * Where the reader's language files are read from: the app's own when it ships every language asked for, so
+ * nothing is downloaded at use; else the downloaded ones in modelsDir().
+ */
+export function tessdataDir(languages?: readonly string[]): string {
+  const bundled = bundledTessdataDir();
+  const asked = languages ?? [];
+  const shipped = (l: string) => bundled && existsSync(join(bundled, `${l}.traineddata`));
+  if (bundled && asked.length && asked.every(shipped)) return bundled;
   return join(modelsDir(), "tessdata");
 }
 
@@ -40,7 +53,9 @@ export async function ensureOcrData(
   ocr: Defaults["ocr"],
   onProgress?: (message: string) => void,
 ): Promise<void> {
-  const dir = tessdataDir();
+  const dir = tessdataDir(ocr.languages);
+  // the app's own language files: nothing to fetch
+  if (dir === bundledTessdataDir()) return;
   mkdirSync(dir, { recursive: true });
   for (const lang of ocr.languages) {
     const file = join(dir, `${lang}.traineddata`);
@@ -62,7 +77,7 @@ async function worker(ocr: Defaults["ocr"]): Promise<Worker> {
   if (!workerPromise || workerLangs !== langs) {
     workerLangs = langs;
     workerPromise = createWorker(ocr.languages, 1, {
-      langPath: tessdataDir(),
+      langPath: tessdataDir(ocr.languages),
       gzip: false,
       cacheMethod: "none",
     });
