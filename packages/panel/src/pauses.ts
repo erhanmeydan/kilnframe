@@ -220,7 +220,7 @@ export function previewTotals(st: PausesState): {
 function errorBoxes(st: PausesState, ctx: PausesCtx): string {
   return (
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "")
   );
 }
@@ -235,10 +235,10 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
   switch (st.stage) {
     case "track":
       return `${err}<div class="note">${t("pauses.pickTrack")}</div>
-  <div class="pbtns mt">${st.tracks
+  <div class="btns mt">${st.tracks
     .map(
       (n) =>
-        `<div class="pbtn${st.picked.includes(n) ? " on" : ""}" data-act="pauses-track" data-val="${n}">${
+        `<div class="btn2 sm${st.picked.includes(n) ? " on" : ""}" data-act="pauses-track" data-val="${n}">${
           st.picked.includes(n) ? "✓ " : ""
         }${t("pauses.trackN", { n: n + 1 })}</div>`,
     )
@@ -273,9 +273,10 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
 /** The part listened to: the In/Out when the sequence has one, else the whole sequence (no choice to make). */
 function idleScreen(_st: PausesState, ctx: PausesCtx): string {
   const can = Boolean(ctx.cutToNewSequence);
-  return `<div class="note muted">${t(inPlace(ctx) ? "pauses.introInPlace" : "pauses.intro")}</div>
+  // the range first, as on the other tabs, then what the tab does
+  return `${ctx.rangeLine()}
+  <div class="note intro muted">${t(inPlace(ctx) ? "pauses.introInPlace" : "pauses.intro")}</div>
   ${can ? "" : `<div class="box warn">${t("pauses.unsupported")}</div>`}
-  ${ctx.rangeLine()}
   ${can ? `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="pauses-find">${t("pauses.find")}</div>` : ""}`;
 }
 
@@ -313,7 +314,7 @@ function previewScreen(st: PausesState, ctx: PausesCtx): string {
   ${st.notIsolated ? `<div class="box warn">${t("pauses.notIsolated")}</div>` : ""}
   ${unheardNote(st)}
   ${ctx.hostKind() === "resolve" ? `<div class="note muted">${t("pauses.rebuildNote")}</div>` : ""}
-  <div id="pauses-apply-slot">${applyButton(st, ctx)}</div>
+  <div id="pauses-apply-slot" class="btn-slot">${applyButton(st, ctx)}</div>
   <div class="link mt" data-act="pauses-again">${t("pauses.again")}</div>`;
 }
 
@@ -358,7 +359,12 @@ function renderLive(st: PausesState, ctx: PausesCtx): void {
   // an error (a lost connection) shows, and clears on the next good answer, without ending the drag
   errorSlot.innerHTML = errorBoxes(st, ctx);
   live.innerHTML = liveHtml(st);
-  slot.innerHTML = applyButton(st, ctx);
+  const button = applyButton(st, ctx);
+  // the button arrives after the screen was drawn: a full render puts it in the bar at the panel's foot
+  // (while the slider is held, the panel keeps that render for the release)
+  const inScroll = slot.parentElement?.id === "scroll";
+  if (button && !slot.innerHTML.trim() && inScroll) return ctx.render();
+  slot.innerHTML = button;
 }
 
 // ---------- actions ----------

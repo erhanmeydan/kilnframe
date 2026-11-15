@@ -512,7 +512,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   /** Downloads and installs the app update the companion announced (refused while a job runs). */
   z.object({ type: z.literal("app.update.install") }),
   z.object({ type: z.literal("keys.set"), provider: z.string().min(1), key: z.string().min(1) }),
-  z.object({ type: z.literal("keys.has"), provider: z.string().min(1) }),
+  z.object({
+    type: z.literal("keys.has"),
+    provider: z.string().min(1),
+    ref: z.string().optional(),
+  }),
   z.object({ type: z.literal("keys.delete"), provider: z.string().min(1) }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -626,7 +630,7 @@ export type ServerMessage =
   | { type: "agent.update.opened"; agent: string }
   | { type: "review"; outDir: string; review: unknown }
   | { type: "providers.tested"; provider: string; result: unknown }
-  | { type: "keys.has"; provider: string; present: boolean }
+  | { type: "keys.has"; provider: string; present: boolean; ref?: string }
   | { type: "keys.saved"; provider: string }
   | { type: "keys.deleted"; provider: string }
   | { type: "error"; message: string };

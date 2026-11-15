@@ -297,7 +297,7 @@ function busyBox(st: MusicState): string {
 export function musicBox(st: MusicState, ctx: MusicCtx): string {
   const err =
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "");
   if (st.stage === "planning" || st.stage === "making" || st.stage === "placing")
     return `${err}${busyBox(st)}`;
@@ -310,8 +310,8 @@ export function musicBox(st: MusicState, ctx: MusicCtx): string {
   <div class="lbl">${t("music.note")}</div>
   <textarea id="music-note" placeholder="${t("music.notePlaceholder")}"></textarea>
   ${providerChoice(ctx)}
-  ${ctx.keySet() ? "" : `<div class="box warn">${t(eleven(ctx) ? "music.noKeyEleven" : "music.noKey")}</div>`}
-  <div class="small muted mt">${t(eleven(ctx) ? "music.licenceEleven" : "music.licence")} <span class="link" data-act="music-terms">${t("music.terms")}</span></div>
+  ${ctx.keySet() ? "" : `<div class="box warn">${t(eleven(ctx) ? "music.noKeyEleven" : "music.noKey")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>`}
+  <div class="note muted">${t(eleven(ctx) ? "music.licenceEleven" : "music.licence")} <span class="link" data-act="music-terms">${t("music.terms")}</span></div>
   <div class="btn mt${ready ? "" : " off"}" data-act="music-plan">${t("music.plan")}</div>`;
 }
 
@@ -342,7 +342,7 @@ function planScreen(st: MusicState, ctx: MusicCtx): string {
           : t("music.crossfade");
       return `<div class="box small${s.silent ? " muted" : ""}">
     <div class="row"><span><b>${clock(s.startS)} · ${clock(s.endS)}</b> ${ctx.esc(s.title)}</span><span class="muted">${s.silent ? t("music.silent") : how}</span></div>
-    ${s.silent ? "" : `<div class="muted mt">${ctx.esc(s.mood)}</div><input class="img-note" id="music-edit-${s.id}" type="text" placeholder="${t("music.sectionNote")}">`}
+    ${s.silent ? "" : `<div class="muted mt">${ctx.esc(s.mood)}</div><textarea class="one" id="music-edit-${s.id}" placeholder="${t("music.sectionNote")}" rows="1"></textarea>`}
     <div class="row2 mt"><div class="link" data-act="music-silent" data-val="${s.id}">${s.silent ? t("music.withMusic") : t("music.silent")}</div>${
       s.final
         ? ""
@@ -352,10 +352,10 @@ function planScreen(st: MusicState, ctx: MusicCtx): string {
     .join("");
   const n = plan.sections.filter((s) => !s.silent).length;
   return `<div class="lbl">${t("music.world")}</div>
-  <input class="img-note" id="music-world" type="text">
+  <textarea class="one" id="music-world" rows="1"></textarea>
   <div class="lbl">${t("music.sections")}</div>
   ${rows}
-  <div class="small muted mt">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.price(planProvider(st, ctx))), turkish()) })}</div>
+  <div class="note muted">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.price(planProvider(st, ctx))), turkish()) })}</div>
   <div class="btn mt${ctx.keySet(planProvider(st, ctx)) ? "" : " off"}" data-act="music-make">${t("music.make")}</div>
   <div class="link mt" data-act="music-new">${t("music.newPlan")}</div>`;
 }
@@ -368,7 +368,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       if (!s || s.silent) return "";
       const head = `<div class="row"><span><b>${clock(s.startS)} · ${clock(s.endS)}</b> ${ctx.esc(s.title)}</span>`;
       if (!m.file)
-        return `<div class="box small">${head}<span class="warn-text">${t("music.failed")}</span></div>
+        return `<div class="box small">${head}<span class="err-text">${t("music.failed")}</span></div>
     ${m.error ? `<div class="small muted mt">${ctx.esc(readableJobText(m.error) ?? m.error)}</div>` : ""}
     <div class="link" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
       const lv = levelNote(m, ctx.slider());
@@ -378,8 +378,8 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
           : "";
       const playing = st.playing === m.id;
       return `<div class="box small">${head}<span class="link" data-act="${playing ? "music-stop" : "music-play"}" data-val="${m.id}">${playing ? t("music.stop") : t("music.play")}</span></div>
-    ${levels}${m.error ? `<div class="warn-text mt">${t("music.redoFailed")}</div>` : ""}
-    <input class="img-note" id="music-edit-${m.id}" type="text" placeholder="${t("music.sectionNote")}">
+    ${levels}${m.error ? `<div class="err-text mt">${t("music.redoFailed")}</div>` : ""}
+    <textarea class="one" id="music-edit-${m.id}" placeholder="${t("music.sectionNote")}" rows="1"></textarea>
     <div class="link mt" data-act="music-redo" data-val="${m.id}">${t("music.redo")}</div></div>`;
     })
     .join("");
@@ -389,7 +389,7 @@ function listenScreen(st: MusicState, ctx: MusicCtx): string {
       : "";
   return `${placed}<div class="lbl">${t("music.listen")}</div>
   ${rows}
-  <div class="small muted mt">${t("music.spent", { usd: formatUsd(st.spent, turkish()) })}</div>
+  <div class="note muted">${t("music.spent", { usd: formatUsd(st.spent, turkish()) })}</div>
   ${st.placedTrack === null && st.made!.some((m) => m.file) ? `<div class="btn mt" data-act="music-place">${t("music.place")}</div>` : ""}
   <div class="link mt" data-act="music-new">${t("music.newPlan")}</div>`;
 }

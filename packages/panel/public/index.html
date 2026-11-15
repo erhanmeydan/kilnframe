@@ -32,7 +32,7 @@
       /* the range tab's main button never scrolls away (panel design, 8 Oct 2026) */
       .actionbar {
         box-sizing: border-box;
-        border-top: 1px solid #333;
+        border-top: 1px solid #303030;
         background: #262626;
         padding: 8px 12px 10px;
       }
@@ -40,6 +40,10 @@
       .actionbar .row {
         height: 16px;
         flex-shrink: 0;
+      }
+      /* a bar with only the tab's main button */
+      .actionbar.solo .btn {
+        margin-top: 0;
       }
       .actionbar .btn {
         margin-top: 6px;
@@ -49,7 +53,7 @@
       }
       /* fewer boxes (panel design 2, 8 Oct 2026): frames only on things that are clicked or typed in */
       .rangeline {
-        padding: 2px 0 9px;
+        padding: 2px 0 8px;
         border-bottom: 1px solid #303030;
         margin-top: 10px;
       }
@@ -64,7 +68,7 @@
         cursor: pointer;
       }
       .style-row .rec-text {
-        margin-left: 9px;
+        margin-left: 8px;
       }
       .link {
         color: #9db6ff;
@@ -76,8 +80,8 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        color: #d0d0d0;
-        padding: 5px 0;
+        color: #d6d6d6;
+        padding: 4px 0;
         cursor: pointer;
       }
       .add .plus {
@@ -85,30 +89,47 @@
         height: 18px;
         line-height: 16px;
         text-align: center;
-        border: 1px dashed #5a5a5a;
+        border: 1px dashed #6a6a6a;
         border-radius: 4px;
-        color: #aaa;
-        margin-right: 7px;
+        color: #b4b4b4;
+        margin-right: 8px;
       }
-      .vlist .vrow {
+      /* one list row for voices, providers and models: a hairline under each, the picked one on a calm
+         ground in bold white */
+      .vlist .vrow,
+      .prow,
+      .mrow {
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
+        padding: 8px 4px;
         border-bottom: 1px solid #303030;
-        padding: 3px 4px;
+        cursor: pointer;
       }
-      .vlist .vrow.on {
-        background: #262b36;
+      /* a voice row is clicked on its name, which carries the row's height */
+      .vlist .vrow {
+        padding: 4px;
+      }
+      .vlist .vrow.on,
+      .prow.on,
+      .mrow.on {
+        background: #262a31;
         border-radius: 4px;
       }
-      .vname {
+      .vname,
+      .pname,
+      .mname {
         flex: 1;
-        padding: 4px 0;
-        cursor: pointer;
         color: #e6e6e6;
       }
-      .vrow.on .vname {
+      .vname {
+        padding: 4px 0;
+        cursor: pointer;
+      }
+      .vrow.on .vname,
+      .prow.on .pname,
+      .mrow.on .mname {
         color: #fff;
         font-weight: 700;
       }
@@ -116,13 +137,11 @@
         margin-top: 4px;
       }
       /* settings: providers, keys, models (settings design, 8 Oct 2026) */
-      .prow {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        padding: 7px 4px;
-        border-bottom: 1px solid #303030;
-        cursor: pointer;
+      /* a group of the settings' provider list: Your Plan, API Key, On This Computer */
+      .pgroup {
+        font-size: 11px;
+        color: #8f8f8f;
+        margin: 12px 0 4px 4px;
       }
       .pdot {
         width: 10px;
@@ -135,115 +154,68 @@
         border-color: #5b8cff;
         background: #5b8cff;
       }
-      .pname {
-        flex: 1;
-        color: #e6e6e6;
-      }
-      .prow.on .pname {
-        color: #fff;
-        font-weight: 700;
-      }
       .ptag {
         font-size: 10px;
-        border-radius: 3px;
-        padding: 1px 5px;
-        border: 1px solid #484848;
-        color: #b5b5b5;
+        border-radius: 4px;
+        padding: 1px 4px;
+        border: 1px solid #4a4a4a;
+        color: #b4b4b4;
       }
       .ptag.recommended {
-        color: #a9e0bd;
+        color: #8fd6a8;
         border-color: #2f5a3d;
-      }
-      .ptag.works {
-        color: #b9c7e6;
-        border-color: #3d4a66;
       }
       .ptag.none {
         border-color: transparent;
       }
-      .pkey {
-        min-width: 64px;
-        margin-left: 10px;
-        white-space: nowrap;
-        text-align: right;
-        font-size: 10.5px;
+      /* a status word at a row's end, in settings and in the setup guide: muted, green when set */
+      .pkey,
+      .ostatus {
+        font-size: 11px;
         color: #8f8f8f;
       }
-      .pkey.set {
+      .pkey {
+        white-space: nowrap;
+        min-width: 64px;
+        margin-left: 10px;
+        text-align: right;
+      }
+      .pkey.set,
+      .pkey.upd {
         color: #8fd6a8;
       }
       .pkey.upd {
-        color: #8fd6a8;
         font-weight: 700;
       }
       .pdetail {
         background: #262a31;
         border: 1px solid #353c48;
         border-radius: 6px;
-        padding: 9px 10px;
+        padding: 8px 10px;
         margin: 6px 0 4px;
       }
+      /* a saved key in the field's place: the fields' own dark well */
       .pfield {
-        background: #2b2b2b;
+        background: #0e0e0e;
         border: 1px solid #3a3a3a;
-        border-radius: 5px;
-        padding: 6px 7px;
+        border-radius: 6px;
+        padding: 6px 8px;
         margin: 6px 0;
       }
-      .pbtns {
-        display: flex;
-        flex-direction: row;
-        margin-top: 6px;
-      }
-      .pbtn {
-        border: 1px solid #4a4a4a;
-        border-radius: 6px;
-        padding: 6px 10px;
-        margin-right: 6px;
-        color: #d6d6d6;
-        font-size: 11.5px;
-        cursor: pointer;
-      }
-      .pbtn.primary {
-        background: #2d64c8;
-        border-color: #2d64c8;
-        color: #fff;
-        font-weight: 700;
-      }
       .ptest {
-        margin-top: 7px;
+        margin-top: 8px;
         font-size: 11px;
-      }
-      .mrow {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 4px;
-        border-bottom: 1px solid #303030;
-        cursor: pointer;
-      }
-      .mrow.on {
-        background: #262b36;
-        border-radius: 4px;
-      }
-      .mname {
-        color: #e6e6e6;
-      }
-      .mrow.on .mname {
-        color: #fff;
-        font-weight: 700;
       }
       /* setup guide (onboarding design, 8 Oct 2026): one line per step, the current one opens */
       .hello {
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 700;
-        color: #f0f0f0;
-        margin-bottom: 3px;
+        color: #e6e6e6;
+        margin-bottom: 4px;
       }
       .ostep {
         border-bottom: 1px solid #303030;
-        padding: 9px 2px;
+        padding: 8px 2px;
       }
       .otop {
         display: flex;
@@ -258,9 +230,9 @@
         text-align: center;
         font-size: 10px;
         font-weight: 700;
-        margin-right: 9px;
-        border: 1px solid #555;
-        color: #777;
+        margin-right: 8px;
+        border: 1px solid #6a6a6a;
+        color: #7a7a7a;
       }
       .omark.done {
         background: #24432f;
@@ -284,10 +256,6 @@
         color: #fff;
         font-weight: 700;
       }
-      .ostatus {
-        font-size: 10.5px;
-        color: #8f8f8f;
-      }
       .ostep.done .ostatus {
         color: #8fd6a8;
       }
@@ -295,26 +263,7 @@
         color: #e0b050;
       }
       .obody {
-        margin: 8px 0 2px 27px;
-      }
-      .info {
-        background: #262a31;
-        border: 1px solid #353c48;
-        border-radius: 6px;
-        padding: 7px 8px;
-        color: #c4cad4;
-        font-size: 11px;
-        margin: 6px 0;
-      }
-      .chg {
-        border: 1px solid #4a4a4a;
-        border-radius: 5px;
-        padding: 4px 8px;
-        font-size: 11px;
-        color: #d6d6d6;
-        cursor: pointer;
-        align-self: center;
-        margin-left: 6px;
+        margin: 8px 0 2px 26px;
       }
       .strip {
         display: flex;
@@ -322,8 +271,8 @@
         margin-top: 6px;
       }
       .strip-img {
-        border-radius: 3px;
-        margin-right: 5px;
+        border-radius: 4px;
+        margin-right: 4px;
         cursor: pointer;
       }
       .head {
@@ -335,7 +284,7 @@
       .title {
         font-size: 13px;
         font-weight: 700;
-        color: #f0f0f0;
+        color: #e6e6e6;
       }
       .brand {
         display: flex;
@@ -344,7 +293,7 @@
       .brand img {
         width: 18px;
         height: 18px;
-        margin-right: 7px;
+        margin-right: 8px;
       }
       .icon {
         color: #b4b4b4;
@@ -353,7 +302,7 @@
         height: 28px;
         line-height: 28px;
         text-align: center;
-        border-radius: 5px;
+        border-radius: 4px;
         border: 1px solid #3a3a3a;
         cursor: pointer;
       }
@@ -378,6 +327,10 @@
         justify-content: space-between;
         align-items: center;
       }
+      /* lines of a box (System: companion, GPU, WAV preset) a little apart */
+      .box .row + .row {
+        margin-top: 4px;
+      }
       /* two buttons side by side, equal width (Stop next to Keep Running) */
       .row2 {
         display: flex;
@@ -393,10 +346,6 @@
       .row2 .link + .link {
         margin-left: 16px;
       }
-      .btn2.stop {
-        color: #e8a598;
-        border-color: #6a3a33;
-      }
       .small {
         font-size: 11px;
       }
@@ -406,24 +355,50 @@
       .mt {
         margin-top: 8px;
       }
+      .mt2 {
+        margin-top: 12px;
+      }
+      /* a second row of choices under the tabs (Story: write or own text) */
+      .seg.sub {
+        margin-top: 10px;
+      }
+      /* a note under a field or a choice: clear of both, its lines a little apart */
       .note {
         font-size: 11px;
-        margin: 2px 2px 6px;
+        line-height: 1.4;
+        margin: 8px 0 12px;
       }
-      .warn {
-        border-color: #6b5320;
+      /* a tab's opening line keeps the same distance from the tabs as the range line does */
+      .note.intro {
+        margin: 10px 0 12px;
+        line-height: 1.4;
       }
-      /* the app's own update: calm, like the provider panel, not a warning */
-      .box.update {
+      /* message boxes by what they say: info is calm (an update, a notice), warn asks for something
+         before going on (a key, a range, a version), error says something failed, ok says it is done */
+      .box.info {
         background: #262a31;
         border-color: #353c48;
+      }
+      .box.warn {
+        border-color: #6b5320;
+      }
+      .box.error {
+        background: #2c2422;
+        border-color: #6a3a33;
+      }
+      .box.ok {
+        border-color: #2f5a3d;
+        color: #8fd6a8;
+      }
+      /* a box right under the range line keeps clear of it */
+      .rangeline + .box {
+        margin-top: 10px;
       }
       .warn-text {
         color: #e0b050;
       }
-      .ok {
-        border-color: #2f5a3d;
-        color: #9fe0b5;
+      .err-text {
+        color: #e8a598;
       }
       .ok-text {
         color: #8fd6a8;
@@ -434,7 +409,7 @@
         flex-direction: row;
         padding: 6px;
         border: 1px solid #3a3a3a;
-        border-radius: 7px;
+        border-radius: 6px;
         background: #2b2b2b;
       }
       .rec.sel {
@@ -456,7 +431,7 @@
         color: #fff;
         font-weight: 700;
         font-size: 12px;
-        margin-bottom: 3px;
+        margin-bottom: 4px;
       }
       .tiles {
         display: flex;
@@ -476,7 +451,7 @@
       }
       .tile-img {
         border-radius: 4px;
-        border: 2px solid #383838;
+        border: 2px solid #3a3a3a;
         background: #333;
         display: block;
       }
@@ -489,7 +464,7 @@
         background: #262626;
       }
       .soon-mark {
-        color: #8a8a8a;
+        color: #8f8f8f;
         font-size: 11px;
       }
       .soon-mark.plus {
@@ -497,25 +472,25 @@
         line-height: 26px;
       }
       .tile.soon .tile-name {
-        color: #8a8a8a;
+        color: #8f8f8f;
       }
       .tile-name {
         font-size: 10px;
         color: #b4b4b4;
         text-align: center;
-        margin-top: 3px;
+        margin-top: 4px;
       }
       .seg {
         display: flex;
         flex-direction: row;
-        border: 1px solid #3f3f3f;
+        border: 1px solid #4a4a4a;
         border-radius: 6px;
         overflow: hidden;
       }
       .seg .opt {
         flex: 1;
         text-align: center;
-        color: #bdbdbd;
+        color: #b4b4b4;
         padding: 6px 0;
         font-size: 11px;
         cursor: pointer;
@@ -528,12 +503,25 @@
          wrapped (six equal parts would cut "Remove Pauses" in two), a little smaller than other options */
       .seg.tabs {
         flex-wrap: nowrap;
+        /* where you are, drawn apart from the choices under it: a line under the row, the open tab
+           underlined in the accent */
+        border: none;
+        border-radius: 0;
+        border-bottom: 1px solid #303030;
       }
       .seg.tabs .opt {
         flex: 1 1 auto;
-        padding: 6px 3px;
-        font-size: 10.5px;
+        padding: 6px 4px 7px;
+        font-size: 10px;
         white-space: nowrap;
+        color: #8f8f8f;
+        border-bottom: 2px solid transparent;
+      }
+      .seg.tabs .opt.on {
+        background: transparent;
+        color: #fff;
+        font-weight: 700;
+        border-bottom-color: #5b8cff;
       }
       /* Remove Pauses: the slider and the bar of kept speech and cut pauses */
       .pause-slider {
@@ -563,18 +551,62 @@
         border-left: 1px solid #c4683e;
         border-right: 1px solid #c4683e;
       }
-      /* UXP ignores rows, so heights are set here */
-      textarea {
-        min-height: 48px;
+      /* one field look for text boxes and one-line inputs */
+      textarea,
+      .field {
         width: 100%;
         box-sizing: border-box;
-        background: #2b2b2b;
+        /* UXP fills a native field's padding with this near black and paints the page colour only under the
+           text: a field of the same colour shows no ring, so the text can sit away from the frame */
+        background: #0e0e0e;
         color: #e6e6e6;
         border: 1px solid #3a3a3a;
         border-radius: 6px;
         /* UXP's native field pads itself; our padding showed as a thick black ring around the text */
         padding: 0;
+        /* UXP gives native fields a margin of their own: the label above sat far from its box */
+        margin: 0;
         font-size: 12px;
+      }
+      /* a one-line input keeps the 11 px text and 4 px corners it had: at 12 px UXP showed a black strip
+         under the text */
+      input.field {
+        font-size: 11px;
+        border-radius: 4px;
+        height: 28px;
+      }
+      /* UXP drops a one-line input's side padding and indent, so the frame is a box around it that holds
+         the room; the input inside has no frame of its own */
+      .fieldbox {
+        background: #0e0e0e;
+        border: 1px solid #3a3a3a;
+        border-radius: 4px;
+        padding: 0 6px;
+        margin-top: 4px;
+      }
+      .fieldbox .field {
+        /* with no border UXP draws its own faint frame; one in the box's colour hides it */
+        border: 1px solid #0e0e0e;
+        border-radius: 0;
+        margin: 0;
+        height: 26px;
+      }
+      textarea {
+        padding: 4px 2px;
+      }
+      /* UXP ignores rows, so heights are set here */
+      textarea {
+        min-height: 48px;
+      }
+      /* a one-line text box: a textarea, since UXP's one-line input draws a frame of its own and drops
+         side padding */
+      textarea.one {
+        min-height: 0;
+        height: 28px;
+        padding: 4px 2px;
+        overflow: hidden;
+        /* Resolve's page is a browser: no resize grip on a one-line box */
+        resize: none;
       }
       #own-desc {
         min-height: 110px;
@@ -583,45 +615,73 @@
       #scenenote {
         min-height: 64px;
       }
-      .btn {
-        margin-top: 10px;
-        background: #2d64c8;
-        color: #fff;
-        border-radius: 6px;
-        padding: 9px;
-        font-size: 12px;
-        font-weight: 700;
-        text-align: center;
-        cursor: pointer;
-      }
-      .btn.off {
-        background: #3a3a3a;
-        color: #8a8a8a;
-      }
-      /* Premiere in the background: the first click only brings it forward (docs/ilk-animasyon.md) */
-      #app.asleep .btn {
-        background: #263a63;
-        color: #9aa6c2;
-      }
-      #app.asleep .btn2 {
-        color: #7a7a7a;
-        border-color: #383838;
-      }
+      /* one button family: .btn is the main action, .btn2 the others, both full width; .sm makes either a
+         small button in a .btns row; .on marks a picked one (a track), .danger stops, .off cannot be pressed */
+      .btn,
       .btn2 {
-        color: #d6d6d6;
-        border: 1px solid #4a4a4a;
         border-radius: 6px;
         padding: 8px;
         font-size: 12px;
         text-align: center;
         cursor: pointer;
       }
+      .btn {
+        margin-top: 10px;
+        background: #2d64c8;
+        border: 1px solid #2d64c8;
+        color: #fff;
+        font-weight: 700;
+      }
+      .btn2 {
+        color: #d6d6d6;
+        border: 1px solid #4a4a4a;
+      }
+      .btn.off {
+        background: #3a3a3a;
+        border-color: #3a3a3a;
+        color: #8f8f8f;
+      }
+      .btn2.off {
+        color: #7a7a7a;
+        cursor: default;
+      }
+      .btn2.on {
+        background: #26304a;
+        border-color: #5b8cff;
+        color: #fff;
+        font-weight: 700;
+      }
+      .btn2.danger {
+        color: #e8a598;
+        border-color: #6a3a33;
+      }
+      .btns {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .btn.sm,
+      .btn2.sm {
+        margin: 0 6px 6px 0;
+        padding: 6px 10px;
+      }
+      /* Premiere in the background: the first click only brings it forward (docs/ilk-animasyon.md) */
+      #app.asleep .btn {
+        background: #263a63;
+        border-color: #263a63;
+        color: #9aa6c2;
+      }
+      #app.asleep .btn2 {
+        color: #7a7a7a;
+        border-color: #3a3a3a;
+      }
       .tag2 {
         font-size: 10px;
         padding: 1px 6px;
         border-radius: 4px;
         background: #3a3a3a;
-        color: #c8c8c8;
+        color: #d6d6d6;
       }
       .img-slot {
         box-sizing: border-box;
@@ -641,7 +701,7 @@
         align-items: center;
         justify-content: center;
         border-radius: 4px;
-        border: 1px solid #383838;
+        border: 1px solid #3a3a3a;
         background: #2b2b2b;
         overflow: hidden;
       }
@@ -671,19 +731,11 @@
         background: #3a3a3a;
         color: #fff;
       }
-      .img-note {
-        width: 100%;
-        box-sizing: border-box;
+      .field {
         margin-top: 4px;
-        font-size: 11px;
-        background: #2b2b2b;
-        color: #e6e6e6;
-        border: 1px solid #3a3a3a;
-        border-radius: 4px;
-        padding: 0;
       }
       /* an install command the editor copies into a terminal */
-      .img-note.cmd {
+      .field.cmd {
         font-family: Menlo, Consolas, monospace;
         margin: 4px 0 6px;
       }
@@ -692,13 +744,9 @@
         flex-direction: row;
         align-items: center;
       }
-      .cmd-row .img-note.cmd {
+      .cmd-row .field.cmd {
         flex: 1;
         margin-right: 6px;
-      }
-      .btn2.off {
-        color: #7a7a7a;
-        cursor: default;
       }
       .voice {
         box-sizing: border-box;
@@ -709,7 +757,7 @@
         border-radius: 6px;
         background: #2b2b2b;
         font-size: 12px;
-        color: #e0e0e0;
+        color: #e6e6e6;
       }
       .voice.on {
         border-color: #5b8cff;
@@ -726,7 +774,7 @@
       .gallery {
         display: flex;
         flex-direction: row;
-        margin-top: 7px;
+        margin-top: 8px;
       }
       .gal-img {
         cursor: pointer;
@@ -745,7 +793,7 @@
       }
       .still-label {
         cursor: pointer;
-        margin-top: 3px;
+        margin-top: 4px;
       }
       .stills {
         display: flex;
@@ -759,18 +807,18 @@
       .still-img,
       .still-empty {
         display: block;
-        border-radius: 5px;
+        border-radius: 4px;
         border: 2px solid transparent;
         background: #333;
       }
       .still.redo .still-img,
       .still.redo .still-empty {
-        border-color: #e0a040;
+        border-color: #e0b050;
       }
       .step {
         display: flex;
         flex-direction: row;
-        padding: 3px 0;
+        padding: 4px 0;
       }
       .step .mark {
         width: 18px;
@@ -791,7 +839,7 @@
         height: 4px;
         background: #3a3a3a;
         border-radius: 2px;
-        margin: 10px 0 5px;
+        margin: 10px 0 4px;
       }
       .bar div {
         height: 4px;
@@ -807,7 +855,7 @@
         flex-direction: column;
         justify-content: flex-end;
         align-items: center;
-        background: #484848;
+        background: #4a4a4a;
         overflow: hidden;
       }
       .cap-sample {
@@ -836,7 +884,7 @@
       }
       /* "Play" while its preview is made: in the links' place, not clickable */
       .cap-wait {
-        color: #8a8a8a;
+        color: #8f8f8f;
         cursor: default;
       }
       .cap-still {
@@ -851,8 +899,8 @@
         background: #262626;
       }
       .cw.pill {
-        border-radius: 5px;
-        padding: 0 3px;
+        border-radius: 4px;
+        padding: 0 4px;
       }
       .swatches {
         display: flex;
@@ -862,7 +910,8 @@
         flex: 1;
         display: flex;
         flex-direction: row;
-        align-items: center;
+        /* the chip sits beside its field, under the label line */
+        align-items: flex-end;
       }
       .swatch + .swatch {
         margin-left: 10px;
@@ -873,20 +922,74 @@
         border-radius: 4px;
         border: 1px solid #4a4a4a;
         margin-right: 6px;
+        margin-bottom: 2px;
         flex-shrink: 0;
+      }
+      .chip {
+        cursor: pointer;
+      }
+      .chip.on {
+        border-color: #fff;
+      }
+      /* the colour picker under the swatches: quiet colours, then the picked one from dark to light */
+      .picker {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        margin-top: 8px;
+        padding: 8px;
+        background: #2b2b2b;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+      }
+      .wheel {
+        flex-shrink: 0;
+        margin-right: 10px;
+        cursor: crosshair;
+      }
+      .pk-side {
+        flex: 1;
+      }
+      .pk-row {
+        display: flex;
+        flex-direction: row;
+      }
+      .pk-row + .pk-row {
+        margin-top: 4px;
+      }
+      .pk {
+        flex: 1;
+        height: 22px;
+        border-radius: 4px;
+        border: 1px solid #4a4a4a;
+      }
+      .pk + .pk {
+        margin-left: 4px;
+      }
+      .pk.on {
+        border-color: #fff;
+      }
+      .picker .btn2 {
+        margin-top: 12px;
+      }
+      .pk-label {
+        color: #8f8f8f;
+        font-size: 11px;
+        margin: 8px 0 4px;
       }
       .swatch-text {
         flex: 1;
       }
-      .swatch-text .img-note {
-        margin-top: 2px;
+      .swatch-text .field,
+      .swatch-text textarea.one {
+        margin-top: 4px;
       }
       .check {
         display: flex;
         flex-direction: row;
         align-items: center;
         cursor: pointer;
-        color: #d0d0d0;
+        color: #d6d6d6;
         padding: 4px 0;
       }
       .box-mark {
@@ -897,7 +1000,7 @@
         font-size: 10px;
         color: #fff;
         border: 1px solid #6a6a6a;
-        border-radius: 3px;
+        border-radius: 4px;
         margin-right: 8px;
       }
       .box-mark.on {
@@ -912,7 +1015,7 @@
       .cline {
         border-bottom: 1px solid #303030;
         border-left: 2px solid transparent;
-        padding: 6px 0 3px 8px;
+        padding: 6px 0 4px 8px;
       }
       .cline.changed {
         border-left-color: #5b8cff;
@@ -923,7 +1026,7 @@
       }
       .cline-text {
         min-height: 36px;
-        margin-top: 3px;
+        margin-top: 4px;
         font-family: inherit;
       }
     </style>

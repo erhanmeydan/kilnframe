@@ -9,7 +9,10 @@ import {
   caretWord,
   stillWindow,
   newCaptions,
+  pickedColour,
+  shadesOf,
   typedColors,
+  wheelColour,
   utf8Length,
   type CaptionsCtx,
   type CaptionsState,
@@ -1450,5 +1453,64 @@ describe("utf8Length", () => {
       "end \ud83c",
     ])
       expect(utf8Length(text)).toBe(new TextEncoder().encode(text).length);
+  });
+});
+
+describe("caption colour picker", () => {
+  it("opens under a swatch, sets the colour it is given and closes again", () => {
+    const f = fakeCtx();
+    const st = newCaptions();
+    captionsAct(st, f.ctx, "captions-look", "kil-lacivert");
+    captionsAct(st, f.ctx, "captions-pick", "text");
+    expect(st.picking).toBe("text");
+    expect(captionsBox(st, f.ctx)).toContain('data-val="text:#d9875f"');
+    captionsAct(st, f.ctx, "captions-color-set", "text:#d9875f");
+    expect(st.settings.colors?.text).toBe("#d9875f");
+    captionsAct(st, f.ctx, "captions-pick", "text");
+    expect(st.picking).toBeNull();
+    expect(captionsBox(st, f.ctx)).not.toContain("captions-color-set");
+  });
+
+  it("takes only a colour code, and a look change closes it", () => {
+    const f = fakeCtx();
+    const st = newCaptions();
+    captionsAct(st, f.ctx, "captions-pick", "text");
+    const before = JSON.stringify(st.settings.colors);
+    captionsAct(st, f.ctx, "captions-color-set", "text:red;background:url(x)");
+    expect(JSON.stringify(st.settings.colors)).toBe(before);
+    captionsAct(st, f.ctx, "captions-look", "sakin");
+    expect(st.picking).toBeNull();
+  });
+
+  it("runs a colour from dark to light in its own hue, and keeps a box's alpha", () => {
+    const shades = shadesOf("#d9875f");
+    expect(shades).toHaveLength(7);
+    expect(shades[0]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(shades[0] < shades[6]).toBe(true);
+    expect(shadesOf("rgba(10,12,16,0.62)")).toHaveLength(7);
+    expect(shadesOf("not a colour")).toEqual([]);
+    // Band's see-through box stays see-through
+    expect(pickedColour("rgba(10,12,16,0.62)", "#ffffff")).toBe("#ffffff9e");
+    expect(pickedColour("rgb(10,12,16)", "#ffffff")).toBe("#ffffff");
+    expect(pickedColour("#1c2537cc", "#ffffff")).toBe("#ffffffcc");
+    expect(pickedColour("#1c2537", "#ffffff")).toBe("#ffffff");
+  });
+});
+
+describe("caption colour wheel", () => {
+  it("is white in the middle and the hue round the edge, as the wheel image is drawn", () => {
+    expect(wheelColour(0, 0, 52)).toBe("#e6e6e6");
+    expect(wheelColour(52, 0, 52)).toBe("#e60000");
+    // past the edge: the edge's colour
+    expect(wheelColour(80, 0, 52)).toBe("#e60000");
+    // a third of the way round, turning down: green
+    expect(wheelColour(-26, 45.03, 52)).toBe("#00e600");
+  });
+
+  it("is drawn in the open picker, answering with its swatch", () => {
+    const f = fakeCtx();
+    const st = newCaptions();
+    captionsAct(st, f.ctx, "captions-pick", "text");
+    expect(captionsBox(st, f.ctx)).toMatch(/class="wheel"[^>]*data-wheel="text"/);
   });
 });

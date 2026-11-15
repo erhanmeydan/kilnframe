@@ -204,7 +204,7 @@ const startOver = () => `<div class="link mt" data-act="fix-new">${t("fix.startO
 export function voiceFixBox(st: VoiceFixState, ctx: VoiceFixCtx): string {
   const err =
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") + (st.settingsNote ? `<div class="box warn">${ctx.esc(st.settingsNote)}</div>` : "");
   switch (st.stage) {
     case "reading":
@@ -215,8 +215,8 @@ export function voiceFixBox(st: VoiceFixState, ctx: VoiceFixCtx): string {
       return err + busy(st, t("fix.saying"), true);
     case "track":
       return `${err}<div class="note">${t("fix.pickTrack")}</div>
-  <div class="pbtns mt">${st.tracks
-    .map((n) => `<div class="pbtn" data-act="fix-track" data-val="${n}">A${n + 1}</div>`)
+  <div class="btns mt">${st.tracks
+    .map((n) => `<div class="btn2 sm" data-act="fix-track" data-val="${n}">A${n + 1}</div>`)
     .join("")}</div>
   ${startOver()}`;
     case "edit":
@@ -236,7 +236,7 @@ function idleScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   const ready = ctx.connected() && st.keySet !== false && range !== null;
   return `${ctx.rangeLine()}
   <div class="note muted">${t("fix.hint")}</div>
-  ${st.keySet === false ? `<div class="box warn">${t("fix.noKey")}</div>` : ""}
+  ${st.keySet === false ? `<div class="box warn">${t("fix.noKey")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>` : ""}
   ${range ? "" : `<div class="box warn">${t("clone.needRange")}</div>`}
   <div class="btn mt${ready ? "" : " off"}" data-act="fix-go">${t("fix.go")}</div>`;
 }
@@ -302,7 +302,7 @@ function listenScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   <div class="btn mt" data-act="fix-new">${t("fix.another")}</div>
   ${recloneLink(st, ctx)}`;
   return `${head}
-  <div class="pbtns mt"><div class="pbtn" data-act="fix-again">${t("fix.again")}</div><div class="pbtn primary${st.placing ? " off" : ""}" data-act="fix-place">${t("fix.place")}</div></div>
+  <div class="btns mt"><div class="btn2 sm" data-act="fix-again">${t("fix.again")}</div><div class="btn sm${st.placing ? " off" : ""}" data-act="fix-place">${t("fix.place")}</div></div>
   ${recloneLink(st, ctx)}
   ${startOver()}`;
 }

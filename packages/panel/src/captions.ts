@@ -103,6 +103,8 @@ export interface CaptionsState {
   restoredFor: string | null;
   /** The editor pressed Delete Text and is asked to confirm. */
   confirmClear: boolean;
+  /** The colour whose picker is open under the swatches. */
+  picking: ColorKey | null;
   /** The line being prepared for "Play". */
   playing: number | null;
   /** The last "Play": its frames (and a small clip where the panel plays video). */
@@ -156,6 +158,7 @@ export function newCaptions(): CaptionsState {
     previewDir: null,
     restoredFor: null,
     confirmClear: false,
+    picking: null,
     playing: null,
     play: null,
   };
@@ -318,6 +321,150 @@ function glossaryOf(text: string): string[] {
 }
 
 const COLOR_KEYS = ["text", "accent", "box"] as const;
+type ColorKey = (typeof COLOR_KEYS)[number];
+
+/**
+ * The picker's colours: quiet tones that sit beside flat, low-contrast footage, the neutrals first. Below
+ * them the picked colour runs from dark to light.
+ */
+/** The wheel's width and height in the panel. */
+export const WHEEL_SIZE = 104;
+
+export const PICKER_COLOURS = [
+  "#ffffff",
+  "#efe8dd",
+  "#c9c4bb",
+  "#8a8680",
+  "#3a3a3a",
+  "#1c1c1c",
+  "#000000",
+  "#1c2537",
+  "#d9875f",
+  "#d8b25a",
+  "#8fae8b",
+  "#5f9ea0",
+  "#6f93c0",
+  "#9a8cc4",
+  "#c97b8e",
+  "#b5523b",
+];
+
+/** `rgb(…)`/`rgba(…)` as `#rrggbb` and its alpha (0 to 1, 1 when none is given), or null. */
+function rgbaParts(colour: string): { hex: string; alpha: number } | null {
+  const m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(
+    colour.trim(),
+  );
+  if (!m) return null;
+  const hex = `#${[m[1], m[2], m[3]]
+    .map((v) =>
+      Math.min(255, Math.round(Number(v)))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+  const a = m[4] === undefined ? 1 : m[4].endsWith("%") ? parseFloat(m[4]) / 100 : Number(m[4]);
+  return { hex, alpha: Math.max(0, Math.min(1, a)) };
+}
+
+/** `#rgb`/`#rrggbb`/`rgb(a)(…)` (any alpha left out) as hue, saturation and lightness, or null. */
+function hslOf(colour: string): { h: number; s: number; l: number } | null {
+  let hex = (rgbaParts(colour)?.hex ?? colour).trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(hex)) hex = [...hex].map((c) => c + c).join("");
+  if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(hex)) return null;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: h * 60, s, l };
+}
+
+function hexOf(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    h < 60
+      ? [c, x, 0]
+      : h < 120
+        ? [x, c, 0]
+        : h < 180
+          ? [0, x, c]
+          : h < 240
+            ? [0, c, x]
+            : h < 300
+              ? [x, 0, c]
+              : [c, 0, x];
+  return `#${[r, g, b]
+    .map((v) =>
+      Math.round((v + m) * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+/** The wheel's brightness: scripts/colour-wheel.mjs draws the wheel at the same value. */
+const WHEEL_VALUE = 0.9;
+
+/**
+ * The colour under a point of the wheel, `dx`/`dy` from its middle in a wheel of `radius`: hue round the
+ * circle (0° to the right, turning down), saturation from the white middle out, as scripts/colour-wheel.mjs
+ * draws it. A point past the edge takes the edge's colour.
+ */
+export function wheelColour(dx: number, dy: number, radius: number): string {
+  const h = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+  const sat = Math.min(Math.hypot(dx, dy) / radius, 1);
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6;
+    return WHEEL_VALUE - WHEEL_VALUE * sat * Math.max(0, Math.min(k, 4 - k, 1));
+  };
+  return `#${[f(5), f(3), f(1)]
+    .map((c) =>
+      Math.round(c * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+/** Seven steps of a colour's own hue from dark to light (none for a colour that is not a hex code). */
+export function shadesOf(colour: string): string[] {
+  const hsl = hslOf(colour);
+  if (!hsl) return [];
+  return [0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88].map((l) => hexOf(hsl.h, hsl.s, l));
+}
+
+/** A picked colour, keeping the alpha pair the field's colour had (a see-through box stays see-through). */
+export function pickedColour(current: string, picked: string): string {
+  const rgba = rgbaParts(current);
+  const alpha =
+    /^#[0-9a-f]{6}([0-9a-f]{2})$/i.exec(current.trim())?.[1] ??
+    (rgba && rgba.alpha < 1
+      ? Math.round(rgba.alpha * 255)
+          .toString(16)
+          .padStart(2, "0")
+      : undefined);
+  return alpha ? `${picked}${alpha}` : picked;
+}
+
+function pickerRow(
+  key: ColorKey,
+  colours: string[],
+  current: string,
+  esc: (s: string) => string,
+): string {
+  const now = current.trim().toLowerCase().slice(0, 7);
+  return `<div class="pk-row">${colours
+    .map(
+      (c) =>
+        `<div class="pk${c === now ? " on" : ""}" style="background:${esc(c)}" data-act="captions-color-set" data-val="${key}:${esc(c)}"></div>`,
+    )
+    .join("")}</div>`;
+}
 type ColorFields = Partial<Record<(typeof COLOR_KEYS)[number], { shown: string; typed: string }>>;
 
 /**
@@ -452,11 +599,26 @@ function colorRow(st: CaptionsState, ctx: CaptionsCtx, look: CaptionLook): strin
   return `<div class="swatches">${keys
     .map(
       (k) =>
-        `<div class="swatch"><div class="chip" id="cap-chip-${k}" style="background:${ctx.esc(colors[k] ?? "")}"></div><div class="swatch-text"><div class="small muted">${t(`captions.color.${k}`)}</div><input class="img-note" id="cap-color-${k}" type="text" value="${ctx.esc(colors[k] ?? "")}"></div></div>`,
+        `<div class="swatch"><div class="chip${st.picking === k ? " on" : ""}" id="cap-chip-${k}" style="background:${ctx.esc(colors[k] ?? "")}" data-act="captions-pick" data-val="${k}"></div><div class="swatch-text"><div class="small muted">${t(`captions.color.${k}`)}</div><textarea class="one" id="cap-color-${k}" rows="1" value="${ctx.esc(colors[k] ?? "")}">${ctx.esc(colors[k] ?? "")}</textarea></div></div>`,
     )
     .join(
       "",
-    )}</div>${own ? `<div class="link" data-act="captions-colors-reset">${t("captions.colorsReset")}</div>` : ""}`;
+    )}</div>${picker(st, ctx, colors, keys)}${own ? `<div class="link" data-act="captions-colors-reset">${t("captions.colorsReset")}</div>` : ""}`;
+}
+
+/** The open swatch's picker: the quiet colours in two rows, then the picked colour from dark to light. */
+function picker(
+  st: CaptionsState,
+  ctx: CaptionsCtx,
+  colors: CaptionColors,
+  keys: ColorKey[],
+): string {
+  const key = st.picking;
+  if (!key || !keys.includes(key)) return "";
+  const current = colors[key] ?? "";
+  const shades = shadesOf(current);
+  // the wheel answers with the point clicked: the panel turns it into a colour (wheelColour)
+  return `<div class="picker"><img class="wheel" src="icons/colour-wheel.png" width="${WHEEL_SIZE}" height="${WHEEL_SIZE}" alt="" data-act="captions-color-set" data-wheel="${key}"><div class="pk-side">${pickerRow(key, PICKER_COLOURS.slice(0, 8), current, ctx.esc)}${pickerRow(key, PICKER_COLOURS.slice(8), current, ctx.esc)}${shades.length ? `<div class="pk-label">${t("captions.pickerShades")}</div>${pickerRow(key, shades, current, ctx.esc)}` : ""}<div class="btn2 sm mt" data-act="captions-pick" data-val="${key}">${t("captions.pickerDone")}</div></div></div>`;
 }
 
 /** What the captions are for: the editor's pick, else the In/Out when there is one. */
@@ -497,7 +659,7 @@ function stepOne(st: CaptionsState, ctx: CaptionsCtx): string {
   <div class="lbl">${t("captions.colors")}</div>
   ${colorRow(st, ctx, look)}
   <div class="lbl">${t("captions.glossary")}</div>
-  <input class="img-note" id="cap-glossary" type="text" placeholder="${t("captions.glossaryPlaceholder")}">
+  <textarea class="one" id="cap-glossary" placeholder="${t("captions.glossaryPlaceholder")}" rows="1"></textarea>
   ${
     turkishSpeech(st)
       ? `<div class="lbl">${t("captions.mode")}</div>${ctx.seg("captions-mode", st.settings.mode, [
@@ -557,7 +719,7 @@ function lineRows(st: CaptionsState, ctx: CaptionsCtx): string {
 function clearText(st: CaptionsState): string {
   return st.confirmClear
     ? `<div class="box warn small mt">${t("captions.clearAsk")}</div>
-  <div class="row2 mt"><div class="btn2 stop" data-act="captions-clear-yes">${t("captions.clearYes")}</div><div class="btn2" data-act="captions-clear-no">${t("captions.clearNo")}</div></div>`
+  <div class="row2 mt"><div class="btn2 danger" data-act="captions-clear-yes">${t("captions.clearYes")}</div><div class="btn2" data-act="captions-clear-no">${t("captions.clearNo")}</div></div>`
     : `<div class="link mt" data-act="captions-clear">${t("captions.clear")}</div>`;
 }
 
@@ -593,9 +755,9 @@ function busyBox(st: CaptionsState, ctx: CaptionsCtx): string {
 export function captionsBox(st: CaptionsState, ctx: CaptionsCtx): string {
   const notes =
     (st.error
-      ? `<div class="box warn">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
+      ? `<div class="box error">${ctx.esc(st.error)}${ctx.reportLink(st.error)}</div>`
       : "") +
-    (st.notice ? `<div class="info">${ctx.esc(st.notice)}</div>` : "") +
+    (st.notice ? `<div class="box info">${ctx.esc(st.notice)}</div>` : "") +
     (st.stage === "placed" && st.placed
       ? `<div class="box ok">${t("captions.placed", { v: st.placed.videoTrack + 1 })}</div>`
       : "");
@@ -1707,6 +1869,8 @@ const CAPTIONS_ACTS = new Set([
   "captions-scope",
   "captions-look",
   "captions-colors-reset",
+  "captions-pick",
+  "captions-color-set",
   "captions-mode",
   "captions-over",
   "captions-make",
@@ -1727,6 +1891,7 @@ const CAPTIONS_ACTS = new Set([
 const KEPT_ACTS = new Set([
   "captions-look",
   "captions-colors-reset",
+  "captions-color-set",
   "captions-mode",
   "captions-over",
   "captions-back",
@@ -1750,11 +1915,28 @@ export function captionsAct(
     settleColorFields();
     const look = CAPTION_LOOKS[val as CaptionStyleId];
     st.settings = { ...st.settings, look: look.id, colors: { ...look.colors } };
+    st.picking = null;
     saveSettings(st, ctx);
   } else if (act === "captions-colors-reset") {
     settleColorFields();
     st.settings = { ...st.settings, colors: null };
     saveSettings(st, ctx);
+  } else if (act === "captions-pick") {
+    const key = COLOR_KEYS.find((k) => k === val) ?? null;
+    st.picking = st.picking === key ? null : key;
+  } else if (act === "captions-color-set") {
+    const [key, picked] = val.split(":") as [string, string];
+    const k = COLOR_KEYS.find((c) => c === key);
+    if (k && picked && COLOR.test(picked)) {
+      settleColorFields();
+      const colors = colorsOf(st, lookOf(st, ctx.videoStyle()));
+      st.settings = {
+        ...st.settings,
+        colors: { ...colors, [k]: pickedColour(colors[k] ?? "", picked) },
+      };
+      saveSettings(st, ctx);
+      wantTint(st, ctx);
+    }
   } else if (act === "captions-mode") {
     st.settings = { ...st.settings, mode: val === "spoken" ? "spoken" : "written" };
     saveSettings(st, ctx);

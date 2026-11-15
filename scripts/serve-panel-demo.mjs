@@ -100,7 +100,7 @@ createServer(async (req, res) => {
         page = (await import("../packages/panel/resolve/theme.mjs")).resolveTheme(page);
       const html = page.replace(
         '<script defer src="./index.js"></script>',
-        `${resolveLook ? "" : '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style>'}<script>window.KILNFRAME_DEMO=${JSON.stringify({ project })}</script><script src="/demo/stubs.js"></script><script defer src="./index.js"></script>`,
+        `<meta name="viewport" content="width=device-width">${resolveLook ? "" : '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style>'}<script>window.KILNFRAME_DEMO=${JSON.stringify({ project })}</script><script src="/demo/stubs.js"></script><script defer src="./index.js"></script>`,
       );
       res.writeHead(200, { "Content-Type": types[".html"] }).end(html);
       return;

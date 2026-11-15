@@ -29,6 +29,7 @@ import {
   captionsWriteFields,
   readColorFields,
   newCaptions,
+  wheelColour,
   type CaptionsCtx,
 } from "./captions";
 import {
@@ -386,6 +387,8 @@ function wordsAround(text: string, n: number, from: "start" | "end"): string {
 
 const state = {
   screen: "home" as "home" | "progress" | "settings" | "review" | "own" | "setup",
+  /** The settings' part on show: the AI, voice and music, general, about. */
+  settingsTab: "ai" as SettingsTab,
   review: null as Review | null,
   conn: "connecting" as "connecting" | "ok" | "down",
   connError: "",
@@ -650,13 +653,13 @@ function updateBox(): string {
   // the site's changelog, in the editor's language: GitHub's release page made people download by hand
   const notes = changelogUrl();
   if (u.status === "available")
-    return `<div class="box update"><div>${t("update.ready", { v })}</div>${
+    return `<div class="box info"><div>${t("update.ready", { v })}</div>${
       state.updateBusy ? `<div class="small muted mt">${t("update.busy")}</div>` : ""
     }<div class="btn2 mt" data-act="app-update">${t("update.install")}</div><div class="small mt"><span class="link" data-act="open-url" data-val="${notes}">${t("update.whatsNew")} ↗</span></div></div>`;
   if (u.status === "downloading")
-    return `<div class="box update">${t("update.downloading", { p: u.percent ?? 0 })}</div>`;
-  if (u.status === "ready") return `<div class="box update">${t("update.restarting")}</div>`;
-  return `<div class="box warn"><div>${t("update.failed")}</div><div class="small muted">${esc(
+    return `<div class="box info">${t("update.downloading", { p: u.percent ?? 0 })}</div>`;
+  if (u.status === "ready") return `<div class="box info">${t("update.restarting")}</div>`;
+  return `<div class="box error"><div>${t("update.failed")}</div><div class="small muted">${esc(
     u.error ?? "",
   )}</div><div class="btn2 mt" data-act="app-update">${t("conn.retry")}</div></div>`;
 }
@@ -722,7 +725,7 @@ function rangeBox(): string {
   return `<div class="rangeline row"><span>${label} ${formatTimecode(r.startS)} → ${formatTimecode(
     r.endS,
   )}</span><span class="muted">${formatDuration(r.durationS)} · ${esc(formatFps(state.seq.fps, state.seq.fpsValue))} fps</span></div>${
-    warning ? `<div class="info">${esc(warning)}</div>` : ""
+    warning ? `<div class="box info">${esc(warning)}</div>` : ""
   }`;
 }
 
@@ -741,7 +744,11 @@ function contentWidth(): number {
  */
 function scrollInnerWidth(): number {
   const scroller = document.getElementById("scroll");
-  return scroller && scroller.clientWidth > 0 ? scroller.clientWidth - 24 : contentWidth();
+  if (!scroller || scroller.clientWidth <= 0) return contentWidth();
+  // UXP reports the width with its scrollbar in it (400 for a 400 px panel whose tiles get 360, measured in
+  // Premiere 26.5): the bar comes off there, or the third tile of a row wraps
+  const bar = host().kind === "premiere" && scroller.offsetWidth === scroller.clientWidth ? SCROLLBAR : 0;
+  return scroller.clientWidth - 24 - bar;
 }
 
 /** 16:9 height for a width, like the video. */
@@ -871,6 +878,8 @@ function chosenStyle(s: StyleCard): string {
 
 /** The bar's height; set here because UXP shrinks it to one line when the scroll area asks for more. */
 const BAR_HEIGHT = 74;
+/** A bar with only a tab's main button. */
+const SOLO_BAR_HEIGHT = 52;
 
 /**
  * The scroll area takes what the bar leaves. UXP lays every box out as a flex item: a scroll area of 100%
@@ -880,8 +889,31 @@ function fitScroll() {
   const scroller = document.getElementById("scroll");
   const bar = root.querySelector(".actionbar") as HTMLElement | null;
   if (!scroller) return;
-  scroller.style.height = bar ? `${Math.max(120, root.clientHeight - BAR_HEIGHT)}px` : "100%";
-  if (bar) bar.style.height = `${BAR_HEIGHT}px`;
+  const h = bar?.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT;
+  scroller.style.height = bar ? `${Math.max(120, root.clientHeight - h)}px` : "100%";
+  if (bar) bar.style.height = `${h}px`;
+}
+
+/**
+ * The other home tabs keep their main button in view too: the last full-width main button of the tab
+ * (Find Pauses, Write the Story, Make the Music...) moves from the end of the scroll area into a bar
+ * under it, as the range tab's Create does. Buttons inside a box or a row stay where they are.
+ */
+function soloBar() {
+  const scroller = document.getElementById("scroll");
+  if (!scroller) return;
+  // a main button, or a slot holding one that is redrawn in place (Remove Pauses' apply, beside its slider)
+  const mains = Array.from(scroller.children).filter(
+    (el) =>
+      (el.classList.contains("btn") && !el.classList.contains("sm")) ||
+      (el.classList.contains("btn-slot") && el.querySelector(".btn") !== null),
+  );
+  const main = mains[mains.length - 1];
+  if (!main) return;
+  const bar = document.createElement("div");
+  bar.className = "actionbar solo";
+  bar.appendChild(main);
+  root.appendChild(bar);
 }
 
 /** The range tab's bar: what runs and how long, and the main button, always in view. */
@@ -924,7 +956,7 @@ function jobErrorBox(job: JobView): string {
   const retry = job.retry
     ? `<div class="small mt">${t("job.checksRetry")}</div><div class="btn2 mt" data-act="generate">${t("job.retry")}</div>`
     : "";
-  return `<div class="box warn">${esc(error)}${picture}${retry}${job.reportable ? reportLink(error) : ""}</div>`;
+  return `<div class="box ${job.retry ? "warn" : "error"}">${esc(error)}${picture}${retry}${job.reportable ? reportLink(error) : ""}</div>`;
 }
 
 function home(): string {
@@ -970,7 +1002,7 @@ function seriesBox(): string {
   const ready = series.parts.filter((p) => p.state === "stills").length;
   return `<div class="pdetail"><div><b>${esc(series.title)}</b></div>
   <div class="small muted">${t("series.status", { placed, ready, n })}</div>
-  <div class="pbtns"><div class="pbtn primary" data-act="series-continue">${t("series.continue")}</div><div class="pbtn" data-act="series-drop">${t("series.drop")}</div></div></div>`;
+  <div class="btns"><div class="btn sm" data-act="series-continue">${t("series.continue")}</div><div class="btn2 sm" data-act="series-drop">${t("series.drop")}</div></div></div>`;
 }
 
 /** "This animation used 83k input and 166k output tokens, about $0.09." On a plan: what it would cost as API. */
@@ -1003,10 +1035,10 @@ function rangeHome(done: JobView["placed"]): string {
   const many = state.job?.partsPlaced;
   return `${done ? `<div class="box ok">${many ? t("home.placedParts", { n: many, v: done.videoTrack + 1, a: done.audioTrack + 1 }) : t("home.placed", { v: done.videoTrack + 1, a: done.audioTrack + 1 })}</div>` : ""}
   ${done && state.job?.cost ? `<div class="small muted">${esc(costLine(state.job.cost))}</div>` : ""}
-  ${state.job?.error ? jobErrorBox(state.job) : ""}
-  ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   ${seriesBox()}
   ${rangeBox()}
+  ${state.job?.error ? jobErrorBox(state.job) : ""}
+  ${state.job?.note ? `<div class="box warn">${esc(state.job.note)}</div>` : ""}
   <div class="lbl">${t("home.style")}</div>
   ${
     chosen && !state.styleOpen
@@ -1068,7 +1100,7 @@ function imagesBox(kind: ImageList): string {
         : "";
       return `<div class="img-card" style="width:${width}px">${thumb}<div class="row small"><span class="img-name">${esc(img.name)}</span><span class="img-x" data-act="remove-${kind}" data-val="${i}" title="${t("images.remove")}">×</span></div>${
         problem ||
-        `<input class="img-note" id="${kind}-note-${i}" type="text" placeholder="${t("images.notePlaceholder")}" value="${esc(img.note)}">`
+        `<textarea class="one" id="${kind}-note-${i}" placeholder="${t("images.notePlaceholder")}" rows="1">${esc(img.note)}</textarea>`
       }</div>`;
     })
     .join("");
@@ -1147,7 +1179,7 @@ function ownScreen(): string {
   <div class="rec sel"><div class="rec-text"><div class="rec-name">${esc(localized(r.displayName))}</div></div></div>
   <div class="row mt" style="justify-content:flex-start">${stills}</div>
   ${notes ? `<div class="lbl">${t("own.notes")}</div><div class="box small">${esc(notes)}</div>` : ""}
-  ${o.error ? `<div class="box warn">${esc(o.error)}</div>` : ""}
+  ${o.error ? `<div class="box error">${esc(o.error)}</div>` : ""}
   <div class="btn mt" data-act="own-keep">${t("own.keep")}</div>
   <div class="lbl">${t("own.redo")}</div>
   <textarea id="own-redo" rows="2" placeholder="${t("own.redoPlaceholder")}">${esc(o.redoNote)}</textarea>
@@ -1160,7 +1192,7 @@ function ownScreen(): string {
   }
   // always enabled: typing does not re-render, so a disabled button would stay disabled; the action checks
   return `${header(t("own.title"), close)}
-  ${o.error ? `<div class="box warn">${esc(o.error)}</div>` : ""}
+  ${o.error ? `<div class="box error">${esc(o.error)}</div>` : ""}
   <div class="lbl">${t("own.describe")}</div>
   <textarea id="own-desc" rows="4" placeholder="${t("own.describePlaceholder")}">${esc(o.description)}</textarea>
   ${imagesBox("ref")}
@@ -1234,7 +1266,9 @@ async function startStyleJob(params: Record<string, unknown>) {
 /** The story tab: brief, then the narration to edit, a voice, and the new sequence. */
 function storyBox(): string {
   const st = state.story;
-  const err = st.error ? `<div class="box warn">${esc(st.error)}${reportLink(st.error)}</div>` : "";
+  const err = st.error
+    ? `<div class="box error">${esc(st.error)}${reportLink(st.error)}</div>`
+    : "";
   if (st.stage === "writing" || st.stage === "voicing")
     return `${err}<div class="box mt"><div>${esc(st.last)}</div></div><div class="bar"><div style="width:${st.stage === "writing" ? 30 : 70}%"></div></div>`;
   if (st.stage === "done" && st.done)
@@ -1284,8 +1318,8 @@ function storyBox(): string {
     ["gemini", "Gemini"],
     ["elevenlabs", "ElevenLabs"],
   ])}
-  ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}</div>`}
-  ${st.voicesError ? `<div class="box warn">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
+  ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>`}
+  ${st.voicesError ? `<div class="box error">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
   ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
   ${st.speechProvider === "elevenlabs" && st.keySet ? cloneBox() : ""}
@@ -1308,7 +1342,7 @@ function storyBox(): string {
       ? `${seg("music-provider", storedMusicProvider(), [
           ["gemini", "Lyria"],
           ["elevenlabs", "ElevenLabs"],
-        ])}${musicKeyFor(storedMusicProvider()) ? "" : `<div class="box warn">${t("story.musicNoKey")}</div>`}`
+        ])}${musicKeyFor(storedMusicProvider()) ? "" : `<div class="box warn">${t("story.musicNoKey")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>`}`
       : ""
   }
   ${
@@ -1327,10 +1361,15 @@ function storyBox(): string {
   }
   <div class="btn mt" data-act="story-make">${t("story.make")}</div>`;
   }
-  const source = seg("story-source", st.source, [
-    ["write", t("story.sourceWrite")],
-    ["own", t("story.sourceOwn")],
-  ]);
+  const source = seg(
+    "story-source",
+    st.source,
+    [
+      ["write", t("story.sourceWrite")],
+      ["own", t("story.sourceOwn")],
+    ],
+    "sub",
+  );
   if (st.source === "own")
     return `${err}${source}
   <div class="lbl">${t("story.ownLabel")}</div>
@@ -1354,7 +1393,7 @@ function storyBox(): string {
   ])}
   ${
     st.lengthChoice === "custom"
-      ? `<input class="img-note mt" id="story-length-input" type="text" placeholder="${t("story.lengthPlaceholder")}" value="${esc(st.customLength)}">`
+      ? `<textarea class="one mt" id="story-length-input" placeholder="${t("story.lengthPlaceholder")}" rows="1">${esc(st.customLength)}</textarea>`
       : ""
   }
   <div class="lbl">${t("story.language")}</div>
@@ -1363,8 +1402,8 @@ function storyBox(): string {
     ["en", t("story.lang.en")],
   ])}
   <div class="lbl">${t("story.tone")}</div>
-  <input class="img-note" id="story-tone" type="text" placeholder="${t("story.tonePlaceholder")}" value="${esc(st.tone)}">
-  <div class="row small muted mt"><span>${providerLabel()}</span></div>
+  <textarea class="one" id="story-tone" rows="1" placeholder="${t("story.tonePlaceholder")}">${esc(st.tone)}</textarea>
+  <div class="row small muted mt2"><span>${providerLabel()}</span></div>
   <div class="btn" data-act="story-write">${t("story.write")}</div>`;
 }
 
@@ -1445,11 +1484,11 @@ function cloneBox(): string {
   ${musicRangeLine("range")}
   ${length}
   <div class="lbl">${t("clone.name")}</div>
-  <input class="img-note" id="story-clone-name" type="text" maxlength="60" placeholder="${t("clone.namePlaceholder")}" value="${esc(state.story.cloneName)}">
+  <textarea class="one" id="story-clone-name" maxlength="60" placeholder="${t("clone.namePlaceholder")}" rows="1">${esc(state.story.cloneName)}</textarea>
   ${check("clone-noise", c.noise, t("clone.noise"))}
   ${check("clone-consent", c.consent, t("clone.consent"))}
-  ${c.error ? `<div class="box warn mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
-  <div class="pbtns mt"><div class="pbtn primary" data-act="clone-go">${t("clone.go")}</div><div class="pbtn" data-act="clone-close">${t("prov.cancel")}</div></div>
+  ${c.error ? `<div class="box error mt">${esc(c.error)}${reportLink(c.error)}</div>` : ""}
+  <div class="btns mt"><div class="btn sm" data-act="clone-go">${t("clone.go")}</div><div class="btn2 sm" data-act="clone-close">${t("prov.cancel")}</div></div>
 </div>`;
 }
 
@@ -1873,8 +1912,8 @@ function progress(): string {
   ${
     job.confirmStop
       ? `<div class="box warn small mt">${t("progress.stopAsk")}</div>
-  <div class="row2 mt"><div class="btn2 stop" data-act="stop-yes">${t("progress.stopYes")}</div><div class="btn2" data-act="stop-no">${t("progress.stopNo")}</div></div>`
-      : `<div class="row2 mt"><div class="btn2" data-act="home">${t("progress.background")}</div><div class="btn2 stop" data-act="stop">${t("progress.stop")}</div></div>`
+  <div class="row2 mt"><div class="btn2 danger" data-act="stop-yes">${t("progress.stopYes")}</div><div class="btn2" data-act="stop-no">${t("progress.stopNo")}</div></div>`
+      : `<div class="row2 mt"><div class="btn2" data-act="home">${t("progress.background")}</div><div class="btn2 danger" data-act="stop">${t("progress.stop")}</div></div>`
   }`;
 }
 
@@ -1904,6 +1943,10 @@ interface ProviderTest {
 /** The settings screen's provider state, loaded from the companion when the screen opens. */
 const setup = {
   list: [] as ProviderEntry[],
+  /** Settings: the provider list is open to pick another (otherwise only the chosen one shows). */
+  picking: false,
+  /** Settings: every API provider is listed, not only the suggested ones and those with a key. */
+  allApi: false,
   claudeCode: null as null | {
     installed: boolean;
     loggedIn: boolean;
@@ -1964,16 +2007,18 @@ async function refreshProviders() {
     )
       void loadServed("antigravity");
     setup.updates = (r.updates ?? {}) as typeof setup.updates;
+    // an older app answers a key check without its ref: when two settings refreshes overlap, a reply can be
+    // the other check's, so one that names another provider is left alone
     const custom = await session.request<ServerMessage>(
       { type: "keys.has", provider: "custom" },
       "keys.has",
     );
-    customKey = Boolean(custom.present);
+    if (custom.provider === "custom") customKey = Boolean(custom.present);
     const eleven = await session.request<ServerMessage>(
       { type: "keys.has", provider: "elevenlabs" },
       "keys.has",
     );
-    elevenKey = Boolean(eleven.present);
+    if (eleven.provider === "elevenlabs") elevenKey = Boolean(eleven.present);
   } catch (err) {
     // not connected: the settings show the app's own box instead (its text follows the panel language)
     if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
@@ -2061,7 +2106,7 @@ function testLine(id: string): string {
   if (r.ok && r.vision)
     return `<div class="ptest ok-text">✓ ${t("prov.testOk", { s: (r.ms / 1000).toFixed(1).replace(".", lang() === "tr" ? "," : ".") })}</div>`;
   if (r.ok) return `<div class="ptest warn-text">${t("prov.testNoVision")}</div>`;
-  return `<div class="ptest warn-text">${esc((r.message && readableJobText(r.message)) ?? r.message ?? t("prov.testFailed"))}</div>`;
+  return `<div class="ptest err-text">${esc((r.message && readableJobText(r.message)) ?? r.message ?? t("prov.testFailed"))}</div>`;
 }
 
 /** The key part of a provider's details: the stored key, or a field to enter one. */
@@ -2072,21 +2117,21 @@ function keyBlock(id: string, entry: ProviderEntry | undefined, withTest: boolea
     : "";
   const head = `<div class="row small"><span>${t("prov.apiKey")}</span>${link}</div>`;
   const test = withTest
-    ? `<div class="pbtn primary" data-act="prov-test" data-val="${esc(id)}">${t("prov.test")}</div>`
+    ? `<div class="btn sm" data-act="prov-test" data-val="${esc(id)}">${t("prov.test")}</div>`
     : "";
   if (set && setup.editingKey !== id) {
     const del =
       setup.confirmDelete === id
-        ? `<div class="pbtn" data-act="key-delete-yes" data-val="${esc(id)}">${t("prov.deleteYes")}</div><div class="pbtn" data-act="key-delete-no">${t("prov.deleteNo")}</div>`
-        : `<div class="pbtn" data-act="key-edit" data-val="${esc(id)}">${t("prov.change")}</div><div class="pbtn" data-act="key-delete" data-val="${esc(id)}">${t("prov.delete")}</div>`;
+        ? `<div class="btn2 sm" data-act="key-delete-yes" data-val="${esc(id)}">${t("prov.deleteYes")}</div><div class="btn2 sm" data-act="key-delete-no">${t("prov.deleteNo")}</div>`
+        : `<div class="btn2 sm" data-act="key-edit" data-val="${esc(id)}">${t("prov.change")}</div><div class="btn2 sm" data-act="key-delete" data-val="${esc(id)}">${t("prov.delete")}</div>`;
     return `${head}<div class="pfield muted">•••••••••••• ${t("prov.keySaved")}</div>
     ${setup.confirmDelete === id ? `<div class="note warn-text">${t("prov.deleteAsk")}</div>` : ""}
-    <div class="pbtns">${del}${setup.confirmDelete === id ? "" : test}</div>`;
+    <div class="btns">${del}${setup.confirmDelete === id ? "" : test}</div>`;
   }
-  return `${head}<input class="img-note" id="key-input" type="password" placeholder="${t("prov.keyPlaceholder")}">
-  <div class="pbtns"><div class="pbtn primary" data-act="key-save" data-val="${esc(id)}">${t("prov.save")}</div>${
+  return `${head}<div class="fieldbox"><input class="field" id="key-input" type="password" placeholder="${t("prov.keyPlaceholder")}"></div>
+  <div class="btns"><div class="btn sm" data-act="key-save" data-val="${esc(id)}">${t("prov.save")}</div>${
     setup.editingKey === id
-      ? `<div class="pbtn" data-act="key-cancel">${t("prov.cancel")}</div>`
+      ? `<div class="btn2 sm" data-act="key-cancel">${t("prov.cancel")}</div>`
       : ""
   }</div>`;
 }
@@ -2131,14 +2176,14 @@ function providerDetail(id: string): string {
       body +=
         setup.updating === id
           ? `<div class="ptest muted">${t("prov.updating")}</div>`
-          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : id === "antigravity" ? "agy update" : "grok update" })}</div>`;
+          : `<div class="ptest warn-text">${t("prov.updateAvailable", { latest: upd.latest ?? "", current: upd.current ?? "" })}</div><div class="btns"><div class="btn sm" data-act="agent-update" data-val="${id}">${t("prov.update")}</div></div><div class="note muted">${t("prov.orRun", { command: id === "claude-code" ? "claude update" : id === "codex" ? "codex update" : id === "antigravity" ? "agy update" : "grok update" })}</div>`;
     if (!a?.installed)
-      body += `<div class="ptest warn-text">${t("prov.agentMissing")}</div>${agentInstallHelp(id)}<div class="pbtns"><div class="pbtn primary" data-act="open-url" data-val="${install}">${t("prov.howInstall")} ↗</div><div class="pbtn" data-act="agent-recheck">${t("prov.recheck")}</div></div>`;
+      body += `<div class="ptest warn-text">${t("prov.agentMissing")}</div>${agentInstallHelp(id)}<div class="btns"><div class="btn sm" data-act="open-url" data-val="${install}">${t("prov.howInstall")} ↗</div><div class="btn2 sm" data-act="agent-recheck">${t("prov.recheck")}</div></div>`;
     else if (!a.loggedIn)
       body +=
         setup.signingIn === id
           ? `<div class="ptest muted">${t("prov.signingIn")}</div>`
-          : `<div class="ptest warn-text">${t("prov.agentSignedOut")}</div><div class="pbtns"><div class="pbtn primary" data-act="agent-login" data-val="${id}">${t("prov.signIn")}</div><div class="pbtn" data-act="agent-recheck">${t("prov.recheck")}</div></div><div class="note muted">${t(
+          : `<div class="ptest warn-text">${t("prov.agentSignedOut")}</div><div class="btns"><div class="btn sm" data-act="agent-login" data-val="${id}">${t("prov.signIn")}</div><div class="btn2 sm" data-act="agent-recheck">${t("prov.recheck")}</div></div><div class="note muted">${t(
               "prov.orRun",
               {
                 command:
@@ -2154,34 +2199,83 @@ function providerDetail(id: string): string {
     else if (setup.signingOut === id)
       body += `<div class="ptest muted">${t("prov.signingOut")}</div>`;
     else if (setup.confirmLogout === id)
-      body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="pbtns"><div class="pbtn" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="pbtn" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
+      body += `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.signOutAsk", { name: agentName(id) })}</div><div class="btns"><div class="btn2 sm" data-act="agent-logout-yes" data-val="${id}">${t("prov.signOutYes")}</div><div class="btn2 sm" data-act="agent-logout-no">${t("prov.deleteNo")}</div></div>`;
     else {
       // Antigravity CLI signs out only from its own screen
       const signOut =
         id === "antigravity"
           ? ""
-          : `<div class="pbtn" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
+          : `<div class="btn2 sm" data-act="agent-logout" data-val="${id}">${t("prov.signOut")}</div>`;
       body +=
         id === "grok"
           ? // its image reading could not be checked yet (only models that read images)
-            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="pbtns">${signOut}</div>`
-          : `<div class="ptest ok-text">${okLine}</div><div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
+            `<div class="ptest ok-text">${okLine}</div><div class="note warn-text">${t("prov.grokUnverified")}</div><div class="btns">${signOut}</div>`
+          : `<div class="ptest ok-text">${okLine}</div><div class="btns"><div class="btn sm" data-act="prov-test" data-val="${id}">${t("prov.test")}</div>${signOut}</div>`;
     }
   } else if (LOCAL_PROVIDERS.has(id)) {
     body = `<div class="small">${t(id === "ollama" ? "prov.ollamaNote" : "prov.localNote")}</div>
-    <div class="pbtns"><div class="pbtn primary" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
+    <div class="btns"><div class="btn sm" data-act="prov-test" data-val="${id}">${t("prov.test")}</div></div>`;
   } else {
     const needsAddress = id === "custom" || (entry?.requires.length ?? 0) > 0;
     const address = needsAddress
-      ? `<div class="small mt">${t("prov.address")}</div><input class="img-note" id="base-input" data-provider="${esc(id)}" type="text" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" value="${esc(state.settings.baseURLs[id] ?? "")}">`
+      ? `<div class="small mt">${t("prov.address")}</div><textarea class="one" id="base-input" data-provider="${esc(id)}" placeholder="${esc(entry?.baseURL ?? "https://…/v1")}" rows="1">${esc(state.settings.baseURLs[id] ?? "")}</textarea>`
       : "";
     const model =
       id === "custom"
-        ? `<div class="small mt">${t("prov.modelName")}</div><input class="img-note" id="model-input" data-provider="custom" type="text" placeholder="${t("prov.modelPlaceholder")}" value="${esc(state.settings.models.custom ?? "")}">`
+        ? `<div class="small mt">${t("prov.modelName")}</div><textarea class="one" id="model-input" data-provider="custom" placeholder="${t("prov.modelPlaceholder")}" rows="1">${esc(state.settings.models.custom ?? "")}</textarea>`
         : "";
     body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
   return `<div class="pdetail">${body}${testLine(id)}</div>`;
+}
+
+/** A provider's row: its name, its tag and whether it is signed in or has a key. */
+function providerRow(id: string, act = "provider"): string {
+  const entry = setup.list.find((p) => p.id === id);
+  const on = state.settings.provider === id;
+  // Claude and GPT 6 Astra did best in the comparison; the rest carry no tag
+  const tier =
+    id === "auto" || id === "claude-code" || id === "codex"
+      ? "recommended"
+      : id === "antigravity"
+        ? "experimental"
+        : id === "grok" || id === "custom"
+          ? null
+          : (entry?.tier ?? null);
+  // the list keeps an empty status slot so its tags line up; the card alone drops it, its tag to the right
+  const status = keyStatus(entry, id);
+  const card = act === "provider-change" && status === `<span class="pkey"></span>`;
+  return `<div class="prow${on ? " on" : ""}" data-act="${act}" data-val="${esc(id)}"><span class="pdot"></span><span class="pname">${esc(providerName(id))}</span>${tierTag(tier)}${card ? "" : status}</div>`;
+}
+
+const PLAN_PROVIDERS = ["claude-code", "codex", "antigravity", "grok"];
+
+/**
+ * The settings' provider: the chosen one on top with its sign-in or key and Change Provider under it. The
+ * list it opens is grouped by how one pays: a plan one is signed in to, an API key, or this computer.
+ * The API group shows the suggested providers and those with a key; the rest wait behind All.
+ */
+function providerPicker(): string {
+  const chosen = state.settings.provider;
+  if (!setup.picking)
+    return `<div class="plist">${providerRow(chosen, "provider-change")}${providerDetail(chosen)}</div>
+  <div class="btns"><div class="btn2 sm" data-act="provider-change">${t("prov.changeProvider")}</div></div>`;
+  const api = setup.list.filter((p) => !LOCAL_PROVIDERS.has(p.id)).map((p) => p.id);
+  const shown = (id: string) => {
+    const entry = setup.list.find((p) => p.id === id);
+    return setup.allApi || entry?.tier === "recommended" || entry?.keySet || id === chosen;
+  };
+  const hidden = api.filter((id) => !shown(id)).length;
+  const group = (label: string, ids: string[]) =>
+    ids.length
+      ? `<div class="pgroup">${label}</div><div class="plist">${ids.map((id) => providerRow(id)).join("")}</div>`
+      : "";
+  return `<div class="plist">${providerRow("auto")}</div>
+  ${group(t("prov.groupPlan"), PLAN_PROVIDERS)}
+  ${group(t("prov.groupKey"), api.filter(shown))}
+  ${hidden ? `<div class="link" data-act="provider-all">${t("prov.allKeys", { n: hidden })}</div>` : ""}
+  ${group(t("prov.groupLocal"), [...setup.list.filter((p) => LOCAL_PROVIDERS.has(p.id)).map((p) => p.id), "custom"])}
+  <div class="btns"><div class="btn2 sm" data-act="provider-change">${t("prov.keep")}</div></div>`;
 }
 
 function providerList(compact = false): string {
@@ -2245,7 +2339,7 @@ function modelList(): string {
       ...(setup.served.antigravity ?? []).map((m) => [m.id, ""] as [string, string]),
     ];
     if (setup.servedError.antigravity)
-      note = `<div class="note warn-text">${esc(readableJobText(setup.servedError.antigravity) ?? setup.servedError.antigravity)}</div>`;
+      note = `<div class="note err-text">${esc(readableJobText(setup.servedError.antigravity) ?? setup.servedError.antigravity)}</div>`;
   } else if (id === "openrouter") {
     // the suggested models first; every other model that reads images behind All Models
     const seeing = (setup.served.openrouter ?? []).filter((m) => m.vision);
@@ -2264,7 +2358,7 @@ function modelList(): string {
     if (!suggested.includes(modelFor(id)) && !rest.some((m) => m.id === modelFor(id)))
       options.unshift([modelFor(id), ""]);
     note = setup.servedError.openrouter
-      ? `<div class="note warn-text">${esc(setup.servedError.openrouter)}</div>`
+      ? `<div class="note err-text">${esc(setup.servedError.openrouter)}</div>`
       : `<div class="link more" data-act="or-all">${onboard.allModels ? t("prov.fewerModels") : t("prov.allModels", { n: seeing.length })}</div><div class="note muted">${t("prov.openrouterNote")}</div>`;
   } else if (LOCAL_PROVIDERS.has(id)) {
     const served = setup.served[id] ?? [];
@@ -2272,7 +2366,7 @@ function modelList(): string {
     options = rows.map((r) => [r.id, r.info]);
     const hidden = served.length - rows.length;
     note = setup.servedError[id]
-      ? `<div class="note warn-text">${esc(setup.servedError[id])}</div>`
+      ? `<div class="note err-text">${esc(setup.servedError[id])}</div>`
       : !served.length
         ? `<div class="note muted">${t(id === "ollama" ? "prov.ollamaNone" : "prov.lmNone")}</div>`
         : hidden
@@ -2322,7 +2416,7 @@ function speechKeys(): string {
   const eleven =
     elevenKey || setup.editingKey === "elevenlabs"
       ? keyBlock("elevenlabs", elevenEntry, false)
-      : `<div class="pbtns"><div class="pbtn" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
+      : `<div class="btns"><div class="btn2 sm" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
   return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div><div class="note muted">${t("prov.elevenPermissions")}</div>`;
 }
 
@@ -2403,7 +2497,7 @@ function setupBody(i: number, st: StepState): string {
     return state.opening
       ? `<div class="small muted">${t("conn.opening")}</div>`
       : st === "warn"
-        ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="pbtns"><div class="pbtn primary" data-act="open-app">${t("conn.openApp")}</div><div class="pbtn" data-act="reconnect">${t("conn.retry")}</div></div>`
+        ? `<div class="small warn-text">${t("setup.companionDown")}</div><div class="btns"><div class="btn sm" data-act="open-app">${t("conn.openApp")}</div><div class="btn2 sm" data-act="reconnect">${t("conn.retry")}</div></div>`
         : "";
   if (i === 1) {
     if (st !== "warn") return "";
@@ -2416,17 +2510,17 @@ function setupBody(i: number, st: StepState): string {
   if (i === 2) {
     const d = onboard.download;
     if (st === "warn")
-      return `<div class="small warn-text">${esc(d.error ?? "")}</div><div class="pbtns"><div class="pbtn primary" data-act="setup-download">${t("setup.tryAgain")}</div></div>`;
+      return `<div class="small err-text">${esc(d.error ?? "")}</div><div class="btns"><div class="btn sm" data-act="setup-download">${t("setup.tryAgain")}</div></div>`;
     if (st !== "now") return "";
     return `<div class="small">${t("setup.speechNote")}</div>${
       d.running
         ? `<div class="bar"><div style="width:${d.pct}%"></div></div><div class="small muted">%${d.pct} · ${esc(state.system?.speechModel?.name ?? "")}</div>`
-        : `<div class="pbtns"><div class="pbtn primary" data-act="setup-download">${t("setup.download")}</div></div>`
+        : `<div class="btns"><div class="btn sm" data-act="setup-download">${t("setup.download")}</div></div>`
     }`;
   }
   if (i === 3)
     return st === "now"
-      ? `${providerList(true)}${modelList()}<div class="pbtns"><div class="pbtn primary" data-act="setup-pass" data-val="3">${t("setup.continue")}</div></div>`
+      ? `${providerList(true)}${modelList()}<div class="btns"><div class="btn sm" data-act="setup-pass" data-val="3">${t("setup.continue")}</div></div>`
       : "";
   if (i === 4)
     return st === "now"
@@ -2434,11 +2528,11 @@ function setupBody(i: number, st: StepState): string {
           "gemini",
           setup.list.find((p) => p.id === "gemini"),
           false,
-        )}<div class="pbtns"><div class="pbtn" data-act="setup-pass" data-val="4">${t("setup.skip")}</div></div>`
+        )}<div class="btns"><div class="btn2 sm" data-act="setup-pass" data-val="4">${t("setup.skip")}</div></div>`
       : "";
   if (i === 5)
     return st === "now"
-      ? `<div class="small">${t("setup.firstTryNote")}</div><div class="pbtns"><div class="pbtn primary" data-act="setup-story">${t("setup.tryStory")}</div><div class="pbtn" data-act="setup-range">${t("setup.tryRange")}</div></div>`
+      ? `<div class="small">${t("setup.firstTryNote")}</div><div class="btns"><div class="btn sm" data-act="setup-story">${t("setup.tryStory")}</div><div class="btn2 sm" data-act="setup-range">${t("setup.tryRange")}</div></div>`
       : "";
   return "";
 }
@@ -2507,33 +2601,64 @@ function finishSetup() {
   state.screen = "home";
 }
 
+type SettingsTab = "ai" | "voice" | "general" | "about";
+const SETTINGS_TABS: SettingsTab[] = ["ai", "voice", "general", "about"];
+
+/** The settings in four parts under one row of tabs; Close stays under each. */
 function settings(): string {
-  const s = state.settings;
-  const gpu = state.system?.gpu;
-  const okWarn = (ok: boolean) => (ok ? "ok-text" : "warn-text");
+  const tab = state.settingsTab;
+  const body =
+    tab === "voice"
+      ? settingsVoice()
+      : tab === "general"
+        ? settingsGeneral()
+        : tab === "about"
+          ? settingsAbout()
+          : settingsAi();
   return `${header(t("settings.title"), `<div class="icon" data-act="home" title="${t("settings.close")}">×</div>`)}
-  <div class="lbl">${t("settings.language")}</div>
+  ${seg(
+    "settings-tab",
+    tab,
+    SETTINGS_TABS.map((k) => [k, t(`settings.tab.${k}`)] as [SettingsTab, string]),
+    "tabs",
+  )}
+  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box error">${esc(setup.error)}</div>` : ""}
+  ${body}
+  <div class="btn mt" data-act="home">${t("settings.close")}</div>`;
+}
+
+/** The provider, its key or sign-in, and the model. */
+function settingsAi(): string {
+  return `<div class="lbl">${t("settings.provider")}</div>
+  ${providerPicker()}
+  ${modelList()}`;
+}
+
+/** The narration and music keys, and how loud the music sits under speech. */
+function settingsVoice(): string {
+  return `${speechKeys()}
+  <div class="lbl">${t("settings.musicLevel")}</div>
+  ${seg(
+    "music-level",
+    String(state.settings.musicLevel ?? -21),
+    ["-27", "-24", "-21", "-18", "-15"].map((v) => [v, `${v} dB`] as [string, string]),
+  )}`;
+}
+
+/** The panel's language, the frame review before rendering and, where the editor has one, the window. */
+function settingsGeneral(): string {
+  const s = state.settings;
+  return `<div class="lbl">${t("settings.language")}</div>
   ${seg("lang", s.lang, [
     ["auto", t("settings.langAuto")],
     ["en", "English"],
     ["tr", "Türkçe"],
   ])}
-  <div class="lbl">${t("settings.ai")}</div>
-  ${state.conn === "down" || state.opening ? downBox() : setup.error ? `<div class="box warn">${esc(setup.error)}</div>` : ""}
-  ${providerList()}
-  ${modelList()}
   <div class="lbl">${t("settings.review")}</div>
   ${seg("review", s.review, [
     ["on", t("settings.reviewOn")],
     ["off", t("settings.reviewOff")],
   ])}
-  ${speechKeys()}
-  <div class="lbl">${t("settings.musicLevel")}</div>
-  ${seg(
-    "music-level",
-    String(s.musicLevel ?? -21),
-    ["-27", "-24", "-21", "-18", "-15"].map((v) => [v, `${v} dB`] as [string, string]),
-  )}
   ${
     host().onTop
       ? `<div class="lbl">${t("settings.window")}</div>
@@ -2542,16 +2667,21 @@ function settings(): string {
     ["off", t("settings.onTopOff")],
   ])}`
       : ""
-  }
-  <div class="lbl">${t("settings.system")}</div>
+  }`;
+}
+
+/** The computer check, the setup guide, the versions and the feedback page. */
+function settingsAbout(): string {
+  const gpu = state.system?.gpu;
+  const okWarn = (ok: boolean) => (ok ? "ok-text" : "warn-text");
+  return `<div class="lbl">${t("settings.system")}</div>
   <div class="box small">
     <div class="row"><span>${t("settings.companion")}</span><span class="${okWarn(state.conn === "ok")}">${state.conn === "ok" ? t("settings.running") : t("settings.notConnected")}</span></div>
     <div class="row"><span>${t("settings.gpu")}</span><span class="${okWarn(gpu?.mode === "hardware")}">${gpu?.mode === "hardware" ? t("settings.hardware") : esc(gpu?.mode ?? t("settings.unknown"))}</span></div>
     ${host().kind === "premiere" ? `<div class="row"><span>${t("settings.wav")}</span><span class="${okWarn(!!state.system?.wavPreset)}">${state.system?.wavPreset ? t("settings.found") : t("settings.notFound")}</span></div>` : ""}
   </div>
   <div class="link mt" data-act="setup-open">${t("setup.reopenLink")}</div>
-  ${versionLine()}
-  <div class="btn mt" data-act="home">${t("settings.close")}</div>`;
+  ${versionLine()}`;
 }
 
 /**
@@ -2817,6 +2947,7 @@ function render() {
               : home();
   const bar = !state.lightbox && state.screen === "home" && state.tab === "range" ? rangeBar() : "";
   root.innerHTML = `<div class="scroll" id="scroll">${content}</div>${bar}`;
+  if (!state.lightbox && state.screen === "home" && state.tab !== "range") soloBar();
   fitScroll();
   fillImageSlots();
   // UXP shows a textarea's inner text but reports value as null until it is set, so the next render read
@@ -2847,6 +2978,16 @@ function render() {
   voiceFixWriteFields(state.voiceFix);
   const keyAgain = document.getElementById("key-input") as HTMLInputElement | null;
   if (keyAgain) keyAgain.value = setup.keyDraft;
+  // the address and model boxes are textareas too: until set, UXP reports them empty and the next read
+  // would save the provider's address as blank
+  for (const [fieldId, saved] of [
+    ["base-input", state.settings.baseURLs],
+    ["model-input", state.settings.models],
+  ] as const) {
+    const el = document.getElementById(fieldId) as HTMLTextAreaElement | null;
+    const id = el?.getAttribute("data-provider");
+    if (el && id) el.value = saved[id] ?? "";
+  }
   if (state.own) {
     const desc = document.getElementById("own-desc") as HTMLTextAreaElement | null;
     if (desc) desc.value = state.own.description;
@@ -4120,6 +4261,18 @@ root.addEventListener("pointerup", (event) => {
   const same = el !== null && (pressedSeen ? el === pressed : true);
   pressed = null;
   pressedSeen = false;
+  if (same && el.hasAttribute("data-wheel")) {
+    // the colour wheel: the point clicked is the colour
+    const box = el.getBoundingClientRect();
+    const e = event as PointerEvent;
+    const radius = box.width / 2;
+    const colour = wheelColour(
+      e.clientX - box.left - radius,
+      e.clientY - box.top - box.height / 2,
+      radius,
+    );
+    el.setAttribute("data-val", `${el.getAttribute("data-wheel")}:${colour}`);
+  }
   if (same) runAction(el);
 });
 
@@ -4138,8 +4291,16 @@ root.addEventListener("focusin", (event) => {
 root.addEventListener("focusout", (event) => {
   if (event.target === focusedField) focusedField = null;
 });
-root.addEventListener("keydown", () => {
+root.addEventListener("keydown", (event) => {
   lastTyped = Date.now();
+  // a one-line text box is a textarea (UXP draws its own frame on a one-line input): Enter adds no line
+  const el = event.target as HTMLElement | null;
+  if (
+    (event as KeyboardEvent).key === "Enter" &&
+    el?.tagName === "TEXTAREA" &&
+    el.classList.contains("one")
+  )
+    event.preventDefault();
 });
 // the Captions tab previews the selected look in the colours being typed, once the typing pauses
 root.addEventListener("input", (event) => {
@@ -4660,6 +4821,8 @@ function runAction(el: HTMLElement) {
   } else if (act === "ontop") {
     host().onTop?.set(val === "on");
   } else if (act === "provider") {
+    // picked from the settings' list: it closes, and the chosen one shows with its key or sign-in
+    setup.picking = false;
     readProviderFields();
     state.settings = { ...state.settings, provider: val };
     store("settings", JSON.stringify(state.settings));
@@ -4716,8 +4879,17 @@ function runAction(el: HTMLElement) {
   } else if (act === "setup-range") {
     finishSetup();
     state.tab = "range";
+  } else if (act === "provider-change") {
+    setup.picking = !setup.picking;
+    setup.allApi = false;
+  } else if (act === "provider-all") {
+    setup.allApi = true;
+  } else if (act === "settings-tab") {
+    if ((SETTINGS_TABS as string[]).includes(val)) state.settingsTab = val as SettingsTab;
   } else if (act === "settings") {
     state.screen = "settings";
+    // a box that sends the editor to one part of the settings names it (a missing narration key: voice)
+    if ((SETTINGS_TABS as string[]).includes(val)) state.settingsTab = val as SettingsTab;
     void refreshProviders();
     if (listsServedModels(state.settings.provider)) void loadServed(state.settings.provider);
   } else if (act === "home") state.screen = "home";
@@ -4868,7 +5040,7 @@ function agentInstallHelp(id: AgentId): string {
   const copy = setup.copied === id ? t("prov.copied") : t("prov.copy");
   return `<div class="note">${t(`prov.cliOnly.${id}`)}</div>
   <div class="note muted">${t("prov.installPaste", { terminal: win ? "PowerShell" : "Terminal" })}</div>
-  <div class="cmd-row"><input class="img-note cmd" type="text" value="${esc(installCommand(id))}"><div class="pbtn" data-act="copy-install" data-val="${id}">${copy}</div></div>
+  <div class="cmd-row"><input class="field cmd" type="text" value="${esc(installCommand(id))}"><div class="btn2 sm" data-act="copy-install" data-val="${id}">${copy}</div></div>
   <div class="note muted">${t("prov.installThen", { command: signIn[id] })}</div>`;
 }
 

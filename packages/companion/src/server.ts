@@ -525,6 +525,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               type: "keys.has",
               provider: msg.provider,
               present: (await o.keys.get(msg.provider)) !== undefined,
+              ...(msg.ref ? { ref: msg.ref } : {}),
             });
             break;
           case "keys.delete":
