@@ -873,6 +873,8 @@ function chosenStyle(s: StyleCard): string {
 
 /** The bar's height; set here because UXP shrinks it to one line when the scroll area asks for more. */
 const BAR_HEIGHT = 74;
+/** A bar with only a tab's main button. */
+const SOLO_BAR_HEIGHT = 52;
 
 /**
  * The scroll area takes what the bar leaves. UXP lays every box out as a flex item: a scroll area of 100%
@@ -882,8 +884,28 @@ function fitScroll() {
   const scroller = document.getElementById("scroll");
   const bar = root.querySelector(".actionbar") as HTMLElement | null;
   if (!scroller) return;
-  scroller.style.height = bar ? `${Math.max(120, root.clientHeight - BAR_HEIGHT)}px` : "100%";
-  if (bar) bar.style.height = `${BAR_HEIGHT}px`;
+  const h = bar?.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT;
+  scroller.style.height = bar ? `${Math.max(120, root.clientHeight - h)}px` : "100%";
+  if (bar) bar.style.height = `${h}px`;
+}
+
+/**
+ * The other home tabs keep their main button in view too: the last full-width main button of the tab
+ * (Find Pauses, Write the Story, Make the Music...) moves from the end of the scroll area into a bar
+ * under it, as the range tab's Create does. Buttons inside a box or a row stay where they are.
+ */
+function soloBar() {
+  const scroller = document.getElementById("scroll");
+  if (!scroller) return;
+  const mains = Array.from(scroller.children).filter(
+    (el) => el.classList.contains("btn") && !el.classList.contains("sm"),
+  );
+  const main = mains[mains.length - 1];
+  if (!main) return;
+  const bar = document.createElement("div");
+  bar.className = "actionbar solo";
+  bar.appendChild(main);
+  root.appendChild(bar);
 }
 
 /** The range tab's bar: what runs and how long, and the main button, always in view. */
@@ -2914,6 +2936,7 @@ function render() {
               : home();
   const bar = !state.lightbox && state.screen === "home" && state.tab === "range" ? rangeBar() : "";
   root.innerHTML = `<div class="scroll" id="scroll">${content}</div>${bar}`;
+  if (!state.lightbox && state.screen === "home" && state.tab !== "range") soloBar();
   fitScroll();
   fillImageSlots();
   // UXP shows a textarea's inner text but reports value as null until it is set, so the next render read

@@ -41,6 +41,10 @@
         height: 16px;
         flex-shrink: 0;
       }
+      /* a bar with only the tab's main button */
+      .actionbar.solo .btn {
+        margin-top: 0;
+      }
       .actionbar .btn {
         margin-top: 6px;
         height: 32px;
@@ -498,12 +502,25 @@
          wrapped (six equal parts would cut "Remove Pauses" in two), a little smaller than other options */
       .seg.tabs {
         flex-wrap: nowrap;
+        /* where you are, drawn apart from the choices under it: a line under the row, the open tab
+           underlined in the accent */
+        border: none;
+        border-radius: 0;
+        border-bottom: 1px solid #303030;
       }
       .seg.tabs .opt {
         flex: 1 1 auto;
-        padding: 6px 4px;
+        padding: 6px 4px 7px;
         font-size: 10px;
         white-space: nowrap;
+        color: #8f8f8f;
+        border-bottom: 2px solid transparent;
+      }
+      .seg.tabs .opt.on {
+        background: transparent;
+        color: #fff;
+        font-weight: 700;
+        border-bottom-color: #5b8cff;
       }
       /* Remove Pauses: the slider and the bar of kept speech and cut pauses */
       .pause-slider {
