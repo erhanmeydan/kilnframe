@@ -907,7 +907,8 @@
         flex: 1;
         display: flex;
         flex-direction: row;
-        align-items: center;
+        /* the chip sits beside its field, under the label line */
+        align-items: flex-end;
       }
       .swatch + .swatch {
         margin-left: 10px;
@@ -918,6 +919,7 @@
         border-radius: 4px;
         border: 1px solid #4a4a4a;
         margin-right: 6px;
+        margin-bottom: 2px;
         flex-shrink: 0;
       }
       .chip {
@@ -928,11 +930,22 @@
       }
       /* the colour picker under the swatches: quiet colours, then the picked one from dark to light */
       .picker {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
         margin-top: 8px;
         padding: 8px;
         background: #2b2b2b;
         border: 1px solid #3a3a3a;
         border-radius: 6px;
+      }
+      .wheel {
+        flex-shrink: 0;
+        margin-right: 10px;
+        cursor: crosshair;
+      }
+      .pk-side {
+        flex: 1;
       }
       .pk-row {
         display: flex;

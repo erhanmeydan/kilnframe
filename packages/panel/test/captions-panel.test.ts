@@ -12,6 +12,7 @@ import {
   pickedColour,
   shadesOf,
   typedColors,
+  wheelColour,
   utf8Length,
   type CaptionsCtx,
   type CaptionsState,
@@ -1489,5 +1490,23 @@ describe("caption colour picker", () => {
     expect(shadesOf("rgba(0,0,0,0.5)")).toEqual([]);
     expect(pickedColour("#1c2537cc", "#ffffff")).toBe("#ffffffcc");
     expect(pickedColour("#1c2537", "#ffffff")).toBe("#ffffff");
+  });
+});
+
+describe("caption colour wheel", () => {
+  it("is white in the middle and the hue round the edge, as the wheel image is drawn", () => {
+    expect(wheelColour(0, 0, 52)).toBe("#e6e6e6");
+    expect(wheelColour(52, 0, 52)).toBe("#e60000");
+    // past the edge: the edge's colour
+    expect(wheelColour(80, 0, 52)).toBe("#e60000");
+    // a third of the way round, turning down: green
+    expect(wheelColour(-26, 45.03, 52)).toBe("#00e600");
+  });
+
+  it("is drawn in the open picker, answering with its swatch", () => {
+    const f = fakeCtx();
+    const st = newCaptions();
+    captionsAct(st, f.ctx, "captions-pick", "text");
+    expect(captionsBox(st, f.ctx)).toMatch(/class="wheel"[^>]*data-wheel="text"/);
   });
 });

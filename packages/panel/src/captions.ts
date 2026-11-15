@@ -327,6 +327,9 @@ type ColorKey = (typeof COLOR_KEYS)[number];
  * The picker's colours: quiet tones that sit beside flat, low-contrast footage, the neutrals first. Below
  * them the picked colour runs from dark to light.
  */
+/** The wheel's width and height in the panel. */
+export const WHEEL_SIZE = 104;
+
 export const PICKER_COLOURS = [
   "#ffffff",
   "#efe8dd",
@@ -381,6 +384,30 @@ function hexOf(h: number, s: number, l: number): string {
   return `#${[r, g, b]
     .map((v) =>
       Math.round((v + m) * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+/** The wheel's brightness: scripts/colour-wheel.mjs draws the wheel at the same value. */
+const WHEEL_VALUE = 0.9;
+
+/**
+ * The colour under a point of the wheel, `dx`/`dy` from its middle in a wheel of `radius`: hue round the
+ * circle (0° to the right, turning down), saturation from the white middle out, as scripts/colour-wheel.mjs
+ * draws it. A point past the edge takes the edge's colour.
+ */
+export function wheelColour(dx: number, dy: number, radius: number): string {
+  const h = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+  const sat = Math.min(Math.hypot(dx, dy) / radius, 1);
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6;
+    return WHEEL_VALUE - WHEEL_VALUE * sat * Math.max(0, Math.min(k, 4 - k, 1));
+  };
+  return `#${[f(5), f(3), f(1)]
+    .map((c) =>
+      Math.round(c * 255)
         .toString(16)
         .padStart(2, "0"),
     )
@@ -566,7 +593,8 @@ function picker(
   if (!key || !keys.includes(key)) return "";
   const current = colors[key] ?? "";
   const shades = shadesOf(current);
-  return `<div class="picker">${pickerRow(key, PICKER_COLOURS.slice(0, 8), current, ctx.esc)}${pickerRow(key, PICKER_COLOURS.slice(8), current, ctx.esc)}${shades.length ? `<div class="pk-label">${t("captions.pickerShades")}</div>${pickerRow(key, shades, current, ctx.esc)}` : ""}<div class="btn2 sm mt" data-act="captions-pick" data-val="${key}">${t("captions.pickerDone")}</div></div>`;
+  // the wheel answers with the point clicked: the panel turns it into a colour (wheelColour)
+  return `<div class="picker"><img class="wheel" src="icons/colour-wheel.png" width="${WHEEL_SIZE}" height="${WHEEL_SIZE}" alt="" data-act="captions-color-set" data-wheel="${key}"><div class="pk-side">${pickerRow(key, PICKER_COLOURS.slice(0, 8), current, ctx.esc)}${pickerRow(key, PICKER_COLOURS.slice(8), current, ctx.esc)}${shades.length ? `<div class="pk-label">${t("captions.pickerShades")}</div>${pickerRow(key, shades, current, ctx.esc)}` : ""}<div class="btn2 sm mt" data-act="captions-pick" data-val="${key}">${t("captions.pickerDone")}</div></div></div>`;
 }
 
 /** What the captions are for: the editor's pick, else the In/Out when there is one. */

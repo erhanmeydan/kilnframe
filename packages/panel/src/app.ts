@@ -29,6 +29,7 @@ import {
   captionsWriteFields,
   readColorFields,
   newCaptions,
+  wheelColour,
   type CaptionsCtx,
 } from "./captions";
 import {
@@ -4250,6 +4251,18 @@ root.addEventListener("pointerup", (event) => {
   const same = el !== null && (pressedSeen ? el === pressed : true);
   pressed = null;
   pressedSeen = false;
+  if (same && el.hasAttribute("data-wheel")) {
+    // the colour wheel: the point clicked is the colour
+    const box = el.getBoundingClientRect();
+    const e = event as PointerEvent;
+    const radius = box.width / 2;
+    const colour = wheelColour(
+      e.clientX - box.left - radius,
+      e.clientY - box.top - box.height / 2,
+      radius,
+    );
+    el.setAttribute("data-val", `${el.getAttribute("data-wheel")}:${colour}`);
+  }
   if (same) runAction(el);
 });
 
