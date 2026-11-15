@@ -455,6 +455,20 @@ describe("remove pauses panel", () => {
     expect(good.renders()).toBe(0);
   });
 
+  it("draws the screen again when the apply button first arrives, so it goes to the bar", async () => {
+    const slots: Record<string, { innerHTML: string; parentElement?: { id: string } }> = {
+      "pauses-live": { innerHTML: "" },
+      "pauses-apply-slot": { innerHTML: "", parentElement: { id: "scroll" } },
+      "pauses-errors": { innerHTML: "" },
+    };
+    vi.stubGlobal("document", { getElementById: (id: string) => slots[id] ?? null });
+    const f = fakeCtx();
+    const st = atPreview();
+    pausesAct(st, f.ctx, "pauses-strict", "0.5");
+    await new Promise((r) => setTimeout(r, 120));
+    expect(f.renders()).toBe(1);
+  });
+
   it("says an older app needs updating", async () => {
     const f = fakeCtx({ cutError: "Invalid message: Invalid input" });
     const st = atPreview();

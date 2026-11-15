@@ -313,7 +313,7 @@ function previewScreen(st: PausesState, ctx: PausesCtx): string {
   ${st.notIsolated ? `<div class="box warn">${t("pauses.notIsolated")}</div>` : ""}
   ${unheardNote(st)}
   ${ctx.hostKind() === "resolve" ? `<div class="note muted">${t("pauses.rebuildNote")}</div>` : ""}
-  <div id="pauses-apply-slot">${applyButton(st, ctx)}</div>
+  <div id="pauses-apply-slot" class="btn-slot">${applyButton(st, ctx)}</div>
   <div class="link mt" data-act="pauses-again">${t("pauses.again")}</div>`;
 }
 
@@ -358,7 +358,12 @@ function renderLive(st: PausesState, ctx: PausesCtx): void {
   // an error (a lost connection) shows, and clears on the next good answer, without ending the drag
   errorSlot.innerHTML = errorBoxes(st, ctx);
   live.innerHTML = liveHtml(st);
-  slot.innerHTML = applyButton(st, ctx);
+  const button = applyButton(st, ctx);
+  // the button arrives after the screen was drawn: a full render puts it in the bar at the panel's foot
+  // (while the slider is held, the panel keeps that render for the release)
+  const inScroll = slot.parentElement?.id === "scroll";
+  if (button && !slot.innerHTML.trim() && inScroll) return ctx.render();
+  slot.innerHTML = button;
 }
 
 // ---------- actions ----------

@@ -898,8 +898,11 @@ function fitScroll() {
 function soloBar() {
   const scroller = document.getElementById("scroll");
   if (!scroller) return;
+  // a main button, or a slot holding one that is redrawn in place (Remove Pauses' apply, beside its slider)
   const mains = Array.from(scroller.children).filter(
-    (el) => el.classList.contains("btn") && !el.classList.contains("sm"),
+    (el) =>
+      (el.classList.contains("btn") && !el.classList.contains("sm")) ||
+      (el.classList.contains("btn-slot") && el.querySelector(".btn") !== null),
   );
   const main = mains[mains.length - 1];
   if (!main) return;
