@@ -590,6 +590,31 @@ describe("companion server", () => {
     expect(await c.next((m) => m.type === "keys.has")).toMatchObject({ present: false });
   });
 
+  it("answers a key check with the request's ref, so two checks in flight never swap", async () => {
+    const keys = new MemoryKeyStore();
+    await keys.set("elevenlabs", "el-key");
+    companion = await startCompanion({
+      token: TOKEN,
+      keys,
+      runner: async () => null,
+      version: "test",
+      port: 0,
+    });
+    const c = await connect(companion.port);
+    c.send({ type: "hello", token: TOKEN });
+    await c.next((m) => m.type === "ready");
+    c.send({ type: "keys.has", provider: "custom", ref: "a" });
+    c.send({ type: "keys.has", provider: "elevenlabs", ref: "b" });
+    expect(await c.next((m) => m.type === "keys.has" && m.ref === "b")).toMatchObject({
+      provider: "elevenlabs",
+      present: true,
+    });
+    expect(await c.next((m) => m.type === "keys.has" && m.ref === "a")).toMatchObject({
+      provider: "custom",
+      present: false,
+    });
+  });
+
   it("listens on loopback only", async () => {
     companion = await startCompanion({
       token: TOKEN,

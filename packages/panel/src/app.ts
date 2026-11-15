@@ -1971,16 +1971,18 @@ async function refreshProviders() {
     )
       void loadServed("antigravity");
     setup.updates = (r.updates ?? {}) as typeof setup.updates;
+    // an older app answers a key check without its ref: when two settings refreshes overlap, a reply can be
+    // the other check's, so one that names another provider is left alone
     const custom = await session.request<ServerMessage>(
       { type: "keys.has", provider: "custom" },
       "keys.has",
     );
-    customKey = Boolean(custom.present);
+    if (custom.provider === "custom") customKey = Boolean(custom.present);
     const eleven = await session.request<ServerMessage>(
       { type: "keys.has", provider: "elevenlabs" },
       "keys.has",
     );
-    elevenKey = Boolean(eleven.present);
+    if (eleven.provider === "elevenlabs") elevenKey = Boolean(eleven.present);
   } catch (err) {
     // not connected: the settings show the app's own box instead (its text follows the panel language)
     if (state.conn === "ok") setup.error = err instanceof Error ? err.message : String(err);
