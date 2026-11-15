@@ -561,7 +561,16 @@
         border-radius: 6px;
         /* UXP's native field pads itself; our padding showed as a thick black ring around the text */
         padding: 0;
+        /* UXP gives native fields a margin of their own: the label above sat far from its box */
+        margin: 0;
         font-size: 12px;
+      }
+      /* a one-line input keeps the 11 px text and 4 px corners it had: at 12 px UXP showed a black strip
+         under the text */
+      input.field {
+        font-size: 11px;
+        border-radius: 4px;
+        height: 24px;
       }
       /* UXP ignores rows, so heights are set here */
       textarea {
