@@ -555,7 +555,9 @@
       .field {
         width: 100%;
         box-sizing: border-box;
-        background: #2b2b2b;
+        /* UXP fills a native field's padding with this near black and paints the page colour only under the
+           text: a field of the same colour shows no ring, so the text can sit away from the frame */
+        background: #0e0e0e;
         color: #e6e6e6;
         border: 1px solid #3a3a3a;
         border-radius: 6px;
@@ -570,7 +572,26 @@
       input.field {
         font-size: 11px;
         border-radius: 4px;
-        height: 24px;
+        height: 28px;
+      }
+      /* UXP drops a one-line input's side padding and indent, so the frame is a box around it that holds
+         the room; the input inside has no frame of its own */
+      .fieldbox {
+        background: #0e0e0e;
+        border: 1px solid #3a3a3a;
+        border-radius: 4px;
+        padding: 0 6px;
+        margin-top: 4px;
+      }
+      .fieldbox .field {
+        /* with no border UXP draws its own faint frame; one in the box's colour hides it */
+        border: 1px solid #0e0e0e;
+        border-radius: 0;
+        margin: 0;
+        height: 26px;
+      }
+      textarea {
+        padding: 4px 2px;
       }
       /* UXP ignores rows, so heights are set here */
       textarea {

@@ -5,6 +5,7 @@
 /** Every grey and blue of the Premiere page, as Resolve's counterpart (page colour: Resolve colour). */
 export const RESOLVE_COLOURS = {
   // surfaces, darkest first: the panel, its bars, fields, raised and hovered controls
+  "#0e0e0e": "#18171c",
   "#232323": "#28282e",
   "#262626": "#1f1f23",
   "#2b2b2b": "#212026",
