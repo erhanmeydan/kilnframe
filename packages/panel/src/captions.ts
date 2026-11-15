@@ -349,9 +349,26 @@ export const PICKER_COLOURS = [
   "#b5523b",
 ];
 
-/** `#rgb`/`#rrggbb` (an alpha pair after it is kept apart) as hue, saturation and lightness, or null. */
+/** `rgb(…)`/`rgba(…)` as `#rrggbb` and its alpha (0 to 1, 1 when none is given), or null. */
+function rgbaParts(colour: string): { hex: string; alpha: number } | null {
+  const m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(
+    colour.trim(),
+  );
+  if (!m) return null;
+  const hex = `#${[m[1], m[2], m[3]]
+    .map((v) =>
+      Math.min(255, Math.round(Number(v)))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+  const a = m[4] === undefined ? 1 : m[4].endsWith("%") ? parseFloat(m[4]) / 100 : Number(m[4]);
+  return { hex, alpha: Math.max(0, Math.min(1, a)) };
+}
+
+/** `#rgb`/`#rrggbb`/`rgb(a)(…)` (any alpha left out) as hue, saturation and lightness, or null. */
 function hslOf(colour: string): { h: number; s: number; l: number } | null {
-  let hex = colour.trim().replace(/^#/, "");
+  let hex = (rgbaParts(colour)?.hex ?? colour).trim().replace(/^#/, "");
   if (/^[0-9a-f]{3}$/i.test(hex)) hex = [...hex].map((c) => c + c).join("");
   if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(hex)) return null;
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -423,7 +440,14 @@ export function shadesOf(colour: string): string[] {
 
 /** A picked colour, keeping the alpha pair the field's colour had (a see-through box stays see-through). */
 export function pickedColour(current: string, picked: string): string {
-  const alpha = /^#[0-9a-f]{6}([0-9a-f]{2})$/i.exec(current.trim())?.[1];
+  const rgba = rgbaParts(current);
+  const alpha =
+    /^#[0-9a-f]{6}([0-9a-f]{2})$/i.exec(current.trim())?.[1] ??
+    (rgba && rgba.alpha < 1
+      ? Math.round(rgba.alpha * 255)
+          .toString(16)
+          .padStart(2, "0")
+      : undefined);
   return alpha ? `${picked}${alpha}` : picked;
 }
 

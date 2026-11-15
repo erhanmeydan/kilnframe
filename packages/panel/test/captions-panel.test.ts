@@ -1487,7 +1487,11 @@ describe("caption colour picker", () => {
     expect(shades).toHaveLength(7);
     expect(shades[0]).toMatch(/^#[0-9a-f]{6}$/);
     expect(shades[0] < shades[6]).toBe(true);
-    expect(shadesOf("rgba(0,0,0,0.5)")).toEqual([]);
+    expect(shadesOf("rgba(10,12,16,0.62)")).toHaveLength(7);
+    expect(shadesOf("not a colour")).toEqual([]);
+    // Band's see-through box stays see-through
+    expect(pickedColour("rgba(10,12,16,0.62)", "#ffffff")).toBe("#ffffff9e");
+    expect(pickedColour("rgb(10,12,16)", "#ffffff")).toBe("#ffffff");
     expect(pickedColour("#1c2537cc", "#ffffff")).toBe("#ffffffcc");
     expect(pickedColour("#1c2537", "#ffffff")).toBe("#ffffff");
   });
