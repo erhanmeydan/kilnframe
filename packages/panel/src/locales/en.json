@@ -745,5 +745,11 @@
   "pauses.failed": "The pauses could not be removed: {message}",
   "pauses.unsupported": "Remove Pauses is not available in this editor yet.",
   "pauses.needsNewer": "Remove Pauses needs a newer {editor}.",
-  "premiere.undoPauses": "Kilnframe: Remove Pauses"
+  "premiere.undoPauses": "Kilnframe: Remove Pauses",
+  "prov.changeProvider": "Change Provider",
+  "prov.keep": "Keep Current",
+  "prov.groupPlan": "Your Plan",
+  "prov.groupKey": "API Key",
+  "prov.groupLocal": "On This Computer",
+  "prov.allKeys": "All API Providers ({n} more)"
 }

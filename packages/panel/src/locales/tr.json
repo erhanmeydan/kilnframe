@@ -745,5 +745,11 @@
   "pauses.failed": "Boşluklar kaldırılamadı: {message}",
   "pauses.unsupported": "Boşluk Kaldır bu editörde henüz kullanılamıyor.",
   "pauses.needsNewer": "Boşluk Kaldır için daha yeni bir {editor} gerekiyor.",
-  "premiere.undoPauses": "Kilnframe: Boşluk Kaldır"
+  "premiere.undoPauses": "Kilnframe: Boşluk Kaldır",
+  "prov.changeProvider": "Sağlayıcı Değiştir",
+  "prov.keep": "Mevcut Kalsın",
+  "prov.groupPlan": "Planın",
+  "prov.groupKey": "API Anahtarı",
+  "prov.groupLocal": "Bu Bilgisayarda",
+  "prov.allKeys": "Tüm API Sağlayıcıları ({n} tane daha)"
 }

@@ -1913,6 +1913,10 @@ interface ProviderTest {
 /** The settings screen's provider state, loaded from the companion when the screen opens. */
 const setup = {
   list: [] as ProviderEntry[],
+  /** Settings: the provider list is open to pick another (otherwise only the chosen one shows). */
+  picking: false,
+  /** Settings: every API provider is listed, not only the suggested ones and those with a key. */
+  allApi: false,
   claudeCode: null as null | {
     installed: boolean;
     loggedIn: boolean;
@@ -2193,6 +2197,52 @@ function providerDetail(id: string): string {
     body = `${keyBlock(id, entry, true)}${address}${model}<div class="note muted">${t("prov.keyStored")}${id === "gemini" ? ` ${t("prov.geminiShared")}` : ""}</div>${id === "zai" ? `<div class="note muted">${t("prov.zaiPlan")}</div>` : ""}`;
   }
   return `<div class="pdetail">${body}${testLine(id)}</div>`;
+}
+
+/** A provider's row: its name, its tag and whether it is signed in or has a key. */
+function providerRow(id: string, act = "provider"): string {
+  const entry = setup.list.find((p) => p.id === id);
+  const on = state.settings.provider === id;
+  // Claude and GPT 6 Astra did best in the comparison; the rest carry no tag
+  const tier =
+    id === "auto" || id === "claude-code" || id === "codex"
+      ? "recommended"
+      : id === "antigravity"
+        ? "experimental"
+        : id === "grok" || id === "custom"
+          ? null
+          : (entry?.tier ?? null);
+  return `<div class="prow${on ? " on" : ""}" data-act="${act}" data-val="${esc(id)}"><span class="pdot"></span><span class="pname">${esc(providerName(id))}</span>${tierTag(tier)}${keyStatus(entry, id)}</div>`;
+}
+
+const PLAN_PROVIDERS = ["claude-code", "codex", "antigravity", "grok"];
+
+/**
+ * The settings' provider: the chosen one on top with its sign-in or key and Change Provider under it. The
+ * list it opens is grouped by how one pays: a plan one is signed in to, an API key, or this computer.
+ * The API group shows the suggested providers and those with a key; the rest wait behind All.
+ */
+function providerPicker(): string {
+  const chosen = state.settings.provider;
+  if (!setup.picking)
+    return `<div class="plist">${providerRow(chosen, "provider-change")}${providerDetail(chosen)}</div>
+  <div class="btns"><div class="btn2 sm" data-act="provider-change">${t("prov.changeProvider")}</div></div>`;
+  const api = setup.list.filter((p) => !LOCAL_PROVIDERS.has(p.id)).map((p) => p.id);
+  const shown = (id: string) => {
+    const entry = setup.list.find((p) => p.id === id);
+    return setup.allApi || entry?.tier === "recommended" || entry?.keySet || id === chosen;
+  };
+  const hidden = api.filter((id) => !shown(id)).length;
+  const group = (label: string, ids: string[]) =>
+    ids.length
+      ? `<div class="pgroup">${label}</div><div class="plist">${ids.map((id) => providerRow(id)).join("")}</div>`
+      : "";
+  return `<div class="plist">${providerRow("auto")}</div>
+  ${group(t("prov.groupPlan"), PLAN_PROVIDERS)}
+  ${group(t("prov.groupKey"), api.filter(shown))}
+  ${hidden ? `<div class="link" data-act="provider-all">${t("prov.allKeys", { n: hidden })}</div>` : ""}
+  ${group(t("prov.groupLocal"), [...setup.list.filter((p) => LOCAL_PROVIDERS.has(p.id)).map((p) => p.id), "custom"])}
+  <div class="btns"><div class="btn2 sm" data-act="provider-change">${t("prov.keep")}</div></div>`;
 }
 
 function providerList(compact = false): string {
@@ -2547,7 +2597,7 @@ function settings(): string {
 /** The provider, its key or sign-in, and the model. */
 function settingsAi(): string {
   return `<div class="lbl">${t("settings.provider")}</div>
-  ${providerList()}
+  ${providerPicker()}
   ${modelList()}`;
 }
 
@@ -4707,6 +4757,8 @@ function runAction(el: HTMLElement) {
   } else if (act === "ontop") {
     host().onTop?.set(val === "on");
   } else if (act === "provider") {
+    // picked from the settings' list: it closes, and the chosen one shows with its key or sign-in
+    setup.picking = false;
     readProviderFields();
     state.settings = { ...state.settings, provider: val };
     store("settings", JSON.stringify(state.settings));
@@ -4763,6 +4815,11 @@ function runAction(el: HTMLElement) {
   } else if (act === "setup-range") {
     finishSetup();
     state.tab = "range";
+  } else if (act === "provider-change") {
+    setup.picking = !setup.picking;
+    setup.allApi = false;
+  } else if (act === "provider-all") {
+    setup.allApi = true;
   } else if (act === "settings-tab") {
     if ((SETTINGS_TABS as string[]).includes(val)) state.settingsTab = val as SettingsTab;
   } else if (act === "settings") {
