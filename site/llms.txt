@@ -16,7 +16,7 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 - Music tab: music for every topic of a video (Google Lyria or ElevenLabs), ducked under the voice, one clip per section.
 - Remove Pauses tab: a local voice model finds the pauses; the editor sets Gentle to Tight and the pauses are cut from the open sequence (In/Out aware, Undo takes a cut back) in Premiere Pro and FilmCraft; DaVinci Resolve builds a new timeline instead. Free.
 - Voice Fix tab: re-read a line in the editor's own cloned voice (ElevenLabs) and place it on a new track.
-- Captions tab: captions for the whole sequence or a range in nine designed looks, written down locally, spelling corrected by the editor's AI without moving the timing, placed as one transparent clip, and saved as an SRT file.
+- Captions tab: captions for the whole sequence or a range in nine designed looks with a colour picker (quiet palette, shades, colour wheel), written down locally, spelling corrected by the editor's AI without moving the timing, placed as one transparent clip, and saved as an SRT file.
 - Local speech recognition (Whisper) with word timings, Turkish and many other languages.
 
 ## AI it works with
