@@ -352,7 +352,7 @@ function planScreen(st: MusicState, ctx: MusicCtx): string {
     .join("");
   const n = plan.sections.filter((s) => !s.silent).length;
   return `<div class="lbl">${t("music.world")}</div>
-  <textarea class="one" id="music-world" rows="1"></textarea>
+  <textarea class="three" id="music-world" rows="3"></textarea>
   <div class="lbl">${t("music.sections")}</div>
   ${rows}
   <div class="note muted">${t("music.cost", { n, usd: formatUsd(planCost(plan, ctx.price(planProvider(st, ctx))), turkish()) })}</div>

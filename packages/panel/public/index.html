@@ -600,6 +600,14 @@
       }
       /* a one-line text box: a textarea, since UXP's one-line input draws a frame of its own and drops
          side padding */
+      /* three whole lines and no part of a fourth: text runs on into the bottom padding, so there is none;
+         the height is three lines plus the top padding and the frame */
+      textarea.three {
+        min-height: 0;
+        line-height: 16px;
+        padding-bottom: 0;
+        height: 54px;
+      }
       textarea.one {
         min-height: 0;
         height: 28px;
