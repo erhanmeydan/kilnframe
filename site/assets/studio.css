@@ -1593,6 +1593,9 @@ footer .wrap {
   margin-top: 10px;
   color: var(--ink-2);
 }
+.plan .btn {
+  margin-top: 20px;
+}
 
 .price ul {
   margin: 0;
