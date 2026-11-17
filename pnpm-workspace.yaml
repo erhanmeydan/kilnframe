@@ -13,7 +13,7 @@ allowBuilds:
   # its postinstall only prints a funding message
   tesseract.js: false
 minimumReleaseAgeExclude:
-  - hyperframes@0.8.133
+  - hyperframes@0.9.42
 # security fixes for build tools whose own ranges hold the old versions (issue #1, 2026-11-01)
 overrides:
   undici@6: ^6.29.1
@@ -21,4 +21,4 @@ overrides:
   # 1.10 uses import.source, which the Node inside Electron cannot parse: OCR of added images crashed the job
   wasm-feature-detect: 1.9.0
 patchedDependencies:
-  hyperframes@0.8.149: patches/hyperframes@0.8.149.patch
+  hyperframes@0.9.42: patches/hyperframes@0.9.42.patch

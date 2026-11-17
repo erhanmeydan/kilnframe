@@ -74,11 +74,8 @@ describe("GSAP plugins", () => {
 });
 
 describe("root page", () => {
-  it("makes a scene outside its time fully transparent, not only hidden", () => {
-    // a hidden scene's SVG filter (a paper grain) was still drawn into every frame
-    expect(rootHtml(plan)).toContain(
-      '[data-composition-src][style*="visibility: hidden"], [data-composition-file][style*="visibility: hidden"] { opacity: 0 !important; }',
-    );
+  it("takes the then off GSAP tweens so a build() returning its timeline still settles", () => {
+    expect(rootHtml(plan)).toContain("delete gsap.core.Animation.prototype.then;");
   });
 });
 

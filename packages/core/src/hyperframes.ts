@@ -150,6 +150,12 @@ export interface CheckReport {
 const SECTIONS = ["lint", "runtime", "layout", "motion", "contrast"] as const;
 
 /**
+ * Errors HyperFrames raises that are false alarms on our scenes, kept as warnings. canvas_covered takes the
+ * usual background div under a WebGL canvas (lower z-index) for a cover over it.
+ */
+const DEMOTED = new Set(["canvas_covered"]);
+
+/**
  * HyperFrames' words for a Chrome that could not start (puppeteer's launch error, its own system Chrome
  * fallback, a missing or unrunnable binary). Any other check_runtime_failure is an exception the page threw
  * (a goto timeout, a seek that throws, a crashed tab), which a scene can cause.
@@ -168,11 +174,16 @@ export function parseCheckJson(json: string): CheckReport {
 function checkReport(raw: Record<string, unknown>): CheckReport {
   const errors: CheckFinding[] = [];
   const warnings: CheckFinding[] = [];
+  let demoted = 0;
   for (const name of SECTIONS) {
     const section = raw[name] as CheckSection | undefined;
     for (const f of section?.findings ?? []) {
-      if (f.severity === "error") errors.push({ ...f, section: name });
-      else if (f.severity === "warning") warnings.push({ ...f, section: name });
+      if (f.severity === "error" && !DEMOTED.has(f.code ?? ""))
+        errors.push({ ...f, section: name });
+      else if (f.severity === "error") {
+        demoted++;
+        warnings.push({ ...f, severity: "warning", section: name });
+      } else if (f.severity === "warning") warnings.push({ ...f, section: name });
     }
   }
   // the linter crashing is never a scene's doing; a runtime failure is the machine's only when Chrome
@@ -198,7 +209,9 @@ function checkReport(raw: Record<string, unknown>): CheckReport {
     : raw.browserSkipped === true && !lintErrors && !pageFailed
       ? "The browser for the checks did not start."
       : null;
-  return { ok: raw.ok === true && errors.length === 0, errors, warnings, raw, environmentError };
+  // HyperFrames' own ok counts the errors we demoted
+  const ok = errors.length === 0 && (raw.ok === true || demoted > 0);
+  return { ok, errors, warnings, raw, environmentError };
 }
 
 /** The last lines of a process's output, for an error message. */

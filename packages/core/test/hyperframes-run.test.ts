@@ -26,11 +26,12 @@ describe("runProcess", () => {
 
   it("keeps a talking process alive past the idle limit", async () => {
     const [cmd, args] = node(
-      `let n = 0; const t = setInterval(() => { console.log(n); if (++n === 6) clearInterval(t); }, 100);`,
+      `let n = 0; const t = setInterval(() => { console.log(n); if (++n === 6) clearInterval(t); }, 500);`,
     );
-    const r = await runProcess(cmd, [...args], tmpdir(), { idleTimeoutMs: 300 });
+    // talks for 3 s past a 1.5 s limit; the limit is wide enough for Node to start on a slow Windows runner
+    const r = await runProcess(cmd, [...args], tmpdir(), { idleTimeoutMs: 1500 });
     expect(r.stdout.trim().split("\n")).toHaveLength(6);
-  });
+  }, 15_000);
 });
 
 describe("parseCheckJson", () => {
@@ -40,6 +41,25 @@ describe("parseCheckJson", () => {
     message: "Failed to launch the browser process",
     sourceFile: "index.html",
     selector: "[data-composition-id]",
+  });
+
+  it("keeps canvas_covered, a false alarm on a background under a WebGL canvas, as a warning", () => {
+    const r = parseCheckJson(
+      JSON.stringify({
+        ok: false,
+        lint: { ok: true, errorCount: 0, findings: [] },
+        layout: {
+          ok: false,
+          errorCount: 1,
+          findings: [
+            { code: "canvas_covered", severity: "error", message: "covers", selector: "#s1-bg" },
+          ],
+        },
+      }),
+    );
+    expect(r.ok).toBe(true);
+    expect(r.errors).toEqual([]);
+    expect(r.warnings.map((w) => [w.code, w.severity])).toEqual([["canvas_covered", "warning"]]);
   });
 
   it("reads a crashed browser as a problem of the machine, not of a scene", () => {
