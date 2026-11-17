@@ -24,6 +24,8 @@ export interface OpenAICompatibleOptions {
   reasoningEffort?: string | undefined;
   /** Where the thinking level goes: OpenRouter's reasoning.effort (default) or Z.ai's top-level reasoning_effort. */
   reasoningField?: "reasoning" | "reasoning_effort" | undefined;
+  /** The reply limit's field: "max_tokens" (default) or OpenAI's "max_completion_tokens" (its newer models refuse max_tokens). */
+  tokenLimitField?: "max_tokens" | "max_completion_tokens" | undefined;
   /** Pause before a retry, times the attempt number (tests set it to 0). */
   retryDelayMs?: number;
   /**
@@ -567,7 +569,7 @@ export class OpenAICompatibleProvider implements TextProvider {
         body: JSON.stringify({
           model: this.model,
           messages,
-          max_tokens: maxTokens,
+          [this.o.tokenLimitField ?? "max_tokens"]: maxTokens,
           stream: true,
           stream_options: { include_usage: true },
           ...(effort

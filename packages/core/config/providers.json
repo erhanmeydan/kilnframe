@@ -33,9 +33,11 @@
       "verified": "model names and context from developers.openai.com/api/docs/models",
       "unverified": [
         "base URL (from memory)",
-        "OpenAI recommends the Responses API for new projects; whether GPT-6 models work on Chat Completions and whether max_completion_tokens replaces max_tokens is unverified. A dedicated OpenAIAdapter on the Responses API is planned (M1b)."
+        "OpenAI recommends the Responses API for new projects; whether GPT-6 models work on Chat Completions is unverified. A dedicated OpenAIAdapter on the Responses API is planned (M1b)."
       ],
-      "keyUrl": "https://platform.openai.com/api-keys"
+      "keyUrl": "https://platform.openai.com/api-keys",
+      "tokenLimitField": "max_completion_tokens",
+      "reasoningField": "reasoning_effort"
     },
     {
       "id": "gemini",

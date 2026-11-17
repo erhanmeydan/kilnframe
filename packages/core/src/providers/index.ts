@@ -65,6 +65,8 @@ export interface ProviderPreset {
   reasoningEffort?: Record<string, string>;
   /** How the thinking level is sent: "reasoning" (OpenRouter, default) or "reasoning_effort" (Z.ai). */
   reasoningField?: "reasoning" | "reasoning_effort";
+  /** The reply limit's field: "max_tokens" (default) or OpenAI's "max_completion_tokens", which its newer models require. */
+  tokenLimitField?: "max_tokens" | "max_completion_tokens";
 }
 
 export function loadProviderCatalog(): ProviderPreset[] {
@@ -240,6 +242,7 @@ function buildProvider(
       },
       reasoningEffort: preset?.reasoningEffort?.[model],
       reasoningField: preset?.reasoningField,
+      tokenLimitField: preset?.tokenLimitField,
       ...(kind === "lmstudio" || kind === "ollama" ? { thinking: o.thinking } : {}),
     });
   }
