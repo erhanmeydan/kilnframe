@@ -688,3 +688,154 @@ button("btn-park", async () => {
   }
   log("12. Park et ve geri taşı", out);
 });
+
+// 13. Links: what Premiere 27 really offers (the methods of its objects, beyond the 26.5 types), and whether a
+// clone of a linked video clip takes its audio along with other arguments. On a clone of the active sequence.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-links", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const source = await project.getActiveSequence();
+  if (!source) throw new Error("Önce bir sekans aç.");
+  const out: Record<string, unknown> = {};
+  const WANT = /link|group|razor|split|merge|nest|paste|extract|lift|slip|cut|sync|multicam/i;
+  const methods = (o: any) => {
+    const names = new Set<string>();
+    for (let p = o; p && p !== Object.prototype; p = Object.getPrototypeOf(p))
+      for (const n of Object.getOwnPropertyNames(p)) names.add(n);
+    return [...names].sort();
+  };
+  const run = (what: string, add: (c: any) => void): boolean => {
+    let ok = false;
+    project.lockedAccess(() => {
+      ok = project.executeTransaction(add, `probe: ${what}`);
+    });
+    return ok;
+  };
+  const before = new Set((await project.getSequences()).map((q: any) => q.guid.toString()));
+  run("clone", (c) => c.addAction(source.createCloneAction()));
+  const seq = (await project.getSequences()).find((q: any) => !before.has(q.guid.toString()));
+  if (!seq) throw new Error("Kopya sekans bulunamadı.");
+  await project.openSequence(seq);
+  await project.setActiveSequence(seq);
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const editor = ppro.SequenceEditor.getEditor(seq);
+  const v = (await seq.getVideoTrack(0)).getTrackItems(CLIP, false)[0];
+  const a = (await seq.getAudioTrack(0)).getTrackItems(CLIP, false)[0];
+  const pi = v ? await v.getProjectItem().catch(() => null) : null;
+  const all: Record<string, string[]> = {
+    ppro: Object.keys(ppro),
+    SequenceEditor: methods(editor),
+    Sequence: methods(seq),
+    VideoClipTrackItem: v ? methods(v) : [],
+    AudioClipTrackItem: a ? methods(a) : [],
+    ProjectItem: pi ? methods(pi) : [],
+    SequenceUtils: ppro.SequenceUtils ? methods(ppro.SequenceUtils) : [],
+  };
+  try {
+    const sel = await ppro.TrackItemSelection.createEmptySelection(() => undefined);
+    all.TrackItemSelection = sel ? methods(sel) : [];
+  } catch (err) {
+    all.TrackItemSelection = [`(${String(err)})`];
+  }
+  out.interesting = Object.fromEntries(
+    Object.entries(all).map(([k, list]) => [k, list.filter((n) => WANT.test(n))]),
+  );
+  out.all = all;
+  // clones of the linked video clip past the end, with the arguments not tried before; count the audio clips
+  if (v) {
+    const tpf = Number((await (await seq.getSettings()).getVideoFrameRate()).ticksPerFrame);
+    const T = (f: number) => ppro.TickTime.createWithTicks(String(Math.round(f * tpf)));
+    const fr = (t: any) => Number(t?.ticks ?? 0) / tpf;
+    const ends = await Promise.all(
+      (await seq.getVideoTrack(0))
+        .getTrackItems(CLIP, false)
+        .map(async (it: any) => fr(await it.getEndTime())),
+    );
+    const endF = Math.max(...ends);
+    const vStart = fr(await v.getStartTime());
+    const vLen = fr(await v.getEndTime()) - vStart;
+    const audioCount = async () => {
+      let n = 0;
+      for (let i = 0; i < (await seq.getAudioTrackCount()); i++)
+        n += (await seq.getAudioTrack(i)).getTrackItems(CLIP, false).length;
+      return n;
+    };
+    const tries: [string, number, number, boolean, boolean][] = [
+      ["align true", 0, 0, true, false],
+      ["track offsets 1, 1", 1, 1, false, false],
+      ["track offsets 0, 1 align", 0, 1, true, false],
+      ["insert", 0, 0, false, true],
+    ];
+    const clones: unknown[] = [];
+    let slot = endF + 50;
+    for (const [name, vOff, aOff, align, insert] of tries) {
+      const first = (await seq.getVideoTrack(0)).getTrackItems(CLIP, false)[0];
+      const before = await audioCount();
+      let ok: boolean | string;
+      try {
+        ok = run(`clone ${name}`, (c) =>
+          c.addAction(
+            editor.createCloneTrackItemAction(first, T(slot - vStart), vOff, aOff, align, insert),
+          ),
+        );
+      } catch (err) {
+        ok = String(err);
+      }
+      clones.push({
+        name,
+        ok,
+        audioClipsBefore: before,
+        audioClipsAfter: await audioCount(),
+        atF: slot,
+      });
+      slot += vLen + 50;
+    }
+    out.clones = clones;
+  }
+  log("13. Linkler", out);
+});
+
+// 14. Linking pieces after a cut: select the second piece's video and audio clips with Sequence.setSelection
+// (new in Premiere 27), so Clip > Link (Cmd+L) can join them. Press it on a cut sequence, then Link by hand.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+button("btn-select", async () => {
+  const ppro = require("premierepro") as any;
+  const project = await ppro.Project.getActiveProject();
+  const seq = await project.getActiveSequence();
+  if (!seq) throw new Error("Önce bir sekans aç.");
+  const CLIP = ppro.Constants.TrackItemType.CLIP;
+  const tpf = Number((await (await seq.getSettings()).getVideoFrameRate()).ticksPerFrame);
+  const fr = (t: any) => Math.round(Number(t?.ticks ?? 0) / tpf);
+  const v = (await seq.getVideoTrack(0)).getTrackItems(CLIP, false);
+  const a = (await seq.getAudioTrack(0)).getTrackItems(CLIP, false);
+  if (v.length < 2 || a.length < 2)
+    throw new Error("V1 ve A1'de en az iki parça olmalı (kesilmiş bir sekans).");
+  const vs = fr(await v[1].getStartTime());
+  let pair: any = null;
+  for (const it of a) if (fr(await it.getStartTime()) === vs) pair = it;
+  if (!pair) throw new Error(`A1'de ${vs}. karede başlayan parça yok.`);
+  const out: Record<string, unknown> = { frame: vs };
+  // a selection lives only inside its callback (Premiere 26.5): it is handed to setSelection there, and the
+  // promise is awaited after
+  let pending: Promise<unknown> | null = null;
+  let failure: unknown = null;
+  ppro.TrackItemSelection.createEmptySelection((s: any) => {
+    try {
+      s.addItem(v[1], true);
+      s.addItem(pair, true);
+      pending = seq.setSelection(s);
+    } catch (err) {
+      failure = err;
+    }
+  });
+  if (failure) out.setSelectionError = String(failure);
+  try {
+    out.setSelection = await pending;
+  } catch (err) {
+    out.setSelectionError = String(err);
+  }
+  out.videoSelected = await v[1].getIsSelected().catch((e: unknown) => String(e));
+  out.audioSelected = await pair.getIsSelected().catch((e: unknown) => String(e));
+  log("14. İkinci parça seçildi: şimdi Clip > Link (Cmd+L)", out);
+});
