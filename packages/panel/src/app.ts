@@ -747,7 +747,8 @@ function scrollInnerWidth(): number {
   if (!scroller || scroller.clientWidth <= 0) return contentWidth();
   // UXP reports the width with its scrollbar in it (400 for a 400 px panel whose tiles get 360, measured in
   // Premiere 26.5): the bar comes off there, or the third tile of a row wraps
-  const bar = host().kind === "premiere" && scroller.offsetWidth === scroller.clientWidth ? SCROLLBAR : 0;
+  const bar =
+    host().kind === "premiere" && scroller.offsetWidth === scroller.clientWidth ? SCROLLBAR : 0;
   return scroller.clientWidth - 24 - bar;
 }
 
