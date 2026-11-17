@@ -80,6 +80,7 @@
   "detail.downloadModel": "Downloading the speech model · {p}%",
   "detail.language": "Language: {name}",
   "detail.transcribing": "Transcribing speech",
+  "detail.transcribingPercent": "Transcribing speech · {p}%",
   "detail.planRepair": "Fixing the plan",
   "detail.planning": "Planning scenes",
   "detail.planned": "{n} scenes planned",

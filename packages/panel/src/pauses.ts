@@ -8,6 +8,7 @@ import type { CutSequenceResult, Host, HostSequence, TimelineCut } from "./host"
 import { t } from "./i18n";
 import { readableJobText } from "./job-errors";
 import { formatDuration, formatTimecode, type Range } from "./range";
+import { detailOf } from "./steps";
 
 export type PausesStage = "idle" | "track" | "listening" | "preview" | "applying" | "done";
 
@@ -534,7 +535,8 @@ async function runJob(
   const off = ctx.on((m) => {
     if (m.jobId !== st.jobId) return;
     if (m.type === "job.progress") {
-      st.last = String(m.message);
+      // in the panel language where the line is known ("Transcribing: 40%"), else as it came
+      st.last = detailOf(String(m.message)) ?? String(m.message);
       ctx.render();
     } else if (m.type === "job.done") {
       off();

@@ -42,6 +42,30 @@ describe("chunksToWords", () => {
   });
 });
 
+describe("chunksToWords order", () => {
+  it("keeps a word's end at or after its start when its start is moved up to the word before", () => {
+    // a seam where a chunk starts a little before the last word, but not far enough to be a repeat
+    const words = chunksToWords(
+      [
+        { text: " bir", timestamp: [10, 10.6] },
+        { text: " iki", timestamp: [9.6, 9.9] },
+      ],
+      20,
+    );
+    expect(
+      TranscriptSchema.safeParse({
+        version: 1,
+        language: "tr",
+        model: "m",
+        duration_s: 20,
+        text: "bir iki",
+        words,
+      }).success,
+    ).toBe(true);
+    for (const w of words) expect(w.end).toBeGreaterThanOrEqual(w.start);
+  });
+});
+
 describe("chunksToWords hallucinations", () => {
   it("drops words that start after the audio ends (Whisper on music or silence)", () => {
     const chunks = [

@@ -29,7 +29,9 @@ export function stepOf(message: string): number | null {
 /** How far a step is inside itself, 0 to 1, when its lines say so ("Composed s2 (3/6)"). */
 export function subProgress(message: string): number | null {
   const m = /^Composed s\d+ \((\d+)\/(\d+)\)/.exec(message);
-  return m ? Number(m[1]) / Math.max(1, Number(m[2])) : null;
+  if (m) return Number(m[1]) / Math.max(1, Number(m[2]));
+  const p = /^Transcribing: (\d+)%/.exec(message);
+  return p ? Number(p[1]) / 100 : null;
 }
 
 export interface PlannedScene {
@@ -94,6 +96,8 @@ export function detailOf(message: string): string | null {
       name: SPOKEN.has(code) ? t(`lang.${code}` as MessageKey) : code,
     });
   }
+  if ((m = /^Transcribing: (\d+)%/.exec(message)))
+    return t("detail.transcribingPercent", { p: m[1] ?? "" });
   if (
     /^(Decoding audio|Cutting audio|Transcribing|Loading speech model|Detecting language)/.test(
       message,

@@ -80,6 +80,7 @@
   "detail.downloadModel": "Konuşma modeli indiriliyor · %{p}",
   "detail.language": "Dil: {name}",
   "detail.transcribing": "Ses yazıya dökülüyor",
+  "detail.transcribingPercent": "Ses yazıya dökülüyor · %{p}",
   "detail.planRepair": "Plan düzeltiliyor",
   "detail.planning": "Sahneler planlanıyor",
   "detail.planned": "{n} sahne planlandı",

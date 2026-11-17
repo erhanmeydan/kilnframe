@@ -22,6 +22,7 @@ import type { HostSequence, PlaceResult } from "./host";
 import { lang, t } from "./i18n";
 import { clock } from "./music";
 import type { Range } from "./range";
+import { detailOf } from "./steps";
 
 export type { CaptionColors, CaptionLine, CaptionStyleId };
 
@@ -825,7 +826,8 @@ async function captionsJob(
   const off = ctx.on((m) => {
     if (m.jobId !== st.jobId || st.jobId === null) return;
     if (m.type === "job.progress") {
-      st.last = String(m.message);
+      // in the panel language where the line is known ("Transcribing: 40%"), else as it came
+      st.last = detailOf(String(m.message)) ?? String(m.message);
       ctx.render();
     } else if (m.type === "job.done") {
       off();
