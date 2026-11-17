@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hyperframesChrome } from "../../../scripts/deps/pins.mjs";
 import { checkProresAlpha, fetchFfmpeg } from "./ffmpeg.mjs";
+import { checkAppPatched } from "./pnpm-patches.mjs";
 
 const app = fileURLToPath(new URL("..", import.meta.url));
 const root = join(app, "..", "..");
@@ -235,6 +236,8 @@ writeFileSync(
       electronVersion,
       ...(electronDist ? { electronDist } : {}),
       asar: false,
+      // carries the repository's pnpm patches into the app, which electron-builder fills from the unpatched store
+      afterPack: join(app, "scripts", "after-pack.mjs"),
       // Electron's switches: the companion and its jobs need Electron to run as Node (ELECTRON_RUN_AS_NODE);
       // nothing needs NODE_OPTIONS, the inspector or file:// privileges, so those are off and another program
       // cannot use them to run code as Kilnframe
@@ -345,6 +348,19 @@ run(
   ],
   stage,
 );
+// the unpacked app electron-builder made (mac-arm64/Kilnframe.app, win-unpacked), whatever installer wraps it
+{
+  const out = join(root, "out", "app-build");
+  const apps = readdirSync(out)
+    .map((d) =>
+      platform === "mac"
+        ? join(out, d, "Kilnframe.app", "Contents", "Resources", "app", "node_modules")
+        : join(out, d, "resources", "app", "node_modules"),
+    )
+    .filter((d) => existsSync(d));
+  if (!apps.length) throw new Error(`No unpacked app in ${out}`);
+  for (const nm of apps) checkAppPatched(root, nm);
+}
 
 // electron-builder notarizes the app inside; the installer around it is a separate submission
 if (platform === "mac" && process.argv.includes("--pkg") && process.env.APPLE_KEYCHAIN_PROFILE) {
