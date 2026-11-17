@@ -8,7 +8,10 @@ import {
   partsProgress,
   planParts,
   speechProcesses,
+  languageWindows,
+  speechStart,
   speechThreads,
+  voteLanguage,
   type Part,
 } from "../src/stages/transcribe-parts.js";
 import {
@@ -82,6 +85,69 @@ describe("planParts", () => {
     contiguous(parts, a.length);
     const last = parts.at(-1) as Part;
     expect((last.end - last.start) / SR).toBeGreaterThanOrEqual(30);
+  });
+});
+
+describe("speechStart", () => {
+  it("finds the speech after a silent opening, half a second early", () => {
+    const a = new Float32Array(60 * SR);
+    a.set(sound(40), 20 * SR);
+    expect(speechStart(a, SR) / SR).toBeCloseTo(19.5, 1);
+  });
+
+  it("finds quiet speech over a quieter room, as on a camera's own microphone", () => {
+    // speech near -50 dB over room noise near -76 dB, the recording that was taken for Italian
+    const a = Float32Array.from({ length: 60 * SR }, (_, i) => {
+      const t = i / SR;
+      const room = 0.00016 * Math.sin(2 * Math.PI * 50 * t);
+      return t >= 30 ? room + 0.0045 * Math.sin(2 * Math.PI * 220 * t) : room;
+    });
+    expect(speechStart(a, SR) / SR).toBeCloseTo(29.5, 1);
+  });
+
+  it("starts at the beginning of a recording that is speech from the start, or silent", () => {
+    expect(speechStart(sound(10), SR)).toBe(0);
+    expect(speechStart(new Float32Array(10 * SR), SR)).toBe(0);
+  });
+});
+
+describe("speechStart, a click", () => {
+  it("takes a click in a silent opening for silence, not for the start of speech", () => {
+    // the 10 minute test recording: a click at 2 s, speech from 30 s; 30 s from the click were taken for English
+    const a = new Float32Array(60 * SR);
+    a.fill(0.5, 2 * SR, 2 * SR + 400);
+    a.set(sound(30), 30 * SR);
+    expect(speechStart(a, SR) / SR).toBeCloseTo(29.5, 1);
+  });
+});
+
+describe("languageWindows", () => {
+  it("spreads three windows from the speech to the end of a long recording", () => {
+    const a = new Float32Array(600 * SR);
+    a.set(sound(570), 30 * SR);
+    expect(languageWindows(a, SR).map((s) => s / SR)).toEqual([29.5, 299.75, 570]);
+  });
+
+  it("gives a short recording one window from where its speech begins", () => {
+    expect(languageWindows(sound(6), SR)).toEqual([0]);
+    const a = new Float32Array(50 * SR);
+    a.set(sound(40), 10 * SR);
+    expect(languageWindows(a, SR).map((s) => s / SR)).toEqual([9.5]);
+  });
+
+  it("gives up to a minute and a half of speech two windows", () => {
+    expect(languageWindows(sound(80), SR).map((s) => s / SR)).toEqual([0, 50]);
+  });
+});
+
+describe("voteLanguage", () => {
+  it("lets windows that are sure outweigh one that guesses over silence", () => {
+    const silent = { en: 0.48, pt: 0.09, tr: 0.01 };
+    const speech = { tr: 0.99, en: 0.01 };
+    expect(voteLanguage([silent, speech, speech])).toEqual({
+      language: "tr",
+      probability: (0.01 + 0.99 + 0.99) / 3,
+    });
   });
 });
 
@@ -379,6 +445,26 @@ process.once("message", async () => {
     expect(cut).toBeLessThanOrEqual(119.5);
     expect(t.words[1]?.start).toBeCloseTo(cut + 1);
     expect(t.duration_s).toBeCloseTo(300);
+  });
+
+  it("tells the language from where the speech begins, not from a silent opening", async () => {
+    const a = new Float32Array(70 * SR);
+    a.set(sound(30), 40 * SR);
+    const file = join(dir, `w${Math.random().toString(36).slice(2)}.mjs`);
+    writeFileSync(
+      file,
+      `const send = (m) => new Promise((r) => process.send(m, undefined, {}, r));
+process.once("message", async () => {
+  process.on("message", async (m) => {
+    if (m.type === "end") process.exit(0);
+    if (m.type === "detect") await send({ type: "language", language: m.starts[0] >= 39 * ${SR} ? "tr" : "it", probability: 0.9 });
+    if (m.type === "piece") await send({ type: "piece", index: m.index, chunks: [{ text: " a", timestamp: [45, 46] }] });
+  });
+  await send({ type: "ready" });
+});`,
+    );
+    const t = await transcribe({ audioPath: wav(a), defaults, machine: big, workerPath: file });
+    expect(t.language).toBe("tr");
   });
 
   it("says no speech for a silent recording", async () => {

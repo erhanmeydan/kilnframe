@@ -1,5 +1,13 @@
 import { fork, type ChildProcess } from "node:child_process";
-import { closeSync, mkdtempSync, openSync, readSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  mkdtempSync,
+  openSync,
+  readSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { availableParallelism, tmpdir, totalmem } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +20,9 @@ import {
   partsProgress,
   planParts,
   speechProcesses,
+  languageWindows,
   speechThreads,
+  voteLanguage,
   type Machine,
   type Part,
   type PartOptions,
@@ -117,12 +127,23 @@ export function pickLanguage(scores: [token: string, logit: number][]): {
   return { language: top[0].replace(/^<\|(.+)\|>$/, "$1"), probability: 1 / z };
 }
 
+/** Every language's probability over the language tokens of one decoding step (`<|tr|>` -> "tr"). */
+export function languageProbabilities(
+  scores: [token: string, logit: number][],
+): Record<string, number> {
+  const top = Math.max(...scores.map(([, v]) => v));
+  const z = scores.reduce((sum, [, v]) => sum + Math.exp(v - top), 0);
+  return Object.fromEntries(
+    scores.map(([token, v]) => [token.replace(/^<\|(.+)\|>$/, "$1"), Math.exp(v - top) / z]),
+  );
+}
+
 /**
- * Detects the spoken language the way Whisper does: one decoding step on the first 30 seconds, then the
- * most likely language token. transformers.js has no detection of its own and silently assumes English,
- * which turns Turkish speech into invented English sentences.
+ * The spoken language's probabilities the way Whisper tells them: one decoding step on 30 seconds, then
+ * the language tokens. transformers.js has no detection of its own and silently assumes English, which
+ * turns Turkish speech into invented English sentences.
  */
-export async function detectLanguage(asr: AsrPipeline, audio: Float32Array) {
+export async function languageScores(asr: AsrPipeline, audio: Float32Array) {
   const { Tensor } = await import("@huggingface/transformers");
   const gc = asr.model.generation_config;
   const inputs = await asr.processor(audio.slice(0, 30 * WHISPER_SAMPLE_RATE));
@@ -131,9 +152,23 @@ export async function detectLanguage(asr: AsrPipeline, audio: Float32Array) {
     decoder_input_ids: new Tensor("int64", [BigInt(gc.decoder_start_token_id)], [1, 1]),
   });
   const logits = out.logits.data;
-  return pickLanguage(
+  return languageProbabilities(
     Object.entries(gc.lang_to_id).map(([token, id]) => [token, Number(logits[id])]),
   );
+}
+
+/** The spoken language from 30 seconds at each of the given samples (languageWindows), by vote. */
+export async function detectLanguage(
+  asr: AsrPipeline,
+  audio: Float32Array,
+  starts: number[] = [0],
+) {
+  const windows = [];
+  for (const start of starts)
+    windows.push(
+      await languageScores(asr, audio.subarray(start, start + 30 * WHISPER_SAMPLE_RATE)),
+    );
+  return voteLanguage(windows);
 }
 
 /**
@@ -213,7 +248,7 @@ export interface SpeechPartsRequest {
 }
 
 export type SpeechPartsMessage =
-  | { type: "detect" }
+  | { type: "detect"; starts: number[] }
   | { type: "piece"; index: number; start: number; end: number; language: string }
   | { type: "end" };
 
@@ -226,8 +261,9 @@ export type SpeechPartsReply =
 
 /** Reads samples [start, end) of a recording written as 32-bit floats. */
 export function readSamples(pcmPath: string, start: number, end: number): Float32Array {
-  const out = new Float32Array(Math.max(0, end - start));
   const fd = openSync(pcmPath, "r");
+  // never past the end of the recording: 30 seconds of language from a short one are what it has
+  const out = new Float32Array(Math.max(0, Math.min(end, fstatSync(fd).size / 4) - start));
   try {
     readSync(fd, new Uint8Array(out.buffer), 0, out.byteLength, start * 4);
   } finally {
@@ -327,6 +363,7 @@ export async function transcribe(options: SpeechPartsOptions): Promise<Transcrip
   if (durationS < 0.1) throw new NoSpeechError();
 
   const parts = planParts(audio, WHISPER_SAMPLE_RATE, options.partOptions);
+  const detectAt = languageWindows(audio, WHISPER_SAMPLE_RATE);
   const machine = options.machine ?? {
     totalMemoryBytes: totalmem(),
     cores: availableParallelism(),
@@ -352,6 +389,7 @@ export async function transcribe(options: SpeechPartsOptions): Promise<Transcrip
       },
       parts,
       processes,
+      detectAt,
     });
     const words = joinParts(parts, chunks, WHISPER_SAMPLE_RATE);
     if (words.length === 0) throw new NoSpeechError();
@@ -379,6 +417,8 @@ export function runSpeechParts(o: {
   parts: Part[];
   processes: number;
   language?: string | undefined;
+  /** Where the 30-second windows the language is told from begin, in samples (languageWindows). */
+  detectAt?: number[] | undefined;
   onProgress?: ((message: string) => void) | undefined;
   signal?: AbortSignal | undefined;
   workerPath?: string | undefined;
@@ -443,7 +483,7 @@ export function runSpeechParts(o: {
           if (first) {
             if (language === undefined) {
               onProgress?.("Detecting language");
-              child.send({ type: "detect" });
+              child.send({ type: "detect", starts: o.detectAt ?? [0] });
             } else onProgress?.("Transcribing");
             // the model is on disk now: the others load it without downloading it again
             for (let k = 1; k < processes; k++) start(false);
@@ -497,7 +537,7 @@ export async function transcribeHere(options: TranscribeOptions): Promise<Transc
   let spoken = language;
   if (!spoken) {
     onProgress?.("Detecting language");
-    const detected = await detectLanguage(asr, audio);
+    const detected = await detectLanguage(asr, audio, languageWindows(audio, WHISPER_SAMPLE_RATE));
     spoken = detected.language;
     onProgress?.(`Language: ${spoken} (${Math.round(detected.probability * 100)}%)`);
   }

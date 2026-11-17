@@ -81,6 +81,70 @@ export function planParts(audio: Float32Array, sampleRate: number, o: PartOption
   return parts;
 }
 
+/**
+ * Where the speech begins, in samples: the first frame louder than a hundredth of the recording's loud
+ * level (its 95th percentile) that starts a second at least half loud, less half a second. A click in a
+ * silent opening is one loud frame, not speech: 30 seconds of silence read from it were taken for English.
+ */
+export function speechStart(audio: Float32Array, sampleRate: number): number {
+  const frame = Math.max(1, Math.round(FRAME_S * sampleRate));
+  const frames = Math.floor(audio.length / frame);
+  if (frames === 0) return 0;
+  const energy = new Float64Array(frames);
+  for (let f = 0; f < frames; f++) {
+    let sum = 0;
+    for (let i = f * frame; i < (f + 1) * frame; i++) sum += (audio[i] ?? 0) ** 2;
+    energy[f] = sum / frame;
+  }
+  const loud = [...energy].sort((a, b) => a - b)[Math.floor(frames * 0.95)] ?? 0;
+  if (loud === 0) return 0;
+  const isLoud = Array.from(energy, (e) => (e > loud / 100 ? 1 : 0));
+  const run = Math.min(frames, Math.max(1, Math.round(1 / FRAME_S)));
+  let count = 0;
+  for (let f = 0; f < run; f++) count += isLoud[f] ?? 0;
+  for (let f = 0; f + run <= frames; f++) {
+    if (isLoud[f] && count * 2 >= run) return Math.max(0, f * frame - Math.round(0.5 * sampleRate));
+    count += (isLoud[f + run] ?? 0) - (isLoud[f] ?? 0);
+  }
+  return 0;
+}
+
+/** Seconds of speech Whisper tells the language from. */
+export const LANGUAGE_WINDOW_S = 30;
+
+/**
+ * Where the 30-second windows the language is told from begin, in samples: up to three, spread from where
+ * the speech begins to the end, so one quiet or silent stretch cannot decide it alone. A minute or less of
+ * speech gets one window, up to a minute and a half two.
+ */
+export function languageWindows(audio: Float32Array, sampleRate: number): number[] {
+  const from = speechStart(audio, sampleRate);
+  const window = LANGUAGE_WINDOW_S * sampleRate;
+  const span = audio.length - from;
+  const count = span > 3 * window ? 3 : span > 2 * window ? 2 : 1;
+  if (count === 1) return [from];
+  const last = audio.length - window;
+  return Array.from({ length: count }, (_, k) =>
+    Math.round(from + ((last - from) * k) / (count - 1)),
+  );
+}
+
+/**
+ * The language most likely over several windows: each window's probabilities added up, so a window that
+ * is sure outweighs one that is guessing. The probability is the winner's average.
+ */
+export function voteLanguage(windows: Record<string, number>[]): {
+  language: string;
+  probability: number;
+} {
+  const total = new Map<string, number>();
+  for (const w of windows)
+    for (const [k, v] of Object.entries(w)) total.set(k, (total.get(k) ?? 0) + v);
+  const [top] = [...total].sort((a, b) => b[1] - a[1]);
+  if (!top) throw new Error("No language scores to choose from.");
+  return { language: top[0], probability: top[1] / windows.length };
+}
+
 export interface Machine {
   totalMemoryBytes: number;
   /** os.availableParallelism() */

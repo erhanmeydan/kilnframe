@@ -1,7 +1,8 @@
 // The speech model in a process of its own (runSpeechProcess and runSpeechParts in transcribe.ts): when it
 // ends, all the memory the model took goes back to the system.
+import { voteLanguage } from "./transcribe-parts.js";
 import {
-  detectLanguage,
+  languageScores,
   loadSpeechModel,
   readSamples,
   recognize,
@@ -34,9 +35,16 @@ async function readParts(request: SpeechPartsRequest): Promise<void> {
       .then(async () => {
         if (m.type === "end") process.exit(0);
         if (m.type === "detect") {
-          // the first 30 seconds, as Whisper itself decides
-          const head = readSamples(request.pcmPath, 0, 30 * request.sampleRate);
-          const { language, probability } = await detectLanguage(asr, head);
+          // 30 seconds at each window, voted, as Whisper itself decides one window
+          const windows = [];
+          for (const start of m.starts)
+            windows.push(
+              await languageScores(
+                asr,
+                readSamples(request.pcmPath, start, start + 30 * request.sampleRate),
+              ),
+            );
+          const { language, probability } = voteLanguage(windows);
           await send({ type: "language", language, probability });
         } else if (m.type === "piece") {
           const audio = readSamples(request.pcmPath, m.start, m.end);
