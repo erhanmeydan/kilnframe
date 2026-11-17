@@ -402,4 +402,16 @@ describe("LM Studio's thinking", () => {
       expect(bodies[0]).not.toHaveProperty("reasoning");
     }
   });
+
+  it("sends OpenAI the reply limit as max_completion_tokens, which its newer models require; others keep max_tokens", async () => {
+    const { bodies } = fakeLmStudio(thinkingList(true));
+    const defaults = loadDefaults();
+    await createTextProvider(defaults, { provider: "openai", model: "m", apiKey: "k" }).complete(request(100, 600));
+    expect(bodies[0]).toMatchObject({ max_completion_tokens: 600 });
+    expect(bodies[0]).not.toHaveProperty("max_tokens");
+    bodies.length = 0;
+    await createTextProvider(defaults, { provider: "gemini", model: "m", apiKey: "k" }).complete(request(100, 600));
+    expect(bodies[0]).toMatchObject({ max_tokens: 600 });
+    expect(bodies[0]).not.toHaveProperty("max_completion_tokens");
+  });
 });
