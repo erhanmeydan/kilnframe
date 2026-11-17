@@ -135,10 +135,13 @@ export async function detectLanguage(asr: AsrPipeline, audio: Float32Array) {
 /**
  * Loads the speech model, downloading it on first use (about 1 GB) with progress messages.
  * The companion calls this during onboarding so the first job does not wait for the download.
+ * `threads` caps the threads the model computes with: several processes each reading their own pieces would
+ * otherwise each take every core and run slower together than one alone.
  */
 export async function loadSpeechModel(
   defaults: Defaults,
   onProgress?: (message: string) => void,
+  o: { threads?: number } = {},
 ): Promise<AsrPipeline> {
   const { model, dtype } = defaults.whisper;
   const { env, pipeline } = await import("@huggingface/transformers");
@@ -156,6 +159,7 @@ export async function loadSpeechModel(
         session_options: {
           enableCpuMemArena: false,
           enableMemPattern: false,
+          ...(o.threads ? { intraOpNumThreads: o.threads, interOpNumThreads: 1 } : {}),
           extra: { session: { disable_prepacking: "1" } },
         } as never,
         progress_callback: downloadProgress((p) => onProgress?.(`Downloading speech model: ${p}%`)),
