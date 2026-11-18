@@ -10,7 +10,7 @@ describe("deps.json", () => {
   const deps = loadDeps(root);
   it("has unique ids and known groups", () => {
     expect(new Set(deps.map((d) => d.id)).size).toBe(deps.length);
-    for (const d of deps) expect(["render", "app", "dev"]).toContain(d.group);
+    for (const d of deps) expect(["render", "app", "dev", "editor", "agent"]).toContain(d.group);
   });
   it.each(deps.filter((d) => d.current !== "-"))("$id matches the file that pins it", (d) => {
     const real = pinnedVersion(root, d);

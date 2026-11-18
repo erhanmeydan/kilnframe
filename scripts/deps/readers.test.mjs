@@ -110,4 +110,28 @@ describe("readers", () => {
       }),
     ).rejects.toThrow("manual");
   });
+  it("url-text: a plain version answer", async () => {
+    const r = await latest({ source: { type: "url-text", url: "https://x" } }, reply("1.0.89\n"));
+    expect(r.latest).toBe("1.0.89");
+    await expect(
+      latest({ source: { type: "url-text", url: "https://x" } }, reply("<html>")),
+    ).rejects.toBeInstanceOf(Unreachable);
+  });
+  it("url-json: the version under its key", async () => {
+    const r = await latest(
+      { source: { type: "url-json", url: "https://x", key: "version" } },
+      reply({ version: "1.5.11", url: "https://y" }),
+    );
+    expect(r.latest).toBe("1.5.11");
+  });
+  it("blackmagic: major.minor.release of the platform's stable build", async () => {
+    const r = await latest(
+      { source: { type: "blackmagic", product: "davinci-resolve-studio", platform: "mac" } },
+      reply({ mac: { major: 21, minor: 2, releaseNum: 0, build: 6 } }),
+    );
+    expect(r.latest).toBe("21.2.0");
+    await expect(
+      latest({ source: { type: "blackmagic", product: "p", platform: "mac" } }, reply({})),
+    ).rejects.toBeInstanceOf(Unreachable);
+  });
 });

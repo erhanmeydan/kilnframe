@@ -242,7 +242,7 @@
     },
     {
       "id": "filmcraft",
-      "group": "app",
+      "group": "editor",
       "current": "v0.14.0",
       "source": {
         "type": "github-release",
@@ -499,6 +499,79 @@
         "package": "pnpm"
       },
       "files": ["package.json"]
+    },
+    {
+      "id": "premiere-pro",
+      "group": "editor",
+      "current": "26.5.0",
+      "source": {
+        "type": "npm",
+        "package": "@adobe/premierepro"
+      },
+      "notes": "https://helpx.adobe.com/premiere/desktop/whats-new/release-notes.html",
+      "files": [],
+      "$comment": "Adobe's pages refuse scripts; its Premiere API types ship with every Premiere release. current: the Premiere the panel was last checked in."
+    },
+    {
+      "id": "davinci-resolve",
+      "group": "editor",
+      "current": "21.2.0",
+      "source": {
+        "type": "blackmagic",
+        "product": "davinci-resolve-studio",
+        "platform": "mac"
+      },
+      "notes": "https://www.blackmagicdesign.com/support/family/davinci-resolve-and-fusion",
+      "files": [],
+      "$comment": "current: the Resolve Studio the panel was last checked in."
+    },
+    {
+      "id": "claude-code",
+      "group": "agent",
+      "current": "2.1.327",
+      "ignore": "patch",
+      "source": {
+        "type": "npm",
+        "package": "@anthropic-ai/claude-code"
+      },
+      "notes": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md",
+      "files": []
+    },
+    {
+      "id": "codex",
+      "group": "agent",
+      "current": "0.169.0",
+      "source": {
+        "type": "npm",
+        "package": "@openai/codex"
+      },
+      "notes": "https://github.com/openai/codex/releases",
+      "files": []
+    },
+    {
+      "id": "grok-cli",
+      "group": "agent",
+      "current": "1.0.77",
+      "ignore": "patch",
+      "source": {
+        "type": "url-text",
+        "url": "https://x.ai/cli/stable"
+      },
+      "notes": "https://x.ai/cli",
+      "files": []
+    },
+    {
+      "id": "antigravity-cli",
+      "group": "agent",
+      "current": "1.5.11",
+      "ignore": "patch",
+      "source": {
+        "type": "url-json",
+        "url": "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/darwin_arm64.json",
+        "key": "version"
+      },
+      "notes": "https://antigravity.google",
+      "files": []
     }
   ]
 }

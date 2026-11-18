@@ -27,6 +27,24 @@ describe("issue body", () => {
     expect(body).toMatch(/## Geliştirici araçları\ntypescript 6\.0\.3 → 6\.1\.0/);
     expect(body).not.toMatch(/[—–]/);
   });
+  it("shows editors and agent programs in their own groups, hiding an agent's daily patches", () => {
+    const claude = { ...dep("claude-code", "agent", "2.1.327"), ignore: "patch" };
+    const grok = { ...dep("grok-cli", "agent", "1.0.77"), ignore: "patch" };
+    const body = issueBody(
+      [
+        { dep: dep("davinci-resolve", "editor", "21.2.0"), latest: "21.3.0" },
+        { dep: claude, latest: "2.1.330" },
+        { dep: grok, latest: "1.1.0" },
+      ],
+      [],
+      null,
+      now,
+    );
+    expect(body).toContain("## Editörler\n- [ ] **davinci-resolve** 21.2.0 → 21.3.0 (küçük)");
+    expect(body).toContain("## Ajan programları");
+    expect(body).not.toContain("claude-code");
+    expect(body).toContain("- [ ] **grok-cli** 1.0.77 → 1.1.0 (küçük)");
+  });
   it("says when a dependency comes with another one", () => {
     const chrome = {
       ...dep("chrome-headless-shell", "render", "152.0.7977.30"),

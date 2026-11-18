@@ -12,6 +12,8 @@ const SEVERITY = {
 const GROUPS = [
   ["render", "Render"],
   ["app", "Uygulama"],
+  ["editor", "Editörler"],
+  ["agent", "Ajan programları"],
 ];
 
 const ticked = (prev) =>
@@ -21,7 +23,12 @@ const stamp = (d) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
 export function issueBody(results, advisories, previousBody, now) {
   const keep = ticked(previousBody);
-  const newer = (r) => r.latest && bump(r.dep.current, r.latest) !== "none";
+  // a dep marked "ignore": "patch" (an agent CLI that ships a patch every day) shows only minor and major moves
+  const newer = (r) => {
+    if (!r.latest) return false;
+    const size = bump(r.dep.current, r.latest);
+    return size !== "none" && !(r.dep.ignore === "patch" && size === "patch");
+  };
   const out = [`Son kontrol: ${stamp(now)}`, ""];
   if (advisories.length) {
     out.push("## Güvenlik");

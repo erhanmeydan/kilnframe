@@ -87,6 +87,27 @@ const READERS = {
     need(vision.length, "model that takes images");
     return { latest: String(vision.length), extra: { visionModels: vision } };
   },
+  // a URL that answers with the version as plain text (xAI's Grok CLI: https://x.ai/cli/stable)
+  async "url-text"(s, fetch) {
+    const v = (await get(fetch, s.url, "text")).trim();
+    if (!/^v?\d+(\.\d+)*$/.test(v)) throw new Unreachable(`${s.url}: not a version`);
+    return { latest: v };
+  },
+  // a JSON file with the version under one key (the Antigravity CLI's release manifest)
+  async "url-json"(s, fetch) {
+    const d = await get(fetch, s.url);
+    return { latest: need(d?.[s.key], s.key) };
+  },
+  // Blackmagic's support API: the newest stable build of a product for a platform
+  async blackmagic(s, fetch) {
+    const d = await get(
+      fetch,
+      `https://www.blackmagicdesign.com/api/support/latest-stable-version/${s.product}/${s.platform}`,
+    );
+    const v = need(d?.[s.platform], s.platform);
+    if (typeof v.major !== "number") throw new Unreachable("no major version in the answer");
+    return { latest: `${v.major}.${v.minor ?? 0}.${v.releaseNum ?? 0}` };
+  },
   async manual(s) {
     throw new Unreachable(`manual: ${s.url}`);
   },
