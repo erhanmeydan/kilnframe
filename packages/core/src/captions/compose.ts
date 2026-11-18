@@ -2,9 +2,10 @@ import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as fontkit from "fontkit";
 import { formatOf } from "../format.js";
-import { framesToSeconds, parseFps } from "../fps.js";
+import { framesToSeconds, parseFps, type Fps } from "../fps.js";
 import { vendorDir } from "../project/assemble.js";
 import { PORTRAIT_CENTRE, safeArea } from "../safe-area.js";
+import { compressedDurationS, remapScript } from "./frames.js";
 import { look as bant } from "./looks/bant.js";
 import { look as daktilo } from "./looks/daktilo.js";
 import { look as dinamik } from "./looks/dinamik.js";
@@ -215,16 +216,49 @@ function seconds(s: number): string {
   return s.toFixed(6).replace(/\.?0+$/, "") || "0";
 }
 
+/** Only some frames drawn (frames.ts): the times to draw and the rate they are drawn at. */
+export interface DrawnFrames {
+  times: number[];
+  fps: Fps;
+}
+
 /**
  * The caption composition: one block per line on a transparent page, one paused GSAP timeline. Given a
- * segment (captionSegments) it holds only that segment's lines, timed from the segment's start.
+ * segment (captionSegments) it holds only that segment's lines, timed from the segment's start. Given
+ * drawn frames, the page plays only those, one per frame (remapScript).
  */
 export function captionHtml(
   doc: CaptionDoc,
   lookId: CaptionStyleId,
   colors: CaptionColors,
   segment: CaptionSegment = captionSegments(doc, Infinity)[0] as CaptionSegment,
+  drawn?: DrawnFrames,
 ): string {
+  const { script, page } = captionPage(doc, lookId, colors, segment);
+  if (!drawn)
+    return page(`${script}window.__timelines["captions"] = tl;\n`, segment.endS - segment.startS);
+  return page(
+    script + remapScript(drawn.times, drawn.fps),
+    compressedDurationS(drawn.times.length, drawn.fps),
+  );
+}
+
+/** The timeline script of a caption composition, for working out which frames change. */
+export function captionScript(
+  doc: CaptionDoc,
+  lookId: CaptionStyleId,
+  colors: CaptionColors,
+  segment: CaptionSegment = captionSegments(doc, Infinity)[0] as CaptionSegment,
+): string {
+  return captionPage(doc, lookId, colors, segment).script;
+}
+
+function captionPage(
+  doc: CaptionDoc,
+  lookId: CaptionStyleId,
+  colors: CaptionColors,
+  segment: CaptionSegment,
+): { script: string; page: (timeline: string, durationS: number) => string } {
   const style = CAPTION_LOOKS[lookId];
   const { width, height } = doc;
   const format = formatOf({ width, height });
@@ -290,8 +324,9 @@ export function captionHtml(
   const active = style.fontActive
     ? `\n@font-face{font-family:"${CAPTION_FONT_ACTIVE}";src:url("font-active.ttf") format("truetype");font-weight:${style.weightActive ?? style.weight}}`
     : "";
-  const duration = seconds(segment.endS - segment.startS);
-  return `<!doctype html>
+  const page = (timeline: string, durationS: number) => {
+    const duration = seconds(durationS);
+    return `<!doctype html>
 <html lang="${doc.language}">
 <head>
 <meta charset="UTF-8">
@@ -316,11 +351,12 @@ ${blocks.join("\n")}
 </div>
 <script>
 const tl = gsap.timeline({ paused: true });
-${script}window.__timelines["captions"] = tl;
-</script>
+${timeline}</script>
 </body>
 </html>
 `;
+  };
+  return { script, page };
 }
 
 /** Writes a renderable caption project into dir: index.html with the look's font and GSAP beside it. */
@@ -330,10 +366,11 @@ export function buildCaptionProject(
   colors: CaptionColors,
   dir: string,
   segment?: CaptionSegment,
+  drawn?: DrawnFrames,
 ): void {
   const style = CAPTION_LOOKS[look];
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "index.html"), captionHtml(doc, look, colors, segment));
+  writeFileSync(join(dir, "index.html"), captionHtml(doc, look, colors, segment, drawn));
   copyFileSync(join(vendorDir(), "gsap", "gsap.min.js"), join(dir, "gsap.min.js"));
   copyFileSync(fontFile(style), join(dir, "font.ttf"));
   if (style.fontActive)

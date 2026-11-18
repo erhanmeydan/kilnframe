@@ -81,6 +81,8 @@
   "detail.language": "Language: {name}",
   "detail.transcribing": "Transcribing speech",
   "detail.transcribingPercent": "Transcribing speech · {p}%",
+  "detail.captionsPercent": "{p}% done",
+  "detail.captionsJoining": "Joining the parts",
   "detail.planRepair": "Fixing the plan",
   "detail.planning": "Planning scenes",
   "detail.planned": "{n} scenes planned",

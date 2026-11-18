@@ -273,7 +273,8 @@ export async function snapshotProject(
 export interface RenderOptions {
   fps: string;
   output: string;
-  format: "mp4" | "mov";
+  /** png-sequence writes numbered PNGs into the output folder. */
+  format: "mp4" | "mov" | "png-sequence";
   onLine?: (line: string) => void;
   /** Frames captured so far, from HyperFrames' progress lines. */
   onFrames?: (done: number, total: number) => void;

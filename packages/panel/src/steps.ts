@@ -96,6 +96,9 @@ export function detailOf(message: string): string | null {
       name: SPOKEN.has(code) ? t(`lang.${code}` as MessageKey) : code,
     });
   }
+  if ((m = /^Rendering captions: (\d+)%/.exec(message)))
+    return t("detail.captionsPercent", { p: m[1] ?? "" });
+  if (/^Joining the caption pieces/.test(message)) return t("detail.captionsJoining");
   if ((m = /^Transcribing: (\d+)%/.exec(message)))
     return t("detail.transcribingPercent", { p: m[1] ?? "" });
   if (

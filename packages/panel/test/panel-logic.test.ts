@@ -86,6 +86,8 @@ describe("status line", () => {
   it("turns core progress lines into short Turkish status text", async () => {
     const { detailOf } = await import("../src/steps");
     expect(detailOf("Language: tr (100%)")).toBe("Dil: Türkçe");
+    expect(detailOf("Rendering captions: 42%")).toBe("%42 tamamlandı");
+    expect(detailOf("Joining the caption pieces")).toBe("Parçalar birleştiriliyor");
     expect(detailOf("Composing 7 scene(s)")).toBe("7 sahnenin kodu yazılıyor");
     expect(detailOf("Repairing s3 (text_occluded), s7 (content_overlap)")).toBe(
       "Onarılıyor: Sahne 3, 7",
