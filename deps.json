@@ -243,7 +243,7 @@
     {
       "id": "filmcraft",
       "group": "editor",
-      "current": "v0.14.0",
+      "current": "v0.20.1",
       "source": {
         "type": "github-release",
         "repo": "storytold/filmcraft"
