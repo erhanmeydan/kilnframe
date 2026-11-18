@@ -76,6 +76,7 @@ import { rangeWatch, within, type QuickRange } from "./range-watch";
 import { storyMusicNote } from "./story-music";
 import { OWN_MAX_S, ownParagraphs, ownSummary, ownTitle, storySeconds } from "./story-own";
 import { MIN_PREMIERE } from "./premiere-version";
+import { grow, growAll } from "./grow";
 import { lang, localized, pickLang, setLang, t, type LangSetting, type MessageKey } from "./i18n";
 
 /** Name and description come per language from the style's tokens.json. */
@@ -2996,6 +2997,8 @@ function render() {
     const redo = document.getElementById("own-redo") as HTMLTextAreaElement | null;
     if (redo) redo.value = state.own.redoNote;
   }
+  // the boxes take their text's height before the scroll position comes back
+  growAll(root);
   const scroller = document.getElementById("scroll");
   if (scroller) scroller.scrollTop = scroll;
   renderedWidth = root.clientWidth;
@@ -4290,6 +4293,7 @@ root.addEventListener("keydown", (event) => {
 });
 // the Captions tab previews the selected look in the colours being typed, once the typing pauses
 root.addEventListener("input", (event) => {
+  grow(event.target as Element | null);
   const id = (event.target as HTMLElement | null)?.id ?? "";
   if (id.startsWith("cap-color-"))
     captionsColorInput(state.captions, captionsCtx, () => readColorFields());
