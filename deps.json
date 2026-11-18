@@ -503,7 +503,7 @@
     {
       "id": "premiere-pro",
       "group": "editor",
-      "current": "26.5.0",
+      "current": "27.0.0",
       "source": {
         "type": "npm",
         "package": "@adobe/premierepro"
