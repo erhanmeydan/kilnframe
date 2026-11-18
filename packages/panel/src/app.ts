@@ -3047,8 +3047,12 @@ async function connectOnce() {
     render();
     // the line under the button needs the providers' names, models and the Claude Code sign-in
     void refreshProviders().then(render);
-    const system = await systemCheck;
-    state.system = system.report as typeof state.system;
+    // a failed computer check leaves the GPU line out; it is no reason to drop the connection and retry
+    const system = await systemCheck.catch((e: unknown) => {
+      trace(`connect: system check failed ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    });
+    state.system = (system?.report ?? null) as typeof state.system;
     // the panel opens on its home screen; the setup guide waits under Settings (the
     // guide opening by itself confused more than it helped)
     if (state.screen === "setup" && !speechModelReady()) void downloadModels();

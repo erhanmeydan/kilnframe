@@ -96,6 +96,22 @@ export function runProcess(
   });
 }
 
+/**
+ * The environment HyperFrames runs in. For `check`, CI is set: without it HyperFrames 0.9 hands the check to
+ * a "warm" process that keeps Chrome open for five minutes in the project folder, and Windows refuses to
+ * delete a folder a process is running in (EPERM), so every temporary check folder failed to clear. CI
+ * changes nothing else we read (it also turns colour off and skips the feedback prompt).
+ */
+export function hyperframesEnv(args: string[], base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...base,
+    HYPERFRAMES_NO_TELEMETRY: "1",
+    DO_NOT_TRACK: "1",
+    NO_COLOR: "1",
+    ...(args[0] === "check" ? { CI: "1" } : {}),
+  };
+}
+
 export function runHyperframes(
   args: string[],
   cwd: string,
@@ -106,12 +122,7 @@ export function runHyperframes(
     onLine,
     idleTimeoutMs: HYPERFRAMES_IDLE_TIMEOUT_MS,
     label: `hyperframes ${args[0] ?? ""}`.trim(),
-    env: {
-      ...(o.env ?? process.env),
-      HYPERFRAMES_NO_TELEMETRY: "1",
-      DO_NOT_TRACK: "1",
-      NO_COLOR: "1",
-    },
+    env: hyperframesEnv(args, o.env ?? process.env),
   });
 }
 

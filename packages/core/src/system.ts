@@ -39,7 +39,13 @@ export async function probeGpu(gsapFile: string): Promise<GpuStatus> {
     const r = await runHyperframes(["check", "--no-contrast"], dir);
     return parseGpuLine(`${r.stdout}\n${r.stderr}`);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    // a leftover folder in the temp folder is no reason to fail the computer check (Windows refuses to
+    // delete a folder a process still runs in)
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch {
+      // the system clears its temp folder
+    }
   }
 }
 

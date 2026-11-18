@@ -1,6 +1,12 @@
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { parseCheckJson, runProcess, snapshotIndex } from "../src/hyperframes.js";
+import {
+  checkProject,
+  hyperframesEnv,
+  parseCheckJson,
+  runProcess,
+  snapshotIndex,
+} from "../src/hyperframes.js";
 
 const node = (script: string) => [process.execPath, ["-e", script]] as const;
 
@@ -154,4 +160,46 @@ describe("snapshotIndex", () => {
     expect(snapshotIndex("frame-112-at-60s.png")).toBe(112);
     expect(snapshotIndex("pairs.png")).toBeNull();
   });
+});
+
+describe("hyperframesEnv", () => {
+  it("runs check without the warm process (CI set), and nothing else with CI", () => {
+    const base = { PATH: "/bin", HOME: "/h" };
+    expect(hyperframesEnv(["check", "--json"], base)).toMatchObject({ CI: "1", PATH: "/bin" });
+    expect(hyperframesEnv(["render", "-o", "x.mp4"], base).CI).toBeUndefined();
+    expect(hyperframesEnv(["snapshot"], base).CI).toBeUndefined();
+    expect(hyperframesEnv(["check"], base)).toMatchObject({ NO_COLOR: "1", DO_NOT_TRACK: "1" });
+  });
+});
+
+// Real HyperFrames runs take a browser: run with KILNFRAME_RENDER_TESTS=1.
+describe.skipIf(!process.env.KILNFRAME_RENDER_TESTS)("check leaves nothing running", () => {
+  it("no process stays in the project folder, so the folder can be deleted at once", async () => {
+    const { mkdtempSync, writeFileSync, rmSync, existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { execFileSync } = await import("node:child_process");
+    const dir = mkdtempSync(join(tmpdir(), "kf-check-warm-"));
+    writeFileSync(
+      join(dir, "index.html"),
+      `<!doctype html><html><head><meta charset="UTF-8"></head><body><div id="root" data-composition-id="probe" data-start="0" data-width="320" data-height="180" data-duration="0.2"></div><script>window.__timelines = window.__timelines || {}; window.__timelines["probe"] = { duration: () => 0.2, seek: () => {}, pause: () => {}, time: () => 0 };</script></body></html>`,
+    );
+    await checkProject(dir);
+    // a warm check process keeps running in the project folder (its working directory)
+    const warm = execFileSync("ps", ["-axo", "pid=,command="], { encoding: "utf8" })
+      .split("\n")
+      .filter((l) => l.includes("warmCheck.js"))
+      .map((l) => l.trim().split(/\s+/)[0] as string);
+    const inDir = warm.filter((pid) => {
+      try {
+        return execFileSync("lsof", ["-a", "-p", pid, "-d", "cwd", "-Fn"], {
+          encoding: "utf8",
+        }).includes(dir);
+      } catch {
+        return false;
+      }
+    });
+    rmSync(dir, { recursive: true, force: true });
+    expect(existsSync(dir)).toBe(false);
+    expect(inDir).toEqual([]);
+  }, 120_000);
 });
