@@ -559,19 +559,6 @@
       },
       "notes": "https://x.ai/cli",
       "files": []
-    },
-    {
-      "id": "antigravity-cli",
-      "group": "agent",
-      "current": "1.5.11",
-      "ignore": "patch",
-      "source": {
-        "type": "url-json",
-        "url": "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/darwin_arm64.json",
-        "key": "version"
-      },
-      "notes": "https://antigravity.google",
-      "files": []
     }
   ]
 }

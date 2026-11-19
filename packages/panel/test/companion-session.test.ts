@@ -77,9 +77,9 @@ describe("companion session", () => {
 
   it("takes an error without a ref as the answer when only one request waits (an older app)", async () => {
     const { session, sent, reply } = fakeSession();
-    const models = session.request({ type: "models.list", provider: "antigravity" }, "models");
-    reply({ type: "error", message: "Antigravity CLI could not reach Google." });
-    await expect(models).rejects.toThrow("could not reach Google");
+    const models = session.request({ type: "models.list", provider: "openrouter" }, "models");
+    reply({ type: "error", message: "OpenRouter could not be reached." });
+    await expect(models).rejects.toThrow("could not be reached");
     // with two waiting, nobody can tell whose it is: both keep waiting for their own reply
     const a = session.request({ type: "styles.list" }, "styles");
     const b = session.request({ type: "styles.list" }, "styles");

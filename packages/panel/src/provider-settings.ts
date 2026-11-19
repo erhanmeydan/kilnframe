@@ -6,14 +6,25 @@ export interface PresetInfo {
 }
 
 /** Providers whose model list is not the preset's own: any model the server or the editor names. */
-const OPEN_MODEL_LISTS = new Set([
-  "custom",
-  "openrouter",
-  "lmstudio",
-  "ollama",
-  "codex",
-  "antigravity",
-]);
+const OPEN_MODEL_LISTS = new Set(["custom", "openrouter", "lmstudio", "ollama", "codex"]);
+
+/**
+ * Providers the panel once offered and no longer does. A saved choice of one goes back to Automatic, and its
+ * kept model is forgotten: Antigravity CLI was left out when Google said its consumer plans do not cover
+ * other apps running it.
+ */
+const REMOVED_PROVIDERS = new Set(["antigravity"]);
+
+/** The saved settings without a provider the panel no longer offers. */
+export function withoutRemovedProviders<
+  T extends { provider: string; models: Record<string, string> },
+>(settings: T): T {
+  const models = Object.fromEntries(
+    Object.entries(settings.models).filter(([id]) => !REMOVED_PROVIDERS.has(id)),
+  );
+  const provider = REMOVED_PROVIDERS.has(settings.provider) ? "auto" : settings.provider;
+  return { ...settings, provider, models };
+}
 
 /** Only the custom endpoint and presets that need their own address show an address field. */
 export function offersAddress(id: string, entry: PresetInfo | undefined): boolean {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { cleanProviderSettings, offersAddress, presetModel } from "../src/provider-settings";
+import {
+  cleanProviderSettings,
+  offersAddress,
+  presetModel,
+  withoutRemovedProviders,
+} from "../src/provider-settings";
 
 const list = [
   { id: "openai", models: ["gpt-a", "gpt-b"], requires: [] },
@@ -9,6 +14,19 @@ const list = [
 ];
 
 describe("provider settings", () => {
+  it("moves a saved Antigravity choice back to Automatic and forgets its model", () => {
+    expect(
+      withoutRemovedProviders({
+        provider: "antigravity",
+        models: { antigravity: "gemini-3.8-flash-high", openai: "gpt-a" },
+      }),
+    ).toEqual({ provider: "auto", models: { openai: "gpt-a" } });
+    expect(withoutRemovedProviders({ provider: "codex", models: {} })).toEqual({
+      provider: "codex",
+      models: {},
+    });
+  });
+
   it("offers an address only for the custom endpoint and presets that need one", () => {
     expect(offersAddress("custom", undefined)).toBe(true);
     expect(offersAddress("openai", list[0])).toBe(false);

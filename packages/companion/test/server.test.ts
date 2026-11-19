@@ -412,7 +412,7 @@ describe("companion server", () => {
       },
       runner: async () => null,
       listModels: async () => {
-        throw new Error("Antigravity CLI could not reach Google. Check the connection.");
+        throw new Error("OpenRouter could not be reached. Check the connection.");
       },
       version: "test",
       port: 0,
@@ -420,10 +420,10 @@ describe("companion server", () => {
     const c = await connect(companion.port);
     c.send({ type: "hello", token: TOKEN });
     await c.next((m) => m.type === "ready");
-    c.send({ type: "models.list", provider: "antigravity", ref: "m1" });
+    c.send({ type: "models.list", provider: "openrouter", ref: "m1" });
     const listed = await c.next((m) => m.type === "error" && m.ref === "m1");
     expect(String((listed as { message: string }).message)).toContain(
-      "Antigravity CLI could not reach Google",
+      "OpenRouter could not be reached",
     );
     c.send({ type: "keys.set", provider: "openai", key: "sk-secret-123", ref: "k1" });
     const keyed = await c.next((m) => m.type === "error" && m.ref === "k1");

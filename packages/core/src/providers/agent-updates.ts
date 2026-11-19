@@ -5,11 +5,10 @@ import { spawnAgentSync } from "./agent-binary.js";
  * Whether a newer agent CLI is out, for the settings' Update (like HyperFrames Studio). An outdated CLI can
  * stop working: Grok's service refused 0.2.93 with "426 Upgrade Required" (8 Oct 2026). Grok reports it
  * itself (`grok update --check --json`); Claude Code and Codex are compared with their npm packages, read
- * from the public registry so the editor needs no npm. Antigravity CLI cannot be asked (1.5.5 has `agy update`
- * but no check), so it reports its version and never an update.
+ * from the public registry so the editor needs no npm.
  */
 
-export type AgentId = "claude-code" | "codex" | "grok" | "antigravity";
+export type AgentId = "claude-code" | "codex" | "grok";
 
 export interface AgentUpdate {
   current: string | null;
@@ -17,7 +16,7 @@ export interface AgentUpdate {
   available: boolean;
 }
 
-const NPM: Record<Exclude<AgentId, "grok" | "antigravity">, string> = {
+const NPM: Record<Exclude<AgentId, "grok">, string> = {
   "claude-code": "@anthropic-ai/claude-code",
   codex: "@openai/codex",
 };
@@ -35,7 +34,7 @@ export function olderVersion(a: string, b: string): boolean {
 }
 
 function installedVersion(agent: AgentId): string | null {
-  const name = agent === "claude-code" ? "claude" : agent === "antigravity" ? "agy" : agent;
+  const name = agent === "claude-code" ? "claude" : agent;
   const r = spawnAgentSync(name, ["--version"], { encoding: "utf8", timeout: 20_000 });
   if (r.error || r.status !== 0) return null;
   return r.stdout.match(/\d+\.\d+\.\d+(?:-[\w.]+)?/)?.[0] ?? null;
@@ -47,7 +46,6 @@ export async function agentUpdate(
 ): Promise<AgentUpdate> {
   const current = installedVersion(agent);
   if (!current) return { current: null, latest: null, available: false };
-  if (agent === "antigravity") return { current, latest: null, available: false };
   if (agent === "grok") {
     const r = spawnAgentSync("grok", ["update", "--check", "--json"], {
       encoding: "utf8",
@@ -78,7 +76,5 @@ export function updateCommand(agent: AgentId): string {
     ? "claude update"
     : agent === "codex"
       ? "codex update"
-      : agent === "antigravity"
-        ? "agy update"
-        : "grok update";
+      : "grok update";
 }
