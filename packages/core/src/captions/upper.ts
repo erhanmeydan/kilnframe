@@ -53,3 +53,13 @@ export function upperCase(text: string, language: string, keep: string[]): strin
 export function lowerCase(text: string, language: string, keep: string[]): string {
   return recase(text, keep, locale(language), (entry) => entry);
 }
+
+const TURKISH_ONLY = /[çğıöşüİÇĞÖŞÜ]/;
+
+/**
+ * The language a caption's text is cased in: the transcript's own, except that text with Turkish letters is
+ * Turkish whatever the speech model detected ("çekim" is "ÇEKİM", never "ÇEKIM"), so it is cased by "tr" rules.
+ */
+export function textLanguage(language: string, text: string): string {
+  return TURKISH_ONLY.test(text) ? "tr" : language;
+}

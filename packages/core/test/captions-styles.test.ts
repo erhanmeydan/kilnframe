@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toSrt } from "../src/captions/srt.js";
 import { CAPTION_LOOKS, captionGrid } from "../src/captions/styles.js";
-import { lowerCase, upperCase } from "../src/captions/upper.js";
+import { lowerCase, textLanguage, upperCase } from "../src/captions/upper.js";
 
 const vendorFonts = join(import.meta.dirname, "../../../vendor/fonts");
 
@@ -91,5 +91,13 @@ describe("toSrt", () => {
   it("counts from the sequence start when the doc starts later (an In/Out range)", () => {
     const line = { start: 0.2, end: 1.4, text: "Merhaba", words: [], changed: false };
     expect(toSrt([line], 75.5)).toBe("1\n00:01:15,700 --> 00:01:16,900\nMerhaba");
+  });
+});
+
+describe("textLanguage", () => {
+  it("Turkish letters make the text Turkish whatever was detected; otherwise the language stays", () => {
+    expect(upperCase("çekim", textLanguage("en", "bir çekim daha"), [])).toBe("ÇEKİM");
+    expect(textLanguage("en", "a quick shot")).toBe("en");
+    expect(textLanguage("tr", "bir")).toBe("tr");
   });
 });

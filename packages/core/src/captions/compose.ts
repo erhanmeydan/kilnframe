@@ -25,7 +25,7 @@ import {
 } from "./looks/shared.js";
 import { CAPTION_LOOKS, type CaptionLook } from "./styles.js";
 import type { CaptionColors, CaptionLine, CaptionStyleId, CaptionWord } from "./types.js";
-import { lowerCase, upperCase } from "./upper.js";
+import { lowerCase, textLanguage, upperCase } from "./upper.js";
 import { joinWords, wordGap } from "../unspaced.js";
 
 export interface CaptionDoc {
@@ -45,6 +45,11 @@ export interface CaptionDoc {
    * or the spoken word sits on an accent fill) colour is drawn as scale.
    */
   emphasis?: "color" | "scale" | "both";
+}
+
+/** The language the document's text is cased and tagged in (textLanguage over all of its words). */
+export function captionLanguage(doc: CaptionDoc): string {
+  return textLanguage(doc.language, doc.lines.map((l) => l.words.map((w) => w.text).join(" ")).join(" "));
 }
 
 export interface TimeSpan {
@@ -378,6 +383,7 @@ export function captionHtml(
   const extraCss: string[] = [];
   let anyEmoji = false;
   let script = "";
+  const language = captionLanguage(doc);
   for (const entry of segment.entries) {
     // the emphasised words drawn larger: all of them in scale mode, or where their colour cannot show
     const scaled = new Set<CaptionWord>();
@@ -388,9 +394,9 @@ export function captionHtml(
         const word: CaptionWord = {
           ...w,
           text: style.uppercase
-            ? upperCase(w.text, doc.language, doc.glossary)
+            ? upperCase(w.text, language, doc.glossary)
             : style.lowercase
-              ? lowerCase(w.text, doc.language, doc.glossary)
+              ? lowerCase(w.text, language, doc.glossary)
               : w.text,
         };
         // the colour the word is drawn in, handed to the look so a timeline that colours it can give it back;
