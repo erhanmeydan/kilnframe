@@ -7,7 +7,6 @@ import {
   renderCaptions,
   createSpeechProvider,
   fixContext,
-  speechModelFor,
   voiceSampleSpans,
   createStyle,
   findSpeech,
@@ -27,6 +26,7 @@ import {
   type Transcript,
   loadSpeechCatalog,
   speechPriceUsd,
+  voiceFixModel,
   narrate,
   planParts,
   readTranscript,
@@ -535,7 +535,7 @@ async function voiceFixSayJob(
 ) {
   const speech = createSpeechProvider(defaults, {
     provider: "elevenlabs",
-    model: speechModelFor(defaults, "elevenlabs"),
+    model: voiceFixModel(),
     apiKey: await keys.get(
       loadSpeechCatalog().find((p) => p.id === "elevenlabs")?.keyName ?? "elevenlabs",
     ),

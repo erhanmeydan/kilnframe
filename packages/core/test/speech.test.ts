@@ -14,6 +14,7 @@ import {
   SpeechError,
   speechChunks,
   speechPriceUsd,
+  voiceFixModel,
   wavPcm,
   type SpeechProvider,
 } from "../src/speech/index.js";
@@ -388,5 +389,19 @@ describe("voice cloning", () => {
     expect(sent?.get("remove_background_noise")).toBe("true");
     expect(sent?.get("files")).toBeInstanceOf(Blob);
     expect(r).toEqual({ voiceId: "new1", requiresVerification: false });
+  });
+});
+
+describe("voiceFixModel", () => {
+  it("reads with Eleven v4 from the catalog, whatever the narration settings say", () => {
+    expect(voiceFixModel()).toBe("eleven_v4");
+  });
+
+  it("falls back to ElevenLabs' first model and fails without one", () => {
+    const entry = loadSpeechCatalog().find((p) => p.id === "elevenlabs")!;
+    const rest = { ...entry, voiceFixModel: undefined };
+    expect(voiceFixModel([{ ...rest, models: [{ id: "m1", label: "M1", price: {} }] }])).toBe("m1");
+    expect(() => voiceFixModel([{ ...rest, models: [] }])).toThrow(SpeechError);
+    expect(() => voiceFixModel([])).toThrow(SpeechError);
   });
 });

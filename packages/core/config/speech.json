@@ -169,6 +169,7 @@
       "endpoint": "https://api.elevenlabs.io",
       "keyName": "elevenlabs",
       "keyUrl": "https://elevenlabs.io/app/settings/api-keys",
+      "voiceFixModel": "eleven_v4",
       "models": [
         {
           "id": "eleven_v4",

@@ -29,6 +29,8 @@ export interface SpeechCatalogProvider {
     price: { input?: number; outputAudio?: number; perThousandChars?: number };
   }[];
   audioTokensPerSecond?: number;
+  /** The model Voice Fix reads a clone with, whatever the narration settings say. */
+  voiceFixModel?: string;
   sampleRate: number;
   voices: { name: string; character: string }[];
 }
@@ -45,6 +47,17 @@ export function loadSpeechCatalog(): SpeechCatalogProvider[] {
 export function speechModelFor(defaults: Defaults, provider: string): string | undefined {
   if (provider === defaults.speech.provider) return defaults.speech.model;
   return loadSpeechCatalog().find((p) => p.id === provider)?.models[0]?.id;
+}
+
+/**
+ * The ElevenLabs model Voice Fix always reads with. A fix sits inside the editor's own recording, so it takes the
+ * catalog's voiceFixModel (the most natural one) and never the narration's choice (a cheaper Flash model, say).
+ */
+export function voiceFixModel(catalog: SpeechCatalogProvider[] = loadSpeechCatalog()): string {
+  const entry = catalog.find((p) => p.id === "elevenlabs");
+  const model = entry?.voiceFixModel ?? entry?.models[0]?.id;
+  if (!model) throw new SpeechError("ElevenLabs has no model for Voice Fix.");
+  return model;
 }
 
 /** What a narration costs at the provider's list price, in USD; 0 when the model has no price. */
