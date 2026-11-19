@@ -41,7 +41,7 @@
             <span class="tc">GİZLİLİK</span>
             <div>
               <h2>Gizlilik Politikası</h2>
-              <p>Son güncelleme: 16 Kasım 2026</p>
+              <p>Son güncelleme: 19 Kasım 2026</p>
             </div>
           </div>
 
@@ -58,12 +58,14 @@
             <ul>
               <li>
                 Videolarınız ve projeleriniz <strong>sizin bilgisayarınızda</strong> kalır. Onları
-                gören ya da saklayan bir sunucumuz yoktur.
+                gören ya da saklayan bir sunucumuz yoktur. Bulutta yazıya dökmeyi açarsanız
+                kayıtların sesi seçtiğiniz hizmete gider (aşağıya bakın).
               </li>
               <li>Uygulamada reklam, kullanım takibi ya da analiz aracı yoktur.</li>
               <li>
                 Yapay zeka işleri için <strong>sizin seçtiğiniz</strong> sağlayıcıya, yalnızca o
-                işin gerektirdiği metin ve kareler gider.
+                işin gerektirdiği metin ve kareler gider. Kendi bilgisayarınızdaki bir modelle
+                hiçbir şey dışarı çıkmaz.
               </li>
               <li>Bilgilerinizi satmayız, reklam için kullanmayız, başkalarıyla paylaşmayız.</li>
             </ul>
@@ -72,8 +74,9 @@
             <ul>
               <li>Kayıtlarınız, projeleriniz, transkriptleriniz ve dışa aktardığınız videolar.</li>
               <li>
-                Konuşmanın yazıya dökülmesi, sessizlik ve kişi algılama bilgisayarınızda, kendi
-                işlemciniz ya da ekran kartınızla yapılır.
+                Konuşmanın yazıya dökülmesi varsayılan olarak bilgisayarınızda yapılır; sessizlik ve
+                kişi algılama her zaman bilgisayarınızda, kendi işlemciniz ya da ekran kartınızla
+                yapılır.
               </li>
               <li>
                 API anahtarlarınız ve lisans anahtarınız işletim sisteminin anahtar zincirinde
@@ -83,6 +86,70 @@
               <li>
                 Uygulama son hatalarının kısa bir kaydını bilgisayarınızda tutar. Bu kayıt yalnızca
                 siz bir hata bildirimi gönderdiğinizde bize ulaşır.
+              </li>
+            </ul>
+
+            <h2>Bulutta yazıya dökme (yalnızca siz açarsanız)</h2>
+            <ul>
+              <li>
+                Ayarlar'da bir bulut hizmeti seçmediğiniz sürece yazıya dökme bilgisayarınızda
+                yapılır. Uygulama ilk kez bir şey göndermeden önce size sorar.
+              </li>
+              <li>
+                <strong>ElevenLabs</strong>, <strong>OpenAI</strong> ya da <strong>Google</strong>
+                seçiliyse, yazıya dökülen kayıtların sesi parçalar halinde, FLAC ses olarak bu
+                hizmete gider; doğru yazılsınlar diye projenin sözlüğündeki adlar da birlikte gider.
+                Video, proje dosyası ve diğer dosyalarınız gönderilmez.
+              </li>
+              <li>
+                Gönderim o hizmet için girdiğiniz kendi API anahtarınızla yapılır ve o hizmetin
+                gizlilik koşullarına tabidir. OpenAI ya da Google ile, sözcüklerin zamanını bulan
+                küçük bir model Hugging Face'ten bir kez indirilir ve bilgisayarınızda çalışır.
+              </li>
+            </ul>
+
+            <h2>Yapay zeka özellikleri</h2>
+            <ul>
+              <li>
+                Bir yapay zeka işi başlattığınızda, o işin gerektirdiği metin ve kareler
+                (transkript, notlar, küçük kareler) Ayarlar'da seçtiğiniz model ve sağlayıcıya,
+                kendi anahtarınız ya da hesabınızla gider. Videonun ya da sesin tamamı gönderilmez.
+              </li>
+              <li>Kendi bilgisayarınızdaki bir modelle (yerel sunucu) hiçbir şey dışarı çıkmaz.</li>
+              <li>
+                ElevenLabs ile yapılan ses efektleri ve müzik için yalnızca onları anlatan metin
+                gider. Google Gemini ile yapılan müzik ve seslendirme için müziği anlatan metin ya
+                da okunacak metin gider.
+              </li>
+            </ul>
+
+            <h2>İndirmeler ve güncelleme denetimi</h2>
+            <ul>
+              <li>
+                Modeller (konuşma, zamanlama, ses ayırma, görselle arama, yüz bulma), onlara ihtiyaç
+                duyan bir özelliği ilk kez başlattığınızda Hugging Face'ten ya da GitHub'daki
+                sürümlerimizden indirilir; kendiliğinden asla indirilmez.
+              </li>
+              <li>
+                İsteğe bağlı ses paketi, siz istediğinizde GitHub'daki sürümlerimizden indirilir.
+              </li>
+              <li>
+                Claude Code ya da Codex kuruluysa, uygulama yeni sürümlerini size haber verebilmek
+                için npm kayıt deposundan son sürüm numaralarını sorar.
+              </li>
+              <li>
+                macOS ve Linux'ta uygulama açılışta ve birkaç saatte bir GitHub'dan yeni sürüm olup
+                olmadığını sorar. macOS'ta yeni sürümü yalnızca siz onaylarsanız indirir; Linux'ta
+                indirme sayfasının bağlantısını gösterir. Windows'ta uygulamayı Microsoft Store
+                günceller.
+              </li>
+            </ul>
+
+            <h2>Hata bildirimleri ve geri bildirim</h2>
+            <ul>
+              <li>
+                Hiçbir şey kendiliğinden gönderilmez. Bir bildirim, ancak pencere size tam olarak ne
+                gideceğini gösterdikten ve siz Gönder'e bastıktan sonra gider.
               </li>
             </ul>
 
@@ -112,9 +179,31 @@
                     </td>
                   </tr>
                   <tr>
+                    <td>Seçtiğiniz bulut yazıya dökme hizmeti (ElevenLabs, OpenAI ya da Google)</td>
+                    <td>
+                      Yalnızca Ayarlar'da bulutta yazıya dökmeyi açtıysanız, bir kayıt yazıya
+                      döküldüğünde
+                    </td>
+                    <td>
+                      Kayıtların sesi, parçalar halinde FLAC ses olarak, ve projenin sözlüğündeki
+                      adlar. Video ya da proje dosyası gitmez.
+                    </td>
+                  </tr>
+                  <tr>
                     <td>ElevenLabs</td>
-                    <td>Sesle düzeltme ya da seslendirme kullandığınızda</td>
-                    <td>Okunacak metin ve sesinizi tanıtmak için seçtiğiniz ses örnekleri</td>
+                    <td>
+                      Sesle düzeltme, seslendirme ya da onunla yapılan ses efekti ve müzik
+                      kullandığınızda
+                    </td>
+                    <td>
+                      Okunacak metin, sesinizi tanıtmak için seçtiğiniz ses örnekleri (ses silinene
+                      kadar ElevenLabs'te kalır) ve ses efektlerini ve müziği anlatan metin
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Google (Gemini)</td>
+                    <td>Gemini ile müzik ya da seslendirme yaptığınızda</td>
+                    <td>Müziği anlatan metin ya da okunacak metin</td>
                   </tr>
                   <tr>
                     <td>Polar (ödeme ve lisans)</td>
@@ -129,9 +218,11 @@
                     </td>
                   </tr>
                   <tr>
-                    <td>GitHub ya da Microsoft Store</td>
+                    <td>GitHub (sürümlerimiz) ya da Microsoft Store</td>
                     <td>
-                      Uygulama güncelleme olup olmadığına baktığında ve güncelleme indirdiğinde
+                      Uygulama güncelleme olup olmadığına baktığında (macOS ve Linux'ta açılışta ve
+                      birkaç saatte bir; Windows'ta Store üzerinden) ve siz bir güncelleme, ses
+                      paketi ya da bizim barındırdığımız bir model indirdiğinizde
                     </td>
                     <td>
                       Sıradan bir indirme isteği (IP adresi ve uygulama sürümü). Hesap ya da kişisel
@@ -140,8 +231,13 @@
                   </tr>
                   <tr>
                     <td>Hugging Face</td>
-                    <td>Bir model ilk kez kullanıldığında</td>
-                    <td>Konuşma ve görüntü modellerinin indirme isteği</td>
+                    <td>Model gerektiren bir özelliği ilk kez başlattığınızda</td>
+                    <td>Konuşma, zamanlama, ses ve görüntü modellerinin indirme isteği</td>
+                  </tr>
+                  <tr>
+                    <td>npm kayıt deposu</td>
+                    <td>Claude Code ya da Codex kuruluysa, uygulama sürümlerine baktığında</td>
+                    <td>Son sürüm numarası için sıradan bir istek</td>
                   </tr>
                   <tr>
                     <td>Web3Forms (bize e posta olarak iletir)</td>
@@ -193,10 +289,10 @@
 
             <h2>Yurt dışına aktarım</h2>
             <p>
-              Yukarıdaki hizmetlerin çoğu (yapay zeka sağlayıcıları, Polar, GitHub, Microsoft,
-              Hugging Face, Kit, Web3Forms) Türkiye dışında, çoğunlukla ABD ve Avrupa Birliği'nde
-              çalışır. Bilgiler bu hizmetlere yalnızca sizin başlattığınız bir işlem sırasında ve o
-              işlem için gereken kadarıyla gider.
+              Yukarıdaki hizmetlerin çoğu (yapay zeka sağlayıcıları, yazıya dökme hizmetleri,
+              ElevenLabs, Polar, GitHub, Microsoft, Hugging Face, npm, Kit, Web3Forms) Türkiye
+              dışında, çoğunlukla ABD ve Avrupa Birliği'nde çalışır. Bilgiler bu hizmetlere yalnızca
+              sizin başlattığınız bir işlem sırasında ve o işlem için gereken kadarıyla gider.
             </p>
 
             <h2>Saklama ve silme</h2>

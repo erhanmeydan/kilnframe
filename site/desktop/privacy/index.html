@@ -41,7 +41,7 @@
             <span class="tc">PRIVACY</span>
             <div>
               <h2>Privacy Policy</h2>
-              <p>Last updated: 16 November 2026</p>
+              <p>Last updated: 19 November 2026</p>
             </div>
           </div>
 
@@ -57,12 +57,13 @@
             <ul>
               <li>
                 Your videos and projects stay <strong>on your computer</strong>. We have no server
-                that sees or keeps them.
+                that sees or keeps them. If you turn on cloud transcription, the sound of the
+                recordings goes to the service you choose (see below).
               </li>
               <li>The app has no ads, no usage tracking and no analytics.</li>
               <li>
                 For AI work, only the text and frames a job needs go to the provider
-                <strong>you choose</strong>.
+                <strong>you choose</strong>. With a model on your own computer, nothing leaves it.
               </li>
               <li>We do not sell your information, use it for ads or share it with others.</li>
             </ul>
@@ -71,8 +72,8 @@
             <ul>
               <li>Your recordings, projects, transcripts and exported videos.</li>
               <li>
-                Speech transcription, silence detection and person detection run on your computer,
-                on its own processor or graphics card.
+                Speech transcription runs on your computer by default; silence detection and person
+                detection always do, on its own processor or graphics card.
               </li>
               <li>
                 Your API keys and your licence key are kept in the system keychain (macOS Keychain,
@@ -81,6 +82,70 @@
               <li>
                 The app keeps a short log of its latest errors on your computer. It reaches us only
                 when you send an error report.
+              </li>
+            </ul>
+
+            <h2>Cloud transcription (only if you turn it on)</h2>
+            <ul>
+              <li>
+                Transcription runs on your computer unless you choose a cloud service in Settings.
+                The app asks you before it sends anything the first time.
+              </li>
+              <li>
+                With <strong>ElevenLabs</strong>, <strong>OpenAI</strong> or
+                <strong>Google</strong> chosen, the sound of the recordings being transcribed goes
+                to that service in pieces, as FLAC audio, together with the names in the project's
+                glossary (so that they are spelled right). The video, the project file and your
+                other files are not sent.
+              </li>
+              <li>
+                It goes with your own API key for that service and is subject to that service's
+                privacy terms. With OpenAI or Google, a small timing model is downloaded once from
+                Hugging Face and runs on your computer.
+              </li>
+            </ul>
+
+            <h2>AI features</h2>
+            <ul>
+              <li>
+                When you start an AI job, the text and the frames that job needs (transcript, notes,
+                small stills) go to the model and provider you chose in Settings, with your own key
+                or account. Whole videos and sound are not sent.
+              </li>
+              <li>With a model on your own computer (a local server), nothing leaves it.</li>
+              <li>
+                Sound effects and music made with ElevenLabs send the text prompt for them. Music
+                and narration made with Google Gemini send the prompt or the text to be read.
+              </li>
+            </ul>
+
+            <h2>Downloads and update checks</h2>
+            <ul>
+              <li>
+                Models (speech, timing, voice isolation, picture search, face detection) are
+                downloaded from Hugging Face or from our releases on GitHub the first time you start
+                a feature that needs them, never by themselves.
+              </li>
+              <li>
+                The optional sound pack is downloaded from our releases on GitHub when you ask for
+                it.
+              </li>
+              <li>
+                If Claude Code or Codex is installed, the app asks the npm registry for their latest
+                version number, to tell you when an update is out.
+              </li>
+              <li>
+                On macOS and Linux the app asks GitHub for a new version at start and every few
+                hours. On macOS it downloads one only when you agree; on Linux it shows a link to
+                the download page. On Windows the Microsoft Store keeps the app up to date.
+              </li>
+            </ul>
+
+            <h2>Error reports and feedback</h2>
+            <ul>
+              <li>
+                Nothing is sent by itself. A report goes only after the window has shown you exactly
+                what will be sent and you press Send.
               </li>
             </ul>
 
@@ -110,11 +175,33 @@
                     </td>
                   </tr>
                   <tr>
-                    <td>ElevenLabs</td>
-                    <td>When you use voice correction or voice-over</td>
                     <td>
-                      The text to be read and the voice samples you choose to introduce your voice
+                      The cloud transcription service you choose (ElevenLabs, OpenAI or Google)
                     </td>
+                    <td>
+                      Only if you turn on cloud transcription in Settings, when a recording is
+                      transcribed
+                    </td>
+                    <td>
+                      The sound of the recordings, in pieces as FLAC audio, and the names in the
+                      project's glossary. Not the video or the project file.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>ElevenLabs</td>
+                    <td>
+                      When you use voice correction, voice-over, sound effects or music made with it
+                    </td>
+                    <td>
+                      The text to be read, the voice samples you choose to introduce your voice
+                      (kept at ElevenLabs until the voice is deleted) and the prompts for sound
+                      effects and music
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Google (Gemini)</td>
+                    <td>When you make music or narration with Gemini</td>
+                    <td>The prompt for the music, or the text to be read</td>
                   </tr>
                   <tr>
                     <td>Polar (payment and licence)</td>
@@ -129,8 +216,12 @@
                     </td>
                   </tr>
                   <tr>
-                    <td>GitHub or the Microsoft Store</td>
-                    <td>When the app looks for an update and downloads one</td>
+                    <td>GitHub (our releases) or the Microsoft Store</td>
+                    <td>
+                      When the app looks for an update (macOS and Linux: at start and every few
+                      hours; Windows: through the Store), and when you download an update, the sound
+                      pack or a model we host
+                    </td>
                     <td>
                       An ordinary download request (IP address and app version). No account or
                       personal details.
@@ -138,8 +229,13 @@
                   </tr>
                   <tr>
                     <td>Hugging Face</td>
-                    <td>The first time a model is used</td>
-                    <td>The download request for the speech and image models</td>
+                    <td>The first time you start a feature that needs a model</td>
+                    <td>The download request for the speech, timing, voice and picture models</td>
+                  </tr>
+                  <tr>
+                    <td>npm registry</td>
+                    <td>If Claude Code or Codex is installed, when the app checks their version</td>
+                    <td>An ordinary request for the latest version number</td>
                   </tr>
                   <tr>
                     <td>Web3Forms (forwards it to us by email)</td>
@@ -190,10 +286,10 @@
 
             <h2>Transfers abroad</h2>
             <p>
-              Most of the services above (the AI providers, Polar, GitHub, Microsoft, Hugging Face,
-              Kit, Web3Forms) run outside Türkiye, mostly in the United States and the European
-              Union. Information goes to them only during an action you start, and only as much as
-              that action needs.
+              Most of the services above (the AI providers, the transcription services, ElevenLabs,
+              Polar, GitHub, Microsoft, Hugging Face, npm, Kit, Web3Forms) run outside Türkiye,
+              mostly in the United States and the European Union. Information goes to them only
+              during an action you start, and only as much as that action needs.
             </p>
 
             <h2>Keeping and deleting</h2>
