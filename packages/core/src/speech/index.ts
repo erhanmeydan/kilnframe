@@ -6,11 +6,13 @@ import { ffmpegPath, type Defaults } from "../config.js";
 import { ElevenLabsSpeechProvider } from "./elevenlabs.js";
 import { VOICE_SAMPLE_MAX_S, type Span } from "./fix.js";
 import { GeminiSpeechProvider } from "./gemini.js";
+import { localSpeechBaseUrl, OpenAICompatibleSpeechProvider } from "./openai-compatible.js";
 import { pcmWav, SpeechError, type SpeechProvider } from "./types.js";
 
 export * from "./elevenlabs.js";
 export * from "./fix.js";
 export * from "./gemini.js";
+export * from "./openai-compatible.js";
 export * from "./types.js";
 
 const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
@@ -22,7 +24,7 @@ export interface SpeechCatalogProvider {
   keyName: string;
   /** Where the editor makes a key. */
   keyUrl?: string;
-  /** Gemini prices by the million tokens, ElevenLabs by the thousand characters. */
+  /** Gemini prices by the million tokens, ElevenLabs by the thousand characters; a local server has no price. */
   models: {
     id: string;
     label: string;
@@ -84,11 +86,20 @@ export function createSpeechProvider(
     provider?: string | undefined;
     model?: string | undefined;
     apiKey?: string | undefined;
+    /** The address of a local speech server (provider "local"). */
+    baseUrl?: string | undefined;
   } = {},
 ): SpeechProvider {
   const id = o.provider ?? defaults.speech.provider;
   const entry = loadSpeechCatalog().find((p) => p.id === id);
   if (!entry) throw new SpeechError(`Unknown speech provider "${id}".`);
+  // a local server needs no key: the token is optional
+  if (id === "local")
+    return new OpenAICompatibleSpeechProvider({
+      baseUrl: localSpeechBaseUrl({ baseUrl: o.baseUrl, fallback: entry.endpoint }),
+      model: o.model ?? speechModelFor(defaults, id) ?? defaults.speech.model,
+      apiKey: o.apiKey ?? process.env.LOCAL_API_KEY,
+    });
   const envName = `${id.toUpperCase()}_API_KEY`;
   const apiKey = o.apiKey ?? process.env[envName];
   if (!apiKey)

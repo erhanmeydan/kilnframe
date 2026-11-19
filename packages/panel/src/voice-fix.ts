@@ -20,7 +20,9 @@ interface Span {
 
 export interface VoiceFixState {
   stage: VoiceFixStage;
-  /** Whether an ElevenLabs key is saved; null until the companion said. */
+  /** Whose voice reads the take: the editor's ElevenLabs clone, or one on their local speech server. */
+  provider: "elevenlabs" | "local";
+  /** Whether an ElevenLabs key is saved (a local server needs none); null until the companion said. */
   keySet: boolean | null;
   error: string | null;
   /** Resolve could not put its Deliver settings back after the export. */
@@ -63,6 +65,7 @@ export interface VoiceFixState {
 export function newVoiceFix(): VoiceFixState {
   return {
     stage: "idle",
+    provider: "elevenlabs",
     keySet: null,
     error: null,
     settingsNote: null,
@@ -137,11 +140,21 @@ export interface VoiceFixCtx {
   stored(key: string): string | null;
   store(key: string, value: string): void;
   forget(key: string): void;
+  /** The address of the editor's local speech server, when they set one in the settings. */
+  speechBaseURL?(): string | undefined;
 }
 
 const turkish = () => lang() === "tr";
 const outDir = (st: VoiceFixState) => `${st.jobDir}/voice-fix`;
-const cloneKey = (st: VoiceFixState) => `voice-clone:${st.seqId}:${st.track}`;
+const cloneKey = (st: VoiceFixState) =>
+  `voice-clone:${st.provider === "local" ? "local:" : ""}${st.seqId}:${st.track}`;
+/** What tells the companion to use the local speech server instead of ElevenLabs. */
+const localParams = (st: VoiceFixState, ctx: VoiceFixCtx) => {
+  const baseURL = ctx.speechBaseURL?.();
+  return st.provider === "local"
+    ? { provider: "local" as const, ...(baseURL ? { baseURL } : {}) }
+    : {};
+};
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /** Whether the panel should keep reading the sequence for a new In/Out while this tab is open. */
@@ -156,9 +169,11 @@ export function voiceFixWatches(st: VoiceFixState): boolean {
 /** The tab was opened: whether an ElevenLabs key is saved comes with the voice list. */
 export async function voiceFixOpened(st: VoiceFixState, ctx: VoiceFixCtx): Promise<void> {
   if (!ctx.connected()) return;
+  if (st.stage === "idle")
+    st.provider = ctx.stored("voice-fix-provider") === "local" ? "local" : "elevenlabs";
   try {
     const reply = await ctx.request(
-      { type: "speech.voices", provider: "elevenlabs" },
+      { type: "speech.voices", provider: st.provider, ...localParams(st, ctx) },
       "voices",
       30_000,
     );
@@ -236,6 +251,13 @@ function idleScreen(st: VoiceFixState, ctx: VoiceFixCtx): string {
   const ready = ctx.connected() && st.keySet !== false && range !== null;
   return `${ctx.rangeLine()}
   <div class="note muted">${t("fix.hint")}</div>
+  <div class="seg mt">${(["elevenlabs", "local"] as const)
+    .map(
+      (p) =>
+        `<div data-act="fix-provider" data-val="${p}" class="opt${p === st.provider ? " on" : ""}">${p === "local" ? t("fix.providerLocal") : "ElevenLabs"}</div>`,
+    )
+    .join("")}</div>
+  ${st.provider === "local" ? `<div class="note muted">${t("fix.localNote")}</div>` : ""}
   ${st.keySet === false ? `<div class="box warn">${t("fix.noKey")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>` : ""}
   ${range ? "" : `<div class="box warn">${t("clone.needRange")}</div>`}
   <div class="btn mt${ready ? "" : " off"}" data-act="fix-go">${t("fix.go")}</div>`;
@@ -372,8 +394,8 @@ async function start(st: VoiceFixState, ctx: VoiceFixCtx): Promise<void> {
     st.error = t("fix.noKey");
     return ctx.render();
   }
-  const keySet = st.keySet;
-  Object.assign(st, newVoiceFix(), { keySet, stage: "reading" });
+  const { keySet, provider } = st;
+  Object.assign(st, newVoiceFix(), { keySet, provider, stage: "reading" });
   ctx.render();
   try {
     const target = await ctx.readSequence();
@@ -522,6 +544,12 @@ async function say(st: VoiceFixState, ctx: VoiceFixCtx, voice: string): Promise<
       kind: "voice-fix-say",
       text: st.text,
       voice,
+      ...(st.provider === "local"
+        ? {
+            speechProvider: "local" as const,
+            ...(ctx.speechBaseURL?.() ? { speechBaseURL: ctx.speechBaseURL() } : {}),
+          }
+        : {}),
       ...(st.before ? { before: st.before.slice(-2000) } : {}),
       ...(st.after ? { after: st.after.slice(0, 2000) } : {}),
       ...(st.language ? { language: st.language.slice(0, 10) } : {}),
@@ -623,6 +651,7 @@ async function listenSample(st: VoiceFixState, ctx: VoiceFixCtx): Promise<void> 
     const reply = await ctx.request(
       {
         type: "speech.clone",
+        ...localParams(st, ctx),
         ...source,
         name: cloneName(st),
         removeNoise: false,
@@ -673,6 +702,7 @@ async function cloneAndRead(st: VoiceFixState, ctx: VoiceFixCtx): Promise<void> 
     const reply = await ctx.request(
       {
         type: "speech.clone",
+        ...localParams(st, ctx),
         ...source,
         name: cloneName(st),
         removeNoise: false,
@@ -732,6 +762,7 @@ function play(st: VoiceFixState, ctx: VoiceFixCtx): void {
 }
 
 const FIX_ACTS = new Set([
+  "fix-provider",
   "fix-go",
   "fix-track",
   "fix-cancel",
@@ -757,7 +788,16 @@ export function voiceFixAct(
   val: string,
 ): boolean {
   if (!FIX_ACTS.has(act)) return false;
-  if (act === "fix-go") void start(st, ctx);
+  if (act === "fix-provider") {
+    // only before a fix starts: a clone belongs to the one that made it
+    if ((val === "local" || val === "elevenlabs") && val !== st.provider && st.stage === "idle") {
+      st.provider = val;
+      st.keySet = null;
+      st.error = null;
+      ctx.store("voice-fix-provider", val);
+      void voiceFixOpened(st, ctx);
+    }
+  } else if (act === "fix-go") void start(st, ctx);
   else if (act === "fix-track") void pickTrack(st, ctx, Number(val));
   else if (act === "fix-cancel") {
     if (st.jobId) ctx.send({ type: "job.cancel", jobId: st.jobId });
@@ -783,7 +823,7 @@ export function voiceFixAct(
   } else if (act === "fix-place") void place(st, ctx);
   else if (act === "fix-new") {
     if (st.playing) ctx.send({ type: "speech.stop" });
-    Object.assign(st, newVoiceFix(), { keySet: st.keySet });
+    Object.assign(st, newVoiceFix(), { keySet: st.keySet, provider: st.provider });
   } else if (act === "fix-reclone" && st.seqId !== null && st.track !== null) {
     ctx.forget(cloneKey(st));
     if (st.stage !== "placed") toConsent(st);

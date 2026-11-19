@@ -59,7 +59,10 @@ export interface CompanionOptions {
   /** Style cards (name, display name, summary, thumbnail) for the panel's style picker. */
   listStyles?: () => Promise<unknown[]>;
   /** The speech provider's voices and whether its key is set, for story mode. */
-  listVoices?: (provider?: string) => Promise<{
+  listVoices?: (
+    provider?: string,
+    baseURL?: string,
+  ) => Promise<{
     provider: string;
     model: string;
     voices: unknown[];
@@ -72,10 +75,16 @@ export interface CompanionOptions {
     voice: string,
     language: string,
     onEnd: () => void,
-    o?: { provider?: string | undefined; label?: string | undefined },
+    o?: {
+      provider?: string | undefined;
+      label?: string | undefined;
+      baseURL?: string | undefined;
+    },
   ) => Promise<void>;
-  /** Clones a voice in the editor's ElevenLabs account from an exported range. */
+  /** Clones a voice in the editor's ElevenLabs account (or on their local speech server) from an exported range. */
   cloneVoice?: (o: {
+    provider?: string | undefined;
+    baseURL?: string | undefined;
     audioPath: string;
     rangeStartS?: number;
     rangeEndS?: number;
@@ -379,7 +388,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             break;
           case "speech.voices": {
             if (!o.listVoices) throw new Error("story mode is not supported");
-            reply({ type: "voices", ...(await o.listVoices(msg.provider)) });
+            reply({ type: "voices", ...(await o.listVoices(msg.provider, msg.baseURL)) });
             break;
           }
           case "speech.preview":
@@ -388,7 +397,7 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
               msg.voice,
               msg.language,
               () => broadcast({ type: "speech.ended", voice: msg.voice }),
-              { provider: msg.provider, label: msg.label },
+              { provider: msg.provider, label: msg.label, baseURL: msg.baseURL },
             );
             reply({ type: "speech.played", voice: msg.voice });
             break;
@@ -408,6 +417,8 @@ export function startCompanion(o: CompanionOptions): Promise<Companion> {
             reply({
               type: "speech.cloned",
               ...(await o.cloneVoice({
+                provider: msg.provider,
+                baseURL: msg.baseURL,
                 audioPath: msg.audioPath,
                 ...(msg.spans
                   ? { spans: msg.spans }
