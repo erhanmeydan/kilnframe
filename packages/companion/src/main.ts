@@ -31,6 +31,7 @@ import {
   listElevenLabsVoices,
   listLocalVoices,
   localSpeechBaseUrl,
+  speechVoiceFor,
   speechModelFor,
   narrate,
   downloadSpeechModel,
@@ -176,7 +177,15 @@ async function main() {
             baseUrl: localSpeechBaseUrl({ baseUrl: baseURL, fallback: entry?.endpoint }),
             apiKey: key,
           });
-          return { ...local, voices: listed?.length ? listed : (entry?.voices ?? []) };
+          // the neutral voice is always first: it is what is sent when no other was chosen
+          const neutral = entry?.voices ?? [];
+          return {
+            ...local,
+            voices: [
+              ...neutral,
+              ...(listed ?? []).filter((v) => !neutral.some((n) => n.name === v.name)),
+            ],
+          };
         } catch (err) {
           return {
             ...local,
@@ -187,9 +196,11 @@ async function main() {
       }
       return { ...base, voices: entry?.voices ?? [] };
     },
-    previewVoice: async (voice, language, onEnd, o = {}) => {
+    previewVoice: async (asked, language, onEnd, o = {}) => {
       const defaults = loadDefaults();
       const id = o.provider ?? defaults.speech.provider;
+      // a voice of another provider's catalog (Gemini's "Kore") means the local server's own default
+      const voice = id === "local" ? speechVoiceFor(defaults, id, asked) : asked;
       const model = speechModelFor(defaults, id) ?? defaults.speech.model;
       const dir = join(
         process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"),

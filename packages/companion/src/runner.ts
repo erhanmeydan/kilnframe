@@ -6,6 +6,7 @@ import {
   previewCaptionStill,
   renderCaptions,
   createSpeechProvider,
+  speechVoiceFor,
   fixContext,
   voiceSampleSpans,
   createStyle,
@@ -397,10 +398,11 @@ async function storyVoiceJob(
   });
   mkdirSync(params.outDir, { recursive: true });
   writeFileSync(join(params.outDir, "story.txt"), `${params.text}\n`);
+  const voice = speechVoiceFor(defaults, id, params.voice);
   const result = await narrate({
     provider: speech,
     text: params.text,
-    voice: params.voice,
+    voice,
     style: params.style,
     language: params.language,
     outFile: join(params.outDir, "narration.wav"),
@@ -408,7 +410,7 @@ async function storyVoiceJob(
   });
   writeFileSync(
     join(params.outDir, "narration.json"),
-    `${JSON.stringify({ title: params.title, voice: params.voice, provider: speech.id, model: speech.model, ...result }, null, 2)}\n`,
+    `${JSON.stringify({ title: params.title, voice, provider: speech.id, model: speech.model, ...result }, null, 2)}\n`,
   );
   let music: { file: string; priceUsd: number } | null = null;
   let musicError: string | null = null;

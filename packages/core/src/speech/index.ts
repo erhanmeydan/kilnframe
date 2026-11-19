@@ -33,6 +33,8 @@ export interface SpeechCatalogProvider {
   audioTokensPerSecond?: number;
   /** The model Voice Fix reads a clone with, whatever the narration settings say. */
   voiceFixModel?: string;
+  /** The voice sent when none was chosen for this provider (a local server's neutral name). */
+  defaultVoice?: string;
   sampleRate: number;
   voices: { name: string; character: string }[];
 }
@@ -49,6 +51,30 @@ export function loadSpeechCatalog(): SpeechCatalogProvider[] {
 export function speechModelFor(defaults: Defaults, provider: string): string | undefined {
   if (provider === defaults.speech.provider) return defaults.speech.model;
   return loadSpeechCatalog().find((p) => p.id === provider)?.models[0]?.id;
+}
+
+/**
+ * The voice to read with: the caller's when it can belong to this provider, else the provider's own default.
+ * No voice, or a name only another provider's catalog lists (Gemini's "Kore" sent to a local server), means
+ * the default: the defaults' voice when they name this provider, else the catalog's `defaultVoice` or first voice.
+ */
+export function speechVoiceFor(
+  defaults: Defaults,
+  provider: string,
+  voice?: string | undefined,
+): string {
+  const catalog = loadSpeechCatalog();
+  const own = catalog.find((p) => p.id === provider);
+  const fallback =
+    provider === defaults.speech.provider
+      ? defaults.speech.voice
+      : (own?.defaultVoice ?? own?.voices[0]?.name ?? defaults.speech.voice);
+  const name = voice?.trim();
+  if (!name) return fallback;
+  const foreign =
+    !own?.voices.some((v) => v.name === name) &&
+    catalog.some((p) => p.id !== provider && p.voices.some((v) => v.name === name));
+  return foreign ? fallback : name;
 }
 
 /**

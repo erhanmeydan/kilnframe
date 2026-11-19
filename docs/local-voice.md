@@ -24,11 +24,11 @@ LOCAL_BASE_URL=http://127.0.0.1:8890 \
 
 ## What the server has to do
 
-| Request                                                    | Needed | Notes                                                                                                                                               |
-| ---------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /v1/audio/speech`                                    | yes    | JSON `{ model, input, voice, response_format: "wav", instructions? }`. Answer a mono 16-bit WAV (any sample rate; it is resampled to 48 kHz).       |
-| `GET /v1/audio/voices`                                     | no     | `{ "data": [{ "id": "anna" }] }` or `{ "voices": [{ "name": "anna" }] }`. Without it the panel offers one voice, `alloy`; the server may map it.    |
-| `POST /v1/audio/voices` (multipart `name`, `audio_sample`) | no     | Makes a voice from a recording and answers `{ "id": "..." }`. Used by "Clone a Voice" and by Voice Fix. Without it, cloning says the server cannot. |
+| Request                                                    | Needed | Notes                                                                                                                                                                                                                               |
+| ---------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/audio/speech`                                    | yes    | JSON `{ model, input, voice, response_format: "wav", instructions? }`. Answer a mono 16-bit WAV (any sample rate; it is resampled to 48 kHz).                                                                                       |
+| `GET /v1/audio/voices`                                     | no     | `{ "data": [{ "id": "anna" }] }` or `{ "voices": [{ "name": "anna" }] }`. Without it the panel offers one voice, `default`, which is also what is sent when no voice was chosen for this provider; most servers accept `alloy` too. |
+| `POST /v1/audio/voices` (multipart `name`, `audio_sample`) | no     | Makes a voice from a recording and answers `{ "id": "..." }`. Used by "Clone a Voice" and by Voice Fix. Without it, cloning says the server cannot.                                                                                 |
 
 `instructions` carries the delivery direction ("calm and warm") and may be ignored. `response_format`
 `"pcm"` (raw 24 kHz mono 16-bit little-endian, as OpenAI defines it) is supported by the provider class too.

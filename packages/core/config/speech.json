@@ -210,16 +210,17 @@
       "sampleRate": 24000,
       "voices": [
         {
-          "name": "alloy",
-          "character": "The server's default voice"
+          "name": "default",
+          "character": "The server's own voice"
         }
       ],
       "notes": [
         "any server that answers POST /v1/audio/speech like OpenAI does (a local TTS model behind a small HTTP server); no key is needed, an optional bearer token is kept under the key name 'local'",
         "the address defaults to http://127.0.0.1:8890; the panel's settings or the LOCAL_BASE_URL environment variable change it",
-        "the model and voice names are whatever the server knows; a voice list (GET /v1/audio/voices) and cloning (POST /v1/audio/voices) are used only when the server has them",
+        "the model and voice names are whatever the server knows; the voice \"default\" is sent when none was chosen for this provider (most servers also take \"alloy\"); a voice list (GET /v1/audio/voices) and cloning (POST /v1/audio/voices) are used only when the server has them",
         "the cost is zero: the voice runs on the editor's own computer or network"
-      ]
+      ],
+      "defaultVoice": "default"
     }
   ]
 }

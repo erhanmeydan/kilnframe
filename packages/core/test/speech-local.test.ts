@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { existsSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,6 +17,7 @@ import {
   pcmWav,
   SpeechError,
   speechPriceUsd,
+  speechVoiceFor,
 } from "../src/speech/index.js";
 
 /** A tone of `seconds` at `rate` as mono 16-bit PCM. */
@@ -285,4 +288,75 @@ describe("listLocalVoices and cloneLocalVoice", () => {
       cloneLocalVoice({ baseUrl: server.url, name: "n", audio: Buffer.from("x") }),
     ).rejects.toThrow(/cannot clone/);
   });
+});
+
+describe("the voice sent to a provider", () => {
+  const defaults = loadDefaults();
+
+  it("is the local provider's own default when none was chosen", () => {
+    expect(loadSpeechCatalog().find((p) => p.id === "local")?.defaultVoice).toBe("default");
+    expect(speechVoiceFor(defaults, "local")).toBe("default");
+    expect(speechVoiceFor(defaults, "local", "  ")).toBe("default");
+  });
+
+  it("is the local default when the chosen voice only exists in another provider's catalog", () => {
+    expect(defaults.speech.provider).toBe("gemini");
+    expect(speechVoiceFor(defaults, "local", defaults.speech.voice)).toBe("default");
+    expect(speechVoiceFor(defaults, "local", "Puck")).toBe("default");
+  });
+
+  it("keeps a voice the provider can own, and the defaults' voice for the defaults' provider", () => {
+    expect(speechVoiceFor(defaults, "local", "my-clone")).toBe("my-clone");
+    expect(speechVoiceFor(defaults, "local", "alloy")).toBe("alloy");
+    expect(speechVoiceFor(defaults, "local", "default")).toBe("default");
+    expect(speechVoiceFor(defaults, "gemini")).toBe(defaults.speech.voice);
+    expect(speechVoiceFor(defaults, "gemini", "Puck")).toBe("Puck");
+    // an ElevenLabs voice id is nobody's catalog entry: it is kept
+    expect(speechVoiceFor(defaults, "elevenlabs", "21m00Tcm4TlvDq8ikWAM")).toBe(
+      "21m00Tcm4TlvDq8ikWAM",
+    );
+  });
+});
+
+const cli = join(import.meta.dirname, "..", "dist", "cli.js");
+
+describe.skipIf(!existsSync(cli))("kilnframe story --speech-provider local (built CLI)", () => {
+  async function story(extra: string[]) {
+    const server = await fakeServer(() => ({ body: pcmWav(tone(0.3), 22050) }));
+    const dir = mkdtempSync(join(tmpdir(), "kf-cli-"));
+    const script = join(dir, "s.txt");
+    writeFileSync(script, "Merhaba dünya.");
+    const child = spawn(
+      process.execPath,
+      [
+        cli,
+        "story",
+        "--script",
+        script,
+        "--out",
+        join(dir, "o"),
+        "--language",
+        "tr",
+        "--speech-provider",
+        "local",
+        ...extra,
+      ],
+      { env: { ...process.env, LOCAL_BASE_URL: server.url, KILNFRAME_HOME: dir }, stdio: "ignore" },
+    );
+    const code = await new Promise<number | null>((done) => child.on("exit", done));
+    return { code, seen: server.seen, out: join(dir, "o") };
+  }
+
+  it("sends the local default voice, not the Gemini default, when no --voice is given", async () => {
+    const r = await story([]);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.seen[0]!.body.toString()).voice).toBe("default");
+    expect(existsSync(join(r.out, "narration.wav"))).toBe(true);
+  }, 30_000);
+
+  it("sends the voice that was asked for", async () => {
+    const r = await story(["--voice", "anna"]);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.seen[0]!.body.toString()).voice).toBe("anna");
+  }, 30_000);
 });

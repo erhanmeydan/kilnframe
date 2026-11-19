@@ -113,6 +113,40 @@ describe("local speech jobs", () => {
     expect(r.listPriceUsd ?? 0).toBe(0);
   });
 
+  it("sends the local default voice when the job carries another provider's voice or none", async () => {
+    const server = await fakeSpeechServer();
+    for (const voice of ["Kore", "Puck"]) {
+      const outDir = dir();
+      await pipelineRunner(new MemoryKeyStore())(
+        JobParamsSchema.parse({
+          kind: "story-voice",
+          text: "Bir.",
+          voice,
+          outDir,
+          speechProvider: "local",
+          speechBaseURL: server.url,
+        }),
+        events,
+      );
+      expect(JSON.parse(readFileSync(join(outDir, "narration.json"), "utf8")).voice).toBe(
+        "default",
+      );
+    }
+    expect(server.requests.map((q) => JSON.parse(q.body).voice)).toEqual(["default", "default"]);
+    await pipelineRunner(new MemoryKeyStore())(
+      JobParamsSchema.parse({
+        kind: "story-voice",
+        text: "Bir.",
+        voice: "anna",
+        outDir: dir(),
+        speechProvider: "local",
+        speechBaseURL: server.url,
+      }),
+      events,
+    );
+    expect(JSON.parse(server.requests[2]!.body).voice).toBe("anna");
+  });
+
   it("sends a token kept in the key store as a bearer token", async () => {
     const server = await fakeSpeechServer();
     const keys = new MemoryKeyStore();

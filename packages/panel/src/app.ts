@@ -225,7 +225,7 @@ function voiceKey(provider: SpeechProvider): string {
 function storedVoice(provider: SpeechProvider): string {
   return (
     stored(voiceKey(provider)) ??
-    (provider === "gemini" ? "Kore" : provider === "local" ? "alloy" : "")
+    (provider === "gemini" ? "Kore" : provider === "local" ? "default" : "")
   );
 }
 
