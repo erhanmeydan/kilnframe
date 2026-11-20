@@ -51,6 +51,51 @@
         box-sizing: border-box;
         flex-shrink: 0;
       }
+      /* the Kilnframe Desktop line under everything: one quiet row, its text cut short when narrow */
+      .promo {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        box-sizing: border-box;
+        border-top: 1px solid #303030;
+        background: #262626;
+        padding: 0 4px 0 12px;
+        font-size: 11px;
+        color: #8f8f8f;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .promo-text {
+        flex: 1 1 0;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .promo .promo-link {
+        flex: 0 0 auto;
+        margin-left: 8px;
+        padding: 2px;
+      }
+      .promo-x {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        margin-left: 4px;
+        text-align: center;
+        font-size: 14px;
+        color: #8f8f8f;
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      .promo-x:hover {
+        color: #d6d6d6;
+      }
+      .promo-link:focus,
+      .promo-x:focus {
+        outline: 1px solid #5b8cff;
+      }
       /* fewer boxes (panel design 2, 8 Oct 2026): frames only on things that are clicked or typed in */
       .rangeline {
         padding: 2px 0 8px;

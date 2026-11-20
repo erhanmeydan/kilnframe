@@ -159,6 +159,9 @@
   "settings.window": "Panel Window",
   "settings.onTopOn": "Always on Top",
   "settings.onTopOff": "Like Other Windows",
+  "settings.desktopPromo": "Kilnframe Desktop Note",
+  "settings.desktopPromoOn": "Show",
+  "settings.desktopPromoOff": "Hide",
   "settings.versionsDifferResolve": "The panel and the app are different versions. Choose Install the Panel in DaVinci Resolve from the Kilnframe icon in the menu bar, then reopen the panel from Workspace > Workflow Integrations.",
   "settings.versionsDifferFilmcraft": "The panel and the app are different versions. Close FilmCraft and open it again from the Kilnframe menu.",
   "settings.wav": "WAV Preset",
@@ -745,5 +748,8 @@
   "prov.groupPlan": "Your Plan",
   "prov.groupKey": "API Key",
   "prov.groupLocal": "On This Computer",
-  "prov.allKeys": "All API Providers ({n} more)"
+  "prov.allKeys": "All API Providers ({n} more)",
+  "promo.text": "Kilnframe Desktop: edit your recording by talking, and let it write the animations.",
+  "promo.link": "Take a look",
+  "promo.dismiss": "Dismiss"
 }
