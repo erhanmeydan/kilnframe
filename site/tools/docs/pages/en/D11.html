@@ -1,0 +1,44 @@
+<!-- description: The Kilnframe Desktop timeline: its tracks, the editing tools and their keys, the clip menu, transitions, markers, beats and following the playhead. -->
+<p class="lead">The timeline holds your recording and everything placed over and under it. The tools sit on its left edge, the zoom and the snapping above it, the sound meter at its right.</p>
+<figure class="shot"><img src="{{img}}timeline.webp" alt="The timeline: the tool rail at the left, tracks V4 to V1, V0 Background, A1 and A2, an animation clip on V4 and the recording on V1" loading="lazy" /></figure>
+
+<h2>Tracks</h2>
+<ul>
+  <li><b>V1</b>: your recording, cut into pieces by the automatic cut and by you.</li>
+  <li><b>V2 and up</b>: what goes over it: shots, titles, animations, pictures. Higher tracks cover lower ones.</li>
+  <li><span class="ui">V0 Background</span>: under the recording, for a background behind a picture made smaller.</li>
+  <li><b>A1</b>: the speech. <b>A2</b>: sound effects. <b>A3</b>: music.</li>
+</ul>
+<p>Each track has buttons to hide, mute, solo and lock it; sound tracks have <b>fx</b> for their effects. The <b>+</b> above the track names adds a track (<span class="ui">Add Video Track</span>, <span class="ui">Add Audio Track</span>).</p>
+
+<h2>Tools</h2>
+<p>The keys below are Kilnframe's own; with another program's keys chosen in Settings, they follow that program.</p>
+<table>
+  <tr><th>Tool</th><th>Key</th><th>What it does</th></tr>
+  <tr><td><span class="ui">Select</span></td><td><kbd>V</kbd></td><td>Pick a piece or a clip; drag a clip to move it, to another track too.</td></tr>
+  <tr><td><span class="ui">Razor</span></td><td><kbd>C</kbd></td><td>Cut a clip or the recording where you click.</td></tr>
+  <tr><td><span class="ui">Hand</span></td><td><kbd>H</kbd></td><td>Drag the timeline along.</td></tr>
+  <tr><td><span class="ui">Pen</span></td><td><kbd>P</kbd></td><td>Click a sound track to add a volume point.</td></tr>
+  <tr><td><span class="ui">Rate Stretch</span></td><td><kbd>R</kbd></td><td>Drag an edge: longer plays slower, shorter plays faster; the sound keeps its pitch.</td></tr>
+  <tr><td><span class="ui">Roll</span></td><td><kbd>T</kbd></td><td>Drag the joint between two pieces: one gets longer as the other gets shorter.</td></tr>
+  <tr><td><span class="ui">Slip</span></td><td><kbd>Y</kbd></td><td>Show an earlier or later part of a clip, in the same place and length.</td></tr>
+  <tr><td><span class="ui">Track Select Forward</span></td><td><kbd>A</kbd></td><td>Pick everything from where you click on, to move it all together.</td></tr>
+  <tr><td><span class="ui">Text</span></td><td><kbd>⇧ T</kbd></td><td>Click in the Program viewer to write a new title there.</td></tr>
+</table>
+<p><kbd>=</kbd> and <kbd>-</kbd> zoom in and out, <kbd>\</kbd> shows the whole cut (<span class="ui">Fit</span>). <kbd>N</kbd> turns snapping on and off: clips catch on edits, markers and the playhead.</p>
+
+<h2>The clip menu</h2>
+<p>Right-click a clip for, among others: <span class="ui">Speed…</span>, <span class="ui">Reverse</span>, <span class="ui">Freeze Frame</span>, <span class="ui">Split at Scene Changes</span>, <span class="ui">Replace With…</span>, <span class="ui">Copy Settings</span> and <span class="ui">Paste Settings</span>, <span class="ui">Make Compound Clip</span>, <span class="ui">Show in Media</span> and <span class="ui">Delete and Close the Gap (Ripple Delete)</span>. An item that does not apply to the clip is greyed, with the reason beside it.</p>
+
+<h2>Transitions</h2>
+<p>At a cut, <span class="ui">Add Cross Dissolve</span> (<kbd>⌘ D</kbd>) or <span class="ui">Add Dip to Black</span> (<kbd>⇧ ⌘ D</kbd>). <span class="ui">Cross Dissolve at Every Cut</span> does them all at once, <span class="ui">Remove All Transitions</span> takes them away. On sound, <span class="ui">Add Sound Crossfade</span>.</p>
+
+<h2>Markers and beats</h2>
+<ul>
+  <li><kbd>M</kbd> adds a marker at the playhead; <kbd>⇧ M</kbd> goes to the next one. A marker can be orange, blue, green, red or purple and can carry a note.</li>
+  <li><span class="ui">Find Beats</span> marks the beats of a music clip, so you can cut to them.</li>
+  <li><span class="ui">Close All Gaps</span> pulls the clips together where empty space is left.</li>
+</ul>
+
+<h2>Follow the playhead</h2>
+<p><span class="ui">Follow the playhead</span>, above the tracks: <span class="ui">Page by page</span> turns the view a page at a time, <span class="ui">Smooth</span> keeps the playhead still and moves the clips under it, <span class="ui">Off</span> leaves the view where it is.</p>

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How Kilnframe uses AI · Kilnframe Desktop Docs</title>
+    <meta name="description" content="Which Kilnframe Desktop features run on your computer, which use the AI model you connect, which need a separate key, what is sent, and how every AI step can be undone." />
+    <link rel="icon" href="../../../assets/desktop/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/docs/ai/overview/" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/overview/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/genel-bakis/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/overview/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/docs/ai/overview/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="How Kilnframe uses AI · Kilnframe Desktop Docs" />
+    <meta property="og:description" content="Which Kilnframe Desktop features run on your computer, which use the AI model you connect, which need a separate key, what is sent, and how every AI step can be undone." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://kilnframe.com/assets/desktop/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../../assets/studio.css" />
+    <script>document.documentElement.classList.add("js")</script>
+    <!-- visit counts without cookies (goatcounter.com) -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../../../"><img src="../../../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
+        <nav>
+          <a href="../../../features/">Features</a>
+          <a href="../../../docs/" aria-current="page">Docs</a>
+          <a href="../../../#price">Price</a>
+          <a href="../../../plugin/">Plugin</a>
+        </nav>
+        <div class="lang"><a href="./" aria-current="page">EN</a><a href="../../../tr/docs/yapay-zeka/genel-bakis/" hreflang="tr">TR</a></div>
+        <a class="btn solid" href="../../../#notify">Get notified</a>
+      </div>
+    </header>
+    <main class="docs">
+      <div class="wrap docs-grid">
+      <button class="docs-menu" type="button" aria-controls="docs-side" aria-expanded="false">Contents</button>
+      <aside class="docs-side" id="docs-side">
+        <form class="search" action="../../../docs/" method="get" role="search">
+          <input type="search" name="q" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" spellcheck="false" />
+          <template class="search-empty">No results. Try other words, or the <a href="../../../docs/help/faq/">FAQ</a>.</template>
+        </form>
+        <nav aria-label="Docs">
+          <ul><li><a href="../../../docs/">Kilnframe Desktop Docs</a></li></ul>
+          <p>Getting started</p>
+          <ul>
+            <li><a href="../../../docs/getting-started/install/">Install</a></li>
+            <li><a href="../../../docs/getting-started/first-video/">Your first video</a></li>
+            <li><a href="../../../docs/getting-started/editor-window/">The editor window</a></li>
+            <li><a href="../../../docs/getting-started/projects/">Projects and files</a></li>
+          </ul>
+          <p>Panels</p>
+          <ul>
+            <li><span class="soon" title="Coming soon">Media</span></li>
+            <li><a href="../../../docs/panels/transcript/">Transcript</a></li>
+            <li><span class="soon" title="Coming soon">Animations</span></li>
+            <li><span class="soon" title="Coming soon">Sound Effects</span></li>
+            <li><a href="../../../docs/panels/program/">Program (viewer)</a></li>
+            <li><a href="../../../docs/panels/timeline/">Timeline</a></li>
+            <li><a href="../../../docs/panels/cut/">Cut</a></li>
+            <li><span class="soon" title="Coming soon">Clip</span></li>
+            <li><span class="soon" title="Coming soon">Picture</span></li>
+            <li><span class="soon" title="Coming soon">Sound and Mixer</span></li>
+            <li><span class="soon" title="Coming soon">Captions</span></li>
+            <li><span class="soon" title="Coming soon">Text, shapes and stickers</span></li>
+            <li><span class="soon" title="Coming soon">Music</span></li>
+            <li><span class="soon" title="Coming soon">B-roll</span></li>
+            <li><span class="soon" title="Coming soon">Publish</span></li>
+            <li><span class="soon" title="Coming soon">Assistant</span></li>
+          </ul>
+          <p>Guides</p>
+          <ul>
+            <li><span class="soon" title="Coming soon">Correct words and say them again</span></li>
+            <li><span class="soon" title="Coming soon">Animation styles and your own</span></li>
+            <li><span class="soon" title="Coming soon">Colour</span></li>
+            <li><span class="soon" title="Coming soon">Screen tutorials</span></li>
+            <li><span class="soon" title="Coming soon">Record screen and camera</span></li>
+            <li><span class="soon" title="Coming soon">Multicam and speakers</span></li>
+            <li><span class="soon" title="Coming soon">Blur faces and areas</span></li>
+            <li><span class="soon" title="Coming soon">Green screen</span></li>
+            <li><span class="soon" title="Coming soon">Motion and keyframes</span></li>
+            <li><span class="soon" title="Coming soon">Speed, slow motion, freeze and reverse</span></li>
+            <li><span class="soon" title="Coming soon">Sequences</span></li>
+            <li><span class="soon" title="Coming soon">Short clips</span></li>
+            <li><span class="soon" title="Coming soon">Translation and dubbing</span></li>
+            <li><span class="soon" title="Coming soon">Story from a topic</span></li>
+            <li><span class="soon" title="Coming soon">Brand kits and fonts</span></li>
+            <li><span class="soon" title="Coming soon">Find in footage</span></li>
+            <li><a href="../../../docs/guides/export/">Export</a></li>
+            <li><span class="soon" title="Coming soon">Running work and asked work</span></li>
+          </ul>
+          <p>AI connections</p>
+          <ul>
+            <li><a href="../../../docs/ai/overview/" aria-current="page">How Kilnframe uses AI</a></li>
+            <li><a href="../../../docs/ai/claude-chatgpt-plan/">Use your Claude or ChatGPT plan</a></li>
+            <li><span class="soon" title="Coming soon">API keys</span></li>
+            <li><span class="soon" title="Coming soon">Local models</span></li>
+            <li><span class="soon" title="Coming soon">Cloud transcription</span></li>
+            <li><span class="soon" title="Coming soon">Connect AI assistants (MCP)</span></li>
+          </ul>
+          <p>Account and privacy</p>
+          <ul>
+            <li><a href="../../../docs/account/licence/">Licence and trial</a></li>
+            <li><span class="soon" title="Coming soon">Updates</span></li>
+            <li><span class="soon" title="Coming soon">Privacy in the app</span></li>
+          </ul>
+          <p>Reference</p>
+          <ul>
+            <li><span class="soon" title="Coming soon">Keyboard shortcuts</span></li>
+            <li><span class="soon" title="Coming soon">Settings</span></li>
+            <li><span class="soon" title="Coming soon">Known limits</span></li>
+          </ul>
+          <p>Help</p>
+          <ul>
+            <li><a href="../../../docs/help/faq/">FAQ</a></li>
+            <li><span class="soon" title="Coming soon">Troubleshooting</span></li>
+            <li><span class="soon" title="Coming soon">Report a problem</span></li>
+          </ul>
+          <p>Platforms</p>
+          <ul>
+            <li><span class="soon" title="Coming soon">Mac</span></li>
+            <li><span class="soon" title="Coming soon">Windows (Microsoft Store, Beta)</span></li>
+            <li><span class="soon" title="Coming soon">Linux (Beta)</span></li>
+          </ul>
+        </nav>
+      </aside>
+      <article class="docs-body">
+        <span class="tc crumb">AI CONNECTIONS</span>
+        <h1>How Kilnframe uses AI</h1>
+        <p class="lead">Kilnframe uses AI in three ways: models that run on your own computer, the AI model you connect for the writing and the judging, and a few services with keys of their own for sound. Nothing goes anywhere you did not choose.</p>
+
+<h2 id="on-your-computer">On your computer</h2>
+<p>These run on this computer. Nothing is sent and nothing is paid:</p>
+<ul>
+  <li>the transcript (unless you choose cloud transcription);</li>
+  <li>cutting pauses and filler words;</li>
+  <li>finding the person in the frame, to follow them or to put them in front of an animation;</li>
+  <li>voice isolation, noise reduction and echo reduction;</li>
+  <li>finding faces to blur, and searching your footage by a description.</li>
+</ul>
+<p>Some of them need a model file the first time, such as the 16 MB voice model. It is downloaded only when you start that feature.</p>
+
+<h2 id="with-your-ai-model">With your AI model</h2>
+<p>The AI model you choose in <span class="ui">Settings</span> › <span class="ui">AI</span> does the work that needs judgement or writing:</p>
+<ul>
+  <li>finding retakes, asides and similar passages;</li>
+  <li>writing animations;</li>
+  <li>AI colour;</li>
+  <li>captions, B-roll suggestions, short clips, publishing texts and translations;</li>
+  <li>stories from a topic, and the <span class="ui">Assistant</span>.</li>
+</ul>
+<p>It runs on your own account: your Claude or ChatGPT subscription (<a href="../../../docs/ai/claude-chatgpt-plan/">how</a>), an API key, or a model on your own computer with LM Studio or Ollama. Kilnframe sells no credits and counts no minutes.</p>
+
+<h2 id="with-a-key-of-its-own">With a key of its own</h2>
+<ul>
+  <li><b>Music and story narration:</b> Google Gemini, or Eleven Music with an ElevenLabs key.</li>
+  <li><b>Say Again in Voice and sound effects from text:</b> ElevenLabs.</li>
+  <li><b>Cloud transcription</b>, if you turn it on: ElevenLabs, OpenAI or Google Gemini.</li>
+</ul>
+<p>A job that costs money on one of these asks before it starts.</p>
+
+<h2 id="what-is-sent">What is sent</h2>
+<p>For an AI job, only the text and the small frames that job needs (the transcript, your note, stills) go to the model you chose. Your videos and projects stay on your computer. With a model on your own computer, nothing leaves it. Your keys are kept in the system keychain and never sent to us. The <a href="../../../desktop/privacy/">privacy policy</a> lists everything that leaves the app.</p>
+
+<h2 id="every-step-can-be-undone">Every step can be undone</h2>
+<p>What an AI job changed shows in <span class="ui">What the AI just did</span>, a row with an <span class="ui">Undo</span> button. Each change is a step in <span class="ui">History</span> too, and <span class="ui">Undo</span> takes it back like any of your own.</p>
+        <nav class="pager" aria-label="Previous / Next">
+          <a class="prev" rel="prev" href="../../../docs/guides/export/"><small>← Previous</small><b>Export</b></a>
+          <a class="next" rel="next" href="../../../docs/ai/claude-chatgpt-plan/"><small>Next →</small><b>Use your Claude or ChatGPT plan</b></a>
+        </nav>
+      </article>
+      <nav class="toc" aria-label="On this page">
+        <p>On this page</p>
+        <ul>
+          <li><a href="#on-your-computer">On your computer</a></li>
+          <li><a href="#with-your-ai-model">With your AI model</a></li>
+          <li><a href="#with-a-key-of-its-own">With a key of its own</a></li>
+          <li><a href="#what-is-sent">What is sent</a></li>
+          <li><a href="#every-step-can-be-undone">Every step can be undone</a></li>
+        </ul>
+      </nav>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe Desktop by Erhan Meydan</span>
+        <span
+          ><a href="../../../features/">Features</a> · <a href="../../../docs/">Docs</a> ·
+          <a href="../../../plugin/">Free plugin</a> · <a href="../../../desktop/privacy/">Privacy</a> ·
+          <a href="../../../desktop/terms/">Terms</a> ·
+          <a href="mailto:hello@kilnframe.com">hello@kilnframe.com</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../../assets/docs-search.js"></script>
+    <script src="../../../assets/docs.js"></script>
+  </body>
+</html>

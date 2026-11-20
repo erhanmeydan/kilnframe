@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kilnframe yapay zekayı nasıl kullanır · Kilnframe Desktop Kılavuzu</title>
+    <meta name="description" content="Kilnframe Desktop'ın hangi özellikleri bilgisayarında çalışır, hangileri bağladığın yapay zeka modelini, hangileri ayrı bir anahtar kullanır; ne gönderilir ve her yapay zeka adımı nasıl geri alınır." />
+    <link rel="icon" href="../../../../assets/desktop/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/tr/docs/yapay-zeka/genel-bakis/" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/overview/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/genel-bakis/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/overview/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/tr/docs/yapay-zeka/genel-bakis/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="Kilnframe yapay zekayı nasıl kullanır · Kilnframe Desktop Kılavuzu" />
+    <meta property="og:description" content="Kilnframe Desktop'ın hangi özellikleri bilgisayarında çalışır, hangileri bağladığın yapay zeka modelini, hangileri ayrı bir anahtar kullanır; ne gönderilir ve her yapay zeka adımı nasıl geri alınır." />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:image" content="https://kilnframe.com/assets/desktop/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../../../assets/studio.css" />
+    <script>document.documentElement.classList.add("js")</script>
+    <!-- visit counts without cookies (goatcounter.com) -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../../../../tr/"><img src="../../../../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
+        <nav>
+          <a href="../../../../tr/ozellikler/">Özellikler</a>
+          <a href="../../../../tr/docs/" aria-current="page">Kılavuz</a>
+          <a href="../../../../tr/#fiyat">Fiyat</a>
+          <a href="../../../../tr/plugin/">Eklenti</a>
+        </nav>
+        <div class="lang"><a href="../../../../docs/ai/overview/" hreflang="en">EN</a><a href="./" aria-current="page">TR</a></div>
+        <a class="btn solid" href="../../../../tr/#haber">Haber ver</a>
+      </div>
+    </header>
+    <main class="docs">
+      <div class="wrap docs-grid">
+      <button class="docs-menu" type="button" aria-controls="docs-side" aria-expanded="false">İçindekiler</button>
+      <aside class="docs-side" id="docs-side">
+        <form class="search" action="../../../../tr/docs/" method="get" role="search">
+          <input type="search" name="q" placeholder="Kılavuzda ara" aria-label="Kılavuzda ara" autocomplete="off" spellcheck="false" />
+          <template class="search-empty">Sonuç yok. Başka kelimeler dene ya da <a href="../../../../tr/docs/yardim/sss/">sık sorulanlara</a> bak.</template>
+        </form>
+        <nav aria-label="Kılavuz">
+          <ul><li><a href="../../../../tr/docs/">Kilnframe Desktop Kılavuzu</a></li></ul>
+          <p>Başlarken</p>
+          <ul>
+            <li><a href="../../../../tr/docs/baslarken/kurulum/">Kurulum</a></li>
+            <li><a href="../../../../tr/docs/baslarken/ilk-video/">İlk videon</a></li>
+            <li><a href="../../../../tr/docs/baslarken/editor-penceresi/">Editör penceresi</a></li>
+            <li><a href="../../../../tr/docs/baslarken/projeler/">Projeler ve dosyalar</a></li>
+          </ul>
+          <p>Paneller</p>
+          <ul>
+            <li><span class="soon" title="Yakında">Medya</span></li>
+            <li><a href="../../../../tr/docs/paneller/transkript/">Transkript</a></li>
+            <li><span class="soon" title="Yakında">Animasyonlar</span></li>
+            <li><span class="soon" title="Yakında">Ses Efektleri</span></li>
+            <li><a href="../../../../tr/docs/paneller/program/">Program</a></li>
+            <li><a href="../../../../tr/docs/paneller/timeline/">Timeline</a></li>
+            <li><a href="../../../../tr/docs/paneller/kesim/">Kesim</a></li>
+            <li><span class="soon" title="Yakında">Klip</span></li>
+            <li><span class="soon" title="Yakında">Görüntü</span></li>
+            <li><span class="soon" title="Yakında">Ses ve Mikser</span></li>
+            <li><span class="soon" title="Yakında">Altyazı</span></li>
+            <li><span class="soon" title="Yakında">Metin, şekiller ve çıkartmalar</span></li>
+            <li><span class="soon" title="Yakında">Müzik</span></li>
+            <li><span class="soon" title="Yakında">B-roll</span></li>
+            <li><span class="soon" title="Yakında">Yayın</span></li>
+            <li><span class="soon" title="Yakında">Asistan</span></li>
+          </ul>
+          <p>Rehberler</p>
+          <ul>
+            <li><span class="soon" title="Yakında">Kelimeleri düzeltmek ve sesle düzeltmek</span></li>
+            <li><span class="soon" title="Yakında">Animasyon stilleri ve kendi stilin</span></li>
+            <li><span class="soon" title="Yakında">Renk</span></li>
+            <li><span class="soon" title="Yakında">Ekran eğitimleri</span></li>
+            <li><span class="soon" title="Yakında">Ekranı ve kamerayı kaydet</span></li>
+            <li><span class="soon" title="Yakında">Çoklu kamera ve konuşmacılar</span></li>
+            <li><span class="soon" title="Yakında">Yüz ve alan bulanıklaştırma</span></li>
+            <li><span class="soon" title="Yakında">Yeşil perde</span></li>
+            <li><span class="soon" title="Yakında">Hareket ve anahtar kareler</span></li>
+            <li><span class="soon" title="Yakında">Hız, ağır çekim, donmuş kare ve ters</span></li>
+            <li><span class="soon" title="Yakında">Kurgular</span></li>
+            <li><span class="soon" title="Yakında">Kısa videolar</span></li>
+            <li><span class="soon" title="Yakında">Çeviri ve seslendirme</span></li>
+            <li><span class="soon" title="Yakında">Konudan hikaye</span></li>
+            <li><span class="soon" title="Yakında">Marka kitleri ve yazı tipleri</span></li>
+            <li><span class="soon" title="Yakında">Görüntülerde bul</span></li>
+            <li><a href="../../../../tr/docs/rehberler/disa-aktarma/">Dışa aktarma</a></li>
+            <li><span class="soon" title="Yakında">Süren işler ve sorulan işler</span></li>
+          </ul>
+          <p>Yapay zeka bağlantıları</p>
+          <ul>
+            <li><a href="../../../../tr/docs/yapay-zeka/genel-bakis/" aria-current="page">Kilnframe yapay zekayı nasıl kullanır</a></li>
+            <li><a href="../../../../tr/docs/yapay-zeka/claude-chatgpt-aboneligi/">Claude ya da ChatGPT aboneliğinle</a></li>
+            <li><span class="soon" title="Yakında">API anahtarları</span></li>
+            <li><span class="soon" title="Yakında">Yerel modeller</span></li>
+            <li><span class="soon" title="Yakında">Bulutta transkript</span></li>
+            <li><span class="soon" title="Yakında">Yapay zeka asistanlarını bağla (MCP)</span></li>
+          </ul>
+          <p>Hesap ve gizlilik</p>
+          <ul>
+            <li><a href="../../../../tr/docs/hesap/lisans/">Lisans ve deneme</a></li>
+            <li><span class="soon" title="Yakında">Güncellemeler</span></li>
+            <li><span class="soon" title="Yakında">Uygulamada gizlilik</span></li>
+          </ul>
+          <p>Başvuru</p>
+          <ul>
+            <li><span class="soon" title="Yakında">Klavye kısayolları</span></li>
+            <li><span class="soon" title="Yakında">Ayarlar</span></li>
+            <li><span class="soon" title="Yakında">Bilinen sınırlar</span></li>
+          </ul>
+          <p>Yardım</p>
+          <ul>
+            <li><a href="../../../../tr/docs/yardim/sss/">Sık sorulanlar</a></li>
+            <li><span class="soon" title="Yakında">Sorun giderme</span></li>
+            <li><span class="soon" title="Yakında">Hata bildir</span></li>
+          </ul>
+          <p>Platformlar</p>
+          <ul>
+            <li><span class="soon" title="Yakında">Mac</span></li>
+            <li><span class="soon" title="Yakında">Windows (Microsoft Store, Beta)</span></li>
+            <li><span class="soon" title="Yakında">Linux (Beta)</span></li>
+          </ul>
+        </nav>
+      </aside>
+      <article class="docs-body">
+        <span class="tc crumb">YAPAY ZEKA BAĞLANTILARI</span>
+        <h1>Kilnframe yapay zekayı nasıl kullanır</h1>
+        <p class="lead">Kilnframe yapay zekayı üç yoldan kullanır: kendi bilgisayarında çalışan modeller, yazma ve karar işleri için bağladığın yapay zeka modeli ve ses için kendi anahtarlarıyla birkaç hizmet. Senin seçmediğin hiçbir yere bir şey gitmez.</p>
+
+<h2 id="bilgisayarinda">Bilgisayarında</h2>
+<p>Bunlar bu bilgisayarda çalışır. Hiçbir şey gönderilmez, hiçbir şey ödenmez:</p>
+<ul>
+  <li>transkript (bulutta transkripti seçmediysen);</li>
+  <li>boşlukların ve dolgu kelimelerinin kesimi;</li>
+  <li>kişiyi karede bulmak, onu takip etmek ya da bir animasyonun önüne almak için;</li>
+  <li>ses ayırma, gürültü temizleme ve yankı azaltma;</li>
+  <li>bulanıklaştırılacak yüzleri bulmak ve görüntülerini tarifle aramak.</li>
+</ul>
+<p>Bazıları ilk seferde bir model dosyası ister, 16 MB'lık ses modeli gibi. Yalnızca o özelliği başlattığında indirilir.</p>
+
+<h2 id="yapay-zeka-modelinle">Yapay zeka modelinle</h2>
+<p><span class="ui">Ayarlar</span> › <span class="ui">Yapay zeka</span>'da seçtiğin model, karar ya da yazı isteyen işleri yapar:</p>
+<ul>
+  <li>tekrarları, gereksizleri ve benzer bölümleri bulmak;</li>
+  <li>animasyon yazmak;</li>
+  <li>yapay zeka ile renk;</li>
+  <li>altyazı, B-roll önerileri, kısa videolar, yayın metinleri ve çeviriler;</li>
+  <li>konudan hikaye ve <span class="ui">Asistan</span>.</li>
+</ul>
+<p>Kendi hesabınla çalışır: Claude ya da ChatGPT aboneliğin (<a href="../../../../tr/docs/yapay-zeka/claude-chatgpt-aboneligi/">nasıl</a>), bir API anahtarı ya da LM Studio veya Ollama ile kendi bilgisayarındaki bir model. Kilnframe kredi satmaz, dakika saymaz.</p>
+
+<h2 id="kendi-anahtariyla">Kendi anahtarıyla</h2>
+<ul>
+  <li><b>Müzik ve hikaye seslendirmesi:</b> Google Gemini, ya da ElevenLabs anahtarıyla Eleven Music.</li>
+  <li><b>Sesle Düzelt ve metinden ses efekti:</b> ElevenLabs.</li>
+  <li><b>Bulutta transkript</b>, açarsan: ElevenLabs, OpenAI ya da Google Gemini.</li>
+</ul>
+<p>Bunlardan birinde para tutan bir iş başlamadan önce sorar.</p>
+
+<h2 id="ne-gonderilir">Ne gönderilir</h2>
+<p>Bir yapay zeka işi için yalnızca o işin gerektirdiği metin ve küçük kareler (transkript, notun, kareler) seçtiğin modele gider. Videoların ve projelerin bilgisayarında kalır. Kendi bilgisayarındaki bir modelle hiçbir şey dışarı çıkmaz. Anahtarların sistemin anahtar zincirinde saklanır, bize gönderilmez. Uygulamadan çıkan her şey <a href="../../../../tr/desktop/privacy/">gizlilik politikasında</a> yazılı.</p>
+
+<h2 id="her-adim-geri-alinir">Her adım geri alınır</h2>
+<p>Bir yapay zeka işinin değiştirdikleri <span class="ui">Yapay zekanın son yaptıkları</span> satırında, bir <span class="ui">Geri Al</span> düğmesiyle görünür. Her değişiklik <span class="ui">Geçmiş</span>'te de bir adımdır; <span class="ui">Geri Al</span> onu kendi adımların gibi geri alır.</p>
+        <nav class="pager" aria-label="Önceki / Sonraki">
+          <a class="prev" rel="prev" href="../../../../tr/docs/rehberler/disa-aktarma/"><small>← Önceki</small><b>Dışa aktarma</b></a>
+          <a class="next" rel="next" href="../../../../tr/docs/yapay-zeka/claude-chatgpt-aboneligi/"><small>Sonraki →</small><b>Claude ya da ChatGPT aboneliğinle</b></a>
+        </nav>
+      </article>
+      <nav class="toc" aria-label="Bu sayfada">
+        <p>Bu sayfada</p>
+        <ul>
+          <li><a href="#bilgisayarinda">Bilgisayarında</a></li>
+          <li><a href="#yapay-zeka-modelinle">Yapay zeka modelinle</a></li>
+          <li><a href="#kendi-anahtariyla">Kendi anahtarıyla</a></li>
+          <li><a href="#ne-gonderilir">Ne gönderilir</a></li>
+          <li><a href="#her-adim-geri-alinir">Her adım geri alınır</a></li>
+        </ul>
+      </nav>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe Desktop, Erhan Meydan</span>
+        <span
+          ><a href="../../../../tr/ozellikler/">Özellikler</a> · <a href="../../../../tr/docs/">Kılavuz</a> ·
+          <a href="../../../../tr/plugin/">Ücretsiz eklenti</a> · <a href="../../../../tr/desktop/privacy/">Gizlilik</a> ·
+          <a href="../../../../tr/desktop/terms/">Koşullar</a> ·
+          <a href="mailto:hello@kilnframe.com">hello@kilnframe.com</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../../../assets/docs-search.js"></script>
+    <script src="../../../../assets/docs.js"></script>
+  </body>
+</html>
