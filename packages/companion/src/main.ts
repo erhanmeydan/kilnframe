@@ -29,6 +29,9 @@ import {
   loadSpeechCatalog,
   loadMusicCatalog,
   listElevenLabsVoices,
+  listLocalVoices,
+  localSpeechBaseUrl,
+  speechVoiceFor,
   speechModelFor,
   narrate,
   downloadSpeechModel,
@@ -142,7 +145,7 @@ async function main() {
     saveCaptions: async (jobDir, state) => saveCaptionsState(jobDir, state),
     loadCaptions: async (jobDir) => loadCaptionsState(jobDir),
     deleteStyle: async (name) => deleteUserStyle(name),
-    listVoices: async (provider) => {
+    listVoices: async (provider, baseURL) => {
       const defaults = loadDefaults();
       const id = provider ?? defaults.speech.provider;
       const entry = loadSpeechCatalog().find((p) => p.id === id);
@@ -166,24 +169,56 @@ async function main() {
           return { ...base, voices: [], error: err instanceof Error ? err.message : String(err) };
         }
       }
+      // a local server needs no key; its own list is used when it has one, else the catalog's
+      if (id === "local") {
+        const local = { ...base, keySet: true };
+        try {
+          const listed = await listLocalVoices({
+            baseUrl: localSpeechBaseUrl({ baseUrl: baseURL, fallback: entry?.endpoint }),
+            apiKey: key,
+          });
+          // the neutral voice is always first: it is what is sent when no other was chosen
+          const neutral = entry?.voices ?? [];
+          return {
+            ...local,
+            voices: [
+              ...neutral,
+              ...(listed ?? []).filter((v) => !neutral.some((n) => n.name === v.name)),
+            ],
+          };
+        } catch (err) {
+          return {
+            ...local,
+            voices: entry?.voices ?? [],
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
       return { ...base, voices: entry?.voices ?? [] };
     },
-    previewVoice: async (voice, language, onEnd, o = {}) => {
+    previewVoice: async (asked, language, onEnd, o = {}) => {
       const defaults = loadDefaults();
       const id = o.provider ?? defaults.speech.provider;
+      // a voice of another provider's catalog (Gemini's "Kore") means the local server's own default
+      const voice = id === "local" ? speechVoiceFor(defaults, id, asked) : asked;
       const model = speechModelFor(defaults, id) ?? defaults.speech.model;
       const dir = join(
         process.env.KILNFRAME_HOME ?? join(homedir(), ".kilnframe"),
         "cache",
         "voices",
       );
-      const file = join(dir, `${model}-${voice}-${language.slice(0, 2)}.wav`);
-      if (!existsSync(file)) {
+      const file = join(
+        dir,
+        `${id === "local" ? "local-" : ""}${model}-${voice}-${language.slice(0, 2)}.wav`,
+      );
+      // a local server's voice can change under the same name (a clone made again), so it is read each time
+      if (id === "local" || !existsSync(file)) {
         const entry = loadSpeechCatalog().find((p) => p.id === id);
         const speech = createSpeechProvider(defaults, {
           provider: id,
           model,
           apiKey: await keys.get(entry?.keyName ?? id),
+          baseUrl: o.baseURL,
         });
         await narrate({
           provider: speech,

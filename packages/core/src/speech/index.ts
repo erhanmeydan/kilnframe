@@ -6,11 +6,13 @@ import { ffmpegPath, type Defaults } from "../config.js";
 import { ElevenLabsSpeechProvider } from "./elevenlabs.js";
 import { VOICE_SAMPLE_MAX_S, type Span } from "./fix.js";
 import { GeminiSpeechProvider } from "./gemini.js";
+import { localSpeechBaseUrl, OpenAICompatibleSpeechProvider } from "./openai-compatible.js";
 import { pcmWav, SpeechError, type SpeechProvider } from "./types.js";
 
 export * from "./elevenlabs.js";
 export * from "./fix.js";
 export * from "./gemini.js";
+export * from "./openai-compatible.js";
 export * from "./types.js";
 
 const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
@@ -22,7 +24,7 @@ export interface SpeechCatalogProvider {
   keyName: string;
   /** Where the editor makes a key. */
   keyUrl?: string;
-  /** Gemini prices by the million tokens, ElevenLabs by the thousand characters. */
+  /** Gemini prices by the million tokens, ElevenLabs by the thousand characters; a local server has no price. */
   models: {
     id: string;
     label: string;
@@ -31,6 +33,8 @@ export interface SpeechCatalogProvider {
   audioTokensPerSecond?: number;
   /** The model Voice Fix reads a clone with, whatever the narration settings say. */
   voiceFixModel?: string;
+  /** The voice sent when none was chosen for this provider (a local server's neutral name). */
+  defaultVoice?: string;
   sampleRate: number;
   voices: { name: string; character: string }[];
 }
@@ -47,6 +51,30 @@ export function loadSpeechCatalog(): SpeechCatalogProvider[] {
 export function speechModelFor(defaults: Defaults, provider: string): string | undefined {
   if (provider === defaults.speech.provider) return defaults.speech.model;
   return loadSpeechCatalog().find((p) => p.id === provider)?.models[0]?.id;
+}
+
+/**
+ * The voice to read with: the caller's when it can belong to this provider, else the provider's own default.
+ * No voice, or a name only another provider's catalog lists (Gemini's "Kore" sent to a local server), means
+ * the default: the defaults' voice when they name this provider, else the catalog's `defaultVoice` or first voice.
+ */
+export function speechVoiceFor(
+  defaults: Defaults,
+  provider: string,
+  voice?: string | undefined,
+): string {
+  const catalog = loadSpeechCatalog();
+  const own = catalog.find((p) => p.id === provider);
+  const fallback =
+    provider === defaults.speech.provider
+      ? defaults.speech.voice
+      : (own?.defaultVoice ?? own?.voices[0]?.name ?? defaults.speech.voice);
+  const name = voice?.trim();
+  if (!name) return fallback;
+  const foreign =
+    !own?.voices.some((v) => v.name === name) &&
+    catalog.some((p) => p.id !== provider && p.voices.some((v) => v.name === name));
+  return foreign ? fallback : name;
 }
 
 /**
@@ -84,11 +112,20 @@ export function createSpeechProvider(
     provider?: string | undefined;
     model?: string | undefined;
     apiKey?: string | undefined;
+    /** The address of a local speech server (provider "local"). */
+    baseUrl?: string | undefined;
   } = {},
 ): SpeechProvider {
   const id = o.provider ?? defaults.speech.provider;
   const entry = loadSpeechCatalog().find((p) => p.id === id);
   if (!entry) throw new SpeechError(`Unknown speech provider "${id}".`);
+  // a local server needs no key: the token is optional
+  if (id === "local")
+    return new OpenAICompatibleSpeechProvider({
+      baseUrl: localSpeechBaseUrl({ baseUrl: o.baseUrl, fallback: entry.endpoint }),
+      model: o.model ?? speechModelFor(defaults, id) ?? defaults.speech.model,
+      apiKey: o.apiKey ?? process.env.LOCAL_API_KEY,
+    });
   const envName = `${id.toUpperCase()}_API_KEY`;
   const apiKey = o.apiKey ?? process.env[envName];
   if (!apiKey)
