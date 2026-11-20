@@ -329,6 +329,198 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/assistant/" />
   </url>
   <url>
+    <loc>https://kilnframe.com/docs/guides/correct-words/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/correct-words/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kelime-duzeltme/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/correct-words/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/kelime-duzeltme/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/correct-words/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kelime-duzeltme/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/correct-words/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/animation-styles/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/animation-styles/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/animasyon-stilleri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/animation-styles/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/animasyon-stilleri/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/animation-styles/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/animasyon-stilleri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/animation-styles/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/colour/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/colour/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/renk/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/colour/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/renk/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/colour/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/renk/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/colour/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/tutorials/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/tutorials/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/egitim-videolari/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/tutorials/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/egitim-videolari/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/tutorials/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/egitim-videolari/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/tutorials/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/recorder/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/recorder/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kayit/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/recorder/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/kayit/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/recorder/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kayit/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/recorder/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/multicam/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/multicam/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/coklu-kamera/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/multicam/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/coklu-kamera/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/multicam/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/coklu-kamera/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/multicam/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/blur/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/blur/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/bulaniklastirma/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/blur/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/bulaniklastirma/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/blur/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/bulaniklastirma/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/blur/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/green-screen/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/green-screen/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/yesil-perde/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/green-screen/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/yesil-perde/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/green-screen/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/yesil-perde/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/green-screen/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/motion-keyframes/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/motion-keyframes/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/hareket/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/motion-keyframes/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/hareket/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/motion-keyframes/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/hareket/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/motion-keyframes/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/speed/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/speed/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/hiz/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/speed/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/hiz/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/speed/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/hiz/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/speed/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/sequences/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/sequences/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kurgular/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/sequences/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/kurgular/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/sequences/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kurgular/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/sequences/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/shorts/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/shorts/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kisa-videolar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/shorts/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/kisa-videolar/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/shorts/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/kisa-videolar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/shorts/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/translation/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/translation/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/ceviri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/translation/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/ceviri/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/translation/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/ceviri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/translation/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/story/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/story/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/konudan-hikaye/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/story/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/konudan-hikaye/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/story/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/konudan-hikaye/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/story/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/brand-kits/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/brand-kits/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/marka-kitleri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/brand-kits/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/marka-kitleri/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/brand-kits/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/marka-kitleri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/brand-kits/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/find-in-footage/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/find-in-footage/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/goruntulerde-bul/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/find-in-footage/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/goruntulerde-bul/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/find-in-footage/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/goruntulerde-bul/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/find-in-footage/" />
+  </url>
+  <url>
     <loc>https://kilnframe.com/docs/guides/export/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/export/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/disa-aktarma/" />
@@ -339,6 +531,18 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/export/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/disa-aktarma/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/export/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/guides/jobs/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/jobs/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/isler/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/jobs/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/rehberler/isler/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/jobs/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/isler/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/jobs/" />
   </url>
   <url>
     <loc>https://kilnframe.com/docs/ai/overview/</loc>

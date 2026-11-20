@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Colour · Kilnframe Desktop Docs</title>
+    <meta name="description" content="Colour in Kilnframe Desktop: AI picture fixes, matching recordings, looks and their strength, basic correction, curves, colour wheels, log profiles and LUTs, scopes and adjustment layers." />
+    <link rel="icon" href="../../../assets/desktop/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/docs/guides/colour/" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/colour/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/renk/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/colour/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/docs/guides/colour/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="Colour · Kilnframe Desktop Docs" />
+    <meta property="og:description" content="Colour in Kilnframe Desktop: AI picture fixes, matching recordings, looks and their strength, basic correction, curves, colour wheels, log profiles and LUTs, scopes and adjustment layers." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://kilnframe.com/assets/desktop/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../../assets/studio.css" />
+    <script>document.documentElement.classList.add("js")</script>
+    <!-- visit counts without cookies (goatcounter.com) -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../../../"><img src="../../../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
+        <nav>
+          <a href="../../../features/">Features</a>
+          <a href="../../../docs/" aria-current="page">Docs</a>
+          <a href="../../../#price">Price</a>
+          <a href="../../../plugin/">Plugin</a>
+        </nav>
+        <div class="lang"><a href="./" aria-current="page">EN</a><a href="../../../tr/docs/rehberler/renk/" hreflang="tr">TR</a></div>
+        <a class="btn solid" href="../../../#notify">Get notified</a>
+      </div>
+    </header>
+    <main class="docs">
+      <div class="wrap docs-grid">
+      <button class="docs-menu" type="button" aria-controls="docs-side" aria-expanded="false">Contents</button>
+      <aside class="docs-side" id="docs-side">
+        <form class="search" action="../../../docs/" method="get" role="search">
+          <input type="search" name="q" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" spellcheck="false" />
+          <template class="search-empty">No results. Try other words, or the <a href="../../../docs/help/faq/">FAQ</a>.</template>
+        </form>
+        <nav aria-label="Docs">
+          <ul><li><a href="../../../docs/">Kilnframe Desktop Docs</a></li></ul>
+          <p>Getting started</p>
+          <ul>
+            <li><a href="../../../docs/getting-started/install/">Install</a></li>
+            <li><a href="../../../docs/getting-started/first-video/">Your first video</a></li>
+            <li><a href="../../../docs/getting-started/editor-window/">The editor window</a></li>
+            <li><a href="../../../docs/getting-started/projects/">Projects and files</a></li>
+          </ul>
+          <p>Panels</p>
+          <ul>
+            <li><a href="../../../docs/panels/media/">Media</a></li>
+            <li><a href="../../../docs/panels/transcript/">Transcript</a></li>
+            <li><a href="../../../docs/panels/animations/">Animations</a></li>
+            <li><a href="../../../docs/panels/sound-effects/">Sound Effects</a></li>
+            <li><a href="../../../docs/panels/program/">Program (viewer)</a></li>
+            <li><a href="../../../docs/panels/timeline/">Timeline</a></li>
+            <li><a href="../../../docs/panels/cut/">Cut</a></li>
+            <li><a href="../../../docs/panels/clip/">Clip</a></li>
+            <li><a href="../../../docs/panels/picture/">Picture</a></li>
+            <li><a href="../../../docs/panels/sound/">Sound and Mixer</a></li>
+            <li><a href="../../../docs/panels/captions/">Captions</a></li>
+            <li><a href="../../../docs/panels/text/">Text, shapes and stickers</a></li>
+            <li><a href="../../../docs/panels/music/">Music</a></li>
+            <li><a href="../../../docs/panels/b-roll/">B-roll</a></li>
+            <li><a href="../../../docs/panels/publish/">Publish</a></li>
+            <li><a href="../../../docs/panels/assistant/">Assistant</a></li>
+          </ul>
+          <p>Guides</p>
+          <ul>
+            <li><a href="../../../docs/guides/correct-words/">Correct words and say them again</a></li>
+            <li><a href="../../../docs/guides/animation-styles/">Animation styles and your own</a></li>
+            <li><a href="../../../docs/guides/colour/" aria-current="page">Colour</a></li>
+            <li><a href="../../../docs/guides/tutorials/">Screen tutorials</a></li>
+            <li><a href="../../../docs/guides/recorder/">Record screen and camera</a></li>
+            <li><a href="../../../docs/guides/multicam/">Multicam and speakers</a></li>
+            <li><a href="../../../docs/guides/blur/">Blur faces and areas</a></li>
+            <li><a href="../../../docs/guides/green-screen/">Green screen</a></li>
+            <li><a href="../../../docs/guides/motion-keyframes/">Motion and keyframes</a></li>
+            <li><a href="../../../docs/guides/speed/">Speed, slow motion, freeze and reverse</a></li>
+            <li><a href="../../../docs/guides/sequences/">Sequences</a></li>
+            <li><a href="../../../docs/guides/shorts/">Short clips</a></li>
+            <li><a href="../../../docs/guides/translation/">Translation and dubbing</a></li>
+            <li><a href="../../../docs/guides/story/">Story from a topic</a></li>
+            <li><a href="../../../docs/guides/brand-kits/">Brand kits and fonts</a></li>
+            <li><a href="../../../docs/guides/find-in-footage/">Find in footage</a></li>
+            <li><a href="../../../docs/guides/export/">Export</a></li>
+            <li><a href="../../../docs/guides/jobs/">Running work and asked work</a></li>
+          </ul>
+          <p>AI connections</p>
+          <ul>
+            <li><a href="../../../docs/ai/overview/">How Kilnframe uses AI</a></li>
+            <li><a href="../../../docs/ai/claude-chatgpt-plan/">Use your Claude or ChatGPT plan</a></li>
+            <li><span class="soon" title="Coming soon">API keys</span></li>
+            <li><span class="soon" title="Coming soon">Local models</span></li>
+            <li><span class="soon" title="Coming soon">Cloud transcription</span></li>
+            <li><span class="soon" title="Coming soon">Connect AI assistants (MCP)</span></li>
+          </ul>
+          <p>Account and privacy</p>
+          <ul>
+            <li><a href="../../../docs/account/licence/">Licence and trial</a></li>
+            <li><span class="soon" title="Coming soon">Updates</span></li>
+            <li><span class="soon" title="Coming soon">Privacy in the app</span></li>
+          </ul>
+          <p>Reference</p>
+          <ul>
+            <li><span class="soon" title="Coming soon">Keyboard shortcuts</span></li>
+            <li><span class="soon" title="Coming soon">Settings</span></li>
+            <li><span class="soon" title="Coming soon">Known limits</span></li>
+          </ul>
+          <p>Help</p>
+          <ul>
+            <li><a href="../../../docs/help/faq/">FAQ</a></li>
+            <li><span class="soon" title="Coming soon">Troubleshooting</span></li>
+            <li><span class="soon" title="Coming soon">Report a problem</span></li>
+          </ul>
+          <p>Platforms</p>
+          <ul>
+            <li><span class="soon" title="Coming soon">Mac</span></li>
+            <li><span class="soon" title="Coming soon">Windows (Microsoft Store, Beta)</span></li>
+            <li><span class="soon" title="Coming soon">Linux (Beta)</span></li>
+          </ul>
+        </nav>
+      </aside>
+      <article class="docs-body">
+        <span class="tc crumb">GUIDES</span>
+        <h1>Colour</h1>
+        <p class="lead">Colour belongs to each clip and each piece of the recording. Select one and open <span class="ui">Clip</span> › <span class="ui">Colour</span>: the AI can set it for you, and every control is there by hand.</p>
+<figure class="shot"><img src="../../../assets/docs/en/colour-ai.webp" width="1600" height="1398" alt="Clip, Colour: the AI picture buttons and a colour look applied to the picture" loading="lazy" /></figure>
+
+<h2 id="ai-picture">AI picture</h2>
+<p>The AI looks at a few frames and sets the controls below. Press one:</p>
+<ul>
+  <li><span class="ui">Fix with AI</span>: exposure, white balance and skin, naturally.</li>
+  <li><span class="ui">Fix Skin Tone</span>: only the skin, the rest alone.</li>
+  <li><span class="ui">Rescue Dark Footage</span>: brings up the face and the shadows of footage shot in poor light.</li>
+  <li><span class="ui">Match a Reference…</span>: close to the look of an image you choose.</li>
+</ul>
+<p>Or write what you want in <span class="ui">Note (optional)</span>, for example “a little warmer, the background is too blue”, and press <span class="ui">Send</span>. Adjust the result by hand, or Undo. This uses your AI model.</p>
+<p><span class="ui">Match Recordings</span> matches the other cameras' colour to the main recording, so cuts do not jump; on a shot, <span class="ui">Match to the Main Recording</span> does the same for one clip.</p>
+
+<h2 id="looks">Looks</h2>
+<p><span class="ui">Colour look</span>: Original, Warm, Cool, Cinematic, Vivid, Black &amp; White, Vintage, Teal &amp; Orange, Matte, Dramatic, Golden Hour. <span class="ui">Look strength</span> sets how much of it you get. A look runs on this computer.</p>
+
+<h2 id="by-hand">By hand</h2>
+<ul>
+  <li><span class="ui">Basic correction</span>: white balance, tone (exposure, contrast, highlights) and colour (saturation, vibrance). A double click resets a slider.</li>
+  <li><span class="ui">Brightness curve</span> and <span class="ui">Colour curves</span> (Hue vs Hue, Hue vs Sat, Hue vs Luma, Luma vs Sat, Sat vs Sat). With the <span class="ui">Eyedropper</span>, click a colour in the viewer and three points go on the curve; drag the middle one.</li>
+  <li><span class="ui">Colour wheels</span>: <span class="ui">Shadows (lift)</span>, <span class="ui">Midtones (gamma)</span>, <span class="ui">Highlights (gain)</span>. Drag a wheel's point towards a colour; its slider makes them darker or brighter.</li>
+  <li><span class="ui">Recorded as</span>: if a camera filmed in log (a flat, grey picture), choose its profile; it is made normal before any other colour.</li>
+  <li><span class="ui">Load LUT (.cube)</span>: a LUT laid over everything in the export.</li>
+  <li><span class="ui">Sharpness, Vignette and Skin</span>: <span class="ui">Sharpen</span>, <span class="ui">Dark edges</span>, <span class="ui">Skin smoothing</span>.</li>
+</ul>
+<figure class="shot narrow"><img src="../../../assets/docs/en/colour-manual.webp" width="1112" height="3008" alt="Basic correction, colour curves, colour wheels and a waveform scope" loading="lazy" /></figure>
+
+<h2 id="scopes">Scopes</h2>
+<p><span class="ui">Waveform</span>, <span class="ui">RGB parade</span> or <span class="ui">Vectorscope</span> measure the frame at the playhead. <span class="ui">Draw a Scope Box</span> measures only part of the picture, a face for example.</p>
+
+<h2 id="one-change-for-many-clips">One change for many clips</h2>
+<p>An adjustment layer colours everything under it. Right-click the timeline for <span class="ui">Add Adjustment Layer</span>, place it on a track over the clips, and grade it like a clip. To give clips the same grade instead, use <span class="ui">Copy Settings</span> and <span class="ui">Paste Settings</span>, or <span class="ui">Save Look as Preset…</span>.</p>
+
+<h2 id="compare">Compare</h2>
+<p><span class="ui">Before/After</span> in the viewer shows the picture without your colour work, or both side by side (<a href="../../../docs/panels/program/">Program</a>).</p>
+        <nav class="pager" aria-label="Previous / Next">
+          <a class="prev" rel="prev" href="../../../docs/guides/animation-styles/"><small>← Previous</small><b>Animation styles and your own</b></a>
+          <a class="next" rel="next" href="../../../docs/guides/tutorials/"><small>Next →</small><b>Screen tutorials</b></a>
+        </nav>
+      </article>
+      <nav class="toc" aria-label="On this page">
+        <p>On this page</p>
+        <ul>
+          <li><a href="#ai-picture">AI picture</a></li>
+          <li><a href="#looks">Looks</a></li>
+          <li><a href="#by-hand">By hand</a></li>
+          <li><a href="#scopes">Scopes</a></li>
+          <li><a href="#one-change-for-many-clips">One change for many clips</a></li>
+          <li><a href="#compare">Compare</a></li>
+        </ul>
+      </nav>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe Desktop by Erhan Meydan</span>
+        <span
+          ><a href="../../../features/">Features</a> · <a href="../../../docs/">Docs</a> ·
+          <a href="../../../plugin/">Free plugin</a> · <a href="../../../desktop/privacy/">Privacy</a> ·
+          <a href="../../../desktop/terms/">Terms</a> ·
+          <a href="mailto:hello@kilnframe.com">hello@kilnframe.com</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../../assets/docs-search.js"></script>
+    <script src="../../../assets/docs.js"></script>
+  </body>
+</html>

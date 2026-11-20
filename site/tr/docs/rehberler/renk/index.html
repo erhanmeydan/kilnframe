@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Renk · Kilnframe Desktop Kılavuzu</title>
+    <meta name="description" content="Kilnframe Desktop'ta renk: yapay zeka ile görüntü düzeltmeleri, kayıtları eşleştirme, görünümler ve yoğunlukları, temel düzeltme, eğriler, renk tekerlekleri, log profilleri ve LUT, skoplar ve ayarlama katmanları." />
+    <link rel="icon" href="../../../../assets/desktop/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/tr/docs/rehberler/renk/" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/colour/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/renk/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/colour/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/tr/docs/rehberler/renk/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="Renk · Kilnframe Desktop Kılavuzu" />
+    <meta property="og:description" content="Kilnframe Desktop'ta renk: yapay zeka ile görüntü düzeltmeleri, kayıtları eşleştirme, görünümler ve yoğunlukları, temel düzeltme, eğriler, renk tekerlekleri, log profilleri ve LUT, skoplar ve ayarlama katmanları." />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:image" content="https://kilnframe.com/assets/desktop/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../../../assets/studio.css" />
+    <script>document.documentElement.classList.add("js")</script>
+    <!-- visit counts without cookies (goatcounter.com) -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../../../../tr/"><img src="../../../../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
+        <nav>
+          <a href="../../../../tr/ozellikler/">Özellikler</a>
+          <a href="../../../../tr/docs/" aria-current="page">Kılavuz</a>
+          <a href="../../../../tr/#fiyat">Fiyat</a>
+          <a href="../../../../tr/plugin/">Eklenti</a>
+        </nav>
+        <div class="lang"><a href="../../../../docs/guides/colour/" hreflang="en">EN</a><a href="./" aria-current="page">TR</a></div>
+        <a class="btn solid" href="../../../../tr/#haber">Haber ver</a>
+      </div>
+    </header>
+    <main class="docs">
+      <div class="wrap docs-grid">
+      <button class="docs-menu" type="button" aria-controls="docs-side" aria-expanded="false">İçindekiler</button>
+      <aside class="docs-side" id="docs-side">
+        <form class="search" action="../../../../tr/docs/" method="get" role="search">
+          <input type="search" name="q" placeholder="Kılavuzda ara" aria-label="Kılavuzda ara" autocomplete="off" spellcheck="false" />
+          <template class="search-empty">Sonuç yok. Başka kelimeler dene ya da <a href="../../../../tr/docs/yardim/sss/">sık sorulanlara</a> bak.</template>
+        </form>
+        <nav aria-label="Kılavuz">
+          <ul><li><a href="../../../../tr/docs/">Kilnframe Desktop Kılavuzu</a></li></ul>
+          <p>Başlarken</p>
+          <ul>
+            <li><a href="../../../../tr/docs/baslarken/kurulum/">Kurulum</a></li>
+            <li><a href="../../../../tr/docs/baslarken/ilk-video/">İlk videon</a></li>
+            <li><a href="../../../../tr/docs/baslarken/editor-penceresi/">Editör penceresi</a></li>
+            <li><a href="../../../../tr/docs/baslarken/projeler/">Projeler ve dosyalar</a></li>
+          </ul>
+          <p>Paneller</p>
+          <ul>
+            <li><a href="../../../../tr/docs/paneller/medya/">Medya</a></li>
+            <li><a href="../../../../tr/docs/paneller/transkript/">Transkript</a></li>
+            <li><a href="../../../../tr/docs/paneller/animasyonlar/">Animasyonlar</a></li>
+            <li><a href="../../../../tr/docs/paneller/ses-efektleri/">Ses Efektleri</a></li>
+            <li><a href="../../../../tr/docs/paneller/program/">Program</a></li>
+            <li><a href="../../../../tr/docs/paneller/timeline/">Timeline</a></li>
+            <li><a href="../../../../tr/docs/paneller/kesim/">Kesim</a></li>
+            <li><a href="../../../../tr/docs/paneller/klip/">Klip</a></li>
+            <li><a href="../../../../tr/docs/paneller/goruntu/">Görüntü</a></li>
+            <li><a href="../../../../tr/docs/paneller/ses/">Ses ve Mikser</a></li>
+            <li><a href="../../../../tr/docs/paneller/altyazi/">Altyazı</a></li>
+            <li><a href="../../../../tr/docs/paneller/metin/">Metin, şekiller ve çıkartmalar</a></li>
+            <li><a href="../../../../tr/docs/paneller/muzik/">Müzik</a></li>
+            <li><a href="../../../../tr/docs/paneller/b-roll/">B-roll</a></li>
+            <li><a href="../../../../tr/docs/paneller/yayin/">Yayın</a></li>
+            <li><a href="../../../../tr/docs/paneller/asistan/">Asistan</a></li>
+          </ul>
+          <p>Rehberler</p>
+          <ul>
+            <li><a href="../../../../tr/docs/rehberler/kelime-duzeltme/">Kelimeleri düzeltmek ve sesle düzeltmek</a></li>
+            <li><a href="../../../../tr/docs/rehberler/animasyon-stilleri/">Animasyon stilleri ve kendi stilin</a></li>
+            <li><a href="../../../../tr/docs/rehberler/renk/" aria-current="page">Renk</a></li>
+            <li><a href="../../../../tr/docs/rehberler/egitim-videolari/">Ekran eğitimleri</a></li>
+            <li><a href="../../../../tr/docs/rehberler/kayit/">Ekranı ve kamerayı kaydet</a></li>
+            <li><a href="../../../../tr/docs/rehberler/coklu-kamera/">Çoklu kamera ve konuşmacılar</a></li>
+            <li><a href="../../../../tr/docs/rehberler/bulaniklastirma/">Yüz ve alan bulanıklaştırma</a></li>
+            <li><a href="../../../../tr/docs/rehberler/yesil-perde/">Yeşil perde</a></li>
+            <li><a href="../../../../tr/docs/rehberler/hareket/">Hareket ve anahtar kareler</a></li>
+            <li><a href="../../../../tr/docs/rehberler/hiz/">Hız, ağır çekim, donmuş kare ve ters</a></li>
+            <li><a href="../../../../tr/docs/rehberler/kurgular/">Kurgular</a></li>
+            <li><a href="../../../../tr/docs/rehberler/kisa-videolar/">Kısa videolar</a></li>
+            <li><a href="../../../../tr/docs/rehberler/ceviri/">Çeviri ve seslendirme</a></li>
+            <li><a href="../../../../tr/docs/rehberler/konudan-hikaye/">Konudan hikaye</a></li>
+            <li><a href="../../../../tr/docs/rehberler/marka-kitleri/">Marka kitleri ve yazı tipleri</a></li>
+            <li><a href="../../../../tr/docs/rehberler/goruntulerde-bul/">Görüntülerde bul</a></li>
+            <li><a href="../../../../tr/docs/rehberler/disa-aktarma/">Dışa aktarma</a></li>
+            <li><a href="../../../../tr/docs/rehberler/isler/">Süren işler ve sorulan işler</a></li>
+          </ul>
+          <p>Yapay zeka bağlantıları</p>
+          <ul>
+            <li><a href="../../../../tr/docs/yapay-zeka/genel-bakis/">Kilnframe yapay zekayı nasıl kullanır</a></li>
+            <li><a href="../../../../tr/docs/yapay-zeka/claude-chatgpt-aboneligi/">Claude ya da ChatGPT aboneliğinle</a></li>
+            <li><span class="soon" title="Yakında">API anahtarları</span></li>
+            <li><span class="soon" title="Yakında">Yerel modeller</span></li>
+            <li><span class="soon" title="Yakında">Bulutta transkript</span></li>
+            <li><span class="soon" title="Yakında">Yapay zeka asistanlarını bağla (MCP)</span></li>
+          </ul>
+          <p>Hesap ve gizlilik</p>
+          <ul>
+            <li><a href="../../../../tr/docs/hesap/lisans/">Lisans ve deneme</a></li>
+            <li><span class="soon" title="Yakında">Güncellemeler</span></li>
+            <li><span class="soon" title="Yakında">Uygulamada gizlilik</span></li>
+          </ul>
+          <p>Başvuru</p>
+          <ul>
+            <li><span class="soon" title="Yakında">Klavye kısayolları</span></li>
+            <li><span class="soon" title="Yakında">Ayarlar</span></li>
+            <li><span class="soon" title="Yakında">Bilinen sınırlar</span></li>
+          </ul>
+          <p>Yardım</p>
+          <ul>
+            <li><a href="../../../../tr/docs/yardim/sss/">Sık sorulanlar</a></li>
+            <li><span class="soon" title="Yakında">Sorun giderme</span></li>
+            <li><span class="soon" title="Yakında">Hata bildir</span></li>
+          </ul>
+          <p>Platformlar</p>
+          <ul>
+            <li><span class="soon" title="Yakında">Mac</span></li>
+            <li><span class="soon" title="Yakında">Windows (Microsoft Store, Beta)</span></li>
+            <li><span class="soon" title="Yakında">Linux (Beta)</span></li>
+          </ul>
+        </nav>
+      </aside>
+      <article class="docs-body">
+        <span class="tc crumb">REHBERLER</span>
+        <h1>Renk</h1>
+        <p class="lead">Renk her klibin ve kaydın her parçasının kendisinin. Birini seç ve <span class="ui">Klip</span> › <span class="ui">Renk</span>'i aç: yapay zeka senin için ayarlayabilir, her ayar elle de orada.</p>
+<figure class="shot"><img src="../../../../assets/docs/tr/colour-ai.webp" width="1600" height="1398" alt="Klip, Renk: AI ile görüntü düğmeleri ve görüntüye uygulanmış bir renk görünümü" loading="lazy" /></figure>
+
+<h2 id="ai-ile-goruntu">AI ile görüntü</h2>
+<p>Yapay zeka birkaç kareye bakar ve alttaki ayarları yapar. Birine bas:</p>
+<ul>
+  <li><span class="ui">AI ile Düzelt</span>: pozlama, beyaz dengesi ve ten rengi, doğal olacak şekilde.</li>
+  <li><span class="ui">Ten Rengini Düzelt</span>: yalnızca ten rengi, diğerlerine dokunmaz.</li>
+  <li><span class="ui">Karanlık Çekimi Kurtar</span>: az ışıkta çekilmiş kayıtta yüzü ve gölgeleri açar.</li>
+  <li><span class="ui">Referansa Benzet…</span>: seçtiğin bir görselin görünümüne yaklaştırır.</li>
+</ul>
+<p>Ya da ne istediğini <span class="ui">Not (isteğe bağlı)</span>'a yaz, örneğin “biraz daha sıcak olsun, arka plan çok mavi”, ve <span class="ui">Gönder</span>'e bas. Sonucu elle ayarla ya da Geri Al. Bu, yapay zeka modelini kullanır.</p>
+<p><span class="ui">Kayıtları Eşleştir</span> diğer kameraların rengini ana kayda uydurur, kesimler atlamaz; bir çekimde <span class="ui">Ana Kayda Eşleştir</span> aynısını tek klip için yapar.</p>
+
+<h2 id="gorunumler">Görünümler</h2>
+<p><span class="ui">Renk görünümü</span>: Orijinal, Sıcak, Serin, Sinematik, Canlı, Siyah Beyaz, Vintage, Camgöbeği ve Turuncu, Mat, Dramatik, Altın Saat. <span class="ui">Görünüm yoğunluğu</span> ne kadarını alacağını ayarlar. Görünüm bu bilgisayarda çalışır.</p>
+
+<h2 id="elle">Elle</h2>
+<ul>
+  <li><span class="ui">Temel düzeltme</span>: beyaz dengesi, ton (pozlama, kontrast, parlak alanlar) ve renk (doygunluk, canlılık). Bir sürgüye çift tıklamak onu sıfırlar.</li>
+  <li><span class="ui">Parlaklık eğrisi</span> ve <span class="ui">Renk eğrileri</span> (Ton / Ton, Ton / Doygunluk, Ton / Parlaklık, Parlaklık / Doygunluk, Doygunluk / Doygunluk). <span class="ui">Damlalık</span> ile izleyicide bir renge tıkla, eğriye üç nokta gelir; ortadakini sürükle.</li>
+  <li><span class="ui">Renk tekerlekleri</span>: <span class="ui">Gölgeler (lift)</span>, <span class="ui">Ara tonlar (gamma)</span>, <span class="ui">Parlak yerler (gain)</span>. Tekerleğin noktasını bir renge doğru sürükle; sürgüsü onları koyulaştırır ya da açar.</li>
+  <li><span class="ui">Çekim profili</span>: kamera log çektiyse (soluk, gri bir görüntü) profilini seç; başka her renk ayarından önce normale çekilir.</li>
+  <li><span class="ui">LUT Yükle (.cube)</span>: dışa aktarımda her şeyin üstüne konan bir LUT.</li>
+  <li><span class="ui">Keskinlik, vinyet ve cilt</span>: <span class="ui">Keskinleştir</span>, <span class="ui">Kenarları karart</span>, <span class="ui">Cilt yumuşatma</span>.</li>
+</ul>
+<figure class="shot narrow"><img src="../../../../assets/docs/tr/colour-manual.webp" width="1112" height="3008" alt="Temel düzeltme, renk eğrileri, renk tekerlekleri ve dalga formu skobu" loading="lazy" /></figure>
+
+<h2 id="skoplar">Skoplar</h2>
+<p><span class="ui">Dalga formu</span>, <span class="ui">RGB parade</span> ya da <span class="ui">Vektörskop</span> oynatma kafasındaki kareyi ölçer. <span class="ui">Skop Kutusu Çiz</span> yalnızca görüntünün bir bölümünü ölçer, mesela bir yüzü.</p>
+
+<h2 id="bircok-klibe-tek-degisiklik">Birçok klibe tek değişiklik</h2>
+<p>Ayarlama katmanı altındaki her şeyi renklendirir. Timeline'a sağ tıkla, <span class="ui">Ayarlama Katmanı Ekle</span>; onu kliplerin üstündeki bir ize koy ve bir klip gibi ayarla. Klipleri aynı renge getirmek için <span class="ui">Ayarları Kopyala</span> ve <span class="ui">Ayarları Yapıştır</span>'ı ya da <span class="ui">Görünümü Hazır Ayar Olarak Kaydet…</span>'i de kullanabilirsin.</p>
+
+<h2 id="karsilastir">Karşılaştır</h2>
+<p>İzleyicideki <span class="ui">Önce/Sonra</span> görüntüyü renk ayarların olmadan ya da ikisini yan yana gösterir (<a href="../../../../tr/docs/paneller/program/">Program</a>).</p>
+        <nav class="pager" aria-label="Önceki / Sonraki">
+          <a class="prev" rel="prev" href="../../../../tr/docs/rehberler/animasyon-stilleri/"><small>← Önceki</small><b>Animasyon stilleri ve kendi stilin</b></a>
+          <a class="next" rel="next" href="../../../../tr/docs/rehberler/egitim-videolari/"><small>Sonraki →</small><b>Ekran eğitimleri</b></a>
+        </nav>
+      </article>
+      <nav class="toc" aria-label="Bu sayfada">
+        <p>Bu sayfada</p>
+        <ul>
+          <li><a href="#ai-ile-goruntu">AI ile görüntü</a></li>
+          <li><a href="#gorunumler">Görünümler</a></li>
+          <li><a href="#elle">Elle</a></li>
+          <li><a href="#skoplar">Skoplar</a></li>
+          <li><a href="#bircok-klibe-tek-degisiklik">Birçok klibe tek değişiklik</a></li>
+          <li><a href="#karsilastir">Karşılaştır</a></li>
+        </ul>
+      </nav>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe Desktop, Erhan Meydan</span>
+        <span
+          ><a href="../../../../tr/ozellikler/">Özellikler</a> · <a href="../../../../tr/docs/">Kılavuz</a> ·
+          <a href="../../../../tr/plugin/">Ücretsiz eklenti</a> · <a href="../../../../tr/desktop/privacy/">Gizlilik</a> ·
+          <a href="../../../../tr/desktop/terms/">Koşullar</a> ·
+          <a href="mailto:hello@kilnframe.com">hello@kilnframe.com</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../../../assets/docs-search.js"></script>
+    <script src="../../../../assets/docs.js"></script>
+  </body>
+</html>

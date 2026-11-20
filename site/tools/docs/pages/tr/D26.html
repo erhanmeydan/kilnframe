@@ -1,0 +1,22 @@
+<!-- description: Kilnframe Desktop'ta ekranını, kameranı, mikrofonunu ve bilgisayarın sesini geri sayım ve tıklama kaydıyla kaydet; her sistemin istediği izinler. -->
+<p class="lead">Kilnframe ekranını, kameranı ve mikrofonunu kendisi kaydeder; ders, kamera zaten eşlenmiş olarak kayıttan doğrudan kurguya geçer.</p>
+
+<h2>Kayda başla</h2>
+<ol class="steps">
+  <li><b>Kaydediciyi aç</b><span class="ui">Dosya</span> › <span class="ui">Kayıt Yap…</span> ya da Başlangıç Penceresi'nde <span class="ui">Kayıt Yap</span>.</li>
+  <li><b>Neyin kaydedileceğini seç</b><span class="ui">Ne kaydedilsin</span>: bir ekran ya da bir pencere. <span class="ui">Kamera</span> ve <span class="ui">Mikrofon</span> ya da <span class="ui">Yok</span>; kamera önizlemesi ve mikrofon seviyesi çalıştıklarını gösterir.</li>
+  <li><b>Bilgisayarın sesi</b>Gösterdiğin uygulamaların sesi için <span class="ui">Bilgisayarın sesini de kaydet (kendi izine)</span>'yi işaretle. Mac'te macOS 14.2 ve sonrası gerekir.</li>
+  <li><b>Seçenekler</b><span class="ui">Kare hızı</span>, <span class="ui">Kayıt sırasında Kilnframe'i gizle</span>, <span class="ui">3 saniye geri say</span> ve <span class="ui">Tıklamaları da kaydet</span>.</li>
+  <li><b>Kaydet</b><span class="ui">Kaydı Başlat</span>'a bas.</li>
+</ol>
+
+<h2>Kayıt sürerken</h2>
+<p>Ekranın köşesinde küçük bir kayıt denetimi durur: <span class="ui">Duraklat</span>, <span class="ui">Sürdür</span> ve <span class="ui">Durdur</span>. Menü çubuğundaki ya da tepsideki kayıt simgesinden de durdurabilirsin. Kayıt editörde açılır; kamera ekranla eşlenmiş, imlecin yolu fare vurgusu için saklanmış olarak (<a data-doc="D25">Ekran eğitimleri</a>).</p>
+
+<h2>İzinler</h2>
+<ul>
+  <li><b>Mac:</b> ekran için Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı, bir de Kamera ve Mikrofon. Ekrana izin verdikten sonra macOS Kilnframe'in yeniden açılmasını ister; <span class="ui">Çık ve Yeniden Aç</span> bunu yapar. Tıklamaları kaydetmek için Giriş İzleme'ye de izin ver.</li>
+  <li><b>Windows:</b> Ayarlar › Gizlilik ve güvenlik › Kamera ve Mikrofon, masaüstü uygulamalarının bunları kullanmasına izin vermeli.</li>
+  <li><b>Linux:</b> Wayland masaüstünde tıklamalar kaydedilemez, diğerlerinde <code>xinput</code> gerekir; imlecin yeri yine kaydedilir.</li>
+</ul>
+<p>Bir izin eksikse pencere hangisi olduğunu söyler ve <span class="ui">Ayarları Aç</span>'ı önerir.</p>

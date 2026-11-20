@@ -1,0 +1,37 @@
+<!-- description: Colour in Kilnframe Desktop: AI picture fixes, matching recordings, looks and their strength, basic correction, curves, colour wheels, log profiles and LUTs, scopes and adjustment layers. -->
+<p class="lead">Colour belongs to each clip and each piece of the recording. Select one and open <span class="ui">Clip</span> › <span class="ui">Colour</span>: the AI can set it for you, and every control is there by hand.</p>
+<figure class="shot"><img src="{{img}}colour-ai.webp" alt="Clip, Colour: the AI picture buttons and a colour look applied to the picture" loading="lazy" /></figure>
+
+<h2>AI picture</h2>
+<p>The AI looks at a few frames and sets the controls below. Press one:</p>
+<ul>
+  <li><span class="ui">Fix with AI</span>: exposure, white balance and skin, naturally.</li>
+  <li><span class="ui">Fix Skin Tone</span>: only the skin, the rest alone.</li>
+  <li><span class="ui">Rescue Dark Footage</span>: brings up the face and the shadows of footage shot in poor light.</li>
+  <li><span class="ui">Match a Reference…</span>: close to the look of an image you choose.</li>
+</ul>
+<p>Or write what you want in <span class="ui">Note (optional)</span>, for example “a little warmer, the background is too blue”, and press <span class="ui">Send</span>. Adjust the result by hand, or Undo. This uses your AI model.</p>
+<p><span class="ui">Match Recordings</span> matches the other cameras' colour to the main recording, so cuts do not jump; on a shot, <span class="ui">Match to the Main Recording</span> does the same for one clip.</p>
+
+<h2>Looks</h2>
+<p><span class="ui">Colour look</span>: Original, Warm, Cool, Cinematic, Vivid, Black &amp; White, Vintage, Teal &amp; Orange, Matte, Dramatic, Golden Hour. <span class="ui">Look strength</span> sets how much of it you get. A look runs on this computer.</p>
+
+<h2>By hand</h2>
+<ul>
+  <li><span class="ui">Basic correction</span>: white balance, tone (exposure, contrast, highlights) and colour (saturation, vibrance). A double click resets a slider.</li>
+  <li><span class="ui">Brightness curve</span> and <span class="ui">Colour curves</span> (Hue vs Hue, Hue vs Sat, Hue vs Luma, Luma vs Sat, Sat vs Sat). With the <span class="ui">Eyedropper</span>, click a colour in the viewer and three points go on the curve; drag the middle one.</li>
+  <li><span class="ui">Colour wheels</span>: <span class="ui">Shadows (lift)</span>, <span class="ui">Midtones (gamma)</span>, <span class="ui">Highlights (gain)</span>. Drag a wheel's point towards a colour; its slider makes them darker or brighter.</li>
+  <li><span class="ui">Recorded as</span>: if a camera filmed in log (a flat, grey picture), choose its profile; it is made normal before any other colour.</li>
+  <li><span class="ui">Load LUT (.cube)</span>: a LUT laid over everything in the export.</li>
+  <li><span class="ui">Sharpness, Vignette and Skin</span>: <span class="ui">Sharpen</span>, <span class="ui">Dark edges</span>, <span class="ui">Skin smoothing</span>.</li>
+</ul>
+<figure class="shot narrow"><img src="{{img}}colour-manual.webp" alt="Basic correction, colour curves, colour wheels and a waveform scope" loading="lazy" /></figure>
+
+<h2>Scopes</h2>
+<p><span class="ui">Waveform</span>, <span class="ui">RGB parade</span> or <span class="ui">Vectorscope</span> measure the frame at the playhead. <span class="ui">Draw a Scope Box</span> measures only part of the picture, a face for example.</p>
+
+<h2>One change for many clips</h2>
+<p>An adjustment layer colours everything under it. Right-click the timeline for <span class="ui">Add Adjustment Layer</span>, place it on a track over the clips, and grade it like a clip. To give clips the same grade instead, use <span class="ui">Copy Settings</span> and <span class="ui">Paste Settings</span>, or <span class="ui">Save Look as Preset…</span>.</p>
+
+<h2>Compare</h2>
+<p><span class="ui">Before/After</span> in the viewer shows the picture without your colour work, or both side by side (<a data-doc="D10">Program</a>).</p>
