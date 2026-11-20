@@ -47,6 +47,19 @@ describe("job errors in the panel's language", () => {
     expect(readableJobError(`Scene s1 failed: ${message}`)?.key).toBe("job.contextTooSmall");
   });
 
+  it("says in the panel's language that LM Studio or Ollama is not running", () => {
+    expect(
+      readableJobError(
+        "LM Studio is not running. Open LM Studio and start its server (Developer tab).",
+      )?.key,
+    ).toBe("job.lmstudioNotRunning");
+    expect(readableJobError("Ollama is not running. Open Ollama and try again.")?.key).toBe(
+      "job.ollamaNotRunning",
+    );
+    expect(tr["job.lmstudioNotRunning"]).toContain("çalışmıyor");
+    expect(tr["job.ollamaNotRunning"]).toContain("çalışmıyor");
+  });
+
   it("has the context sentence in both languages, without dashes in Turkish", () => {
     expect(en["job.contextTooSmall"]).toContain("64K");
     expect(tr["job.contextTooSmall"]).toContain("64K");

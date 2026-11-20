@@ -2332,7 +2332,7 @@ function modelList(): string {
     options = rows.map((r) => [r.id, r.info]);
     const hidden = served.length - rows.length;
     note = setup.servedError[id]
-      ? `<div class="note err-text">${esc(setup.servedError[id])}</div>`
+      ? `<div class="note err-text">${esc(readableJobText(setup.servedError[id]) ?? setup.servedError[id])}</div>`
       : !served.length
         ? `<div class="note muted">${t(id === "ollama" ? "prov.ollamaNone" : "prov.lmNone")}</div>`
         : hidden

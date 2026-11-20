@@ -331,6 +331,8 @@
   "job.checksFailed": "Animasyon kalite kontrolünden geçmedi, bu yüzden timeline'a eklenmedi. Yapay zeka sorunu {n} denemede düzeltemedi.",
   "job.keyExpired": "{provider} API anahtarınızın süresi dolmuş. {provider} sitesinden yeni bir anahtar oluşturup Ayarlar'a yapıştırın.",
   "job.keyRejected": "{provider} API anahtarını kabul etmedi. Ayarlar'dan kontrol edin ya da {provider} sitesinden yeni bir anahtar oluşturun.",
+  "job.lmstudioNotRunning": "LM Studio çalışmıyor. LM Studio'yu açın ve sunucusunu başlatın (Developer sekmesi).",
+  "job.ollamaNotRunning": "Ollama çalışmıyor. Ollama'yı açıp yeniden deneyin.",
   "job.contextTooSmall": "Modelin bağlamı bu aralık için yetmedi. LM Studio'da modeli daha uzun bir bağlamla yükleyin (en az 64K önerilir) ya da daha kısa bir aralık seçin.",
   "job.contextTooSmallOllama": "Modelin bağlamı bu aralık için yetmedi. Ollama ayarlarından bağlam uzunluğunu en az 64K yapıp yeniden deneyin ya da daha kısa bir aralık seçin.",
   "job.ollamaContextUnknown": "Kilnframe, Ollama'nın modeli hangi bağlamla çalıştırdığını okuyamadı; Ollama istemi haber vermeden kırpabilir. Ollama'yı güncelleyin, ayarlarından bağlam uzunluğunu en az 64K yapın ve yeniden deneyin.",

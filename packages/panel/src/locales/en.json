@@ -331,6 +331,8 @@
   "job.checksFailed": "The animation did not pass the quality check, so it was not added to the timeline. The AI could not fix the problem in {n} tries.",
   "job.keyExpired": "Your {provider} API key has expired. Create a new key on the {provider} site and paste it in Settings.",
   "job.keyRejected": "{provider} did not accept the API key. Check it in Settings, or create a new one on the {provider} site.",
+  "job.lmstudioNotRunning": "LM Studio is not running. Open LM Studio and start its server (Developer tab).",
+  "job.ollamaNotRunning": "Ollama is not running. Open Ollama and try again.",
   "job.contextTooSmall": "The model's context was not enough for this range. Load the model in LM Studio with a longer context (at least 64K recommended), or choose a shorter range.",
   "job.contextTooSmallOllama": "The model's context was not enough for this range. Set Ollama's context length to at least 64K (in the Ollama app's settings), then try again, or choose a shorter range.",
   "job.ollamaContextUnknown": "Kilnframe could not read the context Ollama runs the model with, so Ollama might cut the prompt without saying so. Update Ollama, set its context length to at least 64K in its settings and try again.",
