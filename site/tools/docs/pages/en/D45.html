@@ -1,0 +1,31 @@
+<!-- description: Let AI assistants such as Claude Desktop, Claude Code, ChatGPT, Codex and Cursor edit your open Kilnframe Desktop project over MCP: turn it on, connect each client, the token, and what they ask you first. -->
+<p class="lead">Kilnframe Desktop can be an MCP server: assistants such as Claude, ChatGPT, Codex and Cursor can then read the open project and edit it in everyday words. They use the same checked actions as the app's buttons, so every edit can be undone.</p>
+<figure class="shot"><img src="{{img}}mcp-connections.webp" alt="Settings, Connections: Let AI assistants connect, the port, the address, the access token hidden, and the client buttons" loading="lazy" /></figure>
+
+<h2>Turn it on</h2>
+<ol class="steps">
+  <li><b>Open Connections</b><span class="ui">Settings</span> › <span class="ui">Connections</span> › <span class="ui">Connect AI assistants (MCP)</span>.</li>
+  <li><b>Switch it on</b>Turn on <span class="ui">Let AI assistants connect</span>. The line under it says <span class="ui">On, listening on port …</span></li>
+  <li><b>Connect a client</b>Under <span class="ui">Connect an AI client</span>, press the button for yours. It copies what that client needs; the card under it says where to paste it.</li>
+</ol>
+<p>It works the same way on Mac, Windows and Linux. You do not need Node or anything else installed.</p>
+
+<h2>Each client</h2>
+<ul>
+  <li><span class="ui">Claude Desktop</span>: in Claude Desktop open Settings › Developer › Edit Config, add the copied <code>kilnframe</code> entry under <code>mcpServers</code>, then restart Claude Desktop.</li>
+  <li><span class="ui">Claude Code (Terminal)</span>: run the copied command in a terminal (PowerShell on Windows). Kilnframe then shows in Claude Code in every folder, the Code tab of Claude Desktop included. <span class="ui">Open in Terminal</span> and <span class="ui">Copy with a first request</span> save a step.</li>
+  <li><span class="ui">ChatGPT</span>: in the ChatGPT desktop app, add a local MCP server and paste the copied command.</li>
+  <li><span class="ui">Codex</span>: run the copied lines in a terminal before launching Codex.</li>
+  <li><span class="ui">Cursor</span>: Settings › MCP › Add new server, and add the copied entry under <code>mcpServers</code>.</li>
+  <li><span class="ui">Other clients</span>: copy the address and the token, and enter them as an HTTP MCP server.</li>
+</ul>
+<p>Claude Desktop, ChatGPT and Codex start a small helper that comes with Kilnframe and finds the app even when its port changes. On a Mac, move Kilnframe Desktop to Applications before you copy their settings. ChatGPT on the web is not supported: the server stays on your computer on purpose. Each client also has <span class="ui">Example requests</span> to try.</p>
+
+<h2>The token</h2>
+<p>The server answers only this computer. Any program that has the <span class="ui">Access token</span> can edit the open project, so keep it private. <span class="ui">New token</span> makes another and disconnects every client at once; copy the commands again afterwards and restart Codex, ChatGPT and Claude Desktop. On a computer you share, turn the server off when you are not using it.</p>
+<p>If the usual port is in use, the server listens on another for now and says so: copy the address again.</p>
+
+<h2>What the assistant can and cannot do</h2>
+<p>Nearly everything you can do in the window. But some things wait for you in the Kilnframe window: work that spends your paid AI key or subscription, a model download, an update, a problem report, a screen recording, picking the face for a blur, and a voice made like someone's. Files outside the project are saved through the window's own Save dialog, where you choose the place.</p>
+<p>What the assistant changed shows in <span class="ui">What the AI just did</span>, with <span class="ui">Undo</span>, and as steps in History.</p>
+<figure class="shot"><img src="{{img}}mcp-activity.webp" alt="The What the AI just did row after a request from an assistant, with its Undo button" loading="lazy" /></figure>

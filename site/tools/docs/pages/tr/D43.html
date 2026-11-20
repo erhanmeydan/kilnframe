@@ -1,0 +1,25 @@
+<!-- description: Kilnframe Desktop'ın yapay zeka işlerini LM Studio ya da Ollama ile kendi bilgisayarında çalıştır: ücretsiz ve çevrimdışı; ne kurulmalı, hangi modeller çalışır, ne beklenmeli. -->
+<p class="lead">LM Studio ya da Ollama ile yapay zeka modeli kendi bilgisayarında çalışır: ücretsiz, çevrimdışı, hiçbir şey dışarı çıkmaz.</p>
+<figure class="shot"><img src="{{img}}local-model.webp" alt="Ayarlar, Yapay Zeka Modeli: Deneysel işaretli LM Studio (yerel) seçili ve notları" loading="lazy" /></figure>
+
+<h2>LM Studio</h2>
+<ol class="steps">
+  <li><b>Sunucusunu başlat</b>LM Studio'yu aç ve Developer sekmesinde sunucusunu başlat.</li>
+  <li><b>Seç</b><span class="ui">Ayarlar</span> › <span class="ui">Yapay zeka</span> › <span class="ui">Yapay Zeka Modeli</span>'nde <span class="ui">LM Studio (yerel)</span>'i seç. Anahtar gerekmez.</li>
+  <li><b>Model seç</b>Yalnızca görsel okuyabilen modeller listelenir. Henüz yüklü olmayan bir modeli seçtiğinde LM Studio onu yükler; satır bağlam uzunluğuyla <span class="ui">Yüklü</span> gösterir.</li>
+</ol>
+
+<h2>Ollama</h2>
+<ol class="steps">
+  <li><b>Çalıştır</b>Ollama, görsel okuyan bir modelle çalışıyor olmalı.</li>
+  <li><b>Bağlamı artır</b>Ollama'nın ayarlarında bağlam uzunluğunu en az 64K yap: Ollama daha uzun bir istemi haber vermeden keser.</li>
+  <li><b>Seç</b><span class="ui">Ollama (yerel)</span>'i ve bir model seç. Ollama modeli iş başlarken yükler.</li>
+</ol>
+
+<h2>Düşünme</h2>
+<p>Cevaplamadan önce düşünebilen bir modelde <span class="ui">Düşünme</span> bunu <span class="ui">Açık</span> ya da <span class="ui">Kapalı</span> yapar. Kapalı daha hızlıdır ve modelin bağlamını daha az kullanır.</p>
+
+<h2>Ne beklemeli</h2>
+<p>Yerel modeller ücretsiz ve çevrimdışı çalışır; güçlü bir bilgisayar ister, bulut modellerinin gerisinde kalabilir. İkisi de <span class="ui">Deneysel</span> işaretli: Kilnframe'in test setinden henüz geçmediler, animasyon sahneleri daha sade çıkabilir.</p>
+<p>Yerel model yazma ve karar işlerini yapar. Transkript ayrıdır: zaten bu bilgisayarda çalışır (diğer yol <a data-doc="D44">Bulutta transkript</a>).</p>
+<p>Model gelmezse sekme söyler: LM Studio'nun ya da Ollama'nın açık olduğundan emin ol, sonra <span class="ui">Bağlantıyı Dene</span>'ye bas.</p>

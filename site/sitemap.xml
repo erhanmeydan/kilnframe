@@ -569,6 +569,54 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/claude-chatgpt-plan/" />
   </url>
   <url>
+    <loc>https://kilnframe.com/docs/ai/api-keys/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/api-keys/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/api-anahtarlari/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/api-keys/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/yapay-zeka/api-anahtarlari/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/api-keys/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/api-anahtarlari/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/api-keys/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/ai/local-models/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/local-models/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/yerel-modeller/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/local-models/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/yapay-zeka/yerel-modeller/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/local-models/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/yerel-modeller/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/local-models/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/ai/cloud-transcript/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/cloud-transcript/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/bulutta-transkript/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/cloud-transcript/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/yapay-zeka/bulutta-transkript/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/cloud-transcript/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/bulutta-transkript/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/cloud-transcript/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/ai/mcp/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/mcp/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/mcp/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/mcp/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/yapay-zeka/mcp/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/mcp/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/mcp/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/mcp/" />
+  </url>
+  <url>
     <loc>https://kilnframe.com/docs/account/licence/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/account/licence/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/hesap/lisans/" />
@@ -581,6 +629,66 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/account/licence/" />
   </url>
   <url>
+    <loc>https://kilnframe.com/docs/account/updates/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/account/updates/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/hesap/guncellemeler/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/account/updates/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/hesap/guncellemeler/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/account/updates/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/hesap/guncellemeler/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/account/updates/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/privacy/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/privacy/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/gizlilik/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/privacy/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/gizlilik/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/privacy/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/gizlilik/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/privacy/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/reference/shortcuts/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/reference/shortcuts/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/basvuru/kisayollar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/reference/shortcuts/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/basvuru/kisayollar/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/reference/shortcuts/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/basvuru/kisayollar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/reference/shortcuts/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/reference/settings/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/reference/settings/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/basvuru/ayarlar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/reference/settings/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/basvuru/ayarlar/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/reference/settings/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/basvuru/ayarlar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/reference/settings/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/reference/known-limits/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/reference/known-limits/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/basvuru/bilinen-sinirlar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/reference/known-limits/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/basvuru/bilinen-sinirlar/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/reference/known-limits/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/basvuru/bilinen-sinirlar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/reference/known-limits/" />
+  </url>
+  <url>
     <loc>https://kilnframe.com/docs/help/faq/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/help/faq/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yardim/sss/" />
@@ -591,6 +699,66 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/help/faq/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yardim/sss/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/help/faq/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/help/troubleshooting/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/help/troubleshooting/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yardim/sorun-giderme/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/help/troubleshooting/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/yardim/sorun-giderme/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/help/troubleshooting/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yardim/sorun-giderme/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/help/troubleshooting/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/help/report/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/help/report/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yardim/hata-bildir/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/help/report/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/yardim/hata-bildir/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/help/report/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yardim/hata-bildir/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/help/report/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/platforms/mac/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/platforms/mac/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/platformlar/mac/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/platforms/mac/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/platformlar/mac/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/platforms/mac/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/platformlar/mac/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/platforms/mac/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/platforms/windows/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/platforms/windows/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/platformlar/windows/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/platforms/windows/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/platformlar/windows/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/platforms/windows/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/platformlar/windows/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/platforms/windows/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/platforms/linux/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/platforms/linux/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/platformlar/linux/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/platforms/linux/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/platformlar/linux/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/platforms/linux/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/platformlar/linux/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/platforms/linux/" />
   </url>
   <!-- end of features and docs -->
 </urlset>

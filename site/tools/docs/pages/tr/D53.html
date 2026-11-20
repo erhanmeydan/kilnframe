@@ -1,0 +1,39 @@
+<!-- description: Kilnframe Desktop'ta sık görülen sorunları çöz: bağlanmayan yapay zeka modeli, başlamayan kayıt, eksik dosyalar, yavaş oynatma ya da dışa aktarma, lisans mesajları ve kullanımda olan MCP bağlantı noktası. -->
+<p class="lead">Karşına çıkabilecek mesajlar, ne anlama geldikleri ve ne yapmalı.</p>
+
+<h2>Yapay zeka modeli bağlanmıyor</h2>
+<ul>
+  <li>Claude Planı ya da ChatGPT Planı yanında <span class="ui">kurulu değil</span>: Claude Code ya da Codex yok. <span class="ui">Kurulum komutu</span>'nu kopyala, çalıştır ve <span class="ui">Yeniden Bak</span>'a bas (<a data-doc="D41">Claude ya da ChatGPT aboneliği</a>).</li>
+  <li><span class="ui">giriş yok</span>: <span class="ui">Giriş Yap</span>'a bas ve tarayıcıda onayla.</li>
+  <li><span class="ui">güncelle</span>: eski bir sürüm çalışmayı durdurabilir; <span class="ui">Güncelle</span>'ye bas.</li>
+  <li><span class="ui">Bağlantıyı Dene</span>'den sonra <span class="ui">Bağlanılamadı.</span>: anahtarı, özel uç noktanın adresini ya da LM Studio'nun veya Ollama'nın çalıştığını kontrol et (<a data-doc="D42">API anahtarları</a>, <a data-doc="D43">Yerel modeller</a>).</li>
+  <li><span class="ui">Bağlandı ama model görseli okumadı.</span>: görsel okuyan bir model seç.</li>
+</ul>
+
+<h2>Kayıt başlamıyor</h2>
+<p>Kaydedici hangi iznin eksik olduğunu söyler ve <span class="ui">Ayarları Aç</span>'ı önerir. Mac'te Ekran ve Sistem Sesi Kaydı, Kamera ve Mikrofon izni ver, sonra Kilnframe'i yeniden aç; Windows'ta masaüstü uygulamalarının kamera ve mikrofonu kullanmasına izin ver. Linux'ta Wayland masaüstünde tıklamalar kaydedilmez (<a data-doc="D26">Ekranı ve kamerayı kaydet</a>). Kamerayı başka bir uygulama kullanıyorsa onu kapat ya da <span class="ui">Yok</span>'u seç.</p>
+
+<h2>Bir dosya eksik</h2>
+<p>Bir klipte <span class="ui">Eksik. Bulmak için tıklayın</span> yazıyor: dosya projenin bıraktığı yerde değil. <span class="ui">Dosya</span> › <span class="ui">Medyayı Bul…</span>'u aç ve bul; aynı klasördekiler onunla gelir (<a data-doc="D05">Projeler ve dosyalar</a>).</p>
+
+<h2>Oynatma yavaş</h2>
+<ul>
+  <li><span class="ui">Oynatma kalitesi</span>'ni <span class="ui">Akıcı</span> yap: telefonun 4K ya da HEVC videosu hafif bir kopyadan oynar (<a data-doc="D10">Program</a>).</li>
+  <li>Ağır bir iş sürerken uygulama yavaşlar; izleyicinin altındaki <span class="ui">Süren işler</span> onu gösterir ve durdurabilir.</li>
+  <li>Önbellekler diski doldurduysa <span class="ui">Ayarlar</span> › <span class="ui">Depolama</span> › <span class="ui">Önbellekleri Şimdi Boşalt</span>.</li>
+</ul>
+
+<h2>Dışa aktarma yavaş</h2>
+<p>Dışa Aktar penceresinde <span class="ui">Donanım hızlandırma</span>'yı işaretle. Akıcı ağır çekim (<span class="ui">Yeni kareler üret</span>) dışa aktarmayı uzatır; pencere bunu söyler.</p>
+
+<h2>Lisans mesajları</h2>
+<ul>
+  <li><span class="ui">Bu anahtar 2 bilgisayarda kullanılıyor. Önce birinden çıkarın.</span>: oradaki <span class="ui">Bu Bilgisayarı Çıkar</span> ile birini serbest bırak.</li>
+  <li><span class="ui">Lisans 3 haftadır kontrol edilemedi. Bir kez internete bağlanın.</span></li>
+  <li>Linux'ta yalnızca çıkana kadar tutulan anahtar: GNOME Keyring ya da KWallet gibi bir anahtar zinciri hizmeti başlat (<a data-doc="D46">Lisans ve deneme</a>).</li>
+</ul>
+
+<h2>MCP: bağlantı noktası kullanımda</h2>
+<p>Başka bir program bağlantı noktasını aldı; sunucu şimdilik başka birinde dinler ve bunu söyler. Claude Code, Cursor ve diğer istemciler için komutu yeniden kopyala (<a data-doc="D45">Yapay zeka asistanlarını bağla</a>).</p>
+
+<p>Hâlâ çözülmedi mi? <a data-doc="D54">Hata bildir</a>.</p>
