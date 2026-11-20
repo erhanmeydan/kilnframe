@@ -51,26 +51,43 @@
         box-sizing: border-box;
         flex-shrink: 0;
       }
-      /* the Kilnframe Desktop line under everything: one quiet row, its text cut short when narrow */
+      /* the Kilnframe Desktop card under everything: its icon, name and what it is; the card opens the page */
       .promo {
         display: flex;
         flex-direction: row;
-        align-items: center;
+        align-items: flex-start;
         box-sizing: border-box;
         border-top: 1px solid #303030;
         background: #262626;
-        padding: 0 4px 0 12px;
-        font-size: 11px;
-        color: #8f8f8f;
-        overflow: hidden;
-        white-space: nowrap;
+        padding: 10px 6px 10px 12px;
+        cursor: pointer;
       }
-      .promo-text {
+      .promo-icon {
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
+        margin-right: 10px;
+        border-radius: 7px;
+      }
+      .promo-body {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+      .promo-head {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        height: 18px;
+      }
+      .promo-title {
         flex: 1 1 0;
         min-width: 0;
         overflow: hidden;
-        text-overflow: ellipsis;
         white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 12px;
+        font-weight: bold;
+        color: #d6d6d6;
       }
       .promo .promo-link {
         flex: 0 0 auto;
@@ -82,7 +99,7 @@
         width: 20px;
         height: 20px;
         line-height: 20px;
-        margin-left: 4px;
+        margin-left: 2px;
         text-align: center;
         font-size: 14px;
         color: #8f8f8f;
@@ -91,6 +108,12 @@
       }
       .promo-x:hover {
         color: #d6d6d6;
+      }
+      .promo-text {
+        margin-top: 2px;
+        font-size: 11px;
+        line-height: 15px;
+        color: #8f8f8f;
       }
       .promo-link:focus,
       .promo-x:focus {

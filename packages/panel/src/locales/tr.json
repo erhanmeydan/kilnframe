@@ -749,7 +749,8 @@
   "prov.groupKey": "API Anahtarı",
   "prov.groupLocal": "Bu Bilgisayarda",
   "prov.allKeys": "Tüm API Sağlayıcıları ({n} tane daha)",
-  "promo.text": "Kilnframe Desktop: kaydını konuşarak kurgula, animasyonları kendisi yazsın.",
+  "promo.title": "Kilnframe Desktop yayında",
+  "promo.text": "Komple kurgu programı: kaydını konuşarak kurgula, animasyonları kendisi yazsın.",
   "promo.link": "İncele",
   "promo.dismiss": "Kapat"
 }

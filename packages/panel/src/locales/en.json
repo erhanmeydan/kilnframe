@@ -749,7 +749,8 @@
   "prov.groupKey": "API Key",
   "prov.groupLocal": "On This Computer",
   "prov.allKeys": "All API Providers ({n} more)",
-  "promo.text": "Kilnframe Desktop: edit your recording by talking, and let it write the animations.",
+  "promo.title": "Kilnframe Desktop is out",
+  "promo.text": "A complete video editor: edit your recording by talking, and let it write the animations.",
   "promo.link": "Take a look",
   "promo.dismiss": "Dismiss"
 }

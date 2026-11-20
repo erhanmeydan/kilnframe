@@ -906,12 +906,12 @@ function fitScroll() {
   const bar = root.querySelector(".actionbar") as HTMLElement | null;
   const promo = root.querySelector(".promo") as HTMLElement | null;
   if (!scroller) return;
+  // the card takes its own height (its description wraps in a narrow panel)
+  const promoHeight = promo ? promo.offsetHeight || DESKTOP_PROMO_HEIGHT : 0;
   const h =
-    (bar ? (bar.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT) : 0) +
-    (promo ? DESKTOP_PROMO_HEIGHT : 0);
+    (bar ? (bar.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT) : 0) + promoHeight;
   scroller.style.height = h ? `${Math.max(120, root.clientHeight - h)}px` : "100%";
   if (bar) bar.style.height = `${bar.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT}px`;
-  if (promo) promo.style.height = `${DESKTOP_PROMO_HEIGHT}px`;
 }
 
 /**

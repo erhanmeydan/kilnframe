@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -21,27 +21,29 @@ describe("Kilnframe Desktop line", () => {
   it("speaks the panel's language and links to that language's page", () => {
     setLang("tr");
     const tr = desktopPromoBar();
+    expect(tr).toContain("Kilnframe Desktop yayında");
     expect(tr).toContain(
-      "Kilnframe Desktop: kaydını konuşarak kurgula, animasyonları kendisi yazsın.",
+      "Komple kurgu programı: kaydını konuşarak kurgula, animasyonları kendisi yazsın.",
     );
     expect(tr).toContain("İncele");
-    expect(tr).toContain('data-val="https://kilnframe.com/tr/#haber"');
+    expect(tr).toContain('data-val="https://kilnframe.com/tr/"');
     expect(tr).toContain('aria-label="Kapat"');
 
     setLang("en");
     const en = desktopPromoBar();
+    expect(en).toContain("Kilnframe Desktop is out");
     expect(en).toContain(
-      "Kilnframe Desktop: edit your recording by talking, and let it write the animations.",
+      "A complete video editor: edit your recording by talking, and let it write the animations.",
     );
     expect(en).toContain("Take a look");
-    expect(en).toContain('data-val="https://kilnframe.com/#notify"');
+    expect(en).toContain('data-val="https://kilnframe.com/"');
     expect(en).toContain('aria-label="Dismiss"');
   });
 
   it("keeps both links in one place", () => {
     expect(DESKTOP_PROMO_URLS).toEqual({
-      tr: "https://kilnframe.com/tr/#haber",
-      en: "https://kilnframe.com/#notify",
+      tr: "https://kilnframe.com/tr/",
+      en: "https://kilnframe.com/",
     });
     expect(desktopPromoUrl("tr")).toBe(DESKTOP_PROMO_URLS.tr);
     expect(desktopPromoUrl("en")).toBe(DESKTOP_PROMO_URLS.en);
@@ -94,11 +96,15 @@ describe("Kilnframe Desktop line", () => {
     }
     expect(fetch).not.toHaveBeenCalled();
     expect(xhr).not.toHaveBeenCalled();
-    // nothing in it can load: no images, frames, scripts or requests, only a link the editor clicks
+    // nothing in it reaches out: no requests, frames or scripts, and its only picture is a file in the panel
     const source = readFileSync(join(__dirname, "..", "src", "desktop-promo.ts"), "utf8");
     expect(source).not.toMatch(
-      /fetch|XMLHttpRequest|sendBeacon|WebSocket|session\.|<img|<iframe|src=/,
+      /fetch|XMLHttpRequest|sendBeacon|WebSocket|session\.|<iframe|<script/,
     );
-    expect(desktopPromoBar("en")).not.toMatch(/<img|<iframe|<script|src=/);
+    const bar = desktopPromoBar("en");
+    expect(bar).not.toMatch(/<iframe|<script/);
+    const sources = [...bar.matchAll(/src="([^"]*)"/g)].map((m) => m[1]);
+    expect(sources).toEqual(["icons/desktop@2x.png"]);
+    expect(existsSync(join(__dirname, "..", "public", "icons", "desktop@2x.png"))).toBe(true);
   });
 });
