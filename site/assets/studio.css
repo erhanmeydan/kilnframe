@@ -1511,6 +1511,41 @@ footer .wrap {
   transform: translateY(-3px);
 }
 
+/* the big play mark under the cover's title (the middle holds the logo) */
+.film .mark {
+  position: absolute;
+  left: 50%;
+  top: 74%;
+  display: grid;
+  place-items: center;
+  width: clamp(56px, 7vw, 88px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--clay) 92%, transparent);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+  transform: translate(-50%, -50%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.film .mark svg {
+  width: 38%;
+  height: 38%;
+  margin-left: 8%;
+  fill: #fff;
+}
+
+.film:hover .mark,
+.film:focus-visible .mark {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.film.playing video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}
+
 .film:focus-visible {
   outline: 3px solid var(--clay);
   outline-offset: 4px;
@@ -1641,7 +1676,8 @@ footer .wrap {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .film .cue {
+  .film .cue,
+  .film .mark {
     transition: none;
   }
 }
