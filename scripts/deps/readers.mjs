@@ -93,7 +93,7 @@ const READERS = {
     if (!/^v?\d+(\.\d+)*$/.test(v)) throw new Unreachable(`${s.url}: not a version`);
     return { latest: v };
   },
-  // a JSON file with the version under one key (a release manifest)
+  // a JSON file with the version under one key (the Antigravity CLI's release manifest)
   async "url-json"(s, fetch) {
     const d = await get(fetch, s.url);
     return { latest: need(d?.[s.key], s.key) };

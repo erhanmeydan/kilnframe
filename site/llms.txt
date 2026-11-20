@@ -22,6 +22,7 @@ Made by Erhan Meydan, a graphic designer and video creator. No account and no si
 ## AI it works with
 
 - The plan the editor already pays for: Claude (through Claude Code), ChatGPT (through Codex), Grok (through Grok CLI).
+- The editor's Google account through Google's Antigravity CLI, no API key (experimental).
 - API keys: Anthropic Claude, OpenAI, Google Gemini, xAI, MiniMax, Z.ai (GLM), OpenRouter, a custom endpoint.
 - Local models through LM Studio or Ollama.
 - Only models that can see images are offered.

@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { ProviderError } from "./types.js";
 
-/** How the agent CLIs (Claude Code, Codex, Grok) are run to the end and their output collected. */
+/** How the agent CLIs (Claude Code, Codex, Antigravity) are run to the end and their output collected. */
 
 export interface AgentRunResult {
   code: number;

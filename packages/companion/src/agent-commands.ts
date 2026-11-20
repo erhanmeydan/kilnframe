@@ -1,10 +1,11 @@
-export type Agent = "claude-code" | "codex" | "grok";
+export type Agent = "claude-code" | "codex" | "grok" | "antigravity";
 
 /** The program each agent runs as. */
 export const AGENT_BINARY = {
   "claude-code": "claude",
   codex: "codex",
   grok: "grok",
+  antigravity: "agy",
 } as const;
 
 /** The setting that moves each CLI's sign-in to a folder of its own (a test or second profile). */
@@ -18,6 +19,8 @@ const LOGIN: Record<Agent, string> = {
   "claude-code": "claude auth login",
   codex: "codex login",
   grok: "grok login --oauth",
+  // Antigravity CLI has no sign-in command: its first start asks for the Google sign-in
+  antigravity: "agy",
 };
 
 /**
@@ -50,7 +53,11 @@ export function loginEnv(agent: Agent, env: NodeJS.ProcessEnv): Record<string, s
   return name && dir ? { [name]: dir } : {};
 }
 
-/** The CLI's own sign-out; it ends that account's session in the CLI on this computer. */
-export function logoutArgs(agent: Agent): string[] {
+/**
+ * The CLI's own sign-out; it ends that account's session in the CLI on this computer. Null: the CLI signs out
+ * only from inside its own screen (Antigravity CLI 1.5.5 has no sign-out command), so the panel offers none.
+ */
+export function logoutArgs(agent: Agent): string[] | null {
+  if (agent === "antigravity") return null;
   return agent === "claude-code" ? ["auth", "logout"] : ["logout"];
 }

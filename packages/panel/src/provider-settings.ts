@@ -6,7 +6,14 @@ export interface PresetInfo {
 }
 
 /** Providers whose model list is not the preset's own: any model the server or the editor names. */
-const OPEN_MODEL_LISTS = new Set(["custom", "openrouter", "lmstudio", "ollama", "codex"]);
+const OPEN_MODEL_LISTS = new Set([
+  "custom",
+  "openrouter",
+  "lmstudio",
+  "ollama",
+  "codex",
+  "antigravity",
+]);
 
 /** Claude models the list no longer offers, moved to the one that took their place. */
 const CLAUDE_MODEL_SUCCESSORS: Record<string, string> = { "claude-fable-5-1": "claude-fable-5-2" };
@@ -18,24 +25,6 @@ const CLAUDE_MODEL_SUCCESSORS: Record<string, string> = { "claude-fable-5-1": "c
  */
 export function claudeModelSuccessor(model: string): string {
   return CLAUDE_MODEL_SUCCESSORS[model] ?? model;
-}
-
-/**
- * Providers the panel once offered and no longer does. A saved choice of one goes back to Automatic, and its
- * kept model is forgotten: Antigravity CLI was left out when Google said its consumer plans do not cover
- * other apps running it.
- */
-const REMOVED_PROVIDERS = new Set(["antigravity"]);
-
-/** The saved settings without a provider the panel no longer offers. */
-export function withoutRemovedProviders<
-  T extends { provider: string; models: Record<string, string> },
->(settings: T): T {
-  const models = Object.fromEntries(
-    Object.entries(settings.models).filter(([id]) => !REMOVED_PROVIDERS.has(id)),
-  );
-  const provider = REMOVED_PROVIDERS.has(settings.provider) ? "auto" : settings.provider;
-  return { ...settings, provider, models };
 }
 
 /** Only the custom endpoint and presets that need their own address show an address field. */

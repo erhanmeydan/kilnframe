@@ -13,6 +13,8 @@ import {
   claudeCodeStatus,
   codexStatus,
   grokStatus,
+  antigravityStatus,
+  forgetAgyModels,
   agentUpdate,
   updateCommand,
   loadProviderCatalog,
@@ -225,6 +227,8 @@ async function main() {
     loginAgent: async (agent) => {
       // the panel watches for the sign-in to finish in the terminal: no cached state meanwhile
       freshUntil = Date.now() + 5 * 60_000;
+      // a kept Antigravity model list belongs to the account before this sign-in
+      if (agent === "antigravity") forgetAgyModels();
       openInTerminal(loginCommand(agent, process.env), loginEnv(agent, process.env));
     },
     logoutAgent: async (agent) => {
@@ -266,6 +270,8 @@ async function main() {
         model: providerPreset(provider)?.models[0] ?? "list",
         apiKey: await keys.get(provider),
       });
+      // Antigravity's preflight reads the status found here (its check goes over the network)
+      if (provider === "antigravity") await antigravityStatus();
       p.preflight?.();
       const catalog = loadModelCatalog();
       return ((await p.listModels?.()) ?? []).map((m) => ({
@@ -336,6 +342,7 @@ main().catch((err: unknown) => {
  */
 function logoutAgent(agent: Agent): { ok: boolean; error?: string } {
   const args = logoutArgs(agent);
+  if (!args) return { ok: false, error: "This CLI signs out only from its own screen." };
   const r = spawnAgentSync(AGENT_BINARY[agent], args, {
     encoding: "utf8",
     timeout: 30_000,
@@ -390,6 +397,8 @@ let statusCache: { at: number; value: ReturnType<typeof readAgentStatuses> } | n
 /** Until then every request reads the agents again (a sign-in or update is under way). */
 let freshUntil = 0;
 async function readAgentStatuses() {
+  // the others are read synchronously and block the event loop; Antigravity's check runs on timers (10 s
+  // for --version), so it starts after them: started first, a slow Grok would make agy read as timed out
   const s = claudeCodeStatus();
   const codex = codexStatus();
   const grok = grokStatus();
@@ -402,6 +411,7 @@ async function readAgentStatuses() {
     },
     codex,
     grok,
+    antigravity: await antigravityStatus(),
   };
 }
 function agentStatuses() {
@@ -415,7 +425,7 @@ function agentStatuses() {
 let updateCache: { at: number; value: Record<string, unknown> } | null = null;
 async function agentUpdates(): Promise<Record<string, unknown>> {
   if (updateCache && Date.now() - updateCache.at < 60 * 60_000) return updateCache.value;
-  const ids = ["claude-code", "codex", "grok"] as const;
+  const ids = ["claude-code", "codex", "grok", "antigravity"] as const;
   const list = await Promise.all(ids.map((id) => agentUpdate(id)));
   const value = Object.fromEntries(ids.map((id, i) => [id, list[i]]));
   updateCache = { at: Date.now(), value };
