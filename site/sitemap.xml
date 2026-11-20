@@ -137,6 +137,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/getting-started/projects/" />
   </url>
   <url>
+    <loc>https://kilnframe.com/docs/panels/media/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/media/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/medya/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/media/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/medya/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/media/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/medya/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/media/" />
+  </url>
+  <url>
     <loc>https://kilnframe.com/docs/panels/transcript/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/transcript/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/transkript/" />
@@ -147,6 +159,30 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/transcript/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/transkript/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/transcript/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/animations/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/animations/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/animasyonlar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/animations/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/animasyonlar/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/animations/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/animasyonlar/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/animations/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/sound-effects/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/sound-effects/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/ses-efektleri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/sound-effects/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/ses-efektleri/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/sound-effects/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/ses-efektleri/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/sound-effects/" />
   </url>
   <url>
     <loc>https://kilnframe.com/docs/panels/program/</loc>
@@ -183,6 +219,114 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/cut/" />
     <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/kesim/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/cut/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/clip/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/clip/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/klip/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/clip/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/klip/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/clip/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/klip/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/clip/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/picture/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/picture/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/goruntu/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/picture/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/goruntu/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/picture/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/goruntu/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/picture/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/sound/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/sound/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/ses/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/sound/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/ses/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/sound/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/ses/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/sound/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/captions/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/captions/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/altyazi/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/captions/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/altyazi/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/captions/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/altyazi/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/captions/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/text/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/text/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/metin/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/text/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/metin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/text/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/metin/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/text/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/music/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/music/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/muzik/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/music/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/muzik/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/music/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/muzik/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/music/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/b-roll/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/b-roll/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/b-roll/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/b-roll/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/b-roll/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/b-roll/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/b-roll/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/b-roll/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/publish/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/publish/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/yayin/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/publish/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/yayin/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/publish/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/yayin/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/publish/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/docs/panels/assistant/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/assistant/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/asistan/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/assistant/" />
+  </url>
+  <url>
+    <loc>https://kilnframe.com/tr/docs/paneller/asistan/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/assistant/" />
+    <xhtml:link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/asistan/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/assistant/" />
   </url>
   <url>
     <loc>https://kilnframe.com/docs/guides/export/</loc>
