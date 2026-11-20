@@ -271,12 +271,23 @@ export function pausesBox(st: PausesState, ctx: PausesCtx): string {
   }
 }
 
+/**
+ * Premiere 26.5 and 27.0 sometimes close during the cut, inside their own transaction code (a known UXP crash on
+ * bulk timeline edits, Adobe's developer forum). The tab says so, and the cut saves the project first.
+ */
+function premiereNote(ctx: PausesCtx): string {
+  return ctx.hostKind() === "premiere"
+    ? `<div class="note muted">${t("pauses.premiereCrashNote")}</div>`
+    : "";
+}
+
 /** The part listened to: the In/Out when the sequence has one, else the whole sequence (no choice to make). */
 function idleScreen(_st: PausesState, ctx: PausesCtx): string {
   const can = Boolean(ctx.cutToNewSequence);
   // the range first, as on the other tabs, then what the tab does
   return `${ctx.rangeLine()}
   <div class="note intro muted">${t(inPlace(ctx) ? "pauses.introInPlace" : "pauses.intro")}</div>
+  ${premiereNote(ctx)}
   ${can ? "" : `<div class="box warn">${t("pauses.unsupported")}</div>`}
   ${can ? `<div class="btn mt${ctx.connected() ? "" : " off"}" data-act="pauses-find">${t("pauses.find")}</div>` : ""}`;
 }
@@ -315,6 +326,7 @@ function previewScreen(st: PausesState, ctx: PausesCtx): string {
   ${st.notIsolated ? `<div class="box warn">${t("pauses.notIsolated")}</div>` : ""}
   ${unheardNote(st)}
   ${ctx.hostKind() === "resolve" ? `<div class="note muted">${t("pauses.rebuildNote")}</div>` : ""}
+  ${premiereNote(ctx)}
   <div id="pauses-apply-slot" class="btn-slot">${applyButton(st, ctx)}</div>
   <div class="link mt" data-act="pauses-again">${t("pauses.again")}</div>`;
 }

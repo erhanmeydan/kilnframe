@@ -726,6 +726,8 @@
   "pauses.noSpeech": "Bu izde konuşma bulunamadı.",
   "pauses.emptied": "Hiçbir şey kesilmedi, çünkü boşluklar neredeyse her şeyi silerdi. Sesinizin olduğu izi seçin.",
   "pauses.notIsolated": "Diğer ses izleri kapatılamadı, müzik konuşma sanılmış olabilir.",
+  "pauses.premiereCrashNote": "Premiere, boşluklar kesilirken zaman zaman kapanabiliyor. Bu Adobe kaynaklı bir hata, şimdilik önleyemiyoruz. Kilnframe kesmeden önce projenizi kaydeder, bir şey kaybolmaz: Premiere'i yeniden açıp bir kez daha deneyin. DaVinci Resolve ve FilmCraft'ta bu sorun yok.",
+  "pauses.saveFailed": "Proje kaydedilemediği için hiçbir şey kesilmedi. Projeyi kendiniz kaydedin (Cmd+S, Windows'ta Ctrl+S) ve yeniden deneyin.",
   "pauses.rebuildNote": "Yeni timeline kaynak kliplerden kurulur. Renk, efekt ve yazılar kopyalanmaz.",
   "pauses.apply": "Boşluksuz Sekans Oluştur",
   "pauses.applying": "Yeni sekans kuruluyor, {done}/{total}. Bu sırada lütfen düzenleme yapmayın.",

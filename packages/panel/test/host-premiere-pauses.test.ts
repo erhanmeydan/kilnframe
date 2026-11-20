@@ -3,6 +3,7 @@ import { createPremiereHost, cutMismatch, planPremiereCut } from "../src/host-pr
 import type { CutClipInfo } from "../src/host-premiere";
 import { frameCuts } from "../src/cut-plan";
 import type { HostSequence } from "../src/host";
+import { t } from "../src/i18n";
 
 const TPS = 254016000000;
 const FPS = 25;
@@ -53,6 +54,8 @@ function fakePremiere(
   /** Optional sabotage: what a move does instead (to test the failure paths). */
   const quirks = {
     move: "ok" as "ok" | "throw" | "off",
+    /** Saving the project fails (it is saved before the cut, so a Premiere crash loses nothing). */
+    saveFails: false,
     /** Removing a transition is refused (a selection takes clips only). */
     keepTransitions: false,
     /**
@@ -207,6 +210,10 @@ function fakePremiere(
     getActiveSequence: async () => active,
     getSequences: async () => [...seqs],
     lockedAccess: (fn: () => void) => fn(),
+    save: vi.fn(async () => {
+      log.push("save");
+      return !quirks.saveFails;
+    }),
     executeTransaction: (fn: (c: { addAction(a: () => void): boolean }) => void, label: string) => {
       log.push(label);
       const queued: (() => void)[] = [];
@@ -488,7 +495,7 @@ describe("Premiere cutToNewSequence (in place)", () => {
     const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
     await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
     // copy the clip whole past the end, trim the clip and the copy, move the copy into place
-    expect(f.log).toHaveLength(3);
+    expect(f.log.filter((l) => l !== "save")).toHaveLength(3);
   });
 
   it("moves the markers and In/Out with their content; a marker inside a cut goes", async () => {
@@ -559,6 +566,23 @@ describe("Premiere cutToNewSequence (in place)", () => {
       { mediaType: 1, names: ["vgone"] },
       { mediaType: 2, names: ["agone"] },
     ]);
+  });
+
+  it("saves the project before the first change", async () => {
+    const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
+    await f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X");
+    expect(f.log[0]).toBe("save");
+    expect(f.log.length).toBeGreaterThan(1);
+  });
+
+  it("cuts nothing when the project cannot be saved, and says so", async () => {
+    const f = fakePremiere({ video: [[clip("v", 0, 250)]], audio: [[]] });
+    f.quirks.saveFails = true;
+    await expect(f.host.cutToNewSequence!(f.seq, [{ startS: 2, endS: 3 }], "X")).rejects.toThrow(
+      t("pauses.saveFailed"),
+    );
+    expect(f.log).toEqual(["save"]);
+    expect(f.originalUntouched()).toBe(true);
   });
 
   it("changes nothing when there are no pauses", async () => {

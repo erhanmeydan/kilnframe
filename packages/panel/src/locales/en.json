@@ -726,6 +726,8 @@
   "pauses.noSpeech": "No speech was found on this track.",
   "pauses.emptied": "Nothing was cut: the pauses would have removed almost everything. Pick the track that holds your voice.",
   "pauses.notIsolated": "The other audio tracks could not be switched off, so music may have been heard as speech.",
+  "pauses.premiereCrashNote": "Premiere sometimes closes while the pauses are cut. This is an Adobe bug we cannot avoid yet. Kilnframe saves your project before cutting, so nothing is lost: open Premiere again and try once more. DaVinci Resolve and FilmCraft are not affected.",
+  "pauses.saveFailed": "The project could not be saved, so nothing was cut. Save it yourself (Cmd+S, Ctrl+S on Windows) and try again.",
   "pauses.rebuildNote": "The new timeline is built from the source clips: grades, effects and titles are not copied.",
   "pauses.apply": "Create Sequence Without Pauses",
   "pauses.applying": "Building the new sequence, {done} of {total}. Please do not edit meanwhile.",
