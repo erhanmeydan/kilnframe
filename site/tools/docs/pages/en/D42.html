@@ -1,0 +1,25 @@
+<!-- description: Use an API key for Kilnframe Desktop's AI work: Claude API, OpenAI, Google Gemini, xAI, MiniMax, Z.ai, OpenRouter or your own endpoint, kept in your system keychain; and what the Gemini, OpenAI and ElevenLabs keys add. -->
+<p class="lead">No Claude or ChatGPT subscription? An API key works too. You pay its provider for what you use, on your own account.</p>
+<figure class="shot"><img src="{{img}}api-key.webp" alt="Settings, AI Model with Claude API picked: API Key, Get a key, Paste the key, Save, the model and Test Connection" loading="lazy" /></figure>
+
+<h2>Add a key</h2>
+<ol class="steps">
+  <li><b>Pick the provider</b>In <span class="ui">Settings</span> › <span class="ui">AI</span> › <span class="ui">AI Model</span>, choose one: <span class="ui">Claude API</span>, OpenAI, Google Gemini, xAI, MiniMax, Z.ai, OpenRouter or <span class="ui">Custom Endpoint</span>. Each row says <span class="ui">saved</span> or <span class="ui">no key</span>.</li>
+  <li><b>Get a key</b><span class="ui">Get a key</span> opens the provider's page for it.</li>
+  <li><b>Save it</b>Paste it under <span class="ui">API Key</span> and press <span class="ui">Save</span>.</li>
+  <li><b>Pick the model and test</b>Choose the <span class="ui">Model</span>, then <span class="ui">Test Connection</span>. It sends one small request with a picture: <span class="ui">Connected · read the picture</span> means it works.</li>
+</ol>
+<p>Only models that can read pictures are listed: animations, colour and B-roll need them. A provider marked <span class="ui">Experimental</span> has not passed Kilnframe's test set yet, and its scenes may come out simpler. With OpenRouter, only models that read images are listed, and OpenRouter takes 5.5% when credits are bought.</p>
+<p><span class="ui">Custom Endpoint</span> takes an <span class="ui">Address (Base URL)</span> and a <span class="ui">Model Name</span>, for any service that speaks the same API.</p>
+
+<h2>Where the key is kept</h2>
+<p>The key is kept in this computer's keychain: macOS Keychain, Windows Credential Manager or the Linux secret service. It is never sent to us. <span class="ui">Change</span> replaces it, <span class="ui">Delete</span> removes it from this computer.</p>
+
+<h2>Other keys, for sound</h2>
+<p>Further down the AI tab, three keys open more:</p>
+<ul>
+  <li><b>Google Gemini</b> (<span class="ui">Narration and Music</span>): story narration, dubbing voices and music with Google Lyria, whichever model writes the text.</li>
+  <li><b>OpenAI</b> (<span class="ui">OpenAI (Transcript)</span>): cloud transcription with OpenAI (<a data-doc="D44">Cloud transcription</a>).</li>
+  <li><b>ElevenLabs</b>: <span class="ui">Say Again in Voice…</span>, sound effects from text, Eleven Music, ElevenLabs voices and cloud transcription. It needs a paid ElevenLabs plan. If you restrict the key, allow Text to Speech, Voices (Read and Write), Sound Effects and Music.</li>
+</ul>
+<p>A key saved for the AI model is used here too, and the reverse.</p>

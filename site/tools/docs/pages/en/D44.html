@@ -1,0 +1,29 @@
+<!-- description: Transcribe in the cloud with Kilnframe Desktop: ElevenLabs Scribe, OpenAI or Google Gemini, much faster and paid on your own key; what is sent, the questions it asks first, and the monthly usage. -->
+<p class="lead">The transcript is read on your computer for free. If that is slow for a long recording, a cloud service can read it much faster, on your own key, for a small price.</p>
+<figure class="shot"><img src="{{img}}cloud-transcript.webp" alt="Settings, AI, Transcript: on this computer or in the cloud, Service, Suggest the cloud for long recordings and Ask before every cloud job" loading="lazy" /></figure>
+
+<h2>Choose who reads the words</h2>
+<p>In <span class="ui">Settings</span> › <span class="ui">AI</span> › <span class="ui">Transcript</span>:</p>
+<ul>
+  <li><span class="ui">On this computer: free, the sound never leaves your computer</span> (the default).</li>
+  <li><span class="ui">In the cloud: much faster, paid; the sound is sent to the service you choose</span>.</li>
+</ul>
+<p><span class="ui">Service</span>: ElevenLabs Scribe, OpenAI or Google Gemini, or <span class="ui">Automatic</span>: the first service whose key is saved, in that order. The key is entered further down the AI tab (<a data-doc="D42">API keys</a>).</p>
+<p>The transcript model is separate from the AI model you chat with: Claude and most local models cannot listen to sound.</p>
+
+<h2>What is sent</h2>
+<p>Only the sound of the recordings being read, in pieces, and the names in the project's glossary. Not the picture, not the project file. With OpenAI or Gemini, a small model on this computer then times each word; it is downloaded once on first use (about 80 MB). Most Gemini keys read about 100 pieces a day, so a long recording may not finish in one day.</p>
+
+<h2>It asks first</h2>
+<ul>
+  <li>The first time for a service: <span class="ui">Send the sound to …?</span>, with what is sent and that the service's own terms apply. <span class="ui">Understood, continue</span>.</li>
+  <li>Before each job: <span class="ui">Transcribe in the cloud?</span>, with how much sound, how long it takes and about what it costs, against the time on this computer. <span class="ui">Transcribe on this computer</span> or <span class="ui">Transcribe with …</span>.</li>
+</ul>
+<figure class="shot narrow"><img src="{{img}}cloud-ask.webp" alt="The Transcribe in the cloud? question with the sound, the time and the price, and Cancel, Transcribe on this computer and Transcribe with ElevenLabs" loading="lazy" /></figure>
+<p><span class="ui">Ask before every cloud job</span> lists each service with a saved key; untick one and its jobs start without the question, with the time and price shown in the progress line.</p>
+
+<h2>Suggested for long recordings</h2>
+<p>With <span class="ui">Suggest the cloud for long recordings</span> ticked, a long local read offers to finish in the cloud, with the time and price. <span class="ui">Don't Suggest Again</span> stops it.</p>
+
+<h2>What it cost</h2>
+<p>The tab shows <span class="ui">Cloud this month</span>: the sound read and about what it cost. Prices are approximate, worked out from the service's list price; you are charged on your own account.</p>

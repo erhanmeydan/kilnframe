@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timeline · Kilnframe Desktop Docs</title>
+    <meta name="description" content="The Kilnframe Desktop timeline: its tracks, the editing tools and their keys, the clip menu, transitions, markers, beats and following the playhead." />
+    <link rel="icon" href="../../../assets/desktop/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/docs/panels/timeline/" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/panels/timeline/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/paneller/timeline/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/panels/timeline/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/docs/panels/timeline/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="Timeline · Kilnframe Desktop Docs" />
+    <meta property="og:description" content="The Kilnframe Desktop timeline: its tracks, the editing tools and their keys, the clip menu, transitions, markers, beats and following the playhead." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://kilnframe.com/assets/desktop/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../../assets/studio.css" />
+    <script>document.documentElement.classList.add("js")</script>
+    <!-- visit counts without cookies (goatcounter.com) -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../../../"><img src="../../../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
+        <nav>
+          <a href="../../../features/">Features</a>
+          <a href="../../../docs/" aria-current="page">Docs</a>
+          <a href="../../../#price">Price</a>
+          <a href="../../../plugin/">Plugin</a>
+        </nav>
+        <div class="lang"><a href="./" aria-current="page">EN</a><a href="../../../tr/docs/paneller/timeline/" hreflang="tr">TR</a></div>
+        <a class="btn solid" href="../../../#notify">Get notified</a>
+      </div>
+    </header>
+    <main class="docs">
+      <div class="wrap docs-grid">
+      <button class="docs-menu" type="button" aria-controls="docs-side" aria-expanded="false">Contents</button>
+      <aside class="docs-side" id="docs-side">
+        <form class="search" action="../../../docs/" method="get" role="search">
+          <input type="search" name="q" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" spellcheck="false" />
+          <template class="search-empty">No results. Try other words, or the <a href="../../../docs/help/faq/">FAQ</a>.</template>
+        </form>
+        <nav aria-label="Docs">
+          <ul><li><a href="../../../docs/">Kilnframe Desktop Docs</a></li></ul>
+          <p>Getting started</p>
+          <ul>
+            <li><a href="../../../docs/getting-started/install/">Install</a></li>
+            <li><a href="../../../docs/getting-started/first-video/">Your first video</a></li>
+            <li><a href="../../../docs/getting-started/editor-window/">The editor window</a></li>
+            <li><a href="../../../docs/getting-started/projects/">Projects and files</a></li>
+          </ul>
+          <p>Panels</p>
+          <ul>
+            <li><a href="../../../docs/panels/media/">Media</a></li>
+            <li><a href="../../../docs/panels/transcript/">Transcript</a></li>
+            <li><a href="../../../docs/panels/animations/">Animations</a></li>
+            <li><a href="../../../docs/panels/sound-effects/">Sound Effects</a></li>
+            <li><a href="../../../docs/panels/program/">Program (viewer)</a></li>
+            <li><a href="../../../docs/panels/timeline/" aria-current="page">Timeline</a></li>
+            <li><a href="../../../docs/panels/cut/">Cut</a></li>
+            <li><a href="../../../docs/panels/clip/">Clip</a></li>
+            <li><a href="../../../docs/panels/picture/">Picture</a></li>
+            <li><a href="../../../docs/panels/sound/">Sound and Mixer</a></li>
+            <li><a href="../../../docs/panels/captions/">Captions</a></li>
+            <li><a href="../../../docs/panels/text/">Text, shapes and stickers</a></li>
+            <li><a href="../../../docs/panels/music/">Music</a></li>
+            <li><a href="../../../docs/panels/b-roll/">B-roll</a></li>
+            <li><a href="../../../docs/panels/publish/">Publish</a></li>
+            <li><a href="../../../docs/panels/assistant/">Assistant</a></li>
+          </ul>
+          <p>Guides</p>
+          <ul>
+            <li><a href="../../../docs/guides/correct-words/">Correct words and say them again</a></li>
+            <li><a href="../../../docs/guides/animation-styles/">Animation styles and your own</a></li>
+            <li><a href="../../../docs/guides/colour/">Colour</a></li>
+            <li><a href="../../../docs/guides/tutorials/">Screen tutorials</a></li>
+            <li><a href="../../../docs/guides/recorder/">Record screen and camera</a></li>
+            <li><a href="../../../docs/guides/multicam/">Multicam and speakers</a></li>
+            <li><a href="../../../docs/guides/blur/">Blur faces and areas</a></li>
+            <li><a href="../../../docs/guides/green-screen/">Green screen</a></li>
+            <li><a href="../../../docs/guides/motion-keyframes/">Motion and keyframes</a></li>
+            <li><a href="../../../docs/guides/speed/">Speed, slow motion, freeze and reverse</a></li>
+            <li><a href="../../../docs/guides/sequences/">Sequences</a></li>
+            <li><a href="../../../docs/guides/shorts/">Short clips</a></li>
+            <li><a href="../../../docs/guides/translation/">Translation and dubbing</a></li>
+            <li><a href="../../../docs/guides/story/">Story from a topic</a></li>
+            <li><a href="../../../docs/guides/brand-kits/">Brand kits and fonts</a></li>
+            <li><a href="../../../docs/guides/find-in-footage/">Find in footage</a></li>
+            <li><a href="../../../docs/guides/export/">Export</a></li>
+            <li><a href="../../../docs/guides/jobs/">Running work and asked work</a></li>
+          </ul>
+          <p>AI connections</p>
+          <ul>
+            <li><a href="../../../docs/ai/overview/">How Kilnframe uses AI</a></li>
+            <li><a href="../../../docs/ai/claude-chatgpt-plan/">Use your Claude or ChatGPT plan</a></li>
+            <li><a href="../../../docs/ai/api-keys/">API keys</a></li>
+            <li><a href="../../../docs/ai/local-models/">Local models</a></li>
+            <li><a href="../../../docs/ai/cloud-transcript/">Cloud transcription</a></li>
+            <li><a href="../../../docs/ai/mcp/">Connect AI assistants (MCP)</a></li>
+          </ul>
+          <p>Account and privacy</p>
+          <ul>
+            <li><a href="../../../docs/account/licence/">Licence and trial</a></li>
+            <li><a href="../../../docs/account/updates/">Updates</a></li>
+            <li><a href="../../../docs/privacy/">Privacy in the app</a></li>
+          </ul>
+          <p>Reference</p>
+          <ul>
+            <li><a href="../../../docs/reference/shortcuts/">Keyboard shortcuts</a></li>
+            <li><a href="../../../docs/reference/settings/">Settings</a></li>
+            <li><a href="../../../docs/reference/known-limits/">Known limits</a></li>
+          </ul>
+          <p>Help</p>
+          <ul>
+            <li><a href="../../../docs/help/faq/">FAQ</a></li>
+            <li><a href="../../../docs/help/troubleshooting/">Troubleshooting</a></li>
+            <li><a href="../../../docs/help/report/">Report a problem</a></li>
+          </ul>
+          <p>Platforms</p>
+          <ul>
+            <li><a href="../../../docs/platforms/mac/">Mac</a></li>
+            <li><a href="../../../docs/platforms/windows/">Windows (Microsoft Store, Beta)</a></li>
+            <li><a href="../../../docs/platforms/linux/">Linux (Beta)</a></li>
+          </ul>
+        </nav>
+      </aside>
+      <article class="docs-body">
+        <span class="tc crumb">PANELS</span>
+        <h1>Timeline</h1>
+        <p class="lead">The timeline holds your recording and everything placed over and under it. The tools sit on its left edge, the zoom and the snapping above it, the sound meter at its right.</p>
+<figure class="shot"><img src="../../../assets/docs/en/timeline.webp" width="1600" height="373" alt="The timeline: the tool rail at the left, tracks V4 to V1, V0 Background, A1 and A2, an animation clip on V4 and the recording on V1" loading="lazy" /></figure>
+
+<h2 id="tracks">Tracks</h2>
+<ul>
+  <li><b>V1</b>: your recording, cut into pieces by the automatic cut and by you.</li>
+  <li><b>V2 and up</b>: what goes over it: shots, titles, animations, pictures. Higher tracks cover lower ones.</li>
+  <li><span class="ui">V0 Background</span>: under the recording, for a background behind a picture made smaller.</li>
+  <li><b>A1</b>: the speech. <b>A2</b>: sound effects. <b>A3</b>: music.</li>
+</ul>
+<p>Each track has buttons to hide, mute, solo and lock it; sound tracks have <b>fx</b> for their effects. The <b>+</b> above the track names adds a track (<span class="ui">Add Video Track</span>, <span class="ui">Add Audio Track</span>).</p>
+
+<h2 id="tools">Tools</h2>
+<p>The keys below are Kilnframe's own; with another program's keys chosen in Settings, they follow that program.</p>
+<table>
+  <tr><th>Tool</th><th>Key</th><th>What it does</th></tr>
+  <tr><td><span class="ui">Select</span></td><td><kbd>V</kbd></td><td>Pick a piece or a clip; drag a clip to move it, to another track too.</td></tr>
+  <tr><td><span class="ui">Razor</span></td><td><kbd>C</kbd></td><td>Cut a clip or the recording where you click.</td></tr>
+  <tr><td><span class="ui">Hand</span></td><td><kbd>H</kbd></td><td>Drag the timeline along.</td></tr>
+  <tr><td><span class="ui">Pen</span></td><td><kbd>P</kbd></td><td>Click a sound track to add a volume point.</td></tr>
+  <tr><td><span class="ui">Rate Stretch</span></td><td><kbd>R</kbd></td><td>Drag an edge: longer plays slower, shorter plays faster; the sound keeps its pitch.</td></tr>
+  <tr><td><span class="ui">Roll</span></td><td><kbd>T</kbd></td><td>Drag the joint between two pieces: one gets longer as the other gets shorter.</td></tr>
+  <tr><td><span class="ui">Slip</span></td><td><kbd>Y</kbd></td><td>Show an earlier or later part of a clip, in the same place and length.</td></tr>
+  <tr><td><span class="ui">Track Select Forward</span></td><td><kbd>A</kbd></td><td>Pick everything from where you click on, to move it all together.</td></tr>
+  <tr><td><span class="ui">Text</span></td><td><kbd>⇧ T</kbd></td><td>Click in the Program viewer to write a new title there.</td></tr>
+</table>
+<p><kbd>=</kbd> and <kbd>-</kbd> zoom in and out, <kbd>\</kbd> shows the whole cut (<span class="ui">Fit</span>). <kbd>N</kbd> turns snapping on and off: clips catch on edits, markers and the playhead.</p>
+
+<h2 id="the-clip-menu">The clip menu</h2>
+<p>Right-click a clip for, among others: <span class="ui">Speed…</span>, <span class="ui">Reverse</span>, <span class="ui">Freeze Frame</span>, <span class="ui">Split at Scene Changes</span>, <span class="ui">Replace With…</span>, <span class="ui">Copy Settings</span> and <span class="ui">Paste Settings</span>, <span class="ui">Make Compound Clip</span>, <span class="ui">Show in Media</span> and <span class="ui">Delete and Close the Gap (Ripple Delete)</span>. An item that does not apply to the clip is greyed, with the reason beside it.</p>
+
+<h2 id="transitions">Transitions</h2>
+<p>At a cut, <span class="ui">Add Cross Dissolve</span> (<kbd>⌘ D</kbd>) or <span class="ui">Add Dip to Black</span> (<kbd>⇧ ⌘ D</kbd>). <span class="ui">Cross Dissolve at Every Cut</span> does them all at once, <span class="ui">Remove All Transitions</span> takes them away. On sound, <span class="ui">Add Sound Crossfade</span>.</p>
+
+<h2 id="markers-and-beats">Markers and beats</h2>
+<ul>
+  <li><kbd>M</kbd> adds a marker at the playhead; <kbd>⇧ M</kbd> goes to the next one. A marker can be orange, blue, green, red or purple and can carry a note.</li>
+  <li><span class="ui">Find Beats</span> marks the beats of a music clip, so you can cut to them.</li>
+  <li><span class="ui">Close All Gaps</span> pulls the clips together where empty space is left.</li>
+</ul>
+
+<h2 id="follow-the-playhead">Follow the playhead</h2>
+<p><span class="ui">Follow the playhead</span>, above the tracks: <span class="ui">Page by page</span> turns the view a page at a time, <span class="ui">Smooth</span> keeps the playhead still and moves the clips under it, <span class="ui">Off</span> leaves the view where it is.</p>
+        <nav class="pager" aria-label="Previous / Next">
+          <a class="prev" rel="prev" href="../../../docs/panels/program/"><small>← Previous</small><b>Program (viewer)</b></a>
+          <a class="next" rel="next" href="../../../docs/panels/cut/"><small>Next →</small><b>Cut</b></a>
+        </nav>
+      </article>
+      <nav class="toc" aria-label="On this page">
+        <p>On this page</p>
+        <ul>
+          <li><a href="#tracks">Tracks</a></li>
+          <li><a href="#tools">Tools</a></li>
+          <li><a href="#the-clip-menu">The clip menu</a></li>
+          <li><a href="#transitions">Transitions</a></li>
+          <li><a href="#markers-and-beats">Markers and beats</a></li>
+          <li><a href="#follow-the-playhead">Follow the playhead</a></li>
+        </ul>
+      </nav>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe Desktop by Erhan Meydan</span>
+        <span
+          ><a href="../../../features/">Features</a> · <a href="../../../docs/">Docs</a> ·
+          <a href="../../../plugin/">Free plugin</a> · <a href="../../../desktop/privacy/">Privacy</a> ·
+          <a href="../../../desktop/terms/">Terms</a> ·
+          <a href="mailto:hello@kilnframe.com">hello@kilnframe.com</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../../assets/docs-search.js"></script>
+    <script src="../../../assets/docs.js"></script>
+  </body>
+</html>

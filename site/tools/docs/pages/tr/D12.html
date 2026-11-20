@@ -1,0 +1,39 @@
+<!-- description: Kilnframe Desktop'ta Kesim sekmesi: transkripti bilgisayarında çıkar, boşlukları ve dolgu kelimelerini kes, tekrarları yapay zeka modelinle temizle, emin olunmayanlara sen karar ver. -->
+<p class="lead"><span class="ui">Kesim</span> sekmesi <span class="ui">Otomatik kesim</span>'dir: ham kayıttan derli toplu bir kayda dört adım. Her adım geri alınır; kendi kesimlerin ve seçtiğin denemeler kalır.</p>
+<figure class="shot"><img src="{{img}}cut-steps.webp" alt="Kesim sekmesi: In Koy ve Out Koy, 1. adım Transkript tamam, 2. adım Boşluklar ve dolgu kelimeleri tamam, Yumuşak ile Sıkı arası kaydırıcı, Boşlukları Kes ve Dolgu Kelimelerini Kes" loading="lazy" /></figure>
+
+<h2>In ve Out</h2>
+<p>In ve Out yoksa her adım bütün kayıtlarda çalışır (<span class="ui">In/Out yok: bütün kayıtlar</span>). <span class="ui">In Koy</span> ve <span class="ui">Out Koy</span> ile ya da <kbd>I</kbd> ve <kbd>O</kbd> tuşlarıyla koyarsan düğmeler yalnızca aradaki bölümde çalışır: <span class="ui">In/Out Aralığının Transkriptini Çıkar</span>, <span class="ui">In/Out Aralığındaki Boşlukları Kes</span> gibi. <span class="ui">Temizle</span> onları kaldırır.</p>
+
+<h2 id="step-1">1 Transkript</h2>
+<p><span class="ui">Transkript Çıkar</span>, söylenenleri bu bilgisayarda yazıya döker: hiçbir yere bir şey gönderilmez, hiçbir şey ödenmez. Diğer adımlar bu yazıyla çalışır. İlerleme satırı ne kadarının bittiğini ve yaklaşık ne kadar kaldığını gösterir; <span class="ui">Durdur</span> işi bitirir.</p>
+<p>Uzun bir kayıt yavaş bir bilgisayarda biraz sürebilir. Daha hızlısını istersen <span class="ui">Ayarlar</span> › <span class="ui">Yapay zeka</span> › <span class="ui">Transkript</span>'ten sesi bir bulut hizmetine gönderebilirsin (<a data-doc="D44">Bulutta transkript</a>). Kilnframe göndermeden önce sorar.</p>
+<p>Bitince <span class="ui">Algılanan dil</span> dili söyler. Yanlışsa <span class="ui">Transkripti Yeniden Çıkar</span>'a bas.</p>
+
+<h2 id="step-2">2 Boşluklar ve dolgu kelimeleri</h2>
+<ul>
+  <li><span class="ui">Boşlukları Kes</span> sessizlikleri keser. Kaydırıcı ne kadar sıkı kesileceğini ayarlar, <span class="ui">Yumuşak</span>'tan <span class="ui">Sıkı</span>'ya; kestikten sonra kaydırıcıyı hareket ettirirsen kesim de ona uyar.</li>
+  <li><span class="ui">Dolgu Kelimelerini Kes</span>, “ıı, eee” gibi duraksamaları hemen keser. “Şey, yani” gibi anlamlı olabilenler 4. adımda sana sorulur.</li>
+  <li><span class="ui">Bekleme anlarını hızlandır</span>, ekran kayıtları için: kimse konuşmazken ekranda bir iş sürüyorsa (kurulum, sayfa yüklenmesi) o an kesilmez, 2 ile 8 kat hızlı oynar.</li>
+</ul>
+<p>Bu adım modelsiz, senin bilgisayarında çalışır.</p>
+
+<h2 id="step-3">3 Tekrarlar ve gereksizler</h2>
+<p><span class="ui">Tekrarları ve Gereksizleri Temizle</span>, yapay zeka modeline yeniden söylediğin cümleleri, yarıda kalan başlangıçları ve izleyiciye olmayan konuşmaları buldurur. Emin olduklarını keser, gerisini 4. adıma bırakır. Bu adım için bağlı bir model gerekir (<a data-doc="D40">Kilnframe yapay zekayı nasıl kullanır</a>).</p>
+
+<h2 id="step-4">4 Emin olunmayanlar ve denemeler</h2>
+<p>Modelin emin olamadığı kesimler burada listelenir, transkriptte ve Timeline'da turuncu görünür. Çevresini dinlemek için oynat düğmesine bas, sonra <span class="ui">Kes</span> ya da <span class="ui">Kalsın</span> de. <span class="ui">Hepsini Kes</span> ve <span class="ui">Hepsi Kalsın</span> hepsine birden karar verir.</p>
+<p>Altta her tekrar grubu denemelerini gösterir. Kalan deneme çerçeveli; <span class="ui">Bu Denemeyi Kullan</span> başkasını tutar.</p>
+<figure class="shot"><img src="{{img}}cut-takes.webp" alt="4. adım: modelin emin olamadığı kesim Kes ve Kalsın ile, Hepsini Kes ve Hepsi Kalsın, aynı cümlenin iki denemesi ve Bu Denemeyi Kullan" loading="lazy" /></figure>
+
+<h2>Benzer bölümler</h2>
+<p>Adımların altındaki <span class="ui">Benzer Bölümleri Bul</span>, aynı şeyi iki kez anlattığın yerleri modeline buldurur. Dinle, gerek olmayanı kes; hiçbir şey kendiliğinden kesilmez.</p>
+
+<h2>Hangisi nerede çalışır</h2>
+<table>
+  <tr><th>Adım</th><th>Çalıştığı yer</th></tr>
+  <tr><td>1 Transkript</td><td>Bu bilgisayar (ya da seçersen bir bulut hizmeti)</td></tr>
+  <tr><td>2 Boşluklar ve dolgu kelimeleri</td><td>Bu bilgisayar</td></tr>
+  <tr><td>3 Tekrarlar ve gereksizler, Benzer bölümler</td><td>Yapay zeka modelin</td></tr>
+  <tr><td>4 Emin olunmayanlar ve denemeler</td><td>Sen karar verirsin</td></tr>
+</table>

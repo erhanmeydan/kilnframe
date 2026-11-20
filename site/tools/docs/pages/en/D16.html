@@ -1,0 +1,30 @@
+<!-- description: The Captions tab of Kilnframe Desktop: pick a look, make captions from your words, fix lines and timing, emphasise words, add emoji, change colours and size, and import SRT or VTT. -->
+<p class="lead">Captions are made from your own words, in a look you pick. Changes show in the picture at once, and the export renders them into the video.</p>
+<figure class="shot"><img src="{{img}}captions.webp" alt="The Captions tab with nine looks, and a captioned frame in the viewer" loading="lazy" /></figure>
+
+<h2>Make captions</h2>
+<ol class="steps">
+  <li><b>Pick a look</b>Under <span class="ui">Look</span>, click one of the ready looks. Its pictures show your own frame with a sample line. <span class="ui">Font</span> keeps <span class="ui">The look's own</span>, or takes one of yours (<span class="ui">Add Font…</span>).</li>
+  <li><b>Make them</b>Press <span class="ui">Make Captions</span>. With In and Out set, only that stretch gets captions; those outside it stay.</li>
+  <li><b>Keep them current</b>If you cut after making them, the tab says so: press <span class="ui">Update Captions</span> before you export. Making them again replaces your caption edits; word corrections in the transcript are kept.</li>
+</ol>
+<p>To move the captions, drag them in the picture.</p>
+
+<h2>Adjust the look</h2>
+<p><span class="ui">Adjust look</span> holds <span class="ui">Colours</span> (<span class="ui">Text</span>, <span class="ui">Highlight</span>, <span class="ui">Box</span>; <span class="ui">Look's Own Colours</span> puts them back), <span class="ui">Size</span> and <span class="ui">Words per line</span>.</p>
+
+<h2>Lines</h2>
+<p>Under <span class="ui">Lines</span>, click a line: its tools open under it.</p>
+<ul>
+  <li>Change its words in place.</li>
+  <li><span class="ui">Split at Cursor</span> and <span class="ui">Merge with Next</span>.</li>
+  <li><span class="ui">Start −0.1 s</span>, <span class="ui">Start +0.1 s</span>, <span class="ui">End −0.1 s</span>, <span class="ui">End +0.1 s</span>; in a line, <kbd>Alt ← →</kbd> moves its start and <kbd>Alt ⇧ ← →</kbd> its end.</li>
+  <li>Click a word to emphasise it. <span class="ui">Emphasis style</span>: <span class="ui">Highlight Colour</span>, <span class="ui">Larger</span> or <span class="ui">Both</span>.</li>
+  <li><span class="ui">Add Emoji</span>: shown above the line.</li>
+</ul>
+<p><span class="ui">Suggest Emphasis</span> asks your AI model which words stand out; <span class="ui">Emphasise Suggested</span> takes them.</p>
+<figure class="shot"><img src="{{img}}caption-lines.webp" alt="The Lines editor with a line picked, an emphasised word and its tools" loading="lazy" /></figure>
+
+<h2>Import subtitles</h2>
+<p><span class="ui">Import SRT/VTT…</span> brings in a subtitle file you already have. It keeps the file's own times, whatever In and Out say, and replaces your caption edits.</p>
+<p>Captions sit under full-screen animations. For a subtitle file instead of burnt-in captions, export <span class="ui">Subtitle file</span> (<a data-doc="D38">Export</a>); for other languages, see <a data-doc="D34">Translation and dubbing</a>.</p>

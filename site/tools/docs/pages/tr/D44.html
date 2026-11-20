@@ -1,0 +1,29 @@
+<!-- description: Kilnframe Desktop'ta bulutta transkript: ElevenLabs Scribe, OpenAI ya da Google Gemini; çok daha hızlı ve kendi anahtarınla ücretli; ne gönderilir, önce ne sorar, aylık kullanım. -->
+<p class="lead">Transkript ücretsiz olarak bilgisayarında çıkarılır. Uzun bir kayıtta yavaş geliyorsa bir bulut hizmeti kendi anahtarınla, küçük bir ücrete çok daha hızlı çıkarabilir.</p>
+<figure class="shot"><img src="{{img}}cloud-transcript.webp" alt="Ayarlar, Yapay zeka, Transkript: bu bilgisayarda ya da bulutta, Hizmet, Uzun kayıtlarda bulut seçeneğini öner ve Her bulut işinden önce sor" loading="lazy" /></figure>
+
+<h2>Sözleri kim okusun</h2>
+<p><span class="ui">Ayarlar</span> › <span class="ui">Yapay zeka</span> › <span class="ui">Transkript</span>'te:</p>
+<ul>
+  <li><span class="ui">Bu bilgisayarda: ücretsiz, ses bilgisayarınızdan çıkmaz</span> (varsayılan).</li>
+  <li><span class="ui">Bulutta: çok daha hızlı, ücretli; ses seçtiğiniz hizmete gönderilir</span>.</li>
+</ul>
+<p><span class="ui">Hizmet</span>: ElevenLabs Scribe, OpenAI ya da Google Gemini; ya da <span class="ui">Otomatik</span>: bu sırayla, anahtarı kayıtlı ilk hizmet. Anahtar Yapay zeka sekmesinin aşağısında girilir (<a data-doc="D42">API anahtarları</a>).</p>
+<p>Transkript modeli, sohbet ettiğin yapay zeka modelinden ayrıdır: Claude ve çoğu yerel model sesi dinleyemez.</p>
+
+<h2>Ne gönderilir</h2>
+<p>Yalnızca okunan kayıtların sesi, parça parça, ve projenin sözlüğündeki adlar. Görüntü de proje dosyası da gitmez. OpenAI ya da Gemini ile sonra bu bilgisayardaki küçük bir model her sözün zamanını bulur; ilk kullanımda bir kez indirilir (yaklaşık 80 MB). Çoğu Gemini anahtarı günde yaklaşık 100 parça okur; uzun bir kayıt bir günde bitmeyebilir.</p>
+
+<h2>Önce sorar</h2>
+<ul>
+  <li>Bir hizmet için ilk seferde: <span class="ui">Ses … gönderilsin mi?</span>; ne gönderildiğini ve hizmetin kendi koşullarının geçerli olduğunu söyler. <span class="ui">Anladım, devam et</span>.</li>
+  <li>Her işten önce: <span class="ui">Transkript bulutta çıkarılsın mı?</span>; ne kadar ses gideceğini, ne kadar süreceğini ve yaklaşık ne tutacağını, bu bilgisayardaki süreyle karşılaştırarak söyler. <span class="ui">Bu bilgisayarda çıkar</span> ya da <span class="ui">… ile çıkar</span>.</li>
+</ul>
+<figure class="shot narrow"><img src="{{img}}cloud-ask.webp" alt="Ses, süre ve ücretle Transkript bulutta çıkarılsın mı? sorusu; Vazgeç, Bu bilgisayarda çıkar ve ElevenLabs ile çıkar" loading="lazy" /></figure>
+<p><span class="ui">Her bulut işinden önce sor</span> anahtarı kayıtlı her hizmeti listeler; birinin işaretini kaldırırsan işleri soru sormadan başlar, süre ve ücret ilerleme satırında görünür.</p>
+
+<h2>Uzun kayıtlarda öneri</h2>
+<p><span class="ui">Uzun kayıtlarda bulut seçeneğini öner</span> işaretliyse uzun bir yerel okuma, süresi ve ücretiyle bulutta bitirmeyi önerir. <span class="ui">Bir Daha Önerme</span> bunu durdurur.</p>
+
+<h2>Ne tuttu</h2>
+<p>Sekme <span class="ui">Bu ay bulutta</span> satırında okunan sesi ve yaklaşık ne tuttuğunu gösterir. Fiyatlar yaklaşıktır, hizmetin liste fiyatından hesaplanır; ücret kendi hesabından alınır.</p>

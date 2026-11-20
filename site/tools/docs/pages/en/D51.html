@@ -1,0 +1,30 @@
+<!-- description: Known limits in Kilnframe Desktop, each with what to do: blur when people change places, blur on added cameras, captions in nested sequences, smooth slow motion, sharpening and adjustment layers in the viewer. -->
+<p class="lead">What Kilnframe Desktop does not do perfectly yet, and what to do about it.</p>
+
+<h2>Blur when someone else takes the place</h2>
+<p>The blur follows head boxes; it cannot tell one person from another. If the person you chose leaves the picture, someone else stands in the same place, and the first person comes back, the blur may stay on the wrong person for the rest of the span. Only the moment it changed hands is flagged in the Blur list.</p>
+<p><b>What to do:</b> check each flagged stretch, and pick the face again if the blur moved to the wrong person. Blur is not a guarantee against identification.</p>
+
+<h2>Blur with added cameras</h2>
+<p>A blur is drawn on each camera you pick it on; the app never matches a person across cameras. Where a camera has no pick, those moments show the recording's own camera, with the blur, and a note says so.</p>
+<p><b>What to do:</b> pick the same face on each camera (<span class="ui">Pick on This Camera</span>). If a camera's picture size could not be read, add that camera again.</p>
+
+<h2>Captions and chapters with a sequence inside another</h2>
+<p>A sequence's transcript holds only its own recordings' speech. Speech inside a nested sequence is not in it, so captions and chapters made on the outer sequence miss it.</p>
+<p><b>What to do:</b> make the captions inside the nested sequence, or keep the speech on the outer one.</p>
+
+<h2>Smooth slow motion on a large clip with dark edges</h2>
+<p>When a clip larger than the export (a 4K clip in a 1080p export) is slowed with smooth slow motion and has its own dark edges, the new frames are made at the clip's full size, so that export takes about four times as long.</p>
+<p><b>What to do:</b> nothing, unless it is too slow; then put the dark edges on an adjustment layer above the clip.</p>
+
+<h2>Sharpening with a strong colour grade</h2>
+<p>The viewer sharpens before the colour grade and LUT; the export sharpens after them. With a strong grade, edges can look a little different in the export.</p>
+<p><b>What to do:</b> check an exported frame (<span class="ui">Export Frame</span>) when the grade is strong.</p>
+
+<h2>Adjustment layers in the viewer</h2>
+<p>The viewer shows an adjustment layer's look, colour sliders, brightness curve and wheels as the export does; its colour curves, vibrance, LUT and sharpness show only in the export, and its tone sliders only closely. The viewer then says the preview is approximate.</p>
+<p><b>What to do:</b> check an exported frame in those cases.</p>
+
+<h2>Many graded, keyed or blurred clips at once</h2>
+<p>With more than about a dozen such clips on screen at once, the viewer draws some of them more simply and says so. The export is exact.</p>
+<p><b>What to do:</b> nothing for the export. To check one clip exactly, look at a moment with fewer clips on screen, or export a frame.</p>

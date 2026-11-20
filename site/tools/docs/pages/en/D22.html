@@ -1,0 +1,25 @@
+<!-- description: Fix words the transcript heard wrong in Kilnframe Desktop, keep names in a glossary, and have a word you said wrong read again in your own voice with ElevenLabs. -->
+<p class="lead">Two different fixes: <span class="ui">Correct Words…</span> changes the text when the transcript heard you wrong; <span class="ui">Say Again in Voice…</span> changes the sound when you said it wrong.</p>
+
+<h2>Correct words</h2>
+<ol class="steps">
+  <li><b>Select the words</b>In the <a data-doc="D07">Transcript</a>, select the word or words and right-click, <span class="ui">Correct Words…</span></li>
+  <li><b>Type them right</b><kbd>Enter</kbd> saves, <kbd>Esc</kbd> cancels. If the same word appears elsewhere, tick <span class="ui">Change all … other places</span>.</li>
+  <li><b>Keep the name</b>Tick <span class="ui">Add to glossary</span> and it is spelled this way in captions, translations and the publishing texts from now on.</li>
+</ol>
+<p>The text changes; the sound stays as it was. A corrected word shows what was heard (<span class="ui">Heard: …</span>); <span class="ui">Bring Back Heard Words</span> undoes it.</p>
+<figure class="shot"><img src="{{img}}correct-words.webp" alt="A word being corrected in the transcript, and the Glossary open" loading="lazy" /></figure>
+
+<h2>The glossary</h2>
+<p><span class="ui">Glossary</span>, at the top of the Transcript tab, keeps names and brands spelled exactly as you write them, for captions, translations and the publishing pack. <span class="ui">Add a name</span> adds one by hand. With cloud transcription the names also go to the service, so they are heard right.</p>
+
+<h2>Say it again in your voice</h2>
+<p>When you said a word wrong, select it and choose <span class="ui">Say Again in Voice…</span></p>
+<ul>
+  <li><span class="ui">Said:</span> shows what you said; type what it <span class="ui">Should be</span>.</li>
+  <li><span class="ui">Emotion</span>: <span class="ui">Automatic (from the sentence)</span>, or excited, calm, serious, cheerful, emphatic, whisper.</li>
+  <li>Tick that the voice is yours, or that you have its owner's leave, and press <span class="ui">Say Again</span>.</li>
+</ul>
+<p>The new words are read in the tone of the sentence around them, brought to the recording's loudness and laid on A2; the old words go silent meanwhile. The lips will not match; in a short fix nobody sees it.</p>
+<figure class="shot narrow"><img src="{{img}}say-again.webp" alt="The Say Again in Voice window: Said, Should be, Emotion and the consent tick" loading="lazy" /></figure>
+<p>This needs an ElevenLabs API key on a paid plan, which allows voice cloning. A voice is made once for each recording in your ElevenLabs account. <span class="ui">Settings</span> › <span class="ui">AI</span> › <span class="ui">Find Extra Voices</span> lists voices made more than once for the same recording, to delete them.</p>
