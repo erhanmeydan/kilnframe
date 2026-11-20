@@ -61,11 +61,12 @@ const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /**
- * The card's markup: Desktop's icon (a file inside the panel), its name and what it is, the link that opens
+ * The card's markup: Desktop's icon (a file inside the panel), its name, what it is and its free trial (it
+ * is a paid app, unlike this free plugin), the link that opens
  * the page in the browser, and ×. The whole card opens the page too; × closes it.
  */
 export function desktopPromoBar(language: Lang = lang()): string {
   const url = esc(desktopPromoUrl(language));
   const close = esc(t("promo.dismiss"));
-  return `<div class="promo" role="note" data-act="open-url" data-val="${url}"><img class="promo-icon" src="icons/desktop@2x.png" width="32" height="32" alt=""><div class="promo-body"><div class="promo-head"><span class="promo-title">${esc(t("promo.title"))}</span><span class="link promo-link" data-act="open-url" data-val="${url}" role="link" tabindex="0">${esc(t("promo.link"))} ↗</span><span class="promo-x" data-act="promo-dismiss" role="button" tabindex="0" aria-label="${close}" title="${close}">×</span></div><div class="promo-text">${esc(t("promo.text"))}</div></div></div>`;
+  return `<div class="promo" role="note" data-act="open-url" data-val="${url}"><img class="promo-icon" src="icons/desktop@2x.png" width="32" height="32" alt=""><div class="promo-body"><div class="promo-head"><span class="promo-title">${esc(t("promo.title"))}</span><span class="link promo-link" data-act="open-url" data-val="${url}" role="link" tabindex="0">${esc(t("promo.link"))} ↗</span><span class="promo-x" data-act="promo-dismiss" role="button" tabindex="0" aria-label="${close}" title="${close}">×</span></div><div class="promo-text">${esc(t("promo.text"))}</div><div class="promo-trial">${esc(t("promo.trial"))}</div></div></div>`;
 }

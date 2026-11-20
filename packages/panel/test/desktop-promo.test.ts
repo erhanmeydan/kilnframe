@@ -25,6 +25,7 @@ describe("Kilnframe Desktop line", () => {
     expect(tr).toContain(
       "Komple kurgu programı: kaydını konuşarak kurgula, animasyonları kendisi yazsın.",
     );
+    expect(tr).toContain("14 gün ücretsiz, kart istemez.");
     expect(tr).toContain("İncele");
     expect(tr).toContain('data-val="https://kilnframe.com/tr/"');
     expect(tr).toContain('aria-label="Kapat"');
@@ -35,6 +36,7 @@ describe("Kilnframe Desktop line", () => {
     expect(en).toContain(
       "A complete video editor: edit your recording by talking, and let it write the animations.",
     );
+    expect(en).toContain("14 days free, no card.");
     expect(en).toContain("Take a look");
     expect(en).toContain('data-val="https://kilnframe.com/"');
     expect(en).toContain('aria-label="Dismiss"');
