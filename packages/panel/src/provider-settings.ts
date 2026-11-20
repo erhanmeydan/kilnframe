@@ -8,6 +8,18 @@ export interface PresetInfo {
 /** Providers whose model list is not the preset's own: any model the server or the editor names. */
 const OPEN_MODEL_LISTS = new Set(["custom", "openrouter", "lmstudio", "ollama", "codex"]);
 
+/** Claude models the list no longer offers, moved to the one that took their place. */
+const CLAUDE_MODEL_SUCCESSORS: Record<string, string> = { "claude-fable-5-1": "claude-fable-5-2" };
+
+/**
+ * The saved Claude model, or the one that took its place. It lives here, not in app.ts: the panel reads its
+ * settings while app.ts is still starting, before a table declared further down that file exists (the
+ * settings then fell back to the defaults on every start).
+ */
+export function claudeModelSuccessor(model: string): string {
+  return CLAUDE_MODEL_SUCCESSORS[model] ?? model;
+}
+
 /**
  * Providers the panel once offered and no longer does. A saved choice of one goes back to Automatic, and its
  * kept model is forgotten: Antigravity CLI was left out when Google said its consumer plans do not cover

@@ -8,6 +8,7 @@ import { host, type Host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
 import {
+  claudeModelSuccessor,
   cleanProviderSettings,
   offersAddress,
   presetModel,
@@ -545,9 +546,6 @@ function unstore(key: string) {
     // ignore
   }
 }
-/** Claude models the list no longer offers, moved to the one that took their place. */
-const CLAUDE_MODEL_SUCCESSORS: Record<string, string> = { "claude-fable-5-1": "claude-fable-5-2" };
-
 function loadSettings(): Settings {
   try {
     const settings: Settings = {
@@ -561,7 +559,7 @@ function loadSettings(): Settings {
     };
     return withoutRemovedProviders({
       ...settings,
-      model: CLAUDE_MODEL_SUCCESSORS[settings.model] ?? settings.model,
+      model: claudeModelSuccessor(settings.model),
     });
   } catch {
     return {
