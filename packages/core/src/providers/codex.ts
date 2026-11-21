@@ -129,6 +129,16 @@ export function codexErrorRetryable(error: string): boolean {
   );
 }
 
+/** Config overrides that keep the editor's own Codex extensions out of Kilnframe's calls. */
+export const CODEX_ISOLATION = [
+  "-c",
+  "mcp_servers={}",
+  "-c",
+  "notify=[]",
+  "-c",
+  "features.hooks=false",
+];
+
 export class CodexProvider implements TextProvider {
   readonly name = "codex";
   readonly model: string;
@@ -179,6 +189,9 @@ export class CodexProvider implements TextProvider {
         "--skip-git-repo-check",
         "--sandbox",
         "read-only",
+        // the editor's own MCP servers, hooks and turn-end program would start in every call: child
+        // processes that slow it down and, on Windows, hold the work folder
+        ...CODEX_ISOLATION,
         "-c",
         `model_reasoning_effort="${this.effort === "max" ? "xhigh" : this.effort}"`,
         ...(this.model ? ["-m", this.model] : []),
