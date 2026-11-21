@@ -761,4 +761,7 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/platforms/linux/" />
   </url>
   <!-- end of features and docs -->
+  <url>
+    <loc>https://kilnframe.com/tr/yerel-modeller/</loc>
+  </url>
 </urlset>

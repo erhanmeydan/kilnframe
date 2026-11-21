@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="dark">
+<title>Kurgu · Video Düzenleme</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0f13; --line:#27313c; --line2:#1c242e; --lane:#0e141b;
+  --text:#e9eff5; --muted:#8d9bac; --faint:#5c6b7a;
+  --acc:#ffb020; --acc2:#ffd27a;
+  --lbl:150px;
+  --ui:system-ui,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:var(--ui);color:var(--text);
+  background:
+    radial-gradient(900px 480px at 88% -12%,rgba(255,176,32,.06),transparent 60%),
+    radial-gradient(820px 460px at -8% 112%,rgba(64,160,205,.06),transparent 60%),
+    var(--bg);
+  user-select:none;-webkit-user-select:none;
+}
+.app{height:100vh;display:flex;flex-direction:column;gap:10px;padding:14px}
+.panel{display:flex;flex-direction:column;background:linear-gradient(180deg,#171e27,#121821 70%);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 12px 28px rgba(0,0,0,.35)}
+.phead{flex:none;height:36px;display:flex;align-items:center;gap:10px;padding:0 14px;
+  border-bottom:1px solid var(--line2);background:rgba(255,255,255,.02)}
+.ptitle{display:flex;align-items:center;gap:9px;font:600 11.5px/1 var(--ui);
+  letter-spacing:.16em;text-transform:uppercase;color:#c8d4e0}
+.ptitle::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--pa,#5aa9ff);box-shadow:0 0 10px var(--pa,#5aa9ff)}
+.spacer{flex:1}
+.badge{font:600 10.5px/1 var(--mono);letter-spacing:.05em;color:#9fb0c0;
+  background:#10161d;border:1px solid var(--line2);padding:5px 8px;border-radius:5px}
+.live{display:flex;align-items:center;gap:7px;font:600 10px var(--ui);letter-spacing:.14em;
+  text-transform:uppercase;color:#7f8ea0}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--acc);animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,176,32,.5)}50%{opacity:.55;box-shadow:0 0 0 5px rgba(255,176,32,0)}}
+.hint{font:500 10.5px var(--mono);color:var(--faint);letter-spacing:.02em}
+
+/* ---------- üst alan ---------- */
+.top{display:flex;gap:10px;height:300px;flex:none;min-height:0}
+.preview{flex:1;min-width:0;min-height:0;--pa:var(--acc)}
+.inspector{width:300px;flex:none;min-height:0;--pa:#38c6d9}
+.stage{position:relative;flex:1;min-height:0;margin:11px;border-radius:8px;overflow:hidden;
+  background-color:#1c4f9e;transition:background-color .45s ease;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 -50px 90px rgba(0,0,0,.28)}
+.stage::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(85% 70% at 30% 16%,rgba(255,255,255,.17),transparent 55%),
+    linear-gradient(180deg,rgba(255,255,255,.09),transparent 32%,rgba(0,0,0,.3) 80%,rgba(0,0,0,.5))}
+.safe{position:absolute;inset:5.5%;border:1px dashed rgba(255,255,255,.14);border-radius:5px;pointer-events:none}
+.gap-stripes{position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none;
+  background:repeating-linear-gradient(-45deg,rgba(255,255,255,.045) 0 12px,transparent 12px 26px)}
+.stage.gap .gap-stripes{opacity:1}
+.stage-center{position:relative;z-index:2;text-align:center;padding:0 40px}
+.stage-track{font:600 11px var(--ui);letter-spacing:.28em;text-transform:uppercase;
+  color:rgba(255,255,255,.68);margin-bottom:12px}
+.stage-name{font:700 44px/1.04 var(--ui);letter-spacing:-.01em;color:#fff;
+  text-shadow:0 2px 22px rgba(0,0,0,.45)}
+.stage.gap .stage-name{font-size:34px;font-weight:600;letter-spacing:.03em;color:#aab6c3}
+.stage-tc{position:absolute;left:14px;bottom:14px;z-index:3;font:500 15px var(--mono);
+  letter-spacing:.08em;color:#f2f6fa;background:rgba(8,10,14,.55);
+  border:1px solid rgba(255,255,255,.2);padding:5px 11px;border-radius:6px}
+.swatch{width:12px;height:12px;border-radius:3px;background:#414d5b;
+  border:1px solid rgba(255,255,255,.25);transition:background .4s;box-shadow:0 0 8px rgba(0,0,0,.45)}
+
+/* ---------- denetçi ---------- */
+.insp-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:11px 13px;overflow:hidden}
+.insp-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;text-align:center}
+.insp-empty b{font:600 14px var(--ui);color:#a9b6c4}
+.insp-empty p{font:400 11.5px/1.55 var(--ui);color:var(--faint);max-width:205px}
+.i-name{display:flex;align-items:center;gap:9px;font:700 17px/1.15 var(--ui);color:#f3f8fc}
+.i-chip{flex:none;width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.5);
+  box-shadow:0 0 10px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.4)}
+.i-sub{margin-top:5px;font:500 11px var(--ui);color:var(--muted);letter-spacing:.02em}
+.i-grid{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.i-f{background:rgba(255,255,255,.028);border:1px solid var(--line2);border-radius:7px;padding:6px 9px}
+.i-f span{display:block;font:600 9.5px var(--ui);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:4px}
+.i-f b{font:600 13px var(--mono);letter-spacing:.02em;color:#eaf2f9;white-space:nowrap}
+.i-f b.tx{font:600 12.5px var(--ui)}
+.i-pos{margin-top:10px}
+.i-pos>span{display:block;font:600 9.5px var(--ui);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:5px}
+.i-bar{position:relative;height:8px;border-radius:5px;background:#1a222c;border:1px solid var(--line2)}
+.i-bar i{position:absolute;top:1px;bottom:1px;border-radius:4px;box-shadow:0 0 10px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.35)}
+.i-pos-t{display:flex;justify-content:space-between;margin-top:3px;font:500 9.5px var(--mono);color:var(--faint)}
+
+/* ---------- zaman çizelgesi ---------- */
+.timeline{flex:1;min-height:0;--pa:#8fa3b8}
+.tl-body{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;gap:6px;padding:9px 12px 11px}
+.ruler-row{display:flex;gap:8px;flex:none;align-items:stretch}
+.tl-lab{width:var(--lbl);flex:none;display:flex;align-items:center;gap:8px;padding:0 10px;
+  background:#10161d;border:1px solid var(--line2);border-radius:6px;min-width:0}
+.t-id{flex:none;font:700 10px var(--mono);letter-spacing:.05em;color:#0d1116;
+  padding:3px 6px;border-radius:4px;background:#5aa9ff}
+.t-name{font:600 12.5px var(--ui);color:#d0dae4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.t-kind{margin-left:auto;font:600 9.5px var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.ruler{flex:1;position:relative;height:26px;background:var(--lane);border:1px solid var(--line2);
+  border-radius:6px;cursor:crosshair;touch-action:none}
+.tick{position:absolute;bottom:0;width:1px;height:7px;background:#333f4c;animation:tin .4s both}
+.tick.maj{height:11px;background:#4b5b6d}
+.tick span{position:absolute;bottom:1px;left:4px;font:500 9.5px var(--mono);
+  letter-spacing:.03em;color:#8ea0b2;white-space:nowrap}
+.tick.end span{left:auto;right:2px}
+@keyframes tin{from{opacity:0}}
+.rows{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
+.row{flex:1;min-height:0;display:flex;gap:8px}
+.lane{flex:1;position:relative;background:var(--lane);border:1px solid var(--line2);border-radius:6px;
+  overflow:hidden;background-image:linear-gradient(to right,rgba(255,255,255,.035) 1px,transparent 1px)}
+.clip{position:absolute;top:5px;bottom:5px;border-radius:5px;overflow:hidden;cursor:pointer;
+  border:1px solid rgba(0,0,0,.55);
+  background:linear-gradient(180deg,var(--c1),var(--c2));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -10px 16px rgba(0,0,0,.2);
+  display:flex;align-items:center;
+  transition:left .55s cubic-bezier(.22,.9,.3,1),width .55s cubic-bezier(.22,.9,.3,1),filter .15s,box-shadow .2s;
+  animation:clipIn .5s both}
+@keyframes clipIn{from{opacity:0;transform:translateX(-8px)}}
+.boot .clip{transition:none;animation:none}
+.clip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(255,255,255,.4)}
+.clip .nm{padding:0 9px 0 11px;font:600 12px var(--ui);color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clip:hover{filter:brightness(1.13) saturate(1.06);z-index:2;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 4px 14px rgba(0,0,0,.5)}
+.clip.sel{outline:2px solid #ffd27a;outline-offset:1px;z-index:3;
+  box-shadow:0 0 0 4px rgba(255,176,32,.18),0 0 20px rgba(255,176,32,.3)}
+.clip.audio{display:block}
+.clip.audio .nm{position:absolute;top:4px;left:8px;z-index:2;font-size:11px}
+.clip.audio .wf{display:block;width:100%;height:100%}
+.playhead{position:absolute;top:4px;bottom:10px;width:0;z-index:6;pointer-events:none;transition:left .12s ease-out}
+.playhead.noanim{transition:none}
+.ph-line{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:var(--acc);
+  box-shadow:0 0 6px rgba(255,176,32,.85),0 0 18px rgba(255,176,32,.35)}
+.ph-cap{position:absolute;top:-2px;left:-6px;width:0;height:0;
+  border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid var(--acc);
+  filter:drop-shadow(0 0 4px rgba(255,176,32,.6))}
+.gap-badge{display:inline-flex;align-items:center;gap:7px;font:600 10.5px var(--ui);
+  letter-spacing:.04em;color:#b8c6d4;background:#10161d;border:1px solid var(--line2);
+  padding:5px 9px;border-radius:5px}
+.gap-badge i{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px rgba(255,176,32,.7)}
+.gap-badge.ok i{background:#3ecf7a;box-shadow:0 0 8px rgba(62,207,122,.7)}
+
+/* ---------- taşıma çubuğu (satır) ---------- */
+.transport{flex:none;height:54px;flex-direction:row;align-items:center;gap:14px;padding:0 16px}
+.brand{display:flex;align-items:center;gap:9px;flex:none}
+.logo{width:23px;height:23px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#ffc65a,#f2a01e);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 2px 8px rgba(242,160,30,.4)}
+.brand b{font:700 13.5px var(--ui);letter-spacing:.02em}
+.brand em{font:600 10px var(--mono);font-style:normal;color:var(--faint);
+  background:#10161d;border:1px solid var(--line2);padding:3px 6px;border-radius:4px}
+.t-group{display:flex;flex-direction:column;flex:none}
+.t-label{font:600 9.5px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+.t-tc{font:600 19px/1 var(--mono);letter-spacing:.05em}
+#tTimecode{color:var(--acc2);text-shadow:0 0 14px rgba(255,176,32,.28)}
+#tDuration{color:#ccd7e2}
+.t-sep{width:1px;height:32px;background:var(--line);flex:none}
+.t-steps{display:flex;gap:6px;flex:none}
+.t-steps button{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:32px;
+  padding:0 9px;background:#1a222c;border:1px solid #2d3946;border-radius:7px;color:#c4d0dc;
+  font:600 12px var(--mono);cursor:pointer;transition:all .15s}
+.t-steps button:hover{background:#222d39;border-color:#3f5064;color:#fff;transform:translateY(-1px)}
+.t-steps button:active{transform:translateY(0)}
+.t-steps button svg{display:block}
+.primary{height:38px;padding:0 18px;flex:none;display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(180deg,#ffc65a,#f2a01e);border:1px solid #b97c12;border-radius:8px;
+  color:#241604;font:700 13px var(--ui);cursor:pointer;
+  box-shadow:0 3px 10px rgba(242,160,30,.35),inset 0 1px 0 rgba(255,255,255,.45);transition:all .15s}
+.primary:hover{filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 5px 16px rgba(242,160,30,.48),inset 0 1px 0 rgba(255,255,255,.45)}
+.primary:active{transform:translateY(0);filter:brightness(.98)}
+
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.preview{animation:rise .5s .04s both}
+.inspector{animation:rise .5s .1s both}
+.timeline{animation:rise .5s .16s both}
+.transport{animation:rise .5s .22s both}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top">
+    <section class="panel preview" data-test="preview">
+      <header class="phead">
+        <span class="ptitle">Önizleme</span>
+        <span class="spacer"></span>
+        <span class="live"><i></i>Çerçeve</span>
+        <span class="swatch" id="sw"></span>
+        <span class="badge">25 kare/sn</span>
+      </header>
+      <div class="stage" id="stage">
+        <div class="gap-stripes"></div>
+        <div class="safe"></div>
+        <div class="stage-center">
+          <div class="stage-track" id="stageTrack">Video 1</div>
+          <div class="stage-name" id="stageName">Giriş</div>
+        </div>
+        <div class="stage-tc" id="stageTc">00:00:00:00</div>
+      </div>
+    </section>
+
+    <aside class="panel inspector" data-test="inspector">
+      <header class="phead"><span class="ptitle">Klip bilgisi</span><span class="spacer"></span><span class="badge" id="inspState">BOŞ</span></header>
+      <div class="insp-body" id="inspBody"></div>
+    </aside>
+  </div>
+
+  <section class="panel timeline">
+    <header class="phead">
+      <span class="ptitle">Zaman çizelgesi</span>
+      <span class="hint">← → 1 kare · Shift 1 sn · Home/End uçlar · Çift tık: klipten başla</span>
+      <span class="spacer"></span>
+      <span class="gap-badge" id="gapBadge"><i></i>2 boşluk · 125 kare</span>
+    </header>
+    <div class="tl-body" id="tlBody">
+      <div class="ruler-row">
+        <div class="tl-lab"><span class="t-id" style="background:#6f8195">İZ</span><span class="t-name">Kare</span><span class="t-kind">25/sn</span></div>
+        <div class="ruler" data-test="ruler" id="ruler"></div>
+      </div>
+      <div class="rows" id="rows"></div>
+      <div class="playhead" id="playhead"><div class="ph-cap"></div><div class="ph-line"></div></div>
+    </div>
+  </section>
+
+  <footer class="panel transport">
+    <div class="brand">
+      <span class="logo"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M4.6 2.9v8.2L11.6 7 4.6 2.9z" fill="#241604"/></svg></span>
+      <b>Kurgu</b><em>v1.0</em>
+    </div>
+    <div class="t-sep"></div>
+    <div class="t-group">
+      <span class="t-label">Oynatma başlığı</span>
+      <span class="t-tc" data-test="timecode" id="tTimecode">00:00:00:00</span>
+    </div>
+    <div class="t-group">
+      <span class="t-label">Toplam süre</span>
+      <span class="t-tc" data-test="duration" id="tDuration">00:00:42:13</span>
+    </div>
+    <div class="t-sep"></div>
+    <div class="t-steps">
+      <button title="Başa (Home)" data-home="1" aria-label="Başa"><svg width="12" height="10" viewBox="0 0 12 10"><path d="M1 0h2v10H1zM11 0 4 5l7 5z" fill="currentColor"/></svg></button>
+      <button title="1 sn geri (Shift+←)" data-step="-25">−1sn</button>
+      <button title="1 kare geri (←)" data-step="-1">−1</button>
+      <button title="1 kare ileri (→)" data-step="1">+1</button>
+      <button title="1 sn ileri (Shift+→)" data-step="25">+1sn</button>
+      <button title="Sona (End)" data-end="1" aria-label="Sona"><svg width="12" height="10" viewBox="0 0 12 10"><path d="M9 0h2v10H9zM1 0l7 5-7 5z" fill="currentColor"/></svg></button>
+    </div>
+    <div class="spacer"></div>
+    <button class="primary" data-test="close-gaps" id="closeGabsBtn">Boşlukları kapat</button>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const FPS=25;
+const TRACKS={
+  V1:{name:'Video 1',kind:'Görüntü',badge:'hsl(210 80% 62%)'},
+  V2:{name:'Video 2',kind:'Görüntü',badge:'hsl(262 70% 72%)'},
+  A1:{name:'Müzik',kind:'Ses',badge:'hsl(152 60% 52%)'}
+};
+const ORDER=['V1','V2','A1'];
+const clips=[
+  {id:'g', track:'V1',name:'Giriş',        start:0,   dur:125, h:212,s:85,l:58},
+  {id:'r', track:'V1',name:'Röportaj',     start:125, dur:450, h:165,s:60,l:45},
+  {id:'b', track:'V1',name:'B-roll Şehir', start:650, dur:200, h:26, s:90,l:55},
+  {id:'k', track:'V1',name:'Kapanış',      start:900, dur:163, h:335,s:75,l:60},
+  {id:'lo',track:'V2',name:'Logo',         start:50,  dur:100, h:262,s:70,l:62},
+  {id:'ay',track:'V2',name:'Alt yazı',     start:300, dur:175, h:195,s:85,l:50},
+  {id:'mu',track:'A1',name:'Müzik',        start:0,   dur:980, h:152,s:60,l:40, audio:true}
+];
+let total=0,p=0,sel=null,px=1;
+
+const tc=f=>{
+  f=Math.max(0,Math.round(f));
+  const z=n=>String(n).padStart(2,'0');
+  return z(Math.floor(f/(FPS*3600)))+':'+z(Math.floor(f/(FPS*60))%60)+':'+z(Math.floor(f/FPS)%60)+':'+z(f%FPS);
+};
+const computeTotal=()=>clips.reduce((m,c)=>Math.max(m,c.start+c.dur),0);
+
+function build(){
+  const rows=$('rows');
+  ORDER.forEach(id=>{
+    const t=TRACKS[id];
+    const row=document.createElement('div');
+    row.className='row';
+    row.dataset.track=id;
+    row.innerHTML=
+      '<div class="tl-lab"><span class="t-id" style="background:'+t.badge+'">'+id+'</span>'+
+      '<span class="t-name">'+t.name+'</span></div>'+
+      '<div class="lane" id="lane-'+id+'"></div>';
+    rows.appendChild(row);
+  });
+  clips.forEach(c=>{
+    const lane=$('lane-'+c.track);
+    const el=document.createElement('div');
+    el.className='clip'+(c.audio?' audio':'');
+    el.dataset.clip=c.name;
+    el.style.setProperty('--c1','hsl('+c.h+' '+c.s+'% '+(c.l+7)+'%)');
+    el.style.setProperty('--c2','hsl('+c.h+' '+c.s+'% '+(c.l-9)+'%)');
+    if(c.audio) el.innerHTML='<span class="nm">'+c.name+'</span><svg class="wf" preserveAspectRatio="none" aria-hidden="true"></svg>';
+    else el.innerHTML='<span class="nm">'+c.name+'</span>';
+    el.addEventListener('click',e=>{e.stopPropagation();select(c.id);});
+    el.addEventListener('dblclick',()=>setPlayhead(c.start));
+    c.el=el;
+    lane.appendChild(el);
+  });
+}
+
+function renderWave(){
+  const c=clips.find(x=>x.audio);
+  const svg=c.el.querySelector('svg.wf');
+  const W=Math.max(20,c.dur*px), H=Math.max(40,(c.el.clientHeight||100)-10);
+  const step=5,bw=3,pad=5;
+  const n=Math.max(1,Math.floor((W-pad*2)/step));
+  let r='';
+  for(let i=0;i<n;i++){
+    const f=0.5+0.3*Math.sin(i/9)+0.15*Math.sin(i/2.3);
+    const h=Math.max(3,f*H*0.92);
+    r+='<rect x="'+(pad+i*step)+'" y="'+((H-h)/2).toFixed(1)+'" width="'+bw+'" height="'+h.toFixed(1)+'" rx="1"/>';
+  }
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.innerHTML='<line x1="0" y1="'+(H/2)+'" x2="'+W+'" y2="'+(H/2)+'" stroke="rgba(255,255,255,.16)" stroke-width="1"/>'+
+    '<g fill="hsl('+c.h+' '+(c.s+18)+'% '+(c.l+30)+'%)" opacity=".9">'+r+'</g>';
+}
+
+function layout(){
+  total=computeTotal();
+  if(p>total)p=total;
+  const ruler=$('ruler');
+  const W=ruler.clientWidth;
+  px=W/total;
+  let html='';
+  for(let f=0;f<=total;f+=FPS){
+    const x=Math.round(f*px), maj=f%(FPS*5)===0;
+    if(maj){
+      const end=(W-x)<76;
+      html+='<div class="tick maj'+(end?' end':'')+'" style="left:'+x+'px"><span>'+tc(f)+'</span></div>';
+    }else{
+      html+='<div class="tick" style="left:'+x+'px"></div>';
+    }
+  }
+  ruler.innerHTML=html;
+  const g=(px*FPS*5)+'px 100%';
+  ORDER.forEach(id=>{$('lane-'+id).style.backgroundSize=g;});
+  clips.forEach(c=>{
+    c.el.style.left=(c.start*px)+'px';
+    c.el.style.width=(c.dur*px)+'px';
+  });
+  renderWave();
+  $('tDuration').textContent=tc(total);
+  updateBadge();
+  layoutPh();
+}
+
+function layoutPh(){
+  const b=$('tlBody').getBoundingClientRect(), r=$('ruler').getBoundingClientRect();
+  $('playhead').style.left=(r.left-b.left+p*px)+'px';
+}
+
+function updateBadge(){
+  const v1=clips.filter(c=>c.track==='V1').sort((a,b)=>a.start-b.start);
+  let n=0,gf=0;
+  for(let i=1;i<v1.length;i++){
+    const g=v1[i].start-(v1[i-1].start+v1[i-1].dur);
+    if(g>0){n++;gf+=g;}
+  }
+  const b=$('gapBadge');
+  b.classList.toggle('ok',n===0);
+  b.innerHTML='<i></i>'+(n?(n+' boşluk · '+gf+' kare'):'Boşluk yok');
+}
+
+function stageUpdate(){
+  const cur=clips.find(c=>c.track==='V1'&&p>=c.start&&p<c.start+c.dur);
+  const st=$('stage');
+  if(cur){
+    st.classList.remove('gap');
+    st.style.backgroundColor='hsl('+cur.h+' '+cur.s+'% 34%)';
+    $('sw').style.background='hsl('+cur.h+' '+cur.s+'% '+cur.l+'%)';
+    $('stageTrack').textContent='Video 1';
+    $('stageName').textContent=cur.name;
+  }else{
+    st.classList.add('gap');
+    st.style.backgroundColor='#252c35';
+    $('sw').style.background='#414d5b';
+    $('stageTrack').textContent='Video 1 · boş aralık';
+    $('stageName').textContent='Boşluk';
+  }
+}
+
+function setPlayhead(f){
+  p=Math.min(total,Math.max(0,Math.round(f)));
+  $('tTimecode').textContent=tc(p);
+  $('stageTc').textContent=tc(p);
+  stageUpdate();
+  layoutPh();
+}
+
+function select(id){
+  sel=id;
+  clips.forEach(c=>c.el.classList.toggle('sel',c.id===sel));
+  renderInspector();
+}
+
+function renderInspector(){
+  const box=$('inspBody');
+  $('inspState').textContent=sel?'AKTİF':'BOŞ';
+  if(!sel){
+    box.innerHTML=
+      '<div class="insp-empty">'+
+      '<svg width="46" height="34" viewBox="0 0 46 34" fill="none" aria-hidden="true">'+
+      '<rect x="1.5" y="3.5" width="43" height="27" rx="5" stroke="#39455286" stroke-width="1.5" stroke-dasharray="4 4"/>'+
+      '<rect x="8" y="10" width="15" height="14" rx="3" fill="rgba(255,176,32,.14)" stroke="#5d6d7e"/></svg>'+
+      '<b>Seçili klip yok</b>'+
+      '<p>Zaman çizelgesinden bir klipe tıklayarak adını, izini ve giriş / çıkış noktalarını burada görebilirsiniz.</p>'+
+      '</div>';
+    return;
+  }
+  const c=clips.find(x=>x.id===sel), t=TRACKS[c.track];
+  const lp=(c.start/total*100).toFixed(2)+'%', wp=(c.dur/total*100).toFixed(2)+'%';
+  const col='hsl('+c.h+' '+c.s+'% '+(c.l+4)+'%)';
+  box.innerHTML=
+    '<div class="i-name"><span class="i-chip" style="background:linear-gradient(135deg,hsl('+c.h+' '+c.s+'% '+(c.l+10)+'%),hsl('+c.h+' '+c.s+'% '+(c.l-12)+'%))"></span>'+c.name+'</div>'+
+    '<div class="i-sub">'+t.name+' · '+t.kind+' klibi</div>'+
+    '<div class="i-grid">'+
+      '<div class="i-f"><span>Giriş noktası</span><b>'+tc(c.start)+'</b></div>'+
+      '<div class="i-f"><span>Çıkış noktası</span><b>'+tc(c.start+c.dur)+'</b></div>'+
+      '<div class="i-f"><span>Süre</span><b>'+tc(c.dur)+'</b></div>'+
+      '<div class="i-f"><span>İz</span><b class="tx">'+t.name+'</b></div>'+
+    '</div>'+
+    '<div class="i-pos"><span>Konum</span><div class="i-bar"><i style="left:'+lp+';width:'+wp+';background:'+col+'"></i></div>'+
+    '<div class="i-pos-t"><span>00:00:00:00</span><span>'+tc(total)+'</span></div></div>';
+}
+
+window.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const k=e.key;
+  if(k==='ArrowRight'){e.preventDefault();setPlayhead(p+(e.shiftKey?25:1));}
+  else if(k==='ArrowLeft'){e.preventDefault();setPlayhead(p-(e.shiftKey?25:1));}
+  else if(k==='Home'){e.preventDefault();setPlayhead(0);}
+  else if(k==='End'){e.preventDefault();setPlayhead(total);}
+  else if(k==='Escape'){select(null);}
+});
+
+const ruler=$('ruler');
+let scrub=false;
+function scrubTo(e){
+  const r=ruler.getBoundingClientRect();
+  setPlayhead((e.clientX-r.left)/px);
+}
+ruler.addEventListener('pointerdown',e=>{
+  scrub=true;
+  try{ruler.setPointerCapture(e.pointerId);}catch(_){}
+  $('playhead').classList.add('noanim');
+  scrubTo(e);
+});
+ruler.addEventListener('pointermove',e=>{if(scrub)scrubTo(e);});
+const endScrub=()=>{scrub=false;$('playhead').classList.remove('noanim');};
+ruler.addEventListener('pointerup',endScrub);
+ruler.addEventListener('pointercancel',endScrub);
+
+document.querySelectorAll('.t-steps button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    if(b.dataset.home==='1') setPlayhead(0);
+    else if(b.dataset.end==='1') setPlayhead(total);
+    else setPlayhead(p+parseInt(b.dataset.step,10));
+    b.blur();
+  });
+});
+
+$('closeGabsBtn').addEventListener('click',function(){
+  const v1=clips.filter(c=>c.track==='V1').sort((a,b)=>a.start-b.start);
+  let t=0;
+  v1.forEach(c=>{c.start=t;t+=c.dur;});
+  total=computeTotal();
+  if(p>total)p=total;
+  layout();
+  setPlayhead(p);
+  renderInspector();
+  this.blur();
+});
+
+build();
+document.body.classList.add('boot');
+layout();
+setPlayhead(0);
+select(null);
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.remove('boot')));
+window.addEventListener('resize',()=>layout());
+})();
+</script>
+</body>
+</html>

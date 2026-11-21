@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kurgu Stüdyosu — Video Kurgu Arayüzü</title>
+<style>
+  :root{
+    --bg:#0A0D12;
+    --panel-hi:#171E28; --panel-lo:#131922;
+    --line:#242E3B; --line-soft:#1E2733;
+    --text:#E9EEF5; --muted:#8C97A6; --faint:#5D6878;
+    --accent:#4DA3FF; --accent-deep:#2E7CD6;
+    --ph:#FFB454;
+    --gutter:156px;
+    --ui:"Segoe UI","SF Pro Text",-apple-system,system-ui,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    font-family:var(--ui);color:var(--text);-webkit-font-smoothing:antialiased;
+    user-select:none;-webkit-user-select:none;
+    background:
+      radial-gradient(950px 420px at 88% -12%, rgba(77,163,255,.10), transparent 62%),
+      radial-gradient(760px 520px at -8% 112%, rgba(67,214,154,.07), transparent 60%),
+      var(--bg);
+  }
+  .app{height:100vh;display:flex;flex-direction:column;padding:14px;gap:12px}
+
+  /* ---------- top bar ---------- */
+  .topbar{flex:none;height:46px;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,#4DA3FF,#2E7CD6);box-shadow:0 5px 16px -5px rgba(77,163,255,.65)}
+  .logo svg{width:16px;height:16px}
+  .wordmark{font-size:15px;font-weight:700;letter-spacing:.2px}
+  .proj-chip{display:flex;align-items:center;gap:8px;margin-left:8px;padding:4px 11px;border-radius:999px;
+    background:#141B24;border:1px solid var(--line-soft);color:var(--muted);font-size:12px}
+  .proj-chip i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .top-right{display:flex;align-items:center;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:999px;font-size:12px;
+    background:#141B24;border:1px solid var(--line-soft);color:var(--muted)}
+  .chip svg{width:13px;height:13px;color:#7FDCA8}
+  .dot-live{width:6px;height:6px;border-radius:50%;background:#3ECF8E;box-shadow:0 0 8px rgba(62,207,142,.9)}
+
+  /* ---------- panels ---------- */
+  .panel{background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo));border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 14px 34px -22px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.03)}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+  .panel-head h2{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;letter-spacing:.16em;
+    text-transform:uppercase;color:#B9C4D3}
+  .panel-head h2 svg{width:14px;height:14px;color:var(--accent)}
+
+  /* ---------- work area ---------- */
+  .workarea{flex:1 1 auto;min-height:0;display:flex;gap:12px}
+  .preview-panel{flex:1;min-width:0;display:flex;flex-direction:column}
+  .inspector{width:322px;flex:none;display:flex;flex-direction:column}
+
+  /* preview screen */
+  .screen{--c1:#F4B356;--c2:#C87E22;position:relative;flex:1;margin:12px;border-radius:9px;overflow:hidden;
+    background:linear-gradient(158deg,var(--c1) 0%,var(--c2) 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+  .screen::before{content:"";position:absolute;inset:0;pointer-events:none;background:
+    radial-gradient(90% 75% at 24% 14%, rgba(255,255,255,.22), transparent 56%),
+    radial-gradient(130% 95% at 88% 112%, rgba(0,0,0,.38), transparent 62%),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.045) 0 2px, transparent 2px 16px)}
+  .screen::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px rgba(0,0,0,.38)}
+  .sheen{position:absolute;top:-40%;bottom:-40%;left:-25%;width:60%;pointer-events:none;
+    background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.07) 50%,transparent 62%);
+    animation:slide 7.5s ease-in-out infinite alternate}
+  @keyframes slide{from{transform:translateX(-18%)}to{transform:translateX(46%)}}
+  .safe i{position:absolute;width:20px;height:20px;border:1.5px solid rgba(255,255,255,.35);pointer-events:none}
+  .safe i:nth-child(1){top:12px;left:12px;border-right:0;border-bottom:0}
+  .safe i:nth-child(2){top:12px;right:12px;border-left:0;border-bottom:0}
+  .safe i:nth-child(3){bottom:12px;left:12px;border-right:0;border-top:0}
+  .safe i:nth-child(4){bottom:12px;right:12px;border-left:0;border-top:0}
+  .screen-name{position:absolute;left:0;right:0;top:50%;transform:translateY(-58%);text-align:center;z-index:2;
+    font-size:clamp(42px,6.4vw,82px);font-weight:800;letter-spacing:-.02em;line-height:1;color:#fff;
+    text-shadow:0 5px 34px rgba(0,0,0,.5)}
+  .screen-name.pulse{animation:pvIn .4s cubic-bezier(.2,.7,.3,1)}
+  @keyframes pvIn{from{opacity:.15;transform:translateY(-46%) scale(.985)}to{opacity:1;transform:translateY(-58%) scale(1)}}
+  .screen.gap{--c1:#2B3441;--c2:#171D26}
+  .screen.gap .screen-name{color:#9AA6B6;text-shadow:none;font-weight:700}
+  .screen.gap .sheen{opacity:.35}
+  .screen-tc{position:absolute;left:14px;bottom:13px;z-index:2;display:flex;align-items:center;gap:9px;
+    padding:6px 11px;border-radius:7px;background:rgba(8,11,16,.58);border:1px solid rgba(255,255,255,.16)}
+  .screen-tc span:last-child{font-family:var(--mono);font-size:15px;letter-spacing:.07em;color:#FFE3B4}
+  .pv-dot{width:7px;height:7px;border-radius:50%;background:#FFD27A;box-shadow:0 0 9px rgba(255,210,122,.95);animation:beat 1.6s ease-in-out infinite}
+  @keyframes beat{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* inspector */
+  .insp-body{flex:1;min-height:0;padding:14px;display:flex;flex-direction:column;justify-content:center;gap:12px}
+  .empty{border:1.5px dashed #2C3644;border-radius:11px;padding:26px 18px;text-align:center;color:var(--muted)}
+  .empty svg{width:30px;height:30px;color:#4E5B6D;margin-bottom:10px}
+  .empty h4{font-size:14.5px;font-weight:700;color:#C2CCDA;margin-bottom:6px}
+  .empty p{font-size:12px;line-height:1.55;color:var(--faint)}
+  .sel-card{border-radius:11px;overflow:hidden;background:#18202B;border:1px solid #273140;box-shadow:0 10px 26px -18px rgba(0,0,0,.9)}
+  .sel-head{display:flex;align-items:center;gap:11px;padding:13px;background:linear-gradient(120deg,color-mix(in srgb,var(--c1) 24%,#18202B),#18202B 70%)}
+  .swatch{flex:none;width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(150deg,var(--c1),var(--c2));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 4px 12px -4px var(--c2)}
+  .swatch svg{width:17px;height:17px}
+  .sel-id h3{font-size:18px;font-weight:800;letter-spacing:-.01em}
+  .sel-id p{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .sel-id p b{color:#C7D1DE;font-weight:600}
+  .kv{display:flex;align-items:center;gap:8px;padding:9px 13px;border-top:1px solid #202A37}
+  .kv dt{font-size:12px;color:var(--muted)}
+  .kv .frames{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .kv dd{font-family:var(--mono);font-size:14px;letter-spacing:.03em;color:#EAF1FA}
+  .insp-foot{flex:none;border-top:1px solid var(--line-soft);padding:9px 14px;display:flex;flex-wrap:wrap;gap:5px 12px;align-items:center;font-size:11px;color:#7C8798}
+  kbd{background:#1D2530;border:1px solid #2B3543;border-bottom-width:2px;border-radius:4px;padding:1px 5px;
+    font-family:var(--mono);font-size:10.5px;color:#C6CFDC}
+
+  /* ---------- timeline ---------- */
+  .timeline-panel{flex:none;display:flex;flex-direction:column}
+  .tl-meta{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--muted)}
+  #gapInfo{padding:3px 9px;border-radius:999px;font-weight:600;background:#2A2417;color:#FFC46B;border:1px solid #4A3D22}
+  #gapInfo.ok{background:#15281F;color:#7FDCA8;border-color:#274A39}
+  .tl-body{position:relative;padding:10px 0 18px}
+  .ruler-row,.row{display:flex;align-items:stretch}
+  .corner,.tl-label{width:var(--gutter);flex:none}
+  .ruler-row{height:34px;margin-bottom:6px}
+  .row{height:62px;margin-bottom:6px}
+  .ruler{position:relative;flex:1;height:34px;background:#0E1319;border-radius:7px;cursor:pointer;box-shadow:inset 0 0 0 1px var(--line-soft)}
+  .tick{position:absolute;bottom:0;width:1px;background:#2A3543}
+  .tick.s{height:6px}.tick.m{height:9px;background:#3B4857}.tick.L{height:13px;background:#5A6B80}
+  .tick.E{width:2px;height:15px;background:var(--ph);box-shadow:0 0 8px rgba(255,180,84,.7)}
+  .rlabel{position:absolute;top:5px;padding-left:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:#7E8CA0;white-space:nowrap}
+  .tl-label{display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid var(--line-soft)}
+  .trk-badge{flex:none;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:3px 6px;border-radius:4px}
+  .tl-label svg{width:14px;height:14px;color:#6E7C8F;flex:none}
+  .tl-label .nm{font-size:12.5px;font-weight:600;color:#C7D1DE;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lane{position:relative;flex:1;background:#10151D;border-radius:7px;box-shadow:inset 0 0 0 1px var(--line-soft)}
+
+  .clip{position:absolute;top:4px;bottom:4px;display:flex;align-items:center;gap:6px;padding:0 9px;overflow:hidden;
+    border-radius:5px;background:linear-gradient(180deg,var(--c1),var(--c2));cursor:pointer;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.28), inset -1px 0 0 rgba(0,0,0,.35);transition:filter .15s ease}
+  .clip:hover{filter:brightness(1.14)}
+  .clip-name{font-size:12.5px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clip.audio .clip-name{background:rgba(9,13,18,.52);padding:2px 8px;border-radius:6px;text-shadow:none}
+  .clip-dur{margin-left:auto;flex:none;font-family:var(--mono);font-size:9.5px;color:rgba(255,255,255,.78)}
+  .clip.selected{filter:brightness(1.16);box-shadow:inset 0 0 0 2px #fff, inset 0 1px 0 rgba(255,255,255,.3), 0 6px 20px -6px var(--c1)}
+  .wave{position:absolute;left:4px;top:50%;transform:translateY(-50%);opacity:.8;pointer-events:none}
+
+  .ph-wrap{position:absolute;left:var(--gutter);right:0;top:10px;bottom:12px;pointer-events:none}
+  .playhead{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:var(--ph);
+    box-shadow:0 0 12px rgba(255,180,84,.55);transition:transform .09s linear}
+  .playhead::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+    border-left:6.5px solid transparent;border-right:6.5px solid transparent;border-top:8px solid var(--ph)}
+  .no-anim .playhead{transition:none}
+  .ghost{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:rgba(255,255,255,.3);opacity:0;transition:opacity .12s}
+  .ph-wrap.hovering .ghost{opacity:1}
+
+  /* ---------- transport ---------- */
+  .transport{flex:none;height:58px;display:flex;align-items:center;gap:13px;padding:0 4px}
+  .tgroup{display:flex;align-items:center;gap:7px}
+  .tbtn{width:34px;height:34px;border-radius:9px;background:#1A222D;border:1px solid #28323F;color:#C9D4E2;
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s,background .15s,border-color .15s}
+  .tbtn svg{width:16px;height:16px}
+  .tbtn:hover{background:#212C3A;border-color:#37485E;transform:translateY(-1px)}
+  .tbtn:active{transform:translateY(0) scale(.97)}
+  .tbtn.play{width:42px;height:42px;background:linear-gradient(180deg,#4DA3FF,#2E7CD6);border-color:#5FAEFF;color:#fff;
+    box-shadow:0 7px 20px -7px rgba(77,163,255,.8), inset 0 1px 0 rgba(255,255,255,.3)}
+  .tbtn.play svg{width:19px;height:19px}
+  .vsep{width:1px;height:28px;background:#242E3B;flex:none}
+  .readout{display:flex;align-items:center;gap:10px;padding:7px 13px;border-radius:9px;background:#0A0F15;box-shadow:inset 0 0 0 1px #263140,inset 0 2px 8px rgba(0,0,0,.5)}
+  .ro-cap{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#5F6C7E}
+  .tc-val{font-family:var(--mono);font-size:19px;letter-spacing:.05em;color:#FFC46B;text-shadow:0 0 14px rgba(255,196,107,.35)}
+  .dur-val{font-family:var(--mono);font-size:14.5px;letter-spacing:.04em;color:#7FDCA8}
+  .hint{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  @media (max-width:1240px){.hint{display:none}}
+  .spacer{flex:1}
+  .close-wrap{position:relative}
+  .btn-close{display:flex;align-items:center;gap:9px;padding:10px 17px;border-radius:9px;color:#fff;font-family:var(--ui);
+    font-size:13px;font-weight:650;letter-spacing:.01em;cursor:pointer;background:linear-gradient(180deg,#2E7CD6,#2461AC);
+    border:1px solid #3D8BE0;box-shadow:0 7px 18px -8px rgba(46,124,214,.95), inset 0 1px 0 rgba(255,255,255,.25);
+    transition:transform .12s,filter .15s}
+  .btn-close svg{width:15px;height:15px}
+  .btn-close:hover{filter:brightness(1.12);transform:translateY(-1px)}
+  .btn-close:active{transform:translateY(0) scale(.98)}
+  .toast{position:absolute;bottom:calc(100% + 9px);right:0;padding:6px 12px;border-radius:7px;font-size:12px;color:#DFF5E9;
+    background:#1B3A2C;border:1px solid #2F5C45;white-space:nowrap;opacity:0;transform:translateY(4px);pointer-events:none;transition:.25s}
+  .toast.show{opacity:1;transform:translateY(0)}
+  button:focus-visible,.clip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ üst çubuk ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+      <span class="wordmark">Kurgu Stüdyosu</span>
+      <span class="proj-chip"><i></i>Tanıtım Filmi · v2</span>
+    </div>
+    <div class="top-right">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>25 kare/sn</span>
+      <span class="chip"><i class="dot-live"></i>Kaydedildi</span>
+    </div>
+  </header>
+
+  <!-- ============ önizleme + denetçi ============ -->
+  <main class="workarea">
+    <section class="panel preview-panel" data-test="preview">
+      <div class="panel-head">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="13" rx="2"/><path d="M9 21h6"/></svg>Önizleme</h2>
+        <div style="display:flex;gap:7px">
+          <span class="chip">1920×1080</span><span class="chip">25 FPS</span>
+        </div>
+      </div>
+      <div class="screen" id="screen">
+        <div class="sheen"></div>
+        <div class="safe"><i></i><i></i><i></i><i></i></div>
+        <div class="screen-name" id="pvName">Giriş</div>
+        <div class="screen-tc"><span class="pv-dot"></span><span id="pvTc">00:00:00:00</span></div>
+      </div>
+    </section>
+
+    <aside class="panel inspector" data-test="inspector">
+      <div class="panel-head">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v.5M12 11.5V16"/></svg>Klip bilgisi</h2>
+      </div>
+      <div class="insp-body" id="inspBody"></div>
+      <div class="insp-foot">
+        <span><kbd>←</kbd> <kbd>→</kbd> 1 kare</span>
+        <span><kbd>Shift</kbd>+<kbd>←/→</kbd> 25 kare</span>
+        <span><kbd>Home</kbd>/<kbd>End</kbd> uçlar</span>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ============ zaman çizelgesi ============ -->
+  <section class="panel timeline-panel">
+    <div class="panel-head">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h13"/></svg>Zaman çizelgesi</h2>
+      <div class="tl-meta">
+        <span id="gapInfo">2 boşluk</span>
+        <span id="clipCount">7 klip · 3 iz</span>
+      </div>
+    </div>
+    <div class="tl-body" id="tlBody">
+      <div class="ruler-row">
+        <div class="corner"></div>
+        <div class="ruler" data-test="ruler" id="ruler"></div>
+      </div>
+
+      <div class="row" data-track="V1">
+        <div class="tl-label">
+          <span class="trk-badge" style="background:#17293C;color:#6FB0F5;border:1px solid #2A4A6E">V1</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="7" width="13" height="10" rx="2"/><path d="M15.5 10.5l6-3v9l-6-3"/></svg>
+          <span class="nm">Video 1</span>
+        </div>
+        <div class="lane" id="lane-V1"></div>
+      </div>
+
+      <div class="row" data-track="V2">
+        <div class="tl-label">
+          <span class="trk-badge" style="background:#241D3E;color:#A78BFA;border:1px solid #3C3070">V2</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 6h14M9 6v12M15 6v12"/></svg>
+          <span class="nm">Video 2</span>
+        </div>
+        <div class="lane" id="lane-V2"></div>
+      </div>
+
+      <div class="row" data-track="A1">
+        <div class="tl-label">
+          <span class="trk-badge" style="background:#143026;color:#5FE0AC;border:1px solid #275C45">A1</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9v6M9.5 6v12M14.5 8v8M19 5v14"/></svg>
+          <span class="nm">Müzik</span>
+        </div>
+        <div class="lane" id="lane-A1"></div>
+      </div>
+
+      <div class="ph-wrap" id="phWrap">
+        <div class="ghost" id="ghost"></div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ taşıma çubuğu ============ -->
+  <footer class="transport">
+    <div class="tgroup">
+      <button class="tbtn" id="bStart" title="Başa atla (Home)" aria-label="Başa atla"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2.4v14H6zM20 5l-9.5 7L20 19z"/></svg></button>
+      <button class="tbtn" id="bBack" title="Bir kare geri (←)" aria-label="Bir kare geri"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 6h2v12h-2zM19 6l-8 6 8 6z"/></svg></button>
+      <button class="tbtn play" id="bPlay" title="Oynat / Duraklat (Boşluk)" aria-label="Oynat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="tbtn" id="bFwd" title="Bir kare ileri (→)" aria-label="Bir kare ileri"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 6h2v12h-2zM5 6l8 6-8 6z"/></svg></button>
+      <button class="tbtn" id="bEnd" title="Sona atla (End)" aria-label="Sona atla"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 5H18v14h-2.4zM4 5l9.5 7L4 19z"/></svg></button>
+    </div>
+
+    <span class="vsep"></span>
+    <div class="readout"><span class="ro-cap">Oynatma</span><span class="tc-val" data-test="timecode" id="tcVal">00:00:00:00</span></div>
+    <div class="readout"><span class="ro-cap">Toplam süre</span><span class="dur-val" data-test="duration" id="durVal">00:00:42:13</span></div>
+
+    <span class="vsep"></span>
+    <p class="hint">← → 1 kare · Shift+← → 25 kare · Home/End uçlar</p>
+    <div class="spacer"></div>
+    <div class="close-wrap">
+      <span class="toast" id="toast">Boşluklar kapatıldı</span>
+      <button class="btn-close" data-test="close-gaps" id="bClose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5L4 12l5 7"/><path d="M15 5l5 7-5 7"/></svg>
+        Boşlukları kapat
+      </button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const FPS = 25;
+  const TRACKS = [
+    {id:"V1", name:"Video 1"},
+    {id:"V2", name:"Video 2"},
+    {id:"A1", name:"Müzik"}
+  ];
+
+  // Klip verisi (başlangıç ve süre kare cinsinden)
+  const clips = [
+    {track:"V1", name:"Giriş",        start:0,   dur:125, c1:"#F4B356", c2:"#C87E22"},
+    {track:"V1", name:"Röportaj",     start:125, dur:450, c1:"#3EC9AF", c2:"#1D8A76"},
+    {track:"V1", name:"B-roll Şehir", start:650, dur:200, c1:"#5FA9F2", c2:"#2C6CC0"},
+    {track:"V1", name:"Kapanış",      start:900, dur:163, c1:"#E4708F", c2:"#B03A5F"},
+    {track:"V2", name:"Logo",         start:50,  dur:100, c1:"#A78BFA", c2:"#6D4FD0"},
+    {track:"V2", name:"Alt yazı",     start:300, dur:175, c1:"#9C86F0", c2:"#5E46BE"},
+    {track:"A1", name:"Müzik",        start:0,   dur:980, c1:"#43D69A", c2:"#1F9B69"}
+  ];
+
+  let playhead = 0;          // kare
+  let selected = null;       // seçili klip adı
+  let playing  = false;
+  let ppf      = 1;          // piksel / kare
+  let laneW    = 0;
+  let lastPvName = "";
+
+  const $ = id => document.getElementById(id);
+  const rulerEl=$("ruler"), phWrap=$("phWrap"), playheadEl=$("playhead"), ghostEl=$("ghost");
+  const screenEl=$("screen"), pvName=$("pvName"), pvTc=$("pvTc");
+  const inspBody=$("inspBody"), tcVal=$("tcVal"), durVal=$("durVal");
+  const gapInfo=$("gapInfo"), toastEl=$("toast"), bPlay=$("bPlay");
+
+  /* ---------- yardımcılar ---------- */
+  function fmtTC(f){
+    f = Math.max(0, Math.round(f));
+    const ff=f%FPS, s=Math.floor(f/FPS), ss=s%60, mm=Math.floor(s/60)%60, hh=Math.floor(s/3600);
+    return [hh,mm,ss,ff].map(n=>String(n).padStart(2,"0")).join(":");
+  }
+  function totalDuration(){ return Math.max(...clips.map(c=>c.start+c.dur)); }
+  function trackName(id){ const t=TRACKS.find(t=>t.id===id); return t?t.name:id; }
+
+  /* ---------- zaman çizelgesi çizimi ---------- */
+  function pickLabelStep(ppf){
+    for(const sec of [1,2,5,10,30]){ if(sec*FPS*ppf >= 80) return sec*FPS; }
+    return 750;
+  }
+
+  function waveSVG(w,h){
+    const step=6, n=Math.max(8, Math.floor((w-4)/step));
+    let bars="";
+    for(let i=0;i<n;i++){
+      const v = 0.5 + 0.3*Math.sin(i/9) + 0.15*Math.sin(i/2.3);
+      const bh = Math.max(2, v*h*0.86);
+      bars += `<rect x="${(i*step+2).toFixed(1)}" y="${((h-bh)/2).toFixed(1)}" width="3" height="${bh.toFixed(1)}" rx="1"/>`;
+    }
+    return `<svg class="wave" width="${n*step}" height="${h}" viewBox="0 0 ${n*step} ${h}">`+
+           `<line x1="0" y1="${h/2}" x2="${n*step}" y2="${h/2}" stroke="rgba(255,255,255,.18)"/>${bars}</svg>`;
+  }
+
+  function buildTimeline(){
+    const total = totalDuration();
+    laneW = $("lane-V1").getBoundingClientRect().width;
+    ppf   = laneW / total;
+    const stepF = pickLabelStep(ppf);
+
+    // cetvel: işaretler + etiketler
+    rulerEl.innerHTML = "";
+    for(let f=0; f<total; f+=5){
+      const t=document.createElement("span");
+      t.className="tick "+(f%stepF===0 ? "L" : (f%FPS===0 ? "m" : "s"));
+      t.style.left=(f*ppf)+"px";
+      rulerEl.appendChild(t);
+    }
+    const endTick=document.createElement("span");
+    endTick.className="tick E";
+    endTick.style.left=(laneW-2)+"px";
+    rulerEl.appendChild(endTick);
+
+    for(let f=0; f<=total; f+=stepF){
+      if(f>total) break;
+      const l=document.createElement("span");
+      l.className="rlabel";
+      l.textContent=fmtTC(f);
+      l.style.left=Math.min(f*ppf, laneW-72)+"px";
+      rulerEl.appendChild(l);
+    }
+
+    // izler ve klipler — sol kenar/genişlik tam orantılı
+    const laneH = $("lane-V1").getBoundingClientRect().height;
+    for(const trk of TRACKS){
+      const lane=$("lane-"+trk.id);
+      lane.innerHTML="";
+      for(const c of clips.filter(c=>c.track===trk.id)){
+        const el=document.createElement("div");
+        el.className="clip"+(selected===c.name?" selected":"")+(trk.id==="A1"?" audio":"");
+        el.dataset.clip=c.name;
+        el.style.left  =(c.start*ppf)+"px";
+        el.style.width =(c.dur*ppf)+"px";
+        el.style.setProperty("--c1",c.c1);
+        el.style.setProperty("--c2",c.c2);
+        let inner="";
+        if(trk.id==="A1") inner+=waveSVG(c.dur*ppf, laneH-8);
+        inner+=`<span class="clip-name">${c.name}</span>`;
+        if(c.dur*ppf>=120) inner+=`<span class="clip-dur">${fmtTC(c.dur)}</span>`;
+        el.innerHTML=inner;
+        lane.appendChild(el);
+      }
+    }
+  }
+
+  /* ---------- oynatma başı ---------- */
+  function positionPlayhead(){ playheadEl.style.transform=`translateX(${playhead*ppf}px)`; }
+
+  function setPlayhead(f){
+    const total=totalDuration();
+    f=Math.max(0, Math.min(Math.round(f), total));
+    playhead=f;
+    positionPlayhead();
+    renderPreview();
+    tcVal.textContent=fmtTC(playhead);
+    if(playing && playhead>=total) stopPlay();
+  }
+
+  /* ---------- önizleme ---------- */
+  function renderPreview(){
+    const c = clips.find(c=>c.track==="V1" && playhead>=c.start && playhead<c.start+c.dur);
+    screenEl.classList.toggle("gap", !c);
+    if(c){
+      screenEl.style.setProperty("--c1",c.c1);
+      screenEl.style.setProperty("--c2",c.c2);
+    } else {
+      screenEl.style.removeProperty("--c1");
+      screenEl.style.removeProperty("--c2");
+    }
+    const label = c ? c.name : "Boşluk";
+    pvName.textContent=label;
+    pvTc.textContent=fmtTC(playhead);
+    if(label!==lastPvName){
+      lastPvName=label;
+      pvName.classList.remove("pulse"); void pvName.offsetWidth; pvName.classList.add("pulse");
+    }
+  }
+
+  /* ---------- denetçi ---------- */
+  function renderInspector(){
+    const c = clips.find(x=>x.name===selected);
+    if(!c){
+      inspBody.innerHTML=
+        `<div class="empty">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M7 6V4h10v2M9 12l3-2.5L15 12"/></svg>
+           <h4>Bir klip seçin</h4>
+           <p>Zaman çizelgesinden bir klipe tıklayın; giriş ve çıkış noktaları burada görünür.</p>
+         </div>`;
+      return;
+    }
+    const inTC=fmtTC(c.start), outTC=fmtTC(c.start+c.dur), durTC=fmtTC(c.dur);
+    inspBody.innerHTML=
+      `<div class="sel-card" style="--c1:${c.c1};--c2:${c.c2}">
+         <div class="sel-head">
+           <span class="swatch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M8 5.5v13M16 5.5v13"/></svg></span>
+           <div class="sel-id">
+             <h3>${c.name}</h3>
+             <p><b>${trackName(c.track)}</b> · ${c.track} izi</p>
+           </div>
+         </div>
+         <dl style="margin:0">
+           <div class="kv"><dt>Giriş noktası</dt><span class="frames">${c.start} kare</span><dd>${inTC}</dd></div>
+           <div class="kv"><dt>Çıkış noktası</dt><span class="frames">${c.start+c.dur} kare</span><dd>${outTC}</dd></div>
+           <div class="kv"><dt>Süre</dt><span class="frames">${c.dur} kare</span><dd>${durTC}</dd></div>
+         </dl>
+       </div>`;
+  }
+
+  /* ---------- okumalar / boşluk bilgisi ---------- */
+  function updateReadouts(){
+    durVal.textContent=fmtTC(totalDuration());
+    const v1=clips.filter(c=>c.track==="V1").sort((a,b)=>a.start-b.start);
+    let gaps=0;
+    for(let i=1;i<v1.length;i++) if(v1[i].start > v1[i-1].start+v1[i-1].dur) gaps++;
+    gapInfo.textContent = gaps ? `${gaps} boşluk` : "Boşluk yok";
+    gapInfo.classList.toggle("ok", gaps===0);
+  }
+
+  function renderAll(){ buildTimeline(); positionPlayhead(); renderPreview(); renderInspector(); updateReadouts(); tcVal.textContent=fmtTC(playhead); }
+
+  /* ---------- seçim ---------- */
+  $("tlBody").addEventListener("click", e=>{
+    const el=e.target.closest(".clip");
+    if(!el) return;
+    selected = el.dataset.clip;
+    buildTimeline();
+    renderInspector();
+  });
+
+  /* ---------- boşlukları kapat ---------- */
+  let toastTimer=null;
+  function showToast(msg){
+    toastEl.textContent=msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>toastEl.classList.remove("show"),1900);
+  }
+
+  $("bClose").addEventListener("click", ()=>{
+    const v1=clips.filter(c=>c.track==="V1").sort((a,b)=>a.start-b.start);
+    let cur=0, moved=false;
+    for(const c of v1){ if(c.start!==cur) moved=true; c.start=cur; cur+=c.dur; }
+    setPlayhead(playhead);            // yeni toplam süreye göre sınırla
+    renderAll();
+    showToast(moved ? "Boşluklar kapatıldı" : "Zaten boşluksuz");
+  });
+
+  /* ---------- klavye ---------- */
+  window.addEventListener("keydown", e=>{
+    if(e.key==="ArrowRight"){ e.preventDefault(); setPlayhead(playhead+(e.shiftKey?25:1)); }
+    else if(e.key==="ArrowLeft"){ e.preventDefault(); setPlayhead(playhead-(e.shiftKey?25:1)); }
+    else if(e.key==="Home"){ e.preventDefault(); setPlayhead(0); }
+    else if(e.key==="End"){ e.preventDefault(); setPlayhead(totalDuration()); }
+    else if(e.key===" " && !e.target.closest("button")){ e.preventDefault(); togglePlay(); }
+  });
+
+  /* ---------- cetvel tıklama / kaydırma ---------- */
+  let scrubbing=false;
+  function frameFromEvent(e){
+    const r=rulerEl.getBoundingClientRect();
+    return Math.max(0, Math.min(totalDuration(), Math.round((e.clientX-r.left)/ppf)));
+  }
+  rulerEl.addEventListener("pointerdown", e=>{
+    stopPlay(); scrubbing=true; phWrap.classList.add("no-anim");
+    rulerEl.setPointerCapture(e.pointerId);
+    setPlayhead(frameFromEvent(e));
+  });
+  rulerEl.addEventListener("pointermove", e=>{
+    const r=rulerEl.getBoundingClientRect();
+    const x=Math.max(0, Math.min(laneW, e.clientX-r.left));
+    ghostEl.style.transform=`translateX(${x}px)`;
+    phWrap.classList.add("hovering");
+    if(scrubbing) setPlayhead(frameFromEvent(e));
+  });
+  rulerEl.addEventListener("pointerup",   ()=>{ scrubbing=false; phWrap.classList.remove("no-anim"); });
+  rulerEl.addEventListener("pointercancel",()=>{ scrubbing=false; phWrap.classList.remove("no-anim"); });
+  rulerEl.addEventListener("pointerleave",()=>phWrap.classList.remove("hovering"));
+
+  /* ---------- oynat / duraklat ---------- */
+  const ICON_PLAY ='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const ICON_PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.4v14H7zM13.6 5H17v14h-3.4z"/></svg>';
+  let rafId=null, lastT=0, rem=0;
+
+  function setPlayIcon(){ bPlay.innerHTML = playing?ICON_PAUSE:ICON_PLAY; bPlay.title = playing?"Duraklat (Boşluk)":"Oynat / Duraklat (Boşluk)"; }
+  function startPlay(){
+    if(playing) return;
+    if(playhead>=totalDuration()) setPlayhead(0);
+    playing=true; rem=0; lastT=performance.now(); setPlayIcon();
+    rafId=requestAnimationFrame(loop);
+  }
+  function stopPlay(){
+    if(!playing) return;
+    playing=false;
+    if(rafId) cancelAnimationFrame(rafId);
+    setPlayIcon();
+  }
+  function togglePlay(){ playing?stopPlay():startPlay(); }
+  function loop(t){
+    if(!playing) return;
+    const dt=Math.min(120, t-lastT); lastT=t;
+    rem += dt*FPS/1000;
+    const adv=Math.floor(rem); rem-=adv;
+    if(adv>0) setPlayhead(playhead+adv);
+    if(playhead>=totalDuration()){ stopPlay(); return; }
+    rafId=requestAnimationFrame(loop);
+  }
+
+  $("bStart").addEventListener("click", ()=>setPlayhead(0));
+  $("bBack" ).addEventListener("click", ()=>setPlayhead(playhead-1));
+  $("bFwd"  ).addEventListener("click", ()=>setPlayhead(playhead+1));
+  $("bEnd"  ).addEventListener("click", ()=>setPlayhead(totalDuration()));
+  bPlay.addEventListener("click", togglePlay);
+
+  /* ---------- boyut değişimi ---------- */
+  let rz=false;
+  window.addEventListener("resize", ()=>{
+    if(rz) return; rz=true;
+    requestAnimationFrame(()=>{ rz=false; buildTimeline(); positionPlayhead(); });
+  });
+
+  /* ---------- başlatma ---------- */
+  renderAll();
+})();
+</script>
+</body>
+</html>

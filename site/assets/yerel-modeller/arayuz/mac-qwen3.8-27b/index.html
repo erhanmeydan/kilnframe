@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Kurgu Stüdyo — Zaman Çizelgesi</title>
+<style>
+  :root{
+    --bg:#0a0d12;
+    --line:#212a3a;
+    --text:#e9eef6;
+    --muted:#96a2b6;
+    --dim:#5f6d85;
+    --accent:#ff5c3d;
+    --ui:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code","SF Mono","JetBrains Mono",Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--ui);color:var(--text);
+    background:radial-gradient(1100px 500px at 50% -180px,#151d2c 0%,rgba(21,29,44,0) 70%),var(--bg);
+    overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased;overscroll-behavior:none;
+  }
+  .app{height:100vh;display:flex;flex-direction:column;gap:14px;padding:16px 20px}
+
+  /* ---------- üst bar ---------- */
+  .topbar{flex:none;height:42px;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#ff7a4d,#ffb454);
+    display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 8px 18px -8px rgba(255,122,77,.7)}
+  .brand-name{font-size:15px;font-weight:700;letter-spacing:.01em}
+  .brand-name small{font-weight:500;color:var(--muted);margin-left:7px;letter-spacing:.1em;text-transform:uppercase;font-size:10px}
+  .project{display:flex;align-items:center;gap:10px}
+  .proj-file{font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .pill{display:inline-flex;align-items:center;gap:7px;font:700 10px/1 var(--ui);letter-spacing:.1em;color:#9db0cd;
+    background:#131a26;box-shadow:inset 0 0 0 1px #2a3550;border-radius:5px;padding:6px 9px;white-space:nowrap}
+  .pill .dotp{width:6px;height:6px;border-radius:50%;background:#41d690;box-shadow:0 0 8px rgba(65,214,144,.9);animation:pulse 2.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* ---------- paneller ---------- */
+  .panel{background:linear-gradient(180deg,#151b27,#10151e 75%);border-radius:10px;
+    box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 0 rgba(255,255,255,.035),0 14px 30px -22px rgba(0,0,0,.9)}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;flex:none;
+    box-shadow:inset 0 -1px 0 #1d2534}
+  .panel-title{font-size:11.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#b4c0d4;display:flex;align-items:center;gap:9px}
+  .panel-title::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--dot,#3d4c66);box-shadow:0 0 10px var(--dotg,transparent)}
+  .preview-panel{--dot:#2fd6c3;--dotg:rgba(47,214,195,.5)}
+  .inspector{--dot:#a97dff;--dotg:rgba(169,125,255,.5)}
+  .timeline-panel{--dot:#f5a524;--dotg:rgba(245,165,36,.5)}
+  .panel-meta{font-size:11px;color:var(--dim);letter-spacing:.05em}
+  .panel-meta .sep{margin:0 6px;opacity:.5}
+
+  /* ---------- üst alan ---------- */
+  .top{flex:none;height:392px;display:flex;gap:14px}
+  .preview-panel{flex:1;min-width:0;display:flex;flex-direction:column}
+  .stage-wrap{flex:1;min-height:0;position:relative;display:flex;padding:14px;background:#0c1017;border-radius:0 0 9px 9px;overflow:hidden}
+  .stage-wrap::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(rgba(148,166,196,.07) 1px,transparent 1.4px);background-size:22px 22px}
+  .stage{position:relative;margin:auto;height:100%;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:#0d1117;
+    box-shadow:inset 0 0 0 1px #2b3648,0 22px 44px -22px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.5)}
+  .stage::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 3px),
+      radial-gradient(140% 100% at 50% 0,transparent 60%,rgba(0,0,0,.35) 100%)}
+  .stage-content{position:absolute;inset:0;display:flex;flex-direction:column;padding:14px 16px;z-index:1}
+  .stage-top{display:flex;justify-content:space-between;align-items:center}
+  .badge{font:700 9.5px/1 var(--ui);letter-spacing:.16em;padding:5px 8px;border-radius:4px;color:rgba(255,255,255,.82);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);background:rgba(8,11,17,.35)}
+  #stageTrack{color:var(--pc,#2fd6c3);box-shadow:inset 0 0 0 1px var(--pcb,rgba(47,214,195,.5));background:var(--pcb2,rgba(47,214,195,.12))}
+  .stage-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;min-height:0}
+  .stage-name{font-size:54px;font-weight:800;letter-spacing:-.02em;line-height:1.05;color:#fff;
+    text-shadow:0 3px 26px rgba(0,0,0,.6),0 0 42px var(--pglow,rgba(47,214,195,.45))}
+  .stage-sub{font-size:11px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.66)}
+  .stage-bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+  .tc-chip{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:.05em;font-variant-numeric:tabular-nums;
+    background:rgba(7,10,15,.55);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);border-radius:5px;padding:5px 9px;white-space:nowrap}
+  .stage-hint{font-size:10.5px;color:rgba(255,255,255,.5);letter-spacing:.04em;text-align:right}
+  .stage.gap .stage-name{color:#93a1b6;text-shadow:0 3px 18px rgba(0,0,0,.5)}
+  @keyframes swapIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  .stage-content.swap{animation:swapIn .3s ease}
+
+  /* ---------- denetçi ---------- */
+  .inspector{width:340px;flex:none;display:flex;flex-direction:column}
+  .insp-body{flex:1;min-height:0;padding:14px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+  .insp-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+  .insp-empty b{font-size:14px;color:#c6d0e0;font-weight:600}
+  .insp-empty span{font-size:11.5px;line-height:1.55;color:var(--dim);max-width:210px}
+  .insp-head{display:flex;align-items:center;gap:11px;padding:11px 12px;background:#151b27;box-shadow:inset 0 0 0 1px var(--line);border-radius:8px}
+  .insp-swatch{flex:none;width:38px;height:38px;border-radius:8px;display:grid;place-items:center}
+  .insp-name{font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .insp-track{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.04em}
+  .tdot{width:7px;height:7px;border-radius:50%;display:inline-block}
+  .insp-rows{display:flex;flex-direction:column;gap:8px}
+  .irow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;background:#141a25;box-shadow:inset 0 0 0 1px #202a3c;border-radius:7px}
+  .irow span{font-size:11.5px;color:var(--muted);letter-spacing:.03em}
+  .irow b{font-family:var(--mono);font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.03em}
+  .insp-note{font-size:11px;color:var(--dim);display:flex;gap:5px;align-items:center;padding:0 2px}
+  .insp-note b{color:var(--muted);font-family:var(--mono);font-weight:600}
+
+  /* ---------- zaman çizelgesi ---------- */
+  .timeline-panel{flex:1;min-height:0;display:flex;flex-direction:column}
+  .tl-hints{display:flex;align-items:center;gap:14px;font-size:10.5px;color:var(--dim)}
+  .tl-hints .h{display:flex;align-items:center;gap:5px;white-space:nowrap}
+  kbd{font:600 9.5px var(--mono);color:#a9b6cc;background:#182031;box-shadow:inset 0 0 0 1px #2b3750,0 1px 0 #10151f;border-radius:4px;padding:2px 5px;line-height:1}
+  .tl-body{flex:1;min-height:0;display:flex;gap:10px;padding:12px 14px 14px}
+  .gutter{flex:none;width:132px;display:flex;flex-direction:column;gap:6px}
+  /* cetvel yüksekliği (28px) ile eş — satırlar .tracks'taki gibi dağılır, böylece etiketler satırlarla hizalanır */
+  .g-spacer{height:28px}
+  .g-item{flex:1;min-height:0;display:flex;align-items:center;gap:8px;padding:0 10px;background:#111724;box-shadow:inset 0 0 0 1px #1e2739;border-radius:6px}
+  .g-chip{flex:none;font:800 9.5px/1 var(--ui);letter-spacing:.06em;color:#0c1017;background:var(--c,#5f6d85);padding:4px 6px;border-radius:4px}
+  .g-name{font-size:12px;font-weight:600;color:#cdd7e6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .tl-area{flex:1;min-width:0;position:relative;display:flex;flex-direction:column}
+  .ruler{height:28px;flex:none;position:relative;cursor:ew-resize;overflow:hidden;border-radius:6px 6px 0 0;
+    background:linear-gradient(180deg,#131926,#0f141d);box-shadow:inset 0 0 0 1px #202a3c,inset 0 -1px 0 #33405c}
+  .ruler svg{display:block}
+  /* padding-top:6px → sol etiketlerdeki ilk 6px boşlukla aynı; satır yükseklikleri birebir eşleşir */
+  .tracks{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding-top:6px}
+  .track{flex:1;min-height:38px;position:relative;border-radius:6px;background-color:#0d131e;
+    background-image:repeating-linear-gradient(90deg,transparent 0 calc(var(--p,1px)*25 - 1px),rgba(148,166,196,.05) calc(var(--p,1px)*25 - 1px) calc(var(--p,1px)*25));
+    box-shadow:inset 0 0 0 1px #1e2739,inset 0 1px 0 rgba(255,255,255,.02)}
+
+  .clip{position:absolute;top:6px;bottom:6px;border-radius:6px;
+    background-color:#151c29;
+    background-image:linear-gradient(180deg,var(--cA1),var(--cA2)),radial-gradient(120% 80% at 0% 0%,rgba(255,255,255,.07),transparent 60%);
+    box-shadow:inset 0 0 0 1px var(--cB),inset 0 1px 0 rgba(255,255,255,.06),0 2px 6px -3px rgba(0,0,0,.6);
+    border-left:4px solid var(--c);
+    display:flex;align-items:center;padding:0 12px 0 11px;overflow:hidden;cursor:pointer}
+  .tl-area.anim .clip{transition:left .55s cubic-bezier(.22,.9,.28,1),width .55s cubic-bezier(.22,.9,.28,1),filter .15s,box-shadow .15s}
+  .clip:hover{filter:brightness(1.15)}
+  .clip .cname{font-size:12.5px;font-weight:600;color:#f4f7fc;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    text-shadow:0 1px 2px rgba(0,0,0,.55);position:relative;z-index:1}
+  .clip.selected{
+    background-color:#1a2333;
+    background-image:linear-gradient(180deg,var(--cSel1),var(--cSel2));
+    box-shadow:0 0 0 1.5px var(--c),inset 0 0 0 1px var(--c),inset 0 1px 0 rgba(255,255,255,.1),0 10px 24px -10px rgba(0,0,0,.9),0 0 22px -4px var(--cGlow);
+    border-left-color:var(--c);
+  }
+  .clip.selected .cname{color:#fff}
+  .clip.audio{padding:0}
+  .clip.audio canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .clip.audio .cname{position:absolute;top:6px;left:11px;max-width:calc(100% - 20px)}
+
+  .playhead{position:absolute;top:0;bottom:0;width:0;z-index:6;pointer-events:none;transition:left .08s linear}
+  .playhead::before{content:"";position:absolute;left:-1px;top:0;bottom:0;width:2px;
+    background:linear-gradient(180deg,#ff8a63,#ff5c3d);box-shadow:0 0 10px rgba(255,92,61,.75)}
+  .ph-head{position:absolute;top:-1px;left:-8px;width:16px;height:15px;background:linear-gradient(180deg,#ff8a63,#f4512e);clip-path:polygon(0 0,100% 0,50% 100%)}
+  .scrub{position:absolute;top:0;bottom:0;width:0;z-index:5;pointer-events:none;opacity:0;transition:opacity .18s}
+  .scrub.on{opacity:1}
+  .scrub::before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:1px dashed rgba(196,210,232,.5)}
+  .scrub span{position:absolute;top:3px;left:8px;font:600 9.5px var(--mono);letter-spacing:.04em;color:#d5deee;
+    background:#0d121b;box-shadow:inset 0 0 0 1px #2b364c;border-radius:4px;padding:2px 6px;white-space:nowrap}
+  .scrub.flip span{left:auto;right:8px}
+
+  /* ---------- taşıma çubuğu ---------- */
+  .transport{flex:none;height:56px;display:flex;align-items:center;gap:16px;padding:0 16px}
+  .tr-group{display:flex;align-items:center;gap:10px}
+  .tr-label{font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+  .tr-tc{font-family:var(--mono);font-size:21px;font-weight:600;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:#f4f7fc;
+    text-shadow:0 0 22px rgba(120,150,220,.25)}
+  .tr-tc.dim{color:#c2cddf;font-size:19px;text-shadow:none}
+  .tr-sep{width:1px;height:26px;background:#232e42}
+  .tr-spacer{flex:1}
+  .btn{display:inline-flex;align-items:center;gap:9px;font:600 13px var(--ui);color:#1c1204;
+    background:linear-gradient(180deg,#ffc571,#ff9e33);box-shadow:inset 0 0 0 1px #ffbd5e,inset 0 1px 0 rgba(255,255,255,.5),0 10px 22px -12px rgba(255,158,51,.7);
+    border-radius:8px;padding:10px 15px;cursor:pointer;transition:filter .15s,transform .1s,box-shadow .15s}
+  .btn:hover{filter:brightness(1.06);box-shadow:inset 0 0 0 1px #ffbd5e,inset 0 1px 0 rgba(255,255,255,.5),0 12px 26px -12px rgba(255,158,51,.85)}
+  .btn:active{transform:translateY(1px)}
+  .btn:focus-visible{outline:2px solid #ffd9a0;outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none">
+          <rect x="2.5" y="5.5" width="19" height="13" rx="2.5" stroke="#2b1a05" stroke-width="1.7"/>
+          <path d="M10 8.6l5.4 3.4L10 15.4z" fill="#2b1a05"/>
+        </svg>
+      </span>
+      <span class="brand-name">Kurgu Stüdyo<small>v1.0</small></span>
+    </div>
+    <div class="project">
+      <span class="proj-file">Tanıtım_v3.kurgu</span>
+      <span class="pill">1920 × 1080 · 25 FPS</span>
+      <span class="pill"><span class="dotp"></span>OTURUM AKTİF</span>
+    </div>
+  </header>
+
+  <main class="top">
+    <section class="panel preview-panel" data-test="preview">
+      <div class="panel-head">
+        <h2 class="panel-title">Önizleme</h2>
+        <span class="panel-meta">V1 akışı <span class="sep">·</span> gerçek zamanlı</span>
+      </div>
+      <div class="stage-wrap">
+        <div class="stage" id="stage">
+          <div class="stage-content" id="stageContent">
+            <div class="stage-top">
+              <span class="badge" id="stageTrack">V1</span>
+              <span class="badge">25 FPS</span>
+            </div>
+            <div class="stage-main">
+              <div class="stage-name" id="stageName">Giriş</div>
+              <div class="stage-sub" id="stageSub">V1 · Video 1</div>
+            </div>
+            <div class="stage-bottom">
+              <span class="tc-chip" id="stageTc">00:00:00:00</span>
+              <span class="stage-hint">← → 1 kare · Shift+← → 25 kare · Home / End</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel inspector" data-test="inspector">
+      <div class="panel-head">
+        <h2 class="panel-title">Klip bilgisi</h2>
+        <span class="panel-meta">IN / OUT</span>
+      </div>
+      <div class="insp-body" id="inspBody"></div>
+    </aside>
+  </main>
+
+  <section class="panel timeline-panel">
+    <div class="panel-head">
+      <h2 class="panel-title">Zaman çizelgesi</h2>
+      <div class="tl-hints">
+        <span class="h"><kbd>←</kbd><kbd>→</kbd> 1 kare</span>
+        <span class="h"><kbd>Shift</kbd>+<kbd>←→</kbd> 25 kare</span>
+        <span class="h"><kbd>Home</kbd> baş · <kbd>End</kbd> bit</span>
+      </div>
+    </div>
+    <div class="tl-body">
+      <div class="gutter" id="gutter"></div>
+      <div class="tl-area" id="tlArea">
+        <div class="ruler" data-test="ruler" id="ruler"></div>
+        <div class="tracks" id="tracks"></div>
+        <div class="scrub" id="scrub"><span id="scrubTc">00:00:00:00</span></div>
+        <div class="playhead" id="playhead"><span class="ph-head"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="panel transport">
+    <div class="tr-group">
+      <span class="tr-label">Oynatma başı</span>
+      <span class="tr-tc" data-test="timecode" id="tcEl">00:00:00:00</span>
+    </div>
+    <div class="tr-sep"></div>
+    <div class="tr-group">
+      <span class="tr-label">Toplam süre</span>
+      <span class="tr-tc dim" data-test="duration" id="durEl">00:00:42:13</span>
+    </div>
+    <div class="tr-spacer"></div>
+    <button class="btn" type="button" data-test="close-gaps" id="closeBtn">
+      <svg viewBox="0 0 20 14" width="17" height="12" aria-hidden="true">
+        <rect x="1" y="1" width="7" height="12" rx="2" fill="#241703"/>
+        <rect x="12" y="1" width="7" height="12" rx="2" fill="#241703"/>
+        <line x1="10" y1="2.2" x2="10" y2="11.8" stroke="#241703" stroke-width="1.7" stroke-dasharray="2.4 2.4"/>
+      </svg>
+      Boşlukları kapat
+    </button>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+var FPS=25;
+function $(s){return document.querySelector(s);}
+
+var tracks=[
+  {id:'V1',name:'Video 1',color:'#2fd6c3',clips:[
+    {name:'Giriş',start:0,dur:125,color:'#2fd6c3'},
+    {name:'Röportaj',start:125,dur:450,color:'#5f8bff'},
+    {name:'B-roll Şehir',start:650,dur:200,color:'#f5a524'},
+    {name:'Kapanış',start:900,dur:163,color:'#f2599f'}
+  ]},
+  {id:'V2',name:'Video 2',color:'#a97dff',clips:[
+    {name:'Logo',start:50,dur:100,color:'#a97dff'},
+    {name:'Alt yazı',start:300,dur:175,color:'#3fb6f6'}
+  ]},
+  {id:'A1',name:'Müzik',color:'#41d690',clips:[
+    {name:'Müzik',start:0,dur:980,color:'#41d690',audio:true}
+  ]}
+];
+
+var area=$('#tlArea'),ruler=$('#ruler'),tracksEl=$('#tracks'),gutter=$('#gutter'),
+    ph=$('#playhead'),scrubEl=$('#scrub'),scrubTc=$('#scrubTc'),
+    tcEl=$('#tcEl'),durEl=$('#durEl'),
+    stage=$('#stage'),stageName=$('#stageName'),stageSub=$('#stageSub'),
+    stageTc=$('#stageTc'),stageTrack=$('#stageTrack'),stageContent=$('#stageContent'),
+    inspBody=$('#inspBody'),closeBtn=$('#closeBtn');
+
+function pad(n){return String(n).padStart(2,'0');}
+function tc(f){
+  f=Math.max(0,Math.round(f));
+  var fr=f%FPS,s=Math.floor(f/FPS);
+  return pad(Math.floor(s/3600))+':'+pad(Math.floor(s/60)%60)+':'+pad(s%60)+':'+pad(fr);
+}
+function rgba(hex,a){
+  var n=parseInt(hex.slice(1),16);
+  return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+a+')';
+}
+function computeTotal(){
+  var m=0;
+  tracks.forEach(function(t){t.clips.forEach(function(c){m=Math.max(m,c.start+c.dur);});});
+  return m;
+}
+
+var INIT_TOTAL=computeTotal();
+var playhead=0,total=INIT_TOTAL,scale=1,selected=null,prevKey=null;
+
+/* ---------- cetvel ---------- */
+function buildRuler(){
+  var W=Math.max(50,area.clientWidth),H=28;
+  var out='',f,x;
+  for(f=0;f<=INIT_TOTAL;f+=5){
+    x=f*scale;
+    if(f%125===0) out+='<line x1="'+x+'" y1="'+(H-15)+'" x2="'+x+'" y2="'+H+'" stroke="#5c6d8c" stroke-width="1"/>';
+    else if(f%25===0) out+='<line x1="'+x+'" y1="'+(H-10)+'" x2="'+x+'" y2="'+H+'" stroke="#3e4d69" stroke-width="1"/>';
+    else out+='<line x1="'+x+'" y1="'+(H-5)+'" x2="'+x+'" y2="'+H+'" stroke="#28324a" stroke-width="1"/>';
+  }
+  for(f=0;f<=INIT_TOTAL;f+=125){
+    x=f*scale;
+    out+='<text x="'+(x+5)+'" y="11" font-family="ui-monospace,Consolas,monospace" font-size="9.5" fill="#8fa1bf" letter-spacing="0.3">'+tc(f)+'</text>';
+  }
+  ruler.innerHTML='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+out+'</svg>';
+}
+
+/* ---------- sol etiketler ---------- */
+function buildGutter(){
+  gutter.innerHTML='<div class="g-spacer"></div>';
+  tracks.forEach(function(t){
+    var it=document.createElement('div');
+    it.className='g-item';it.style.setProperty('--c',t.color);
+    it.innerHTML='<span class="g-chip">'+t.id+'</span><span class="g-name">'+t.name+'</span>';
+    gutter.appendChild(it);
+  });
+}
+
+/* ---------- klip satırları ---------- */
+function buildTracks(){
+  tracksEl.innerHTML='';
+  tracks.forEach(function(t){
+    var row=document.createElement('div');
+    row.className='track';row.setAttribute('data-track',t.id);
+    t.clips.forEach(function(c){
+      var el=document.createElement('div');
+      el.className='clip'+(c.audio?' audio':'');
+      el.setAttribute('data-clip',c.name);
+      el.style.setProperty('--c',c.color);
+      el.style.setProperty('--cA1',rgba(c.color,.32));
+      el.style.setProperty('--cA2',rgba(c.color,.14));
+      el.style.setProperty('--cB',rgba(c.color,.5));
+      el.style.setProperty('--cSel1',rgba(c.color,.46));
+      el.style.setProperty('--cSel2',rgba(c.color,.26));
+      el.style.setProperty('--cGlow',rgba(c.color,.5));
+      el.style.left=(c.start*scale)+'px';
+      el.style.width=(c.dur*scale)+'px';
+      el.title=c.name+'  ·  '+tc(c.start)+' → '+tc(c.start+c.dur);
+      if(c.audio){el.appendChild(document.createElement('canvas'));}
+      var nm=document.createElement('span');
+      nm.className='cname';nm.textContent=c.name;
+      el.appendChild(nm);
+      el.addEventListener('click',function(e){e.stopPropagation();selectClip(c,t,el);});
+      row.appendChild(el);
+      c.el=el;
+    });
+    tracksEl.appendChild(row);
+  });
+  tracks.forEach(function(t){t.clips.forEach(function(c){
+    if(c.audio){drawWave(c.el.querySelector('canvas'),c);}
+  });});
+}
+
+function drawWave(cv,clip){
+  var w=Math.max(20,Math.round(clip.dur*scale));
+  var h=(cv.parentElement&&cv.parentElement.clientHeight)||60;
+  var dpr=window.devicePixelRatio||1;
+  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+  var ctx=cv.getContext('2d');if(!ctx)return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  var n=clip.dur,bw=w/n,mid=h/2,amp=h*0.42,i,v,bh,y;
+  ctx.strokeStyle=rgba(clip.color,.22);ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,Math.round(mid)+0.5);ctx.lineTo(w,Math.round(mid)+0.5);ctx.stroke();
+  for(i=0;i<n;i++){
+    v=0.5+0.3*Math.sin(i/9)+0.15*Math.sin(i/2.3);
+    bh=v*2*amp;
+    y=mid-bh/2;
+    ctx.globalAlpha=0.34+0.66*v;
+    ctx.fillStyle=clip.color;
+    ctx.fillRect(i*bw,y,Math.max(bw*0.6,0.9),bh);
+  }
+  ctx.globalAlpha=1;
+}
+
+/* ---------- denetçi ---------- */
+function irow(l,v){return '<div class="irow"><span>'+l+'</span><b>'+v+'</b></div>';}
+var EMPTY_HTML=
+  '<div class="insp-empty">'
+  +'<svg width="36" height="36" viewBox="0 0 36 36" fill="none">'
+    +'<rect x="5" y="10" width="26" height="16" rx="3" stroke="#3c4c6c" stroke-width="1.6"/>'
+    +'<path d="M15 14.5l8 3.5-8 3.5v-7z" fill="#3c4c6c"/>'
+    +'<path d="M5 7h26M5 29h26" stroke="#2a3550" stroke-width="1.5" stroke-linecap="round"/>'
+  +'</svg>'
+  +'<b>Klip seçilmedi</b>'
+  +'<span>Zaman çizelgesinden bir klip seçin; giriş, çıkış ve süre burada listelenir.</span>'
+  +'</div>';
+
+function selectClip(clip,track,el){
+  selected={clip:clip,track:track,el:el};
+  var old=tracksEl.querySelector('.clip.selected');
+  if(old)old.classList.remove('selected');
+  el.classList.add('selected');
+  renderInspector();
+}
+
+function renderInspector(){
+  if(!selected){inspBody.innerHTML=EMPTY_HTML;return;}
+  var c=selected.clip,t=selected.track;
+  inspBody.innerHTML=
+    '<div class="insp-head">'
+    +'<span class="insp-swatch" style="background:'+rgba(c.color,.14)+';box-shadow:inset 0 0 0 1px '+rgba(c.color,.5)+'">'
+      +'<svg width="17" height="17" viewBox="0 0 17 17" fill="none">'
+        +'<rect x="1.5" y="3.5" width="14" height="10" rx="2" stroke="'+c.color+'" stroke-width="1.4"/>'
+        +'<path d="M5.5 3.5v10M11.5 3.5v10" stroke="'+c.color+'" stroke-width="1.4"/>'
+        +'<circle cx="3.5" cy="8.5" r="1" fill="'+c.color+'"/><circle cx="13.5" cy="8.5" r="1" fill="'+c.color+'"/>'
+      +'</svg>'
+    +'</span>'
+    +'<div><div class="insp-name">'+c.name+'</div>'
+    +'<div class="insp-track"><span class="tdot" style="background:'+c.color+'"></span>'+t.id+' · '+t.name+'</div></div>'
+    +'</div>'
+    +'<div class="insp-rows">'
+      +irow('Giriş noktası',tc(c.start))
+      +irow('Çıkış noktası',tc(c.start+c.dur))
+      +irow('Süre',tc(c.dur))
+    +'</div>'
+    +'<div class="insp-note">Kare <b>'+c.start+'</b>–<b>'+(c.start+c.dur-1)+'</b> · toplam <b>'+c.dur+'</b> kare</div>';
+}
+
+/* ---------- önizleme ---------- */
+function setStageVars(c){
+  stage.style.setProperty('--pc',c);
+  stage.style.setProperty('--pcb',rgba(c,.55));
+  stage.style.setProperty('--pcb2',rgba(c,.13));
+  stage.style.setProperty('--pglow',rgba(c,.5));
+  stage.style.background=
+    'radial-gradient(130% 150% at 10% -10%, '+rgba(c,.34)+', transparent 55%),'
+   +'radial-gradient(120% 140% at 95% 115%, '+rgba(c,.26)+', transparent 60%),'
+   +'repeating-linear-gradient(-45deg, '+rgba(c,.05)+' 0 2px, transparent 2px 16px),'
+   +'linear-gradient(180deg,#121826,#0b0f16)';
+}
+function renderPreview(cur){
+  if(!cur){
+    stage.classList.add('gap');
+    setStageVars('#5b6b82');
+    stageName.textContent='Boşluk';
+    stageSub.textContent='V1 · Bu noktada klip yok';
+    stageTrack.textContent='—';
+  }else{
+    stage.classList.remove('gap');
+    setStageVars(cur.color);
+    stageName.textContent=cur.name;
+    stageSub.textContent='V1 · Video 1';
+    stageTrack.textContent='V1';
+  }
+}
+
+/* ---------- durum ---------- */
+function setPlayhead(f){
+  playhead=Math.min(Math.max(Math.round(f),0),total);
+  var W=area.clientWidth;
+  ph.style.left=Math.min(playhead*scale,Math.max(0,W-1))+'px';
+  tcEl.textContent=tc(playhead);
+  stageTc.textContent=tc(playhead);
+  var v1=tracks[0],cur=null,i,c;
+  for(i=0;i<v1.clips.length;i++){
+    c=v1.clips[i];
+    if(playhead>=c.start&&playhead<c.start+c.dur){cur=c;break;}
+  }
+  var key=cur?cur.name:'__gap__';
+  if(key!==prevKey){
+    prevKey=key;
+    renderPreview(cur);
+    stageContent.classList.remove('swap');
+    void stageContent.offsetWidth;
+    stageContent.classList.add('swap');
+  }
+}
+function renderDur(){durEl.textContent=tc(total);}
+
+/* ---------- boşlukları kapat (yalnızca V1) ---------- */
+function closeGaps(){
+  var v1=tracks[0],cur=0;
+  v1.clips.forEach(function(c){c.start=cur;cur+=c.dur;});
+  total=computeTotal();
+  v1.clips.forEach(function(c){
+    c.el.style.left=(c.start*scale)+'px';
+    c.el.title=c.name+'  ·  '+tc(c.start)+' → '+tc(c.start+c.dur);
+  });
+  renderDur();
+  if(selected&&selected.track===v1){renderInspector();}
+  setPlayhead(playhead);
+}
+closeBtn.addEventListener('click',closeGaps);
+
+/* ---------- klavye ---------- */
+window.addEventListener('keydown',function(e){
+  var k=e.key;
+  if(k==='ArrowRight'){setPlayhead(playhead+(e.shiftKey?25:1));e.preventDefault();}
+  else if(k==='ArrowLeft'){setPlayhead(playhead-(e.shiftKey?25:1));e.preventDefault();}
+  else if(k==='Home'){setPlayhead(0);e.preventDefault();}
+  else if(k==='End'){setPlayhead(total);e.preventDefault();}
+});
+
+/* ---------- cetvel tıklaması ---------- */
+ruler.addEventListener('click',function(e){
+  var r=ruler.getBoundingClientRect();
+  setPlayhead(Math.round((e.clientX-r.left)/scale));
+});
+
+/* ---------- gezinme hayaleti ---------- */
+area.addEventListener('mousemove',function(e){
+  var r=area.getBoundingClientRect();
+  var x=Math.min(Math.max(e.clientX-r.left,0),INIT_TOTAL*scale);
+  scrubEl.style.left=x+'px';
+  scrubTc.textContent=tc(Math.min(Math.round(x/scale),INIT_TOTAL));
+  scrubEl.classList.toggle('flip',x>area.clientWidth-92);
+  scrubEl.classList.add('on');
+});
+area.addEventListener('mouseleave',function(){scrubEl.classList.remove('on');});
+
+/* ---------- yeniden boyutlandırma ---------- */
+function measure(){
+  scale=(area.clientWidth||1200)/INIT_TOTAL;
+  area.style.setProperty('--p',scale+'px');
+}
+function relayout(){
+  measure();
+  buildRuler();
+  tracks.forEach(function(t){t.clips.forEach(function(c){
+    c.el.style.left=(c.start*scale)+'px';
+    c.el.style.width=(c.dur*scale)+'px';
+    if(c.audio){drawWave(c.el.querySelector('canvas'),c);}
+  });});
+  setPlayhead(playhead);
+}
+var rt;
+window.addEventListener('resize',function(){
+  clearTimeout(rt);
+  rt=setTimeout(relayout,120);
+});
+
+/* ---------- başlat ---------- */
+function fullBuild(){
+  measure();
+  buildRuler();
+  buildGutter();
+  buildTracks();
+  renderInspector();
+  renderDur();
+  setPlayhead(0);
+  requestAnimationFrame(function(){area.classList.add('anim');});
+}
+if(area.clientWidth>0){fullBuild();}
+else{requestAnimationFrame(fullBuild);}
+})();
+</script>
+</body>
+</html>

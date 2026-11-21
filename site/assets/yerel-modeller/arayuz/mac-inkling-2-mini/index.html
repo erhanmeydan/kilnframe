@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Düzenleme</title>
+<style>
+  :root{
+    --bg:#0b0f16;
+    --panel:#151c28;
+    --border:#28324a;
+    --text:#e9eff8;
+    --muted:#9fb0c4;
+    --accent:#ffd166;
+    --cyan:#38bdf8;
+    --header-w:172px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; overflow:hidden; color:var(--text); user-select:none;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(1100px 620px at 18% -12%, #1d2740 0%, rgba(29,39,64,0) 60%),
+      radial-gradient(900px 520px at 105% 115%, #16202f 0%, rgba(22,32,47,0) 55%),
+      var(--bg);
+  }
+  .app{height:100vh; padding:14px; display:grid; grid-template-rows:312px minmax(0,1fr) 66px; gap:12px}
+
+  .panel{
+    background:linear-gradient(180deg,#171e2c 0%, #131a26 100%);
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:0 12px 32px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.045);
+    overflow:hidden; display:flex; flex-direction:column; min-height:0;
+  }
+  .panel-title{
+    height:36px; flex:0 0 auto; padding:0 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:#cdd8e8; font-weight:800;
+  }
+  .panel-title .meta{letter-spacing:.03em; text-transform:none; color:var(--muted); font-weight:600; font-size:11px}
+
+  /* ---------- Top area ---------- */
+  .top{display:grid; grid-template-columns:minmax(0,1fr) 372px; gap:12px; min-height:0}
+
+  .preview-stage{position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#0d1320}
+  .preview-bg{
+    position:absolute; inset:0; transition:background .25s ease;
+    background:
+      radial-gradient(900px 420px at 74% 18%, rgba(255,255,255,.30), rgba(255,255,255,0) 55%),
+      repeating-linear-gradient(115deg, rgba(255,255,255,.10) 0 2px, rgba(255,255,255,0) 2px 26px),
+      linear-gradient(135deg, var(--pc,#14b8a6) 0%, #101827 82%);
+  }
+  .preview-stage.is-gap .preview-bg{
+    background:
+      radial-gradient(900px 420px at 74% 18%, rgba(255,255,255,.06), rgba(255,255,255,0) 55%),
+      repeating-linear-gradient(115deg, rgba(255,255,255,.045) 0 2px, rgba(255,255,255,0) 2px 26px),
+      linear-gradient(135deg, #1d2635 0%, #10151f 82%);
+  }
+  .preview-tag{position:absolute; top:14px; left:16px; z-index:2; padding:5px 10px; border-radius:999px; background:rgba(6,10,17,.55); border:1px solid rgba(255,255,255,.22); font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:#fff; font-weight:700}
+  .preview-name{position:relative; z-index:2; max-width:92%; text-align:center; font-size:clamp(34px,4vw,56px); line-height:1.02; font-weight:800; letter-spacing:-0.02em; color:#fff; text-shadow:0 5px 26px rgba(0,0,0,.55)}
+  .preview-stage.is-gap .preview-name{color:#c3cede; font-size:clamp(28px,3vw,44px); letter-spacing:.02em}
+  .preview-tc{position:absolute; right:16px; bottom:14px; z-index:2; padding:6px 11px; border-radius:8px; background:rgba(5,9,15,.62); border:1px solid rgba(255,255,255,.18); font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:16px; letter-spacing:.04em; color:#fff}
+
+  .inspector-body{flex:1; min-height:0; padding:10px 12px; display:flex; flex-direction:column; gap:8px; overflow:hidden}
+  .insp-head{display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:11px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06)}
+  .swatch{width:16px; height:16px; flex:0 0 auto; border-radius:5px; background:#14b8a6; box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 2px 6px rgba(0,0,0,.4)}
+  .insp-titles{display:flex; flex-direction:column; gap:3px; min-width:0}
+  .insp-titles strong{font-size:17px; line-height:1.15; color:#f5f8ff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .insp-titles span{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700}
+  .insp-row{display:grid; grid-template-columns:112px 1fr; align-items:center; gap:10px; padding:8px 11px; border-radius:9px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05)}
+  .insp-row span{font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:800}
+  .insp-row strong{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:14px; letter-spacing:.03em; color:#f3f7ff; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .insp-pos{margin-top:auto; display:flex; flex-direction:column; gap:5px; padding-top:2px}
+  .insp-pos .t-label{font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:800}
+  .posbar{position:relative; height:15px; border-radius:8px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); overflow:hidden}
+  .posfill{position:absolute; top:0; bottom:0; border-radius:7px; box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+  .posphead{position:absolute; top:-2px; bottom:-2px; width:3px; transform:translateX(-50%); background:var(--accent); box-shadow:0 0 6px rgba(255,209,102,.7)}
+
+  /* ---------- Timeline ---------- */
+  .timeline-panel{min-height:0}
+  .timeline-body{position:relative; flex:1; min-height:0; padding:10px 12px 12px; display:grid; grid-template-columns:var(--header-w) minmax(0,1fr); grid-template-rows:34px minmax(0,1fr); gap:8px}
+  .corner{grid-column:1; grid-row:1; display:flex; align-items:center; justify-content:flex-end; padding-right:10px; border-right:1px solid rgba(255,255,255,.07); color:var(--muted); font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:800}
+  .ruler{grid-column:2; grid-row:1; position:relative; cursor:pointer; border-bottom:1px solid rgba(255,255,255,.12); background:linear-gradient(180deg,#101623,#0d1320); border-radius:6px 6px 0 0}
+  .tick{position:absolute; bottom:0; width:1px; height:7px; background:rgba(255,255,255,.20)}
+  .tick.major{height:12px; background:rgba(255,255,255,.45)}
+  .tick-label{position:absolute; bottom:15px; transform:translateX(-50%); font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:10px; letter-spacing:.03em; color:#ccd7e8; white-space:nowrap; background:rgba(6,10,17,.55); padding:2px 5px; border-radius:4px}
+  .track-stack{grid-column:1 / -1; grid-row:2; display:flex; flex-direction:column; gap:8px; min-height:0}
+  .track-row{display:grid; grid-template-columns:var(--header-w) minmax(0,1fr); column-gap:8px; min-height:0}
+  .track-head{border-right:1px solid rgba(255,255,255,.07); background:rgba(255,255,255,.02); border-radius:10px 0 0 10px; padding:8px 11px; display:flex; align-items:center; gap:9px}
+  .tid{font-family:var(--mono); font-size:11px; font-weight:800; padding:3px 7px; border-radius:6px; color:#0b1020}
+  .tid-v1{background:#38bdf8}.tid-v2{background:#a78bfa;color:#221040}.tid-a1{background:#34d399;color:#05281b}
+  .tname{font-size:13px; font-weight:700; color:#e9eff8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .lane{position:relative; border:1px solid rgba(255,255,255,.07); border-radius:10px; background:linear-gradient(180deg,#111826,#0e1420); overflow:hidden}
+  .gridline{position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.05); z-index:0}
+
+  .clip{
+    position:absolute; top:7px; bottom:7px; z-index:2; border-radius:9px; cursor:pointer; overflow:hidden;
+    display:flex; align-items:center; padding:0 10px; white-space:nowrap; color:#fff; font-weight:700; font-size:13px; letter-spacing:.01em; text-shadow:0 1px 2px rgba(0,0,0,.55);
+    border:1px solid rgba(255,255,255,.28);
+    background:linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 46%), linear-gradient(135deg, var(--c), #101827 165%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 6px 14px rgba(0,0,0,.35);
+    transition:filter .12s ease, box-shadow .12s ease;
+  }
+  .clip:hover{filter:brightness(1.13)}
+  .clip:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
+  .clip.selected{box-shadow:0 0 0 2px var(--accent), inset 0 1px 0 rgba(255,255,255,.3), 0 8px 18px rgba(0,0,0,.45); filter:brightness(1.16)}
+  .clip-name{position:relative; z-index:2; overflow:hidden; text-overflow:ellipsis}
+  .clip.audio{flex-direction:column; align-items:flex-start; justify-content:flex-start; padding:7px 9px}
+  .clip.audio .clip-name{font-size:12px}
+  .wave{position:absolute; left:6px; bottom:5px; height:calc(100% - 30px); width:calc(100% - 12px); z-index:1}
+
+  .playhead{grid-column:2; grid-row:1 / 3; position:relative; pointer-events:none; z-index:20}
+  .playhead .line{position:absolute; top:0; bottom:0; left:calc(var(--p,0) * 100%); width:2px; margin-left:-1px; background:var(--accent); box-shadow:0 0 12px rgba(255,209,102,.55)}
+  .playhead .line::before{content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); border-left:7px solid transparent; border-right:7px solid transparent; border-top:9px solid var(--accent)}
+
+  /* ---------- Transport ---------- */
+  .transport{flex-direction:row; align-items:center; gap:18px; padding:0 16px}
+  .t-group{display:flex; flex-direction:column; gap:3px}
+  .t-label{font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:800}
+  .timecode{font-family:var(--mono); font-variant-numeric:tabular-nums; font-style:normal; font-size:22px; font-weight:700; letter-spacing:.05em; color:#fff; line-height:1}
+  .timecode.dim{color:#c9d5e6; font-size:18px}
+  .t-sep{width:1px; align-self:stretch; margin:12px 0; background:rgba(255,255,255,.09)}
+  .spacer{flex:1}
+  .hint{font-size:11px; color:var(--muted); font-weight:600; white-space:nowrap}
+  #closeGapsBtn{
+    height:40px; padding:0 18px; border-radius:10px; cursor:pointer;
+    background:linear-gradient(180deg,#ffd166,#f2b23e); color:#241a05; font-weight:800; font-size:13px; letter-spacing:.02em;
+    border:1px solid #ffe3a3; box-shadow:0 6px 16px rgba(242,178,62,.28), inset 0 1px 0 rgba(255,255,255,.5);
+    transition:filter .12s ease, transform .05s ease;
+  }
+  #closeGapsBtn:hover{filter:brightness(1.06)}
+  #closeGapsBtn:active{transform:translateY(1px)}
+  #closeGapsBtn:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <section class="top">
+    <div class="panel preview-panel" data-test="preview">
+      <div class="panel-title"><span>Önizleme</span><span class="meta">V1 · Video 1</span></div>
+      <div class="preview-stage" id="previewStage" style="--pc:#0d9488">
+        <div class="preview-bg"></div>
+        <div class="preview-tag" id="previewTag">Video 1</div>
+        <div class="preview-name" id="previewName">Giriş</div>
+        <div class="preview-tc" id="previewTc">00:00:00:00</div>
+      </div>
+    </div>
+
+    <aside class="panel inspector-panel" data-test="inspector">
+      <div class="panel-title"><span>Klip bilgisi</span><span class="meta" id="insMeta">V1</span></div>
+      <div class="inspector-body">
+        <div class="insp-head">
+          <span class="swatch" id="insSwatch"></span>
+          <div class="insp-titles"><strong id="insName">Giriş</strong><span id="insTrack">V1 · Video 1</span></div>
+        </div>
+        <div class="insp-row"><span>Giriş noktası</span><strong id="insIn">00:00:00:00</strong></div>
+        <div class="insp-row"><span>Çıkış noktası</span><strong id="insOut">00:00:05:00</strong></div>
+        <div class="insp-row"><span>Süre</span><strong id="insDur">00:00:05:00</strong></div>
+        <div class="insp-pos">
+          <span class="t-label">Zaman çizelgesindeki konum</span>
+          <div class="posbar" id="posBar">
+            <div class="posfill" id="posFill"></div>
+            <div class="posphead" id="posHead"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="panel timeline-panel">
+    <div class="panel-title"><span>Zaman çizelgesi</span><span class="meta">25 kare/sn · HH:MM:SS:FF</span></div>
+    <div class="timeline-body" id="timelineBody" style="--p:0">
+      <div class="corner">Şeritler</div>
+      <div class="ruler" data-test="ruler" id="ruler" title="Zaman çizelgesine tıklayarak oynatma imlecini taşıyın"></div>
+      <div class="track-stack">
+        <div class="track-row" data-track="V1" style="flex:1.15">
+          <div class="track-head"><span class="tid tid-v1">V1</span><span class="tname">Video 1</span></div>
+          <div class="lane" id="lane-V1"></div>
+        </div>
+        <div class="track-row" data-track="V2" style="flex:0.9">
+          <div class="track-head"><span class="tid tid-v2">V2</span><span class="tname">Video 2</span></div>
+          <div class="lane" id="lane-V2"></div>
+        </div>
+        <div class="track-row" data-track="A1" style="flex:1.05">
+          <div class="track-head"><span class="tid tid-a1">A1</span><span class="tname">Müzik</span></div>
+          <div class="lane lane-audio" id="lane-A1"></div>
+        </div>
+      </div>
+      <div class="playhead" id="playhead"><div class="line"></div></div>
+    </div>
+  </section>
+
+  <footer class="panel transport">
+    <div class="t-group"><span class="t-label">Oynatma zamanı</span><span class="timecode" data-test="timecode" id="tcCurrent">00:00:00:00</span></div>
+    <div class="t-sep"></div>
+    <div class="t-group"><span class="t-label">Toplam süre</span><span class="timecode dim" data-test="duration" id="tcTotal">00:00:42:13</span></div>
+    <div class="spacer"></div>
+    <div class="hint">← → kare · Shift + ← → 25 kare · Home / End</div>
+    <button id="closeGapsBtn" data-test="close-gaps" type="button">Boşlukları kapat</button>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var FPS = 25;
+  var SVGNS = 'http://www.w3.org/2000/svg';
+
+  var tracks = [
+    { id:'V1', name:'Video 1', clips:[
+      { name:'Giriş',         start:0,   duration:125, color:'#0d9488' },
+      { name:'Röportaj',      start:125, duration:450, color:'#2563eb' },
+      { name:'B-roll Şehir',  start:650, duration:200, color:'#b45309' },
+      { name:'Kapanış',       start:900, duration:163, color:'#6d28d9' }
+    ]},
+    { id:'V2', name:'Video 2', clips:[
+      { name:'Logo',          start:50,  duration:100, color:'#047857' },
+      { name:'Alt yazı',      start:300, duration:175, color:'#c2410c' }
+    ]},
+    { id:'A1', name:'Müzik', clips:[
+      { name:'Müzik',         start:0,   duration:980, color:'#15803d', audio:true }
+    ]}
+  ];
+
+  var playhead = 0;
+  var selectedClip = tracks[0].clips[0];
+
+  var timelineBody = document.getElementById('timelineBody');
+  var ruler = document.getElementById('ruler');
+  var tcCurrent = document.getElementById('tcCurrent');
+  var tcTotal = document.getElementById('tcTotal');
+  var previewStage = document.getElementById('previewStage');
+  var previewName = document.getElementById('previewName');
+  var previewTag = document.getElementById('previewTag');
+  var previewTc = document.getElementById('previewTc');
+  var insMeta = document.getElementById('insMeta');
+  var insSwatch = document.getElementById('insSwatch');
+  var insName = document.getElementById('insName');
+  var insTrack = document.getElementById('insTrack');
+  var insIn = document.getElementById('insIn');
+  var insOut = document.getElementById('insOut');
+  var insDur = document.getElementById('insDur');
+  var posFill = document.getElementById('posFill');
+  var posHead = document.getElementById('posHead');
+  var closeBtn = document.getElementById('closeGapsBtn');
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function tc(frame){
+    frame = Math.max(0, Math.round(frame));
+    var f = frame % FPS;
+    var sTotal = Math.floor(frame / FPS);
+    var s = sTotal % 60;
+    var m = Math.floor(sTotal / 60) % 60;
+    var h = Math.floor(sTotal / 3600);
+    return pad(h)+':'+pad(m)+':'+pad(s)+':'+pad(f);
+  }
+  function totalDuration(){
+    var t = 0;
+    tracks.forEach(function(tr){ tr.clips.forEach(function(c){ t = Math.max(t, c.start + c.duration); }); });
+    return t;
+  }
+  function niceInterval(total){
+    var candidates = [25,50,100,125,250];
+    for (var i=0;i<candidates.length;i++){
+      if (Math.floor(total / candidates[i]) + 1 <= 6) return candidates[i];
+    }
+    return 500;
+  }
+
+  function renderWaveInto(el, clip){
+    var N = Math.min(240, Math.max(48, Math.round(clip.duration / 4)));
+    var svg = document.createElementNS(SVGNS,'svg');
+    svg.setAttribute('class','wave');
+    svg.setAttribute('viewBox','0 0 '+N+' 100');
+    svg.setAttribute('preserveAspectRatio','none');
+    for (var i=0;i<N;i++){
+      var v = 0.5 + 0.3*Math.sin(i/9) + 0.15*Math.sin(i/2.3);
+      var h = Math.max(4, Math.round(v * 92));
+      var r = document.createElementNS(SVGNS,'rect');
+      r.setAttribute('x', (i + 0.18).toFixed(2));
+      r.setAttribute('width', '0.64');
+      r.setAttribute('y', String(100 - h));
+      r.setAttribute('height', String(h));
+      r.setAttribute('rx', '0.28');
+      r.setAttribute('fill', 'rgba(255,255,255,0.9)');
+      svg.appendChild(r);
+    }
+    el.appendChild(svg);
+  }
+
+  function buildClips(){
+    tracks.forEach(function(tr){
+      var lane = document.getElementById('lane-' + tr.id);
+      tr.clips.forEach(function(clip){
+        clip.track = tr;
+        var el = document.createElement('div');
+        el.className = 'clip' + (clip.audio ? ' audio' : '');
+        el.setAttribute('data-clip', clip.name);
+        el.tabIndex = 0;
+        el.setAttribute('role','button');
+        el.setAttribute('aria-label', clip.name + ' — ' + tr.id);
+        el.style.setProperty('--c', clip.color);
+        var name = document.createElement('span');
+        name.className = 'clip-name';
+        name.textContent = clip.name;
+        el.appendChild(name);
+        if (clip.audio) renderWaveInto(el, clip);
+        lane.appendChild(el);
+        clip.el = el;
+        el.addEventListener('click', function(){ selectClip(clip); });
+        el.addEventListener('keydown', function(e){
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectClip(clip); }
+        });
+      });
+    });
+  }
+
+  function layoutClips(){
+    var total = totalDuration();
+    tracks.forEach(function(tr){
+      tr.clips.forEach(function(clip){
+        clip.el.style.left = (clip.start / total * 100) + '%';
+        clip.el.style.width = (clip.duration / total * 100) + '%';
+      });
+    });
+  }
+
+  function renderRuler(){
+    var total = totalDuration();
+    ruler.innerHTML = '';
+    if (!total) return;
+    var interval = niceInterval(total);
+
+    for (var f=0; f<=total; f+=25){
+      var t = document.createElement('div');
+      t.className = 'tick';
+      t.style.left = (f / total * 100) + '%';
+      ruler.appendChild(t);
+    }
+
+    var width = ruler.clientWidth || 1200;
+    var minPx = 104;
+    var kept = [];
+    for (var m=0; m<total; m+=interval){
+      if (kept.length === 0 || (m - kept[kept.length-1]) / total * width >= minPx) kept.push(m);
+    }
+
+    kept.forEach(function(f){
+      var tick = document.createElement('div');
+      tick.className = 'tick major';
+      tick.style.left = (f / total * 100) + '%';
+      var lab = document.createElement('span');
+      lab.className = 'tick-label';
+      lab.textContent = tc(f);
+      if (f === 0) lab.style.transform = 'translateX(12px)';
+      else if (f / total > 0.92) lab.style.transform = 'translateX(calc(-100% - 2px))';
+      tick.appendChild(lab);
+      ruler.appendChild(tick);
+    });
+  }
+
+  function renderGrid(){
+    var total = totalDuration();
+    if (!total) return;
+    var interval = niceInterval(total);
+    tracks.forEach(function(tr){
+      var lane = document.getElementById('lane-' + tr.id);
+      lane.querySelectorAll('.gridline').forEach(function(n){ n.remove(); });
+      for (var f=0; f<=total; f+=interval){
+        var g = document.createElement('div');
+        g.className = 'gridline';
+        g.style.left = (f / total * 100) + '%';
+        lane.appendChild(g);
+      }
+    });
+  }
+
+  function updatePlayhead(){
+    var total = totalDuration();
+    playhead = Math.min(Math.max(playhead,0), total);
+    timelineBody.style.setProperty('--p', (total ? playhead / total : 0).toFixed(6));
+    tcCurrent.textContent = tc(playhead);
+    previewTc.textContent = tc(playhead);
+    if (posHead && total){
+      var p = playhead / total * 100;
+      posHead.style.left = 'clamp(4px, ' + p + '%, calc(100% - 4px))';
+    }
+  }
+
+  function updateDuration(){
+    tcTotal.textContent = tc(totalDuration());
+  }
+
+  function updatePreview(){
+    var clip = null;
+    tracks[0].clips.forEach(function(c){
+      if (playhead >= c.start && playhead < c.start + c.duration) clip = c;
+    });
+    if (clip){
+      previewStage.classList.remove('is-gap');
+      previewStage.style.setProperty('--pc', clip.color);
+      previewName.textContent = clip.name;
+      previewTag.textContent = 'Video 1';
+    } else {
+      previewStage.classList.add('is-gap');
+      previewStage.style.setProperty('--pc', '#263244');
+      previewName.textContent = 'Boşluk';
+      previewTag.textContent = 'Video 1';
+    }
+  }
+
+  function updateInspector(){
+    var clip = selectedClip;
+    if (!clip){
+      insSwatch.style.background = 'transparent';
+      insName.textContent = '—';
+      insTrack.textContent = '—';
+      insIn.textContent = '—';
+      insOut.textContent = '—';
+      insDur.textContent = '—';
+      insMeta.textContent = '—';
+      posFill.style.display = 'none';
+      return;
+    }
+    var tr = clip.track;
+    var total = totalDuration();
+    insSwatch.style.background = clip.color;
+    insName.textContent = clip.name;
+    insTrack.textContent = tr.id + ' · ' + tr.name;
+    insIn.textContent = tc(clip.start);
+    insOut.textContent = tc(clip.start + clip.duration);
+    insDur.textContent = tc(clip.duration);
+    insMeta.textContent = tr.id;
+    posFill.style.display = 'block';
+    posFill.style.left = (clip.start / total * 100) + '%';
+    posFill.style.width = (clip.duration / total * 100) + '%';
+    posFill.style.background = 'linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0) 60%), ' + clip.color;
+  }
+
+  function selectClip(clip){
+    selectedClip = clip;
+    tracks.forEach(function(tr){
+      tr.clips.forEach(function(c){ c.el.classList.toggle('selected', c === clip); });
+    });
+    updateInspector();
+  }
+
+  function updateAll(rebuildRuler){
+    layoutClips();
+    if (rebuildRuler){ renderRuler(); renderGrid(); }
+    updatePlayhead();
+    updateDuration();
+    updatePreview();
+    updateInspector();
+  }
+
+  function closeGaps(){
+    var v1 = tracks[0];
+    var sorted = v1.clips.slice().sort(function(a,b){ return a.start - b.start; });
+    var cursor = sorted[0].start;
+    sorted.forEach(function(c){ c.start = cursor; cursor += c.duration; });
+    var t = totalDuration();
+    if (playhead > t) playhead = t;
+    updateAll(true);
+  }
+
+  window.addEventListener('keydown', function(e){
+    var tag = e.target && e.target.tagName ? e.target.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    var handled = true;
+    switch (e.key){
+      case 'ArrowRight': playhead += e.shiftKey ? 25 : 1; break;
+      case 'ArrowLeft':  playhead -= e.shiftKey ? 25 : 1; break;
+      case 'Home':       playhead = 0; break;
+      case 'End':        playhead = totalDuration(); break;
+      default: handled = false;
+    }
+    if (handled){
+      e.preventDefault();
+      var t = totalDuration();
+      playhead = Math.min(Math.max(playhead,0), t);
+      updatePlayhead();
+      updatePreview();
+    }
+  });
+
+  ruler.addEventListener('click', function(e){
+    var rect = ruler.getBoundingClientRect();
+    var total = totalDuration();
+    if (!rect.width || !total) return;
+    var f = Math.round((e.clientX - rect.left) / rect.width * total);
+    playhead = Math.min(Math.max(f,0), total);
+    updatePlayhead();
+    updatePreview();
+  });
+
+  closeBtn.addEventListener('click', function(){ closeGaps(); });
+
+  buildClips();
+  renderRuler();
+  renderGrid();
+  layoutClips();
+  selectClip(selectedClip);
+  updatePlayhead();
+  updateDuration();
+  updatePreview();
+})();
+</script>
+</body>
+</html>

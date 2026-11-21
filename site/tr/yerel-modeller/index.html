@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yerel Modeller · Kilnframe</title>
+    <meta name="description" content="Qwen 3.8 27B ve Inkling 2 Mini, LM Studio ile dört bilgisayarda: tek denemede 3B sahne, video kurgu arayüzü ve hız." />
+    <link rel="icon" href="../../assets/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/tr/yerel-modeller/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/tr/yerel-modeller/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="İki yerel model, dört bilgisayar · Kilnframe" />
+    <meta property="og:image" content="https://kilnframe.com/assets/yerel-modeller/video.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../assets/studio.css" />
+    <!-- visit counts without cookies (goatcounter.com); downloads are counted as clicks -->
+    <script data-goatcounter="https://kilnframe.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+    <style>
+      /* yalnızca bu sayfa: yerel model testi */
+      .ym-hero { padding-top: 64px; border-top: 0; }
+      .ym-film { border-radius: 12px; overflow: hidden; background: var(--navy); margin-bottom: 20px; }
+      .ym-film video { width: 100%; aspect-ratio: 16 / 9; }
+      .ym-tldr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .ym-tldr > div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+      .ym-tldr b { display: block; font: 600 22px/1.25 var(--heading); letter-spacing: -0.02em; margin: 6px 0; }
+      .ym-tldr p { margin: 0; color: var(--ink-2); font-size: 15px; }
+      .ym-sub { font: 500 11.5px var(--mono); color: var(--ink-3); text-transform: none; letter-spacing: 0; }
+      .ym-matrix td { font-size: 14px; vertical-align: top; }
+      .ym-mark { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-right: 8px; vertical-align: -4px; }
+      .ym-mark.ok { background: #d9eadf; color: #2f6b4f; }
+      .ym-mark.partial { background: #f1e3bf; color: #8a6418; }
+      .ym-mark.fail { background: var(--clay-soft); color: var(--clay); }
+      .ym-gallery { margin-top: 24px; grid-template-columns: repeat(3, 1fr); }
+      .ym-gallery figure { position: relative; }
+      .ym-live { position: absolute; right: 10px; top: 10px; font: 600 12.5px var(--body); border: 0; border-radius: 6px; padding: 6px 11px; background: rgba(247,242,234,.94); color: var(--ink); cursor: pointer; }
+      .ym-shots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+      .ym-shots figure { margin: 0; background: var(--navy); border-radius: 12px; overflow: hidden; }
+      .ym-shots figcaption { padding: 9px 12px 11px; color: #dfe3ec; font-size: 13px; }
+      .ym-shots figcaption a { color: #f0c8ad; }
+      .ym-checks { columns: 2 260px; column-gap: 28px; list-style: none; padding: 0; margin: 0 0 8px; font-size: 15px; }
+      .ym-checks li { break-inside: avoid; padding: 6px 0 6px 24px; position: relative; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+      .ym-checks li::before { content: "✓"; position: absolute; left: 2px; color: #2f6b4f; font-weight: 700; }
+      .ym-more { margin-top: 22px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+      .ym-more > summary { cursor: pointer; padding: 13px 16px; font-weight: 600; }
+      .ym-more > :not(summary) { margin: 0 16px 16px; }
+      .ym-more h3 { font: 600 17px var(--heading); margin-top: 22px; }
+      .ym-r { display: inline-block; min-width: 44px; text-align: center; border-radius: 4px; padding: 1px 6px; font: 500 12px var(--mono); }
+      .ym-r.full { background: #d9eadf; color: #2f6b4f; } .ym-r.part { background: #f1e3bf; color: #8a6418; }
+      .ym-r.no { background: var(--clay-soft); color: var(--clay); } .ym-r.done { background: var(--paper-2); color: var(--ink-3); }
+      .ym-list { color: var(--ink-2); font-size: 15px; padding-left: 20px; }
+      .ym-chart { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 18px; }
+      .ym-row { display: grid; grid-template-columns: 150px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+      .ym-row:last-child { border-bottom: 0; }
+      .ym-name { font: 600 17px var(--heading); line-height: 1.3; }
+      .ym-name .ym-sub { display: block; }
+      .ym-bar { display: grid; grid-template-columns: 1fr 240px; gap: 12px; align-items: center; margin: 4px 0; }
+      .ym-track { height: 14px; background: var(--paper-2); border-radius: 4px; overflow: hidden; display: block; }
+      .ym-fill { display: block; height: 100%; border-radius: 4px; }
+      .ym-fill.q { background: var(--v1); } .ym-fill.k { background: var(--clay); }
+      .ym-val { font-size: 14px; color: var(--ink-2); white-space: nowrap; }
+      .ym-val b { color: var(--ink); font-family: var(--mono); }
+      .ym-notes { color: var(--ink-2); font-size: 15px; padding-left: 20px; max-width: 80ch; }
+      .ym-notes li + li { margin-top: 6px; }
+      dialog.ym-dlg { width: min(1280px, 94vw); height: min(800px, 90vh); padding: 0; border: 0; border-radius: 12px; background: #0e0e0e; overflow: hidden; }
+      dialog.ym-dlg[open] { display: flex; flex-direction: column; }
+      dialog.ym-dlg::backdrop { background: rgba(20, 24, 34, .72); }
+      .ym-dlg-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; color: #eee; font: 600 14px var(--body); }
+      .ym-dlg-bar button { font: inherit; font-size: 13px; border: 0; border-radius: 6px; padding: 5px 12px; background: #333; color: #eee; cursor: pointer; }
+      .ym-dlg iframe { flex: 1; width: 100%; border: 0; background: #000; }
+      @media (max-width: 900px) {
+        .ym-tldr, .ym-shots { grid-template-columns: 1fr; }
+        .ym-gallery { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 600px) {
+        .ym-gallery { grid-template-columns: 1fr; }
+        .ym-row { grid-template-columns: 1fr; }
+        .ym-bar { grid-template-columns: 1fr; gap: 4px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../plugin/"><img src="../../assets/icon.png" alt="" />Kilnframe</a>
+        <nav>
+          <a href="../">Kilnframe Desktop</a>
+          <a href="../plugin/#stiller">Stiller</a>
+          <a href="../plugin/#hikaye">Hikaye modu</a>
+          <a href="../plugin/#benchmark">Benchmark</a>
+          <a href="../changelog/">Sürüm notları</a>
+          <a href="https://github.com/erhanmeydan/kilnframe">GitHub</a>
+        </nav>
+        <div class="lang"><a href="./" aria-current="page">TR</a></div>
+        <a class="btn solid" href="../plugin/#indir">İndir</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="ym-hero">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">YEREL MODELLER · 21 KASIM 2026</span>
+            <div>
+              <h2>İki yerel model, dört bilgisayar.</h2>
+              <p>Qwen 3.8 27B ve Inkling 2 Mini'yi internetsiz, LM Studio ile dört farklı bilgisayarda çalıştırdık. Her model iki iş yaptı: tek denemede bir 3B oda sahnesi ve kendi ekran görüntülerine bakarak düzelttiği bir video kurgu arayüzü.</p>
+            </div>
+          </div>
+          <div class="ym-film"><video src="../../assets/yerel-modeller/video.mp4" poster="../../assets/yerel-modeller/video.jpg" controls playsinline preload="none"></video></div>
+          
+        <div class="ym-tldr">
+          <div><span class="tc">3B SAHNE</span><b>Inkling 4/4 · Qwen 1/4</b>
+            <p>Inkling dört bilgisayarın dördünde çalışan bir oda kurdu. Qwen ikisinde düşünmekten sayfayı yazamadı, birinde kodu hata verdi.</p></div>
+          <div><span class="tc">KURGU ARAYÜZÜ</span><b>8/8 tam puan</b>
+            <p>İki model de dört bilgisayarda 12 kontrolün hepsini geçti. Inkling dördünde de ilk turda.</p></div>
+          <div><span class="tc">HIZ</span><b>RTX 5090 açık ara önde</b>
+            <p>Qwen'i saniyede 156, Inkling'i 80 token yazdı. Diğer üç bilgisayar 28–34 arasında.</p></div>
+        </div>
+          <p class="note">Bu test Kilnframe'in <a href="../plugin/#benchmark">benchmark</a>'ından ayrı: orada modeller Kilnframe'in içinde aynı klibi canlandırıyor, burada model tek başına çalışıyor. Kilnframe'i yerel bir modelle kullanmak için: <a href="../docs/yapay-zeka/yerel-modeller/">Yerel modeller</a>.</p>
+        </div>
+      </section>
+
+      <section id="3b">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">01 · 3B SAHNE</span>
+            <div>
+              <h2>Tek denemede 3B sahne.</h2>
+              <p>İstek: Three.js ile minyatür bir YouTube stüdyosu. Masa, kamera, halka ışık, raflar, kendi kendine dönen oda ve gündüzü geceye çeviren bir "Işıklar" düğmesi. Düzeltme yok, modelin ilk cevabı olduğu gibi.</p>
+            </div>
+          </div>
+          <div class="scroll"><table class="runs ym-matrix"><thead><tr><th>Model</th><th>ASUS<br><span class="ym-sub">RTX 5090</span></th><th>GX10<br><span class="ym-sub">NVIDIA GB10</span></th><th>MSI<br><span class="ym-sub">RTX Spark N1X</span></th><th>Mac<br><span class="ym-sub">M5 Max</span></th></tr></thead><tbody><tr><td>Inkling 2 Mini</td><td><span class="ym-mark ok">✓</span>Çalışıyor</td><td><span class="ym-mark ok">✓</span>Çalışıyor</td><td><span class="ym-mark ok">✓</span>Çalışıyor (konsolda zararsız çizim hatası)</td><td><span class="ym-mark ok">✓</span>Çalışıyor</td></tr><tr><td>Qwen 3.8 27B</td><td><span class="ym-mark fail">✕</span>Düşünmekten sayfayı yazmaya sıra gelmedi</td><td><span class="ym-mark partial">~</span>Çalışıyor, Işıklar düğmesi ışığı değiştirmiyor</td><td><span class="ym-mark fail">✕</span>Kod hatası, oda hiç çizilmedi</td><td><span class="ym-mark fail">✕</span>Düşünmekten sayfayı yazmaya sıra gelmedi</td></tr></tbody></table></div>
+          <div class="bench ym-gallery">
+          <figure>
+            <video src="../../assets/yerel-modeller/3b-asus-inkling-2-mini.mp4" poster="../../assets/yerel-modeller/3b-asus-inkling-2-mini.jpg" muted loop playsinline autoplay preload="metadata"></video>
+            <figcaption><span>Inkling 2 Mini · ASUS</span><i>9 dk</i></figcaption>
+            <button type="button" class="ym-live" data-src="../../assets/yerel-modeller/sahne/asus-inkling-2-mini/" data-title="Inkling 2 Mini · ASUS">Canlı aç</button>
+          </figure>
+          <figure>
+            <video src="../../assets/yerel-modeller/3b-gx10-inkling-2-mini.mp4" poster="../../assets/yerel-modeller/3b-gx10-inkling-2-mini.jpg" muted loop playsinline autoplay preload="metadata"></video>
+            <figcaption><span>Inkling 2 Mini · GX10</span><i>32 dk</i></figcaption>
+            <button type="button" class="ym-live" data-src="../../assets/yerel-modeller/sahne/gx10-inkling-2-mini/" data-title="Inkling 2 Mini · GX10">Canlı aç</button>
+          </figure>
+          <figure>
+            <video src="../../assets/yerel-modeller/3b-msi-inkling-2-mini.mp4" poster="../../assets/yerel-modeller/3b-msi-inkling-2-mini.jpg" muted loop playsinline autoplay preload="metadata"></video>
+            <figcaption><span>Inkling 2 Mini · MSI</span><i>36 dk</i></figcaption>
+            <button type="button" class="ym-live" data-src="../../assets/yerel-modeller/sahne/msi-inkling-2-mini/" data-title="Inkling 2 Mini · MSI">Canlı aç</button>
+          </figure>
+          <figure>
+            <video src="../../assets/yerel-modeller/3b-mac-inkling-2-mini.mp4" poster="../../assets/yerel-modeller/3b-mac-inkling-2-mini.jpg" muted loop playsinline autoplay preload="metadata"></video>
+            <figcaption><span>Inkling 2 Mini · Mac</span><i>27 dk</i></figcaption>
+            <button type="button" class="ym-live" data-src="../../assets/yerel-modeller/sahne/mac-inkling-2-mini/" data-title="Inkling 2 Mini · Mac">Canlı aç</button>
+          </figure>
+          <figure>
+            <video src="../../assets/yerel-modeller/3b-gx10-qwen3.8-27b.mp4" poster="../../assets/yerel-modeller/3b-gx10-qwen3.8-27b.jpg" muted loop playsinline autoplay preload="metadata"></video>
+            <figcaption><span>Qwen 3.8 27B · GX10</span><i>40 dk</i></figcaption>
+            <button type="button" class="ym-live" data-src="../../assets/yerel-modeller/sahne/gx10-qwen3.8-27b/" data-title="Qwen 3.8 27B · GX10">Canlı aç</button>
+          </figure></div>
+          <p class="note">Kayıtlar 30 kare/sn, sahnenin kendi saatiyle alındı; ışık 5. saniyede değişiyor. "Canlı aç" sahneyi bu sayfada çalıştırır: fareyle çevirin, "Işıklar" düğmesine basın. Kod modelin yazdığı gibidir, yalnızca Three.js'in yerel yolu bu sayfaya göre düzeltildi.</p>
+        </div>
+      </section>
+
+      <section id="arayuz">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">02 · KURGU ARAYÜZÜ</span>
+            <div>
+              <h2>Sekiz denemede sekiz tam puan.</h2>
+              <p>İstek: 1440×900 pencereye sığan, Türkçe bir video kurgu ekranı; zaman çizelgesi, önizleme, klip bilgisi ve "Boşlukları kapat" düğmesiyle. Model sayfayı yazdı, her turda iki ekran görüntüsüne ve konsol hatalarına bakıp düzeltti. En fazla 5 tur, 90 dakika.</p>
+            </div>
+          </div>
+          <div class="ym-shots"><figure><img src="../../assets/yerel-modeller/arayuz-asus-inkling-2-mini.jpg" alt="Inkling 2 Mini tarafından yazılan kurgu arayüzü" loading="lazy"><figcaption>Inkling 2 Mini · ASUS · <a href="../../assets/yerel-modeller/arayuz/asus-inkling-2-mini/" target="_blank" rel="noopener">canlı aç</a></figcaption></figure><figure><img src="../../assets/yerel-modeller/arayuz-asus-qwen3.8-27b.jpg" alt="Qwen 3.8 27B tarafından yazılan kurgu arayüzü" loading="lazy"><figcaption>Qwen 3.8 27B · ASUS · <a href="../../assets/yerel-modeller/arayuz/asus-qwen3.8-27b/" target="_blank" rel="noopener">canlı aç</a></figcaption></figure></div>
+          <h3>Puanı veren 12 kontrol</h3>
+          <p class="note" style="margin-top:0;margin-bottom:14px">Model bu listeyi görmedi, yalnızca kendi sayfasının ekran görüntülerini gördü.</p>
+          <ul class="ym-checks"><li>Sayfa hatasız açılıyor</li><li>1440×900 pencereye kaydırmadan sığıyor</li><li>Dışarıdan hiçbir dosya yüklemiyor</li><li>3 iz ve 7 klip doğru izlerde</li><li>Klipler süreleriyle orantılı yerleşmiş</li><li>Toplam süre doğru (00:00:42:13)</li><li>Ok tuşlarıyla kare kare ilerliyor, sınırları aşmıyor</li><li>Shift+ok ile saniye saniye ilerliyor, önizleme klibi gösteriyor</li><li>Boşlukta önizleme "Boşluk" yazıyor</li><li>Seçilen klibin bilgileri doğru</li><li>"Boşlukları kapat" klipleri doğru kaydırıyor</li><li>Başlıklar Türkçe, müzik izinde dalga formu var</li></ul>
+          <details class="ym-more"><summary>Ayrıntılar: tur tur puanlar ve istenmeden eklenenler</summary>
+          <div class="scroll"><table class="runs"><thead><tr><th>Bilgisayar</th><th>Model</th><th>Tur 1</th><th>Tur 2</th><th>Tur 3</th><th>Tur 4</th><th>Tur 5</th><th>Süre</th><th></th></tr></thead><tbody><tr><td>ASUS</td><td>Qwen 3.8 27B</td><td><span class="ym-r part">11/12</span></td><td><span class="ym-r part">11/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r done">Bitti</span></td><td class="n">12 dk</td><td><a href="../../assets/yerel-modeller/arayuz/asus-qwen3.8-27b/" target="_blank" rel="noopener">aç</a></td></tr><tr><td>ASUS</td><td>Inkling 2 Mini</td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r done">Bitti</span></td><td></td><td></td><td></td><td class="n">10 dk</td><td><a href="../../assets/yerel-modeller/arayuz/asus-inkling-2-mini/" target="_blank" rel="noopener">aç</a></td></tr><tr><td>GX10</td><td>Qwen 3.8 27B</td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r done">Bitti</span></td><td></td><td></td><td class="n">39 dk</td><td><a href="../../assets/yerel-modeller/arayuz/gx10-qwen3.8-27b/" target="_blank" rel="noopener">aç</a></td></tr><tr><td>GX10</td><td>Inkling 2 Mini</td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r no">HTML yok</span></td><td></td><td></td><td class="n">1 sa 13 dk</td><td><a href="../../assets/yerel-modeller/arayuz/gx10-inkling-2-mini/" target="_blank" rel="noopener">aç</a></td></tr><tr><td>MSI</td><td>Qwen 3.8 27B</td><td><span class="ym-r no">HTML yok</span></td><td><span class="ym-r no">HTML yok</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td></td><td class="n">1 sa 36 dk</td><td><a href="../../assets/yerel-modeller/arayuz/msi-qwen3.8-27b/" target="_blank" rel="noopener">aç</a></td></tr><tr><td>MSI</td><td>Inkling 2 Mini</td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r done">Bitti</span></td><td class="n">1 sa 0 dk</td><td><a href="../../assets/yerel-modeller/arayuz/msi-inkling-2-mini/" target="_blank" rel="noopener">aç</a></td></tr><tr><td>Mac</td><td>Qwen 3.8 27B</td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r done">Bitti</span></td><td class="n">1 sa 12 dk</td><td><a href="../../assets/yerel-modeller/arayuz/mac-qwen3.8-27b/" target="_blank" rel="noopener">aç</a></td></tr><tr><td>Mac</td><td>Inkling 2 Mini</td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td><span class="ym-r full">12/12</span></td><td class="n">56 dk</td><td><a href="../../assets/yerel-modeller/arayuz/mac-inkling-2-mini/" target="_blank" rel="noopener">aç</a></td></tr></tbody></table></div>
+          <p class="note">"Bitti": modelin kendisinin durduğu tur. "HTML yok": model düşünmekten sayfa yazamadı, o tur harcanmış sayıldı ve test devam etti. GX10'da Inkling'in son turu cevapsız kaldı ve test betiği bir hatayla durdu; sonuç kayıttan yeniden kuruldu.</p>
+          <h3>İstenmeden eklenenler</h3>
+          <p class="note">İstekte yoktu, model kendisi ekledi. Puanı etkilemedi.</p>
+          <ul class="ym-list"><li>ASUS · Qwen 3.8 27B: Klibe çift tıklayınca oynatma başı klibin başına gider.</li><li>ASUS · Inkling 2 Mini: Klipler klavyeyle seçilebiliyor (Tab, sonra Enter ya da Boşluk).</li><li>GX10 · Qwen 3.8 27B: Oynat/Duraklat düğmesi ve Boşluk tuşuyla oynatma (1. turda eklendi).</li><li>GX10 · Inkling 2 Mini: Klipler klavyeyle seçilebiliyor (Tab, sonra Enter ya da Boşluk).</li><li>MSI · Qwen 3.8 27B: Önizleme rengi kliple yumuşak geçişle değişiyor.</li><li>MSI · Inkling 2 Mini: Klipler klavyeyle seçilebiliyor (Tab, sonra Enter ya da Boşluk).</li><li>Mac · Inkling 2 Mini: Klipler klavyeyle seçilebiliyor (Tab, sonra Enter ya da Boşluk).</li></ul>
+          </details>
+        </div>
+      </section>
+
+      <section id="hiz">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">03 · HIZ</span>
+            <div>
+              <h2>Saniyede kaç token.</h2>
+              <p>Modelin saniyede ürettiği token sayısı, düşünürken ürettikleri dahil. Mavi çubuk Qwen 3.8 27B, kil rengi Inkling 2 Mini. Yanında arayüz testinin toplam süresi.</p>
+            </div>
+          </div>
+          
+          <div class="ym-chart"><div class="ym-row"><div class="ym-name">ASUS<span class="ym-sub">RTX 5090</span></div><div><div class="ym-bar"><span class="ym-track"><span class="ym-fill k" style="width:51.4%"></span></span><span class="ym-val"><b>80</b> Inkling · arayüz 10 dk</span></div><div class="ym-bar"><span class="ym-track"><span class="ym-fill q" style="width:100.0%"></span></span><span class="ym-val"><b>156</b> Qwen · arayüz 12 dk</span></div></div></div><div class="ym-row"><div class="ym-name">GX10<span class="ym-sub">NVIDIA GB10</span></div><div><div class="ym-bar"><span class="ym-track"><span class="ym-fill k" style="width:18.6%"></span></span><span class="ym-val"><b>29</b> Inkling · arayüz 1 sa 13 dk</span></div><div class="ym-bar"><span class="ym-track"><span class="ym-fill q" style="width:17.9%"></span></span><span class="ym-val"><b>28</b> Qwen · arayüz 39 dk</span></div></div></div><div class="ym-row"><div class="ym-name">MSI<span class="ym-sub">RTX Spark N1X</span></div><div><div class="ym-bar"><span class="ym-track"><span class="ym-fill k" style="width:19.1%"></span></span><span class="ym-val"><b>30</b> Inkling · arayüz 1 sa 0 dk</span></div><div class="ym-bar"><span class="ym-track"><span class="ym-fill q" style="width:18.9%"></span></span><span class="ym-val"><b>29</b> Qwen · arayüz 1 sa 36 dk</span></div></div></div><div class="ym-row"><div class="ym-name">Mac<span class="ym-sub">M5 Max</span></div><div><div class="ym-bar"><span class="ym-track"><span class="ym-fill k" style="width:21.5%"></span></span><span class="ym-val"><b>34</b> Inkling · arayüz 56 dk</span></div><div class="ym-bar"><span class="ym-track"><span class="ym-fill q" style="width:22.0%"></span></span><span class="ym-val"><b>34</b> Qwen · arayüz 1 sa 12 dk</span></div></div></div></div>
+          <details class="ym-more"><summary>Ayrıntılar: ilk cevap süresi, istem okuma hızı, toplam token</summary>
+            <div class="scroll"><table class="runs"><thead><tr><th>Bilgisayar</th><th>Model</th><th>Yazma (token/sn)</th><th>İlk cevap</th><th>İstem okuma (token/sn)</th><th>Arayüz testi toplam token</th><th>3B sahne (token/sn)</th></tr></thead><tbody><tr><td>ASUS</td><td>Qwen 3.8 27B</td><td class="n">155,7</td><td class="n">0,5 sn</td><td class="n">1.759</td><td class="n">105.237</td><td class="n">133,7</td></tr><tr><td>ASUS</td><td>Inkling 2 Mini</td><td class="n">80,1</td><td class="n">0,8 sn</td><td class="n">1.198</td><td class="n">46.160</td><td class="n">79,2</td></tr><tr><td>GX10</td><td>Qwen 3.8 27B</td><td class="n">27,9</td><td class="n">1,5 sn</td><td class="n">620</td><td class="n">60.978</td><td class="n">24,4</td></tr><tr><td>GX10</td><td>Inkling 2 Mini</td><td class="n">28,9</td><td class="n">1,7 sn</td><td class="n">–</td><td class="n">50.779</td><td class="n">27,7</td></tr><tr><td>MSI</td><td>Qwen 3.8 27B</td><td class="n">29,4</td><td class="n">1,6 sn</td><td class="n">471</td><td class="n">182.317</td><td class="n">25,8</td></tr><tr><td>MSI</td><td>Inkling 2 Mini</td><td class="n">29,8</td><td class="n">2,1 sn</td><td class="n">449</td><td class="n">100.415</td><td class="n">28,0</td></tr><tr><td>Mac</td><td>Qwen 3.8 27B</td><td class="n">34,2</td><td class="n">1,9 sn</td><td class="n">502</td><td class="n">140.929</td><td class="n">29,2</td></tr><tr><td>Mac</td><td>Inkling 2 Mini</td><td class="n">33,5</td><td class="n">1,7 sn</td><td class="n">536</td><td class="n">107.658</td><td class="n">33,4</td></tr></tbody></table></div>
+          </details>
+        </div>
+      </section>
+
+      <section id="yontem">
+        <div class="wrap">
+          <div class="head">
+            <span class="tc">04 · YÖNTEM</span>
+            <div><h2>Bilgisayarlar ve yöntem.</h2></div>
+          </div>
+          <div class="scroll"><table class="runs"><thead><tr><th>Bilgisayar</th><th>Donanım</th><th>Qwen dosyası</th><th>Inkling dosyası</th></tr></thead><tbody><tr><td>ASUS</td><td>RTX 5090 · Windows</td><td>LM Studio kataloğu qwen/qwen3.8-27b · Q4_K_M GGUF</td><td>ggml-org Inkling 2 Mini · IQ4_NL GGUF</td></tr><tr><td>GX10</td><td>NVIDIA GB10 · Linux</td><td>lmstudio-community Qwen3.8-27B · Q4_K_M GGUF</td><td>ggml-org Inkling 2 Mini · IQ4_NL GGUF</td></tr><tr><td>MSI</td><td>Prestige N16 Flip AI+ · NVIDIA RTX Spark N1X, 128 GB · Windows (ARM)</td><td>lmstudio-community Qwen3.8-27B · Q4_K_M GGUF</td><td>ggml-org Inkling 2 Mini · IQ4_NL GGUF</td></tr><tr><td>Mac</td><td>MacBook Pro M5 Max, 128 GB</td><td>lmstudio-community Qwen3.8-27B · Q4_K_M GGUF</td><td>ggml-org Inkling 2 Mini · IQ4_NL GGUF</td></tr></tbody></table></div>
+          <ul class="ym-notes" style="margin-top:20px">
+            <li>Her bilgisayarda aynı model dosyaları. LM Studio'nun varsayılan ayarları değiştirilmedi, düşünme seviyesine dokunulmadı, bağlam 131.072 token.</li>
+            <li>İstekler test başladıktan sonra değiştirilmedi. Hiçbir test tekrarlanmadı: tek deneme, yön gösterir, hüküm değildir.</li>
+            <li>3B sahnenin sonucu kayda bakılarak verildi; otomatik kontroller boş bir sahnede bile "hareket ediyor" diyebiliyor.</li>
+            <li>MSI'da işlemci ve ekran kartı 128 GB belleği paylaşıyor; testlerde 62 GB'ı ekran kartına ayrılıydı (NVIDIA App varsayılanı). Model bu alana sığdı.</li>
+            <li>Mac'te Inkling'in MLX sürümü LM Studio'da açılmadı (MLX çalışma ortamı 1.14.0), GGUF sürümü kullanıldı.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe, Erhan Meydan · Apache 2.0</span>
+        <span><a href="https://github.com/erhanmeydan/kilnframe">GitHub</a> · <a href="https://github.com/erhanmeydan/kilnframe/blob/main/NOTICE">Lisanslar</a> · <a href="../changelog/">Sürüm notları</a></span>
+      </div>
+    </footer>
+
+    <dialog class="ym-dlg" id="ym-dlg">
+      <div class="ym-dlg-bar"><span id="ym-dlg-title"></span><button type="button" id="ym-dlg-close">Kapat</button></div>
+      <iframe id="ym-dlg-frame" title="Canlı 3B sahne"></iframe>
+    </dialog>
+    <script>
+      (function () {
+        var dlg = document.getElementById("ym-dlg"), frame = document.getElementById("ym-dlg-frame");
+        document.querySelectorAll(".ym-live").forEach(function (b) {
+          b.addEventListener("click", function () {
+            document.getElementById("ym-dlg-title").textContent = b.dataset.title;
+            frame.src = b.dataset.src;
+            dlg.showModal();
+          });
+        });
+        dlg.addEventListener("close", function () { frame.src = "about:blank"; });
+        document.getElementById("ym-dlg-close").addEventListener("click", function () { dlg.close(); });
+        dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+      })();
+    </script>
+  </body>
+</html>
