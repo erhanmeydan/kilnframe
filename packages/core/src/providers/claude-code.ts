@@ -313,22 +313,12 @@ export class ClaudeCodeProvider implements TextProvider {
       // images go inside the message (stream-json input); pointing the model at files for its Read tool
       // took three extra turns per call
       const hasImages = req.messages.some((m) => m.content.some((p) => p.type === "image"));
-      const args = [
-        "-p",
-        "--output-format",
-        hasImages ? "stream-json" : "json",
-        ...(hasImages ? ["--input-format", "stream-json", "--verbose"] : []),
-        "--model",
-        this.model,
-        "--effort",
-        this.effort,
-        "--tools",
-        "",
-        "--no-session-persistence",
-        "--strict-mcp-config",
-        "--system-prompt",
-        req.system,
-      ];
+      const args = claudeCodeArgs({
+        model: this.model,
+        effort: this.effort,
+        system: req.system,
+        hasImages,
+      });
       const input = hasImages
         ? `${JSON.stringify({ type: "user", message: { role: "user", content: conversationContent(req.messages) } })}\n`
         : conversationPrompt(req.messages);
@@ -339,6 +329,35 @@ export class ClaudeCodeProvider implements TextProvider {
       removeTempDir(work);
     }
   }
+}
+
+/** The arguments of one non-interactive Claude Code call. */
+export function claudeCodeArgs(o: {
+  model: string;
+  effort: string;
+  system: string;
+  hasImages: boolean;
+}): string[] {
+  return [
+    "-p",
+    "--output-format",
+    o.hasImages ? "stream-json" : "json",
+    ...(o.hasImages ? ["--input-format", "stream-json", "--verbose"] : []),
+    "--model",
+    o.model,
+    "--effort",
+    o.effort,
+    "--tools",
+    "",
+    "--no-session-persistence",
+    "--strict-mcp-config",
+    // the editor's own hooks (SessionStart context, orchestration tools such as ruflo) would run inside
+    // every call: they add text to the prompt and, on Windows, child processes that hold the work folder
+    "--settings",
+    JSON.stringify({ disableAllHooks: true }),
+    "--system-prompt",
+    o.system,
+  ];
 }
 
 function run(
