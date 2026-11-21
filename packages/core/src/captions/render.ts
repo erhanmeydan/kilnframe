@@ -28,6 +28,7 @@ import {
 import { framePlan, timelineSpans, type FramePlan } from "./frames.js";
 import { toSrt } from "./srt.js";
 import type { CaptionColors, CaptionStyleId } from "./types.js";
+import { removeTempDir } from "../temp-dir.js";
 
 /** The number for the next captions-<n> files: one more than any already in the folder. */
 export function nextCaptionNumber(outDir: string): number {
@@ -356,6 +357,6 @@ export async function previewCaptionStill(o: CaptionStillOptions): Promise<strin
     else copyFileSync(join(shots, shot), out);
     return out;
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   }
 }

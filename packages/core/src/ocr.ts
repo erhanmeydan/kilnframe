@@ -1,11 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createWorker, type Worker } from "tesseract.js";
 import { ffmpegPath, modelsDir, type Defaults } from "./config.js";
+import { removeTempDir } from "./temp-dir.js";
 
 /**
  * Reads the text in the editor's screenshots with its position, so a scene can mark the exact line the
@@ -166,7 +167,7 @@ export async function readText(
           }
     }
   } finally {
-    rmSync(work, { recursive: true, force: true });
+    removeTempDir(work);
   }
   return mergeLines(found);
 }

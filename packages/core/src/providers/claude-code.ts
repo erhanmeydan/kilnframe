@@ -1,6 +1,6 @@
 import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
 import { runAgentProcess, type AgentRunResult } from "./agent-run.js";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -13,6 +13,7 @@ import {
   type TextRequest,
   type TextResponse,
 } from "./types.js";
+import { removeTempDir } from "../temp-dir.js";
 
 /**
  * Uses the official Claude Code CLI the user installed and signed in to. The binary is
@@ -335,7 +336,7 @@ export class ClaudeCodeProvider implements TextProvider {
       const result = hasImages ? { ...out, stdout: streamResult(out.stdout) } : out;
       return readClaudeCodeResult(result, { model: this.model, purpose: req.purpose });
     } finally {
-      rmSync(work, { recursive: true, force: true });
+      removeTempDir(work);
     }
   }
 }

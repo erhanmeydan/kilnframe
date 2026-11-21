@@ -1,6 +1,6 @@
 import { runAgentProcess, type AgentRunResult } from "./agent-run.js";
 import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,6 +11,7 @@ import {
   type TextRequest,
   type TextResponse,
 } from "./types.js";
+import { removeTempDir } from "../temp-dir.js";
 
 /**
  * Uses the official Codex CLI the user installed and signed in to with their ChatGPT account,
@@ -208,7 +209,7 @@ export class CodexProvider implements TextProvider {
         },
       };
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   }
 
