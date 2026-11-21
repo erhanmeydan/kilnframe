@@ -169,7 +169,7 @@ export function withModelFallback(
  */
 export function createTextProvider(defaults: Defaults, o: ProviderOverrides = {}): TextProvider {
   const kind = resolveKind(defaults, o);
-  // the user's ChatGPT plan through Codex; no model named means the one set in Codex itself
+  // the user's ChatGPT plan through Codex; no model named means Codex's own default
   if (kind === "codex")
     return new CodexProvider({ model: o.model ?? "", effort: o.effort ?? defaults.text.effort });
   // the user's Google account or Gemini plan through Antigravity CLI; the effort is part of the model id

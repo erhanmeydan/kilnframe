@@ -113,7 +113,7 @@ export function readCodexEvents(output: string): {
 }
 
 export interface CodexOptions {
-  /** Empty: the model set in Codex itself (~/.codex/config.toml). */
+  /** Empty: Codex's own default model (the editor's config.toml is not read). */
   model: string;
   effort: string;
 }
@@ -129,15 +129,14 @@ export function codexErrorRetryable(error: string): boolean {
   );
 }
 
-/** Config overrides that keep the editor's own Codex extensions out of Kilnframe's calls. */
-export const CODEX_ISOLATION = [
-  "-c",
-  "mcp_servers={}",
-  "-c",
-  "notify=[]",
-  "-c",
-  "features.hooks=false",
-];
+/**
+ * Keeps the editor's own Codex setup out of Kilnframe's calls: config.toml (its MCP servers, plugins, hooks,
+ * turn-end program, default model and model provider) is not read; the ChatGPT sign-in in CODEX_HOME still is.
+ * Measured on Codex CLI 0.169 (22 Nov 2026): -c overrides merge into config.toml, and an MCP server written
+ * there by hand (the ChatGPT app's node_repl) started in every call whatever -c said; this flag alone stops
+ * it. A call needs no tools: the model and the effort are given on the command line.
+ */
+export const CODEX_ISOLATION = ["--ignore-user-config"];
 
 export class CodexProvider implements TextProvider {
   readonly name = "codex";
