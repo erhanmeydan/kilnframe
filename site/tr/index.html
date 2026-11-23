@@ -60,7 +60,8 @@
           ><img src="../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a
         >
         <nav>
-          <a href="#ozellikler">Özellikler</a>
+          <a href="ozellikler/">Özellikler</a>
+          <a href="docs/">Kılavuz</a>
           <a href="#fiyat">Fiyat</a>
           <a href="#sorular">Sorular</a>
           <a href="plugin/">Eklenti</a>
@@ -68,7 +69,7 @@
         <div class="lang">
           <a href="../" hreflang="en">EN</a><a href="./" aria-current="page">TR</a>
         </div>
-        <a class="btn solid" href="#haber">Haber ver</a>
+        <a class="btn solid" href="#indir">İndir</a>
       </div>
     </header>
 
@@ -77,7 +78,7 @@
         <div class="wrap">
           <div class="hero-head">
             <div>
-              <span class="tc">KILNFRAME DESKTOP · ÇOK YAKINDA</span>
+              <span class="tc">KILNFRAME DESKTOP 0.1.0</span>
               <h1>Kameraya konuş.<br />Bitmiş <span class="clay">videoyu al.</span></h1>
             </div>
             <div>
@@ -87,7 +88,7 @@
                 hazırlar. Her şeyde son söz senin.
               </p>
               <div class="downloads">
-                <a class="btn solid" href="#haber">Çıkınca haber ver</a>
+                <a class="btn solid" href="#indir">14 gün ücretsiz indir</a>
                 <button class="btn play" data-play="../assets/desktop/tour-tr.mp4">
                   ▶ Turu izle <small>4:53</small>
                 </button>
@@ -109,6 +110,7 @@
               height="720"
               alt="Tanıtım filminin açılışı: Kilnframe Desktop logosu ve Konuşarak anlatanlar için yazısı"
             />
+            <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg></span>
             <span class="cue">▶ Turu izle <small>4:53</small></span>
           </button>
         </div>
@@ -230,6 +232,7 @@
               </figure>
             </div>
           </div>
+          <p class="all-features"><a class="btn" href="ozellikler/">Bütün özellikler →</a></p>
         </div>
       </section>
 
@@ -281,14 +284,12 @@
             <div class="plan">
               <b>$10 <small>/ ay</small></b>
               <span>İstediğin zaman iptal et.</span>
-              <span class="btn" aria-disabled="true">Çok yakında</span
-              >
+              <a class="btn" href="#indir">Ücretsiz dene</a>
             </div>
             <div class="plan best">
               <b>$100 <small>/ yıl</small></b>
               <span>İki ay bedava.</span>
-              <span class="btn" aria-disabled="true">Çok yakında</span
-              >
+              <a class="btn" href="#indir">Ücretsiz dene</a>
             </div>
             <ul>
               <li>Bütün özellikler, iki bilgisayarda</li>
@@ -348,34 +349,28 @@
             </details>
             <details>
               <summary>Güncellemeler nasıl geliyor?</summary>
-              <p>Uygulama yeni sürümü kendisi bulur ve güncellemeden önce sorar.</p>
+              <p>Mac'te uygulama yeni sürümü kendisi bulur ve güncellemeden önce sorar. Windows'ta Microsoft Store güncel tutar. Linux'ta uygulama haber verir, yeni AppImage'ı indirirsin.</p>
             </details>
           </div>
         </div>
       </section>
 
-      <section id="download">
-        <div class="wrap plugin-note">
-          <div>
-            <h2 style="margin-bottom: 10px">
-              Premiere Pro, Resolve ya da FilmCraft mı kullanıyorsun?
-            </h2>
-            <p>
-              Ücretsiz ve açık kaynak Kilnframe eklentisi, animasyonları ve müziği zaten kullandığın
-              editöre getirir.
-            </p>
-          </div>
-          <a class="btn" href="plugin/">Ücretsiz eklentiye bak →</a>
-        </div>
-      </section>
-
-      <section class="closing" id="haber">
+      <section class="closing" id="indir">
         <div class="wrap">
-          <span class="tc">ÇOK YAKINDA</span>
-          <h2 style="margin-top: 12px">İlk deneyenlerden ol.</h2>
+          <span class="tc">SÜRÜM 0.1.0</span>
+          <h2 style="margin-top: 12px">Kilnframe Desktop'ı indir.</h2>
           <p>
-            Kilnframe Desktop çok yakında Mac, Windows ve Linux için çıkıyor. E posta adresini
-            bırak, çıktığı gün yazalım.
+            Bütün özellikleriyle 14 gün ücretsiz, kart gerekmez. Yeni sürüm çıkınca uygulama
+            haber verir.
+          </p>
+          <div class="downloads">
+            <a class="btn solid" href="https://github.com/erhanmeydan/kilnframe-desktop-releases/releases/download/v0.1.0/Kilnframe-Desktop-0.1.0-mac-arm64.dmg">Mac · Apple Silicon</a>
+            <a class="btn solid" href="https://apps.microsoft.com/detail/9N0T9P4SGJ24">Windows · Microsoft Store (Beta)</a>
+            <a class="btn" href="https://github.com/erhanmeydan/kilnframe-desktop-releases/releases/download/v0.1.0/Kilnframe-Desktop-0.1.0-linux-x86_64.AppImage">Linux · x64 (Beta)</a>
+            <a class="btn" href="https://github.com/erhanmeydan/kilnframe-desktop-releases/releases/download/v0.1.0/Kilnframe-Desktop-0.1.0-linux-arm64.AppImage">Linux · Arm64 (Beta)</a>
+          </div>
+          <p style="margin-top: 26px" id="haber">
+            Yeni sürüm ve özellik haberleri için e-posta adresini bırak.
           </p>
           <!-- the list lives at Kit; without the script the form still posts there and Kit shows its own page -->
           <form
@@ -394,6 +389,21 @@
             <button class="btn solid">Haber ver</button>
             <p class="list-status" role="status"></p>
           </form>
+        </div>
+      </section>
+
+      <section id="download">
+        <div class="wrap plugin-note">
+          <div>
+            <h2 style="margin-bottom: 10px">
+              Premiere Pro, Resolve ya da FilmCraft mı kullanıyorsun?
+            </h2>
+            <p>
+              Ücretsiz ve açık kaynak Kilnframe eklentisi, animasyonları ve müziği zaten kullandığın
+              editöre getirir.
+            </p>
+          </div>
+          <a class="btn" href="plugin/">Ücretsiz eklentiye bak →</a>
         </div>
       </section>
     </main>

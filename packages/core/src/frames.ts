@@ -5,12 +5,12 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { ffmpegPath } from "./config.js";
+import { removeTempDir } from "./temp-dir.js";
 
 /**
  * Frames of the footage under the range (the panel exports them from the sequence). The plan step looks at
@@ -68,7 +68,7 @@ export function framePreview(file: string): { mediaType: "image/jpeg"; base64: s
     previewOf(file, out);
     return { mediaType: "image/jpeg", base64: readFileSync(out).toString("base64") };
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   }
 }
 

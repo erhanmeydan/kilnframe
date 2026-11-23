@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mini Creator Studio — 3D Diorama</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#e8eef3;
+    font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+  .panel{position:absolute;top:18px;left:18px;padding:14px 16px 12px;border-radius:16px;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    box-shadow:0 8px 30px rgba(40,50,70,.18);border:1px solid rgba(255,255,255,.6);
+    color:#2b3242;max-width:250px;transition:background .5s,color .5s,border-color .5s}
+  body.night .panel{background:rgba(22,27,42,.62);border-color:rgba(255,255,255,.12);
+    color:#e9edf5;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+  h1{font-size:15px;margin:0 0 3px;letter-spacing:.02em;display:flex;align-items:center;gap:9px;font-weight:800}
+  .recdot{width:9px;height:9px;border-radius:50%;background:#e5484d;box-shadow:0 0 8px #e5484d;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+  .sub{margin:0 0 11px;font-size:10px;opacity:.62;letter-spacing:.14em;text-transform:uppercase}
+  #lightBtn{display:block;width:100%;padding:9px 12px;border:none;border-radius:999px;background:#e5484d;color:#fff;
+    font-weight:700;font-size:13px;letter-spacing:.04em;cursor:pointer;
+    transition:transform .15s,box-shadow .15s;box-shadow:0 4px 14px rgba(229,72,77,.35)}
+  #lightBtn:hover{transform:translateY(-1px) scale(1.02);box-shadow:0 6px 18px rgba(229,72,77,.45)}
+  #lightBtn:active{transform:scale(.96)}
+  #lightBtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .mode{margin-top:9px;font-size:11px;opacity:.78;text-align:center;letter-spacing:.08em;text-transform:uppercase}
+  .hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);padding:7px 15px;border-radius:999px;
+    background:rgba(255,255,255,.6);backdrop-filter:blur(8px);font-size:11px;letter-spacing:.07em;color:#3a4356;
+    border:1px solid rgba(255,255,255,.5);white-space:nowrap;transition:background .5s,color .5s}
+  body.night .hint{background:rgba(22,27,42,.55);color:#c9d2e4;border-color:rgba(255,255,255,.12)}
+</style>
+<script type="importmap">{"imports":{"three":"../../lib/three.module.js","three/addons/":"../../lib/addons/"}}</script>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="panel">
+  <h1><span class="recdot"></span>Mini Creator Studio</h1>
+  <p class="sub">3D miniature diorama</p>
+  <button id="lightBtn" type="button" aria-pressed="false">Işıklar</button>
+  <div class="mode">Mod: <span id="modeLabel">Gündüz</span></div>
+</div>
+<div class="hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* ============ renderer / scene / camera ============ */
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xe8eef3, 22, 46);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(5.4, 3.7, 7.9);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.35, -0.55);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.enablePan = false;
+controls.minDistance = 4.2;
+controls.maxDistance = 13;
+controls.minPolarAngle = 0.5;
+controls.maxPolarAngle = 1.42;           // never below the floor
+controls.minAzimuthAngle = -0.38;        // stay in front of both walls
+controls.maxAzimuthAngle = 1.15;
+controls.rotateSpeed = 0.8;
+
+/* ============ lighting presets ============ */
+const PRESETS = {
+  day:   { bg:new THREE.Color('#e8eef3'), ground:new THREE.Color('#d9cfc2'), sunC:new THREE.Color('#fff1dc'), fillC:new THREE.Color('#dfe9ff'),
+           hemi:0.85, sun:1.75, fill:0.45, deskLamp:0.0, floorLamp:0.0, ringSpot:0.55, softbox:1.15, plaqueEm:0.12, ringEmissive:1.05, bulb:0.06, exposure:1.08 },
+  night: { bg:new THREE.Color('#232a3d'), ground:new THREE.Color('#171c2b'), sunC:new THREE.Color('#8fa5d6'), fillC:new THREE.Color('#7f93c4'),
+           hemi:0.22, sun:0.32, fill:0.12, deskLamp:2.9, floorLamp:3.1, ringSpot:2.05, softbox:2.6, plaqueEm:0.85, ringEmissive:2.5, bulb:2.4, exposure:1.02 }
+};
+let mode = 'day';
+let target = PRESETS.day;
+const cur = { hemi:PRESETS.day.hemi, sun:PRESETS.day.sun, fill:PRESETS.day.fill, deskLamp:0, floorLamp:0,
+              ringSpot:PRESETS.day.ringSpot, softbox:PRESETS.day.softbox, plaqueEm:PRESETS.day.plaqueEm,
+              ringEmissive:PRESETS.day.ringEmissive, bulb:PRESETS.day.bulb, exposure:PRESETS.day.exposure };
+
+const bgColor = new THREE.Color('#e8eef3');
+scene.background = bgColor;
+
+/* ============ lights (world space) ============ */
+const hemiLight = new THREE.HemisphereLight(0xcfe0f4, 0xd8c7b2, 0.85); scene.add(hemiLight);
+const sun = new THREE.DirectionalLight('#fff1dc', 1.75);
+sun.position.set(6, 8.5, 7);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -7; sun.shadow.camera.right = 7;
+sun.shadow.camera.top = 7;   sun.shadow.camera.bottom = -7;
+sun.shadow.camera.near = 2;  sun.shadow.camera.far = 26;
+sun.shadow.bias = -0.0004;   sun.shadow.normalBias = 0.03;
+scene.add(sun); scene.add(sun.target);
+const fill = new THREE.DirectionalLight('#dfe9ff', 0.45); fill.position.set(-6, 3.5, 6); scene.add(fill);
+
+/* ============ helpers ============ */
+function mat(color, opts = {}) {
+  return new THREE.MeshStandardMaterial(Object.assign({ color, roughness:0.78, metalness:0.03 }, opts));
+}
+function RBox(w,h,d,r,color,opts={}) {
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w,h,d,3,Math.min(r, Math.min(w,h,d)/2 - 0.001)), mat(color, opts));
+  m.castShadow = true; m.receiveShadow = true; return m;
+}
+function box(w,h,d,color,opts={}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat(color, opts));
+  m.castShadow = true; m.receiveShadow = true; return m;
+}
+function cyl(rt,rb,h,color,opts={},seg=20) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), mat(color, opts));
+  m.castShadow = true; m.receiveShadow = true; return m;
+}
+function strut(a, b, r, color, parent) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), mat(color, { roughness:0.55 }));
+  mesh.position.copy(a).addScaledVector(dir, 0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  mesh.castShadow = true; parent.add(mesh); return mesh;
+}
+function roundedRectShape(w,h,r) {
+  const s = new THREE.Shape(); const x=-w/2, y=-h/2;
+  s.moveTo(x+r,y); s.lineTo(x+w-r,y); s.quadraticCurveTo(x+w,y,x+w,y+r);
+  s.lineTo(x+w,y+h-r); s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  s.lineTo(x+r,y+h); s.quadraticCurveTo(x,y+h,x,y+h-r);
+  s.lineTo(x,y+r); s.quadraticCurveTo(x,y,x+r,y); return s;
+}
+
+/* ============ canvas textures (all generated in code) ============ */
+function makeFloorTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const f = c.getContext('2d');
+  f.fillStyle = '#e3c79b'; f.fillRect(0,0,256,256);
+  for (let y=0; y<256; y+=32) {
+    const v = Math.sin(y*12.9898)*43758.5453; const r = v - Math.floor(v);
+    f.fillStyle = `rgba(${r>0.5?255:120},${r>0.5?240:80},${r>0.5?210:40},${0.05+r*0.06})`;
+    f.fillRect(0,y,256,32);
+    f.fillStyle = 'rgba(120,80,40,0.28)'; f.fillRect(0,y,256,2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3,2.4);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+function makePosterTexture() {
+  const c = document.createElement('canvas'); c.width=256; c.height=320;
+  const p = c.getContext('2d');
+  const g = p.createLinearGradient(0,0,0,320);
+  g.addColorStop(0,'#ffe3b3'); g.addColorStop(1,'#f6a56c');
+  p.fillStyle=g; p.fillRect(0,0,256,320);
+  p.beginPath(); p.arc(128,118,36,0,7); p.fillStyle='#fff3d6'; p.fill();
+  p.fillStyle='#8a5a3b'; p.beginPath(); p.moveTo(-10,320); p.lineTo(95,168); p.lineTo(200,320); p.closePath(); p.fill();
+  p.fillStyle='#5d4030'; p.beginPath(); p.moveTo(90,320); p.lineTo(185,190); p.lineTo(280,320); p.closePath(); p.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function makeGlowTexture() {
+  const c = document.createElement('canvas'); c.width=c.height=128;
+  const p = c.getContext('2d');
+  const g = p.createRadialGradient(64,64,4,64,64,62);
+  g.addColorStop(0,'rgba(255,244,224,0.9)'); g.addColorStop(0.45,'rgba(255,236,200,0.35)'); g.addColorStop(1,'rgba(255,236,200,0)');
+  p.fillStyle=g; p.fillRect(0,0,128,128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/* ============ timeline screen texture ============ */
+const tc = document.createElement('canvas'); tc.width = 512; tc.height = 288;
+const tctx = tc.getContext('2d');
+function rr(ctx,x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+const clips = [
+  {track:0, x:10,  w:120, c:'#e5484d'},{track:0, x:150, w:80,  c:'#f0a35e'},
+  {track:0, x:250, w:140, c:'#7aa2ff'},{track:0, x:410, w:90,  c:'#5ec8c0'},
+  {track:1, x:40,  w:100, c:'#f0a35e'},{track:1, x:160, w:150, c:'#3e7d74'},
+  {track:1, x:330, w:110, c:'#e5484d'},{track:1, x:455, w:60,  c:'#5ec8c0'}
+];
+const screenTex = new THREE.CanvasTexture(tc);
+screenTex.colorSpace = THREE.SRGBColorSpace;
+
+function drawTimeline(t, recOn) {
+  const W=512, H=288, headerW=64, trackX=headerW, trackW=W-headerW, S=512;
+  tctx.fillStyle='#141922'; tctx.fillRect(0,0,W,H);
+  // top bar
+  tctx.fillStyle='#1d2430'; tctx.fillRect(0,0,W,34);
+  ['#ff5f57','#febc2e','#28c840'].forEach((c,i)=>{ tctx.beginPath(); tctx.arc(20+i*18,17,4.5,0,7); tctx.fillStyle=c; tctx.fill(); });
+  tctx.font='600 12px ui-monospace, monospace'; tctx.textAlign='left'; tctx.textBaseline='middle';
+  tctx.fillStyle='#8fa0b5'; tctx.fillText('timeline_v3.mp4', 84, 18);
+  if (recOn) {
+    tctx.beginPath(); tctx.arc(448,17,5,0,7); tctx.fillStyle='#ff4444'; tctx.fill();
+    tctx.fillStyle='#ffd9d9'; tctx.font='700 11px ui-monospace, monospace'; tctx.fillText('REC',460,18);
+  }
+  // ruler
+  tctx.fillStyle='#1a212c'; tctx.fillRect(0,34,W,22);
+  const tickOff = (t*55)%32;
+  tctx.strokeStyle='rgba(255,255,255,0.10)'; tctx.lineWidth=1;
+  for (let x=trackX-tickOff; x<W; x+=32){ tctx.beginPath(); tctx.moveTo(x,34); tctx.lineTo(x,56); tctx.stroke(); }
+  // tracks bg + header col
+  const rows=[{y:58,h:36,label:'V2'},{y:98,h:40,label:'V1'},{y:142,h:46,label:'A1'}];
+  tctx.fillStyle='#171d27'; tctx.fillRect(0,58,W,H-58);
+  rows.forEach(r=>{ tctx.strokeStyle='rgba(255,255,255,0.07)'; tctx.beginPath(); tctx.moveTo(0,r.y+r.h); tctx.lineTo(W,r.y+r.h); tctx.stroke(); });
+  // scrolling video clips
+  const off = (t*55)%S;
+  for (const c of clips) {
+    let x0 = ((c.x - off) % S + S) % S;
+    for (const baseX of [trackX+x0, trackX+x0-S]) {
+      const row = rows[c.track];
+      const bx = Math.max(baseX, trackX), ex = Math.min(baseX + c.w, W);
+      if (ex <= bx) continue;
+      rr(tctx, bx+2, row.y+5, ex-bx-4, row.h-10, 6); tctx.fillStyle=c.c; tctx.fill();
+      tctx.fillStyle='rgba(255,255,255,0.22)'; rr(tctx, bx+2, row.y+5, ex-bx-4, 7, 6); tctx.fill();
+    }
+  }
+  // audio waveform (scrolls with same offset)
+  const aRow = rows[2];
+  for (let x=trackX; x<W; x+=5) {
+    const wx = ((x - trackX + off) % S + S) % S;
+    const h = 6 + 16*Math.abs(Math.sin(wx*0.09)+Math.sin(wx*0.023+1.7))/2;
+    tctx.fillStyle='rgba(94,200,192,0.85)';
+    tctx.fillRect(x, aRow.y + aRow.h/2 - h/2, 3, h);
+  }
+  // header col labels (drawn over tracks)
+  tctx.fillStyle='#1a212c'; tctx.fillRect(0,58,headerW,H-58);
+  rows.forEach(r=>{ tctx.fillStyle='#5d6b7f'; tctx.font='700 11px ui-monospace, monospace'; tctx.textAlign='center'; tctx.fillText(r.label, headerW/2, r.y+r.h/2); });
+  // playhead
+  const px = trackX + ((t*95) % trackW);
+  tctx.save(); tctx.shadowColor='#ff5f57'; tctx.shadowBlur=8;
+  tctx.strokeStyle='#ff5f57'; tctx.lineWidth=2.5;
+  tctx.beginPath(); tctx.moveTo(px,34); tctx.lineTo(px,H-6); tctx.stroke(); tctx.restore();
+  tctx.fillStyle='#ff5f57'; tctx.beginPath(); tctx.moveTo(px-7,36); tctx.lineTo(px+7,36); tctx.lineTo(px,48); tctx.closePath(); tctx.fill();
+  // timecode
+  const mm = String(Math.floor(t/60)%60).padStart(2,'0'), ss = String(Math.floor(t%60)).padStart(2,'0');
+  tctx.fillStyle='#8fa0b5'; tctx.font='600 10px ui-monospace, monospace'; tctx.textAlign='right';
+  tctx.fillText(`00:${mm}:${ss}`, W-10, H-12);
+}
+
+/* ============ diorama root (rotates as a whole) ============ */
+const diorama = new THREE.Group(); scene.add(diorama);
+
+// ground backdrop disc + fog blending
+const groundMat = mat('#d9cfc2', { roughness:0.95 });
+const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 48), groundMat);
+ground.rotation.x = -Math.PI/2; ground.position.y = -0.53; ground.receiveShadow = true; scene.add(ground);
+
+// plinth + floor plate
+const plinth = RBox(9.6, 0.5, 7.6, 0.16, '#6f5138', { roughness:0.75 });
+plinth.position.y = -0.27; diorama.add(plinth);
+const floorPlate = new THREE.Mesh(new THREE.BoxGeometry(8.9, 0.12, 6.9), mat('#ffffff', { roughness:0.85 }));
+floorPlate.material.map = makeFloorTexture();
+floorPlate.position.y = -0.06; floorPlate.receiveShadow = true; diorama.add(floorPlate);
+
+// walls + baseboards
+const backWall = box(8.9, 4.7, 0.24, '#f0dcc4', { roughness:0.92 }); backWall.position.set(0, 2.35, -3.37); diorama.add(backWall);
+const leftWall = box(0.24, 4.7, 6.9, '#cfdccf', { roughness:0.92 }); leftWall.position.set(-4.33, 2.35, 0); diorama.add(leftWall);
+const bb1 = box(8.66, 0.26, 0.05, '#faf6ef'); bb1.position.set(0, 0.13, -3.235); diorama.add(bb1);
+const bb2 = box(0.05, 0.26, 6.7, '#faf6ef'); bb2.position.set(-4.185, 0.13, 0); diorama.add(bb2);
+
+// rug (layered circles)
+const rug1 = new THREE.Mesh(new THREE.CircleGeometry(1.75, 40), mat('#d98a68', { roughness:0.95 }));
+rug1.rotation.x = -Math.PI/2; rug1.position.set(-1.35, 0.012, -0.85); rug1.receiveShadow = true; diorama.add(rug1);
+const rug2 = new THREE.Mesh(new THREE.CircleGeometry(1.12, 36), mat('#ecc39b', { roughness:0.95 }));
+rug2.rotation.x = -Math.PI/2; rug2.position.set(-1.35, 0.02, -0.85); rug2.receiveShadow = true; diorama.add(rug2);
+const rug3 = new THREE.Mesh(new THREE.CircleGeometry(0.45, 28), mat('#d98a68', { roughness:0.95 }));
+rug3.rotation.x = -Math.PI/2; rug3.position.set(-1.35, 0.028, -0.85); rug3.receiveShadow = true; diorama.add(rug3);
+
+/* ---- desk + monitor ---- */
+const deskTop = RBox(4.3, 0.14, 1.55, 0.05, '#d9a066', { roughness:0.6 });
+deskTop.position.set(-1.35, 1.12, -2.42); diorama.add(deskTop);
+[[-3.30,-3.04],[0.60,-3.04],[-3.30,-1.80],[0.60,-1.80]].forEach(([x,z])=>{
+  const leg = box(0.12, 1.05, 0.12, '#7c5233'); leg.position.set(x, 0.525, z); diorama.add(leg);
+});
+
+const monitorGroup = new THREE.Group(); monitorGroup.position.set(-1.35, 1.19, -2.55); diorama.add(monitorGroup);
+const mBase = RBox(0.95, 0.06, 0.5, 0.025, '#23272e', { roughness:0.5 }); mBase.position.y = 0.03; monitorGroup.add(mBase);
+const neck = box(0.16, 0.4, 0.1, '#23272e', { roughness:0.5 }); neck.position.set(0, 0.26, -0.02); monitorGroup.add(neck);
+const screenGroup = new THREE.Group(); screenGroup.position.set(0, 1.02, -0.05); screenGroup.rotation.x = -0.06; monitorGroup.add(screenGroup);
+const bezelGeo = new THREE.ExtrudeGeometry(roundedRectShape(2.6, 1.5, 0.16), { depth:0.10, bevelEnabled:false });
+bezelGeo.translate(0, 0, -0.05);
+const bezel = new THREE.Mesh(bezelGeo, mat('#23272e', { roughness:0.5, metalness:0.15 }));
+bezel.castShadow = true; screenGroup.add(bezel);
+const screenMat = new THREE.MeshBasicMaterial({ map:screenTex });
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(2.38, 1.34), screenMat);
+screen.position.z = 0.055; screenGroup.add(screen);
+
+// keyboard / mouse / mug / books on desk
+const keyboard = RBox(1.45, 0.07, 0.42, 0.03, '#f4efe6', { roughness:0.55 });
+keyboard.position.set(-1.35, 1.235, -2.02); keyboard.rotation.y = 0.04; diorama.add(keyboard);
+const mouse = RBox(0.22, 0.09, 0.34, 0.04, '#f4efe6', { roughness:0.55 });
+mouse.position.set(-0.32, 1.235, -2.02); mouse.rotation.y = -0.15; diorama.add(mouse);
+
+const mugGroup = new THREE.Group(); mugGroup.position.set(-2.9, 1.19, -1.95); diorama.add(mugGroup);
+const mugBody = cyl(0.11, 0.10, 0.26, '#e5484d', { roughness:0.5 }); mugBody.position.y = 0.13; mugGroup.add(mugBody);
+const coffee = new THREE.Mesh(new THREE.CircleGeometry(0.085, 20), mat('#5b3a29', { roughness:0.4 }));
+coffee.rotation.x = -Math.PI/2; coffee.position.y = 0.262; mugGroup.add(coffee);
+const handle = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.02, 10, 20), mat('#e5484d', { roughness:0.5 }));
+handle.rotation.y = Math.PI/2; handle.position.set(0.13, 0.14, 0); mugGroup.add(handle);
+
+const book1 = box(0.55, 0.09, 0.40, '#7aa2ff'); book1.position.set(0.35, 1.235, -2.72); book1.rotation.y = 0.12; diorama.add(book1);
+const book2 = box(0.48, 0.08, 0.36, '#f0a35e'); book2.position.set(0.33, 1.325, -2.70); book2.rotation.y = -0.06; diorama.add(book2);
+
+/* ---- chair ---- */
+const chairGroup = new THREE.Group(); chairGroup.position.set(-1.35, 0, -0.85); diorama.add(chairGroup);
+const seatMat = mat('#3e7d74', { roughness:0.8 });
+const darkMetal = mat('#2f333a', { roughness:0.45, metalness:0.35 });
+const seat = new THREE.Mesh(new RoundedBoxGeometry(1.05, 0.18, 0.95, 3, 0.07), seatMat);
+seat.position.y = 0.79; seat.castShadow = true; chairGroup.add(seat);
+const backrest = new THREE.Mesh(new RoundedBoxGeometry(0.92, 1.02, 0.15, 3, 0.07), seatMat);
+backrest.position.set(0, 1.38, 0.42); backrest.rotation.x = 0.12; backrest.castShadow = true; chairGroup.add(backrest);
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 14), darkMetal);
+pole.position.y = 0.45; pole.castShadow = true; chairGroup.add(pole);
+const hub = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), darkMetal); hub.position.y = 0.2; chairGroup.add(hub);
+for (let i=0;i<5;i++) {
+  const a = i/5*Math.PI*2 + Math.PI/10;
+  const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.66), darkMetal);
+  spoke.rotation.y = a; spoke.position.set(Math.sin(a)*0.33, 0.16, Math.cos(a)*0.33); spoke.castShadow = true; chairGroup.add(spoke);
+  const wheel = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), mat('#1e2126', { roughness:0.5 }));
+  wheel.position.set(Math.sin(a)*0.64, 0.075, Math.cos(a)*0.64); chairGroup.add(wheel);
+}
+[-1,1].forEach(s=>{
+  const post = box(0.06, 0.32, 0.06, '#2f333a'); post.position.set(s*0.48, 1.02, 0.05); chairGroup.add(post);
+  const pad = RBox(0.14, 0.05, 0.5, 0.02, '#2f333a'); pad.position.set(s*0.48, 1.21, 0.05); chairGroup.add(pad);
+});
+
+/* ---- camera on tripod (aimed at chair) ---- */
+const camRig = new THREE.Group(); camRig.position.set(1.35, 0, 0.95); diorama.add(camRig);
+for (let i=0;i<3;i++) {
+  const a = Math.PI/6 + i*2*Math.PI/3;
+  strut(new THREE.Vector3(0,1.22,0), new THREE.Vector3(Math.sin(a)*0.58, 0.03, Math.cos(a)*0.58), 0.035, '#33383f', camRig);
+}
+const hubCyl = cyl(0.09, 0.11, 0.18, '#2f333a'); hubCyl.position.y = 1.22; camRig.add(hubCyl);
+const column = cyl(0.05, 0.05, 0.4, '#2f333a'); column.position.y = 1.42; camRig.add(column);
+const headGroup = new THREE.Group(); headGroup.position.set(0, 1.66, 0); camRig.add(headGroup);
+const body = RBox(0.62, 0.42, 0.85, 0.09, '#2b2f36', { roughness:0.5 }); headGroup.add(body);
+const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.17, 0.5, 20), mat('#171a1f', { roughness:0.4 }));
+lens.rotation.x = Math.PI/2; lens.position.set(0, 0, 0.6); lens.castShadow = true; headGroup.add(lens);
+const glass = new THREE.Mesh(new THREE.CircleGeometry(0.12, 20), mat('#46586c', { roughness:0.2, metalness:0.7 }));
+glass.position.set(0, 0, 0.855); headGroup.add(glass);
+const viewfinder = box(0.24, 0.2, 0.28, '#171a1f'); viewfinder.position.set(0, 0.06, -0.55); headGroup.add(viewfinder);
+const recMat = new THREE.MeshStandardMaterial({ color:'#3a0d0d', emissive:'#ff2b1f', emissiveIntensity:3 });
+const recSphere = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), recMat);
+recSphere.position.set(0.17, 0.26, -0.05); headGroup.add(recSphere);
+
+/* ---- microphone on boom arm (over desk toward chair) ---- */
+const micRig = new THREE.Group(); micRig.position.set(0.55, 1.19, -1.95); diorama.add(micRig);
+const clampBase = cyl(0.09, 0.11, 0.12, '#33383f'); clampBase.position.y = 0.06; micRig.add(clampBase);
+const poleCyl = cyl(0.045, 0.045, 1.45, '#33383f'); poleCyl.position.y = 0.72; micRig.add(poleCyl);
+strut(new THREE.Vector3(0, 1.42, 0), new THREE.Vector3(-1.34, 1.32, 0.78), 0.035, '#33383f', micRig);
+const counter = box(0.12, 0.12, 0.4, '#33383f'); counter.position.set(0, 1.45, -0.28); micRig.add(counter);
+const micHead = new THREE.Group(); micHead.position.set(-1.34, 1.32, 0.78); micRig.add(micHead);
+const micBody = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.34, 16), mat('#22262c', { roughness:0.45 }));
+micBody.rotation.x = Math.PI/2; micBody.castShadow = true; micHead.add(micBody);
+const windscreen = new THREE.Mesh(new THREE.SphereGeometry(0.105, 14, 12), mat('#454c56', { roughness:0.9 }));
+windscreen.scale.set(1, 1, 1.35); windscreen.position.z = 0.24; micHead.add(windscreen);
+
+/* ---- ring light (aimed at chair) ---- */
+const ringRig = new THREE.Group(); ringRig.position.set(-3.35, 0, -0.45); diorama.add(ringRig);
+const ringBase = cyl(0.34, 0.38, 0.07, '#2f333a'); ringBase.position.y = 0.035; ringRig.add(ringBase);
+const ringPole = cyl(0.045, 0.045, 1.5, '#2f333a'); ringPole.position.y = 0.75; ringRig.add(ringPole);
+const ringHead = new THREE.Group(); ringHead.position.set(0, 1.58, 0); ringRig.add(ringHead);
+const ringMat = new THREE.MeshStandardMaterial({ color:'#1c1f24', emissive:'#fff4e0', emissiveIntensity:1.05, roughness:0.5 });
+const torus = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.075, 16, 44), ringMat);
+torus.castShadow = true; ringHead.add(torus);
+const backPlate = new THREE.Mesh(new THREE.CircleGeometry(0.44, 32), mat('#262a31', { roughness:0.6 }));
+backPlate.position.z = -0.08; ringHead.add(backPlate);
+const glowMat = new THREE.MeshBasicMaterial({ map:makeGlowTexture(), transparent:true, opacity:0.3, blending:THREE.AdditiveBlending, depthWrite:false });
+const glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.75, 1.75), glowMat);
+glowPlane.position.z = 0.16; ringHead.add(glowPlane);
+
+/* ---- softbox (aimed at chair/desk) ---- */
+const softRig = new THREE.Group(); softRig.position.set(3.05, 0, -1.2); diorama.add(softRig);
+const softBase = cyl(0.32, 0.36, 0.07, '#2f333a'); softBase.position.y = 0.035; softRig.add(softBase);
+const softPole = cyl(0.045, 0.045, 2.0, '#2f333a'); softPole.position.y = 1.03; softRig.add(softPole);
+const softHead = new THREE.Group(); softHead.position.set(0, 2.08, 0); softRig.add(softHead);
+const panel = RBox(1.15, 1.45, 0.16, 0.05, '#33383f', { roughness:0.55 }); softHead.add(panel);
+const softboxFrontMat = new THREE.MeshStandardMaterial({ color:'#14171c', emissive:'#fff6e8', emissiveIntensity:0.7, roughness:0.9 });
+const frontPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 1.32), softboxFrontMat);
+frontPlane.position.z = 0.085; softHead.add(frontPlane);
+
+/* ---- desk lamp (practical warm light) ---- */
+const lampShadeMat = new THREE.MeshStandardMaterial({ color:'#f3e3c8', emissive:'#ffca7a', emissiveIntensity:0.05, roughness:0.6 });
+const bulbMat = new THREE.MeshStandardMaterial({ color:'#fff2d9', emissive:'#ffd9a3', emissiveIntensity:0.06, roughness:0.4 });
+
+const deskLamp = new THREE.Group(); deskLamp.position.set(-3.15, 1.19, -2.75); diorama.add(deskLamp);
+const dlBase = cyl(0.17, 0.19, 0.07, '#33383f'); dlBase.position.y = 0.035; deskLamp.add(dlBase);
+const dlPole = cyl(0.035, 0.035, 0.78, '#33383f'); dlPole.position.y = 0.44; deskLamp.add(dlPole);
+const dlShade = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.26, 0.30, 20), lampShadeMat);
+dlShade.position.set(0, 0.86, 0.06); dlShade.rotation.x = -0.55; dlShade.castShadow = true; deskLamp.add(dlShade);
+const dlBulb = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), bulbMat);
+dlBulb.position.set(0, 0.72, 0.16); deskLamp.add(dlBulb);
+
+/* ---- floor lamp (practical warm light) ---- */
+const floorLamp = new THREE.Group(); floorLamp.position.set(3.8, 0, -2.75); diorama.add(floorLamp);
+const flBase = cyl(0.30, 0.34, 0.08, '#33383f'); flBase.position.y = 0.04; floorLamp.add(flBase);
+const flPole = cyl(0.05, 0.05, 2.34, '#33383f'); flPole.position.y = 1.25; floorLamp.add(flPole);
+const flShade = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.46, 0.52, 22), lampShadeMat);
+flShade.position.y = 2.5; flShade.castShadow = true; floorLamp.add(flShade);
+const flBulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), bulbMat);
+flBulb.position.y = 2.36; floorLamp.add(flBulb);
+
+/* ---- shelves + props ---- */
+const shelf1 = RBox(2.7, 0.1, 0.55, 0.03, '#d9a066', { roughness:0.6 }); shelf1.position.set(2.5, 2.62, -2.95); diorama.add(shelf1);
+const shelf2 = RBox(2.7, 0.1, 0.55, 0.03, '#d9a066', { roughness:0.6 }); shelf2.position.set(2.5, 3.45, -2.95); diorama.add(shelf2);
+[1.5, 3.5].forEach(x=>{
+  const b1 = box(0.08, 0.14, 0.4, '#7c5233'); b1.position.set(x, 2.52, -2.85); diorama.add(b1);
+  const b2 = box(0.08, 0.14, 0.4, '#7c5233'); b2.position.set(x, 3.35, -2.85); diorama.add(b2);
+});
+// lower shelf props
+[[1.42,0.40,'#e5484d'],[1.56,0.50,'#f0a35e'],[1.70,0.36,'#3e7d74']].forEach(([x,h,c])=>{
+  const b = box(0.12, h, 0.32, c); b.position.set(x, 2.67+h/2, -2.95); b.rotation.y = (Math.sin(x*7)*0.08); diorama.add(b);
+});
+const frameGroup = new THREE.Group(); frameGroup.position.set(2.35, 2.93, -3.02); frameGroup.rotation.y = -0.18; diorama.add(frameGroup);
+const frameBox = box(0.44, 0.52, 0.05, '#2b2f36'); frameGroup.add(frameBox);
+const frameArt = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.42), mat('#ffd9a0', { roughness:0.7 }));
+frameArt.position.z = 0.03; frameGroup.add(frameArt);
+const miniPot = cyl(0.10, 0.08, 0.15, '#c96f4a'); miniPot.position.set(3.05, 2.745, -2.95); diorama.add(miniPot);
+const miniLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), mat('#63b35f', { roughness:0.75 }));
+miniLeaf.scale.set(1, 1.35, 1); miniLeaf.position.set(3.05, 2.93, -2.95); miniLeaf.castShadow = true; diorama.add(miniLeaf);
+const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.15), mat('#f4c95d', { roughness:0.3, metalness:0.45 }));
+star.position.set(3.55, 2.82, -2.9); star.rotation.y = 0.6; star.castShadow = true; diorama.add(star);
+// upper shelf props
+const ub1 = box(0.5, 0.09, 0.36, '#7aa2ff'); ub1.position.set(1.62, 3.545, -2.95); diorama.add(ub1);
+const ub2 = box(0.44, 0.08, 0.32, '#e5484d'); ub2.position.set(1.60, 3.635, -2.94); ub2.rotation.y = 0.15; diorama.add(ub2);
+const mugSmall = cyl(0.085, 0.075, 0.19, '#5ec8c0'); mugSmall.position.set(2.45, 3.595, -2.95); diorama.add(mugSmall);
+const miniCam = new THREE.Group(); miniCam.position.set(3.05, 3.62, -2.92); miniCam.rotation.y = -0.35; diorama.add(miniCam);
+const mcBody = box(0.32, 0.22, 0.16, '#2b2f36'); miniCam.add(mcBody);
+const mcLens = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.12, 14), mat('#171a1f', { roughness:0.4 }));
+mcLens.rotation.x = Math.PI/2; mcLens.position.z = 0.13; miniCam.add(mcLens);
+const vinylGroup = new THREE.Group(); vinylGroup.position.set(3.6, 3.78, -3.08); vinylGroup.rotation.x = -0.18; diorama.add(vinylGroup);
+const vinyl = new THREE.Mesh(new THREE.CircleGeometry(0.26, 28), mat('#22262c', { roughness:0.5 })); vinylGroup.add(vinyl);
+const vinylLabel = new THREE.Mesh(new THREE.CircleGeometry(0.09, 20), mat('#e5484d', { roughness:0.6 }));
+vinylLabel.position.z = 0.005; vinylGroup.add(vinylLabel);
+
+/* ---- play-button plaque on back wall ---- */
+const plaqueMat = new THREE.MeshStandardMaterial({ color:'#e5484d', emissive:'#e5484d', emissiveIntensity:0.12, roughness:0.55 });
+const plaqueGeo = new THREE.ExtrudeGeometry(roundedRectShape(1.7, 1.05, 0.22), { depth:0.12, bevelEnabled:true, bevelThickness:0.03, bevelSize:0.03, bevelSegments:2 });
+const plaque = new THREE.Mesh(plaqueGeo, plaqueMat);
+plaque.position.set(-1.35, 3.66, -3.25); plaque.castShadow = true; diorama.add(plaque);
+const triShape = new THREE.Shape();
+triShape.moveTo(-0.26, -0.36); triShape.lineTo(-0.26, 0.36); triShape.lineTo(0.44, 0); triShape.closePath();
+const triangle = new THREE.Mesh(new THREE.ExtrudeGeometry(triShape, { depth:0.06, bevelEnabled:false }), mat('#ffffff', { roughness:0.45 }));
+triangle.position.set(-1.35 + 0.02, 3.66, -3.25 + 0.15); diorama.add(triangle);
+
+/* ---- wall clock (subtle motion) ---- */
+const clockGroup = new THREE.Group(); clockGroup.position.set(0.35, 3.6, -3.20); diorama.add(clockGroup);
+const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.09, 28), mat('#2b2f36', { roughness:0.5 }));
+rim.rotation.x = Math.PI/2; clockGroup.add(rim);
+const face = new THREE.Mesh(new THREE.CircleGeometry(0.235, 28), mat('#faf6ef', { roughness:0.7 }));
+face.position.z = 0.048; clockGroup.add(face);
+const hourGeo = new THREE.BoxGeometry(0.035, 0.13, 0.02); hourGeo.translate(0, 0.065, 0);
+const minuteGeo = new THREE.BoxGeometry(0.028, 0.19, 0.02); minuteGeo.translate(0, 0.095, 0);
+const hourHand = new THREE.Mesh(hourGeo, mat('#2b2f36')); hourHand.position.z = 0.062; clockGroup.add(hourHand);
+const minuteHand = new THREE.Mesh(minuteGeo, mat('#2b2f36')); minuteHand.position.z = 0.072; clockGroup.add(minuteHand);
+const pinDot = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 12), mat('#e5484d'));
+pinDot.rotation.x = Math.PI/2; pinDot.position.z = 0.075; clockGroup.add(pinDot);
+
+/* ---- poster on left wall ---- */
+const posterGroup = new THREE.Group(); posterGroup.position.set(-4.17, 2.5, 1.15); posterGroup.rotation.y = Math.PI/2; diorama.add(posterGroup);
+const posterBacking = RBox(1.55, 1.95, 0.07, 0.04, '#2b2f36', { roughness:0.6 }); posterGroup.add(posterBacking);
+const posterPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.8), new THREE.MeshStandardMaterial({ map:makePosterTexture(), roughness:0.85 }));
+posterPlane.position.z = 0.045; posterGroup.add(posterPlane);
+
+/* ---- big plant in left corner ---- */
+const plantGroup = new THREE.Group(); plantGroup.position.set(-3.85, 0, -2.55); diorama.add(plantGroup);
+const pot = cyl(0.30, 0.24, 0.46, '#c96f4a', { roughness:0.8 }); pot.position.y = 0.23; plantGroup.add(pot);
+const rimPot = cyl(0.32, 0.30, 0.09, '#b85f3d', { roughness:0.8 }); rimPot.position.y = 0.47; plantGroup.add(rimPot);
+const soil = new THREE.Mesh(new THREE.CircleGeometry(0.27, 20), mat('#4a3527', { roughness:1 }));
+soil.rotation.x = -Math.PI/2; soil.position.y = 0.52; plantGroup.add(soil);
+const leafSpecs = [
+  {dx:0.28, dz:0.10, h:1.45},{dx:-0.26, dz:0.14, h:1.30},{dx:0.05, dz:-0.24, h:1.62},
+  {dx:-0.12, dz:-0.18, h:1.15},{dx:0.20, dz:-0.10, h:1.28},{dx:0.02, dz:0.05, h:1.82}
+];
+const leafColors = ['#4e9a51', '#63b35f', '#3d7a44'];
+leafSpecs.forEach((s, i)=>{
+  const top = new THREE.Vector3(s.dx, s.h, s.dz);
+  strut(new THREE.Vector3(0, 0.5, 0), top, 0.028, '#3d7a44', plantGroup);
+  const leaf = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), mat(leafColors[i % 3], { roughness:0.72 }));
+  leaf.scale.set(0.17, s.h*0.42, 0.075);
+  leaf.position.copy(top);
+  leaf.rotation.z = -s.dx * 1.6; leaf.rotation.x = s.dz * 1.6;
+  leaf.castShadow = true; plantGroup.add(leaf);
+});
+
+/* ---- in-room lights (rotate with the diorama) ---- */
+const deskLampLight = new THREE.PointLight('#ffb46b', 0, 4.5, 2);
+deskLampLight.position.set(-3.02, 1.95, -2.42); diorama.add(deskLampLight);
+const floorLampLight = new THREE.PointLight('#ffc27d', 0, 6, 2);
+floorLampLight.position.set(3.8, 2.32, -2.75); diorama.add(floorLampLight);
+
+const ringSpot = new THREE.SpotLight('#fff1dc', 0.55, 9, 0.62, 0.95, 1.5);
+ringSpot.position.set(-3.35, 1.66, -0.45); diorama.add(ringSpot);
+const ringTarget = new THREE.Object3D(); ringTarget.position.set(-1.35, 1.15, -0.85); diorama.add(ringTarget);
+ringSpot.target = ringTarget;
+
+const softSpot = new THREE.SpotLight('#fff3e2', 1.15, 12, 0.78, 1.0, 1.4);
+softSpot.position.set(3.05, 2.02, -1.2); diorama.add(softSpot);
+const softTarget = new THREE.Object3D(); softTarget.position.set(-0.9, 1.25, -1.6); diorama.add(softTarget);
+softSpot.target = softTarget;
+
+const recPoint = new THREE.PointLight('#ff3b30', 0, 2.5, 2);
+recPoint.position.set(1.35, 2.05, 0.95); diorama.add(recPoint);
+
+/* ---- aim rigs at the chair (world == local before rotation starts) ---- */
+scene.updateMatrixWorld(true);
+headGroup.lookAt(new THREE.Vector3(-1.35, 1.15, -0.85));
+ringHead.lookAt(new THREE.Vector3(-1.35, 1.2, -0.85));
+softHead.lookAt(new THREE.Vector3(-1.35, 1.3, -1.0));
+micHead.lookAt(new THREE.Vector3(-1.35, 1.15, -0.85));
+
+/* ============ UI: day / night toggle ============ */
+const lightBtn = document.getElementById('lightBtn');
+const modeLabel = document.getElementById('modeLabel');
+lightBtn.addEventListener('click', ()=>{
+  mode = (mode === 'day') ? 'night' : 'day';
+  target = PRESETS[mode];
+  modeLabel.textContent = (mode === 'day') ? 'Gündüz' : 'Gece';
+  lightBtn.setAttribute('aria-pressed', String(mode === 'night'));
+  document.body.classList.toggle('night', mode === 'night');
+});
+
+/* ============ auto-rotate until user drags ============ */
+let autoRotate = true;
+controls.addEventListener('start', ()=>{ autoRotate = false; });
+
+/* ============ resize ============ */
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ============ animation loop ============ */
+const clock = new THREE.Clock();
+let lastDraw = -1;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  if (autoRotate) diorama.rotation.y += dt * 0.14;
+
+  // smooth lighting transition
+  const k = 1 - Math.exp(-dt * 3.5);
+  cur.hemi        += (target.hemi        - cur.hemi)        * k;
+  cur.sun         += (target.sun         - cur.sun)         * k;
+  cur.fill        += (target.fill        - cur.fill)        * k;
+  cur.deskLamp    += (target.deskLamp    - cur.deskLamp)    * k;
+  cur.floorLamp   += (target.floorLamp   - cur.floorLamp)   * k;
+  cur.ringSpot    += (target.ringSpot    - cur.ringSpot)    * k;
+  cur.softbox     += (target.softbox     - cur.softbox)     * k;
+  cur.plaqueEm    += (target.plaqueEm    - cur.plaqueEm)    * k;
+  cur.ringEmissive+= (target.ringEmissive- cur.ringEmissive)* k;
+  cur.bulb        += (target.bulb        - cur.bulb)        * k;
+  cur.exposure    += (target.exposure    - cur.exposure)    * k;
+
+  bgColor.lerp(target.bg, k); scene.fog.color.copy(bgColor);
+  groundMat.color.lerp(target.ground, k);
+  sun.color.lerp(target.sunC, k); fill.color.lerp(target.fillC, k);
+
+  hemiLight.intensity = cur.hemi;
+  sun.intensity = cur.sun;
+  fill.intensity = cur.fill;
+  deskLampLight.intensity = cur.deskLamp;
+  floorLampLight.intensity = cur.floorLamp;
+  ringSpot.intensity = cur.ringSpot;
+  softSpot.intensity = cur.softbox;
+
+  plaqueMat.emissiveIntensity = cur.plaqueEm * (1 + 0.07*Math.sin(t*2.3));
+  ringMat.emissiveIntensity = cur.ringEmissive * (1 + 0.06*Math.sin(t*3.1));
+  softboxFrontMat.emissiveIntensity = cur.softbox * 0.62;
+  bulbMat.emissiveIntensity = cur.bulb;
+  lampShadeMat.emissiveIntensity = cur.bulb * 0.4;
+  glowMat.opacity = Math.min(cur.ringEmissive * 0.3, 0.85);
+
+  renderer.toneMappingExposure = cur.exposure;
+
+  // recording light blink + timeline redraw (~30fps)
+  const recOn = (t % 1.5) < 0.75;
+  recMat.emissiveIntensity = recOn ? 3.4 : 0.15;
+  recPoint.intensity = recOn ? 0.9 : 0.04;
+
+  if (t - lastDraw > 1/30) { drawTimeline(t, recOn); screenTex.needsUpdate = true; lastDraw = t; }
+
+  // clock hands drift
+  minuteHand.rotation.z = -t * 0.15;
+  hourHand.rotation.z   = -(1.5 + t * 0.02);
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

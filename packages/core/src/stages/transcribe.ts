@@ -1,13 +1,5 @@
 import { fork, type ChildProcess } from "node:child_process";
-import {
-  closeSync,
-  fstatSync,
-  mkdtempSync,
-  openSync,
-  readSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { closeSync, fstatSync, mkdtempSync, openSync, readSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir, totalmem } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +19,7 @@ import {
   type Part,
   type PartOptions,
 } from "./transcribe-parts.js";
+import { removeTempDir } from "../temp-dir.js";
 
 /** A word chunk as returned by the transformers.js ASR pipeline with `return_timestamps: "word"`. */
 export interface AsrChunk {
@@ -403,7 +396,7 @@ export async function transcribe(options: SpeechPartsOptions): Promise<Transcrip
       words,
     });
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   }
 }
 

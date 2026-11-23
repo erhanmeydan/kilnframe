@@ -1,6 +1,6 @@
 import { spawnAgent } from "./agent-binary.js";
 import { runAgentProcess } from "./agent-run.js";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -12,6 +12,7 @@ import {
   type TextRequest,
   type TextResponse,
 } from "./types.js";
+import { removeTempDir } from "../temp-dir.js";
 
 /**
  * Uses Google's official Antigravity CLI (`agy`) the user installed and signed in to with their Google account,
@@ -419,12 +420,7 @@ export class AntigravityProvider implements TextProvider {
         },
       };
     } finally {
-      // on Windows an agy child may still hold the folder; a leftover temp folder must not replace the answer
-      try {
-        rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
-      } catch {
-        // left for the system to clean
-      }
+      removeTempDir(dir);
     }
   }
 }

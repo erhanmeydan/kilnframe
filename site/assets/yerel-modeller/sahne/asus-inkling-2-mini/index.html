@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mini Stüdyo — YouTube Creator Room</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#ece7de;
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  canvas{display:block}
+  #panel{position:fixed;top:18px;left:18px;z-index:10;max-width:252px;
+    padding:16px 18px 14px;border-radius:16px;
+    background:rgba(255,253,248,.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(120,95,70,.16);
+    box-shadow:0 10px 30px rgba(60,45,30,.18), inset 0 1px 0 rgba(255,255,255,.7);
+    animation:rise .8s ease both;}
+  @keyframes rise{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  #panel h1{margin:0;font-size:19px;font-weight:700;color:#3d342a;letter-spacing:.2px}
+  #panel .sub{margin:4px 0 12px;font-size:11.5px;color:#8a7c6b;letter-spacing:.3px}
+  #lightBtn{cursor:pointer;border:none;border-radius:999px;padding:9px 20px;
+    font-size:13.5px;font-weight:600;color:#fff8ee;letter-spacing:.2px;
+    background:linear-gradient(180deg,#4a4238,#37312b);
+    box-shadow:0 3px 10px rgba(50,40,30,.35), inset 0 1px 0 rgba(255,255,255,.18);
+    transition:transform .15s ease, box-shadow .15s ease;}
+  #lightBtn:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(50,40,30,.4), inset 0 1px 0 rgba(255,255,255,.22)}
+  #lightBtn:active{transform:scale(.96)}
+  .row{display:flex;align-items:center;gap:9px;margin-top:12px}
+  #modeDot{width:9px;height:9px;border-radius:50%;background:#f2b544;box-shadow:0 0 8px #f2b544;transition:all .5s ease}
+  body.night #modeDot{background:#7fa3e0;box-shadow:0 0 9px #7fa3e0}
+  #modeLabel{font-size:12px;color:#6d6154;font-weight:600;letter-spacing:.2px}
+  .hint{margin:11px 0 0;font-size:11px;line-height:1.55;color:#9a8c7b}
+</style>
+<script type="importmap">{"imports":{"three":"../../lib/three.module.js","three/addons/":"../../lib/addons/"}}</script>
+</head>
+<body>
+
+<div id="panel">
+  <h1>Mini Stüdyo</h1>
+  <p class="sub">Küçük YouTube Creator Room</p>
+  <button id="lightBtn" type="button">Işıklar</button>
+  <div class="row"><span id="modeDot"></span><span id="modeLabel">Gündüz</span></div>
+  <p class="hint">Sürükle: döndür &nbsp;·&nbsp; Kaydır: yakınlaştır<br/>Sahne ilk sürüklenene kadar yavaşça döner.</p>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* ---------- renderer / scene / camera ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xece7de);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 120);
+camera.position.set(6.8, 5.4, 9.2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(-0.2, 2.0, -1.2);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.enablePan = false;
+controls.minDistance = 5.5;
+controls.maxDistance = 16;
+controls.minPolarAngle = 0.45;
+controls.maxPolarAngle = 1.42;           // never below the floor
+controls.minAzimuthAngle = -0.25;        // stay in front of the two walls
+controls.maxAzimuthAngle = 1.35;
+controls.rotateSpeed = 0.85;
+
+/* ---------- helpers ---------- */
+function std(color, o={}){ return new THREE.MeshStandardMaterial(Object.assign({ color, roughness:0.82, metalness:0.04 }, o)); }
+function add(parent, geo, material, x=0, y=0, z=0){ const m = new THREE.Mesh(geo, material); m.position.set(x,y,z); parent.add(m); return m; }
+function tubeBetween(parent, a, b, r, material){
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), material);
+  m.position.copy(a).addScaledVector(dir, 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  parent.add(m); return m;
+}
+
+const diorama = new THREE.Group();
+scene.add(diorama);
+
+/* ---------- ground (static, outside the rotating diorama) ---------- */
+const groundMat = std(0xd8cfc4, { roughness:1 });
+const ground = add(scene, new THREE.CircleGeometry(30, 48), groundMat, 0, -0.355, 0);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+
+/* ---------- floor & walls ---------- */
+const floorMesh = add(diorama, new RoundedBoxGeometry(10, 0.35, 8, 3, 0.1), std(0xe2c193, { roughness:.7 }), 0, -0.175, 0);
+floorMesh.receiveShadow = true;
+
+const rugBase = add(diorama, new THREE.CircleGeometry(2.3, 40), std(0xe0a184, { roughness:1 }), 0.55, 0.012, -0.85);
+rugBase.rotation.x = -Math.PI/2; rugBase.receiveShadow = true; rugBase.castShadow = false;
+const rugInner = add(diorama, new THREE.CircleGeometry(1.55, 40), std(0xf2ddc4, { roughness:1 }), 0.55, 0.022, -0.85);
+rugInner.rotation.x = -Math.PI/2; rugInner.receiveShadow = true; rugInner.castShadow = false;
+
+const backWall = add(diorama, new THREE.BoxGeometry(10.5, 5.6, 0.25), std(0xf1e3d0, { roughness:.95 }), 0, 2.8, -4.125);
+const leftWall = add(diorama, new THREE.BoxGeometry(0.25, 5.6, 8.25), std(0xe7d3b8, { roughness:.95 }), -5.125, 2.8, -0.125);
+backWall.receiveShadow = true; leftWall.receiveShadow = true;
+
+add(diorama, new THREE.BoxGeometry(10, 0.26, 0.07), std(0xfbf6ee), 0, 0.13, -3.96);
+add(diorama, new THREE.BoxGeometry(0.07, 0.26, 8), std(0xfbf6ee), -4.96, 0.13, 0);
+
+/* ---------- desk ---------- */
+const DESK_Y = 2.01; // top surface
+add(diorama, new RoundedBoxGeometry(0.16, 1.85, 1.5, 2, 0.04), std(0x51463c, { roughness:.6 }), -1.47, 0.925, -2.95);
+add(diorama, new RoundedBoxGeometry(0.16, 1.85, 1.5, 2, 0.04), std(0x51463c, { roughness:.6 }),  2.57, 0.925, -2.95);
+add(diorama, new RoundedBoxGeometry(4.4, 0.16, 1.8, 3, 0.06), std(0xe9cfa6, { roughness:.65 }), 0.55, 1.93, -2.95);
+
+/* ---------- monitor with animated timeline screen ---------- */
+const scr = document.createElement('canvas'); scr.width = 512; scr.height = 300;
+const ctx = scr.getContext('2d');
+const screenTex = new THREE.CanvasTexture(scr);
+screenTex.colorSpace = THREE.SRGBColorSpace;
+screenTex.anisotropy = 4;
+
+add(diorama, new RoundedBoxGeometry(0.62, 0.07, 0.42, 2, 0.03), std(0x26292e, { roughness:.5 }), 0.35, DESK_Y+0.035, -3.15);
+add(diorama, new THREE.BoxGeometry(0.14, 0.5, 0.12), std(0x26292e, { roughness:.5 }), 0.35, DESK_Y+0.32, -3.18);
+add(diorama, new RoundedBoxGeometry(2.34, 1.44, 0.1, 3, 0.05), std(0x22252a, { roughness:.45 }), 0.35, DESK_Y+0.94, -3.12);
+const screenPlane = add(diorama, new THREE.PlaneGeometry(2.16, 1.26), new THREE.MeshBasicMaterial({ map:screenTex }), 0.35, DESK_Y+0.94, -3.065);
+screenPlane.castShadow = false; screenPlane.receiveShadow = false;
+add(diorama, new THREE.SphereGeometry(0.022, 10, 10), new THREE.MeshBasicMaterial({ color:0x7ee787 }), 0.35, DESK_Y+0.26, -3.06);
+
+/* keyboard + mouse */
+add(diorama, new RoundedBoxGeometry(2.1, 0.035, 0.85, 2, 0.02), std(0xcfc6ba, { roughness:.9 }), 0.45, DESK_Y+0.018, -2.42);
+add(diorama, new RoundedBoxGeometry(1.3, 0.08, 0.44, 2, 0.04), std(0xf5efe6, { roughness:.55 }), 0.15, DESK_Y+0.075, -2.45);
+for (let r=0;r<4;r++) for (let c=0;c<12;c++){
+  add(diorama, new THREE.BoxGeometry(0.082, 0.028, 0.062), std(0xfffdf8, { roughness:.5 }),
+    -0.42 + c*0.098, DESK_Y+0.125, -2.585 + r*0.085);
+}
+add(diorama, new RoundedBoxGeometry(0.3, 0.1, 0.44, 2, 0.05), std(0xf5efe6, { roughness:.55 }), 1.15, DESK_Y+0.07, -2.42);
+
+/* mug */
+add(diorama, new THREE.CylinderGeometry(0.17, 0.15, 0.34, 20), std(0xd97b5a, { roughness:.6 }), 1.85, DESK_Y+0.17, -3.35);
+const mugHandle = add(diorama, new THREE.TorusGeometry(0.1, 0.032, 10, 20), std(0xd97b5a, { roughness:.6 }), 2.04, DESK_Y+0.17, -3.35);
+mugHandle.rotation.y = Math.PI/2;
+add(diorama, new THREE.CylinderGeometry(0.145, 0.145, 0.02, 20), std(0x4a3226, { roughness:.9 }), 1.85, DESK_Y+0.325, -3.35);
+
+/* ---------- desk lamp (practical warm light) ---------- */
+const lampBase = new THREE.Vector3(2.35, DESK_Y+0.035, -3.45);
+add(diorama, new THREE.CylinderGeometry(0.24, 0.26, 0.07, 20), std(0x33373d, { roughness:.5, metalness:.35 }), lampBase.x, lampBase.y, lampBase.z);
+const elbow = new THREE.Vector3(2.42, DESK_Y+1.0, -3.4);
+const headPos = new THREE.Vector3(1.75, DESK_Y+1.27, -3.05);
+tubeBetween(diorama, lampBase, elbow, 0.045, std(0x33373d, { roughness:.5, metalness:.35 }));
+tubeBetween(diorama, elbow, headPos, 0.04, std(0x33373d, { roughness:.5, metalness:.35 }));
+add(diorama, new THREE.SphereGeometry(0.06, 12, 12), std(0x22252a), elbow.x, elbow.y, elbow.z);
+
+const lampTarget = new THREE.Vector3(0.9, DESK_Y, -2.6);
+const lampDir = new THREE.Vector3().subVectors(lampTarget, headPos).normalize();
+const lampShade = add(diorama, new THREE.CylinderGeometry(0.13, 0.32, 0.42, 24, 1, true), std(0x2f3338, { roughness:.5, metalness:.3, side:THREE.DoubleSide }), headPos.x, headPos.y, headPos.z);
+lampShade.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0), lampDir);
+const bulb = add(diorama, new THREE.SphereGeometry(0.09, 14, 14), new THREE.MeshBasicMaterial({ color:0xffd9a0 }), headPos.x + lampDir.x*0.18, headPos.y + lampDir.y*0.18, headPos.z + lampDir.z*0.18);
+bulb.castShadow = false;
+const deskLampLight = new THREE.PointLight(0xffc98a, 1.2, 6, 2);
+deskLampLight.position.set(headPos.x + lampDir.x*0.35, headPos.y + lampDir.y*0.35, headPos.z + lampDir.z*0.35);
+diorama.add(deskLampLight);
+
+/* ---------- microphone on boom arm ---------- */
+const micBase = new THREE.Vector3(-1.25, DESK_Y+0.03, -3.45);
+add(diorama, new THREE.CylinderGeometry(0.26, 0.28, 0.06, 20), std(0x33373d, { roughness:.5 }), micBase.x, micBase.y, micBase.z);
+const poleTop = new THREE.Vector3(-1.25, DESK_Y+1.58, -3.4);
+tubeBetween(diorama, micBase, poleTop, 0.05, std(0x33373d, { roughness:.5 }));
+const boomTip = new THREE.Vector3(0.18, DESK_Y+1.28, -2.72);
+tubeBetween(diorama, poleTop, boomTip, 0.04, std(0x33373d, { roughness:.5 }));
+
+const micTarget = new THREE.Vector3(0.35, DESK_Y+0.3, -2.5);
+const micDir = new THREE.Vector3().subVectors(micTarget, boomTip).normalize();
+const micGroup = new THREE.Group();
+micGroup.position.copy(boomTip);
+micGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), micDir);
+diorama.add(micGroup);
+add(micGroup, new THREE.CylinderGeometry(0.085, 0.075, 0.42, 16), std(0x2f3338, { roughness:.45 }), 0, 0.21, 0);
+add(micGroup, new THREE.CylinderGeometry(0.088, 0.088, 0.05, 16), std(0xd97b5a, { roughness:.6 }), 0, 0.36, 0);
+add(micGroup, new THREE.SphereGeometry(0.115, 14, 14), std(0x22252a, { roughness:.95 }), 0, 0.47, 0);
+
+/* ---------- chair (creator's seat) ---------- */
+const chair = new THREE.Group();
+chair.position.set(0.55, 0, -1.05);
+diorama.add(chair);
+for (let i=0;i<5;i++){
+  const a = i/5 * Math.PI*2 + Math.PI/10;
+  const leg = add(chair, new THREE.BoxGeometry(0.56, 0.06, 0.12), std(0x33373d, { roughness:.5 }), Math.cos(a)*0.3, 0.16, Math.sin(a)*0.3);
+  leg.rotation.y = -a;
+  add(chair, new THREE.SphereGeometry(0.075, 12, 12), std(0x22252a, { roughness:.6 }), Math.cos(a)*0.58, 0.08, Math.sin(a)*0.58);
+}
+add(chair, new THREE.CylinderGeometry(0.085, 0.1, 1.05, 14), std(0x33373d, { roughness:.5 }), 0, 0.72, 0);
+add(chair, new RoundedBoxGeometry(1.2, 0.24, 1.05, 3, 0.09), std(0xcf6f4e, { roughness:.75 }), 0, 1.42, 0);
+const backrest = add(chair, new RoundedBoxGeometry(1.05, 1.2, 0.16, 3, 0.08), std(0xcf6f4e, { roughness:.75 }), 0, 2.15, 0.42);
+backrest.rotation.x = 0.12;
+add(chair, new THREE.BoxGeometry(0.07, 0.38, 0.07), std(0x33373d), -0.58, 1.72, 0.05);
+add(chair, new THREE.BoxGeometry(0.07, 0.38, 0.07), std(0x33373d),  0.58, 1.72, 0.05);
+add(chair, new RoundedBoxGeometry(0.15, 0.06, 0.5, 2, 0.03), std(0xb85c3f, { roughness:.75 }), -0.58, 1.93, 0.05);
+add(chair, new RoundedBoxGeometry(0.15, 0.06, 0.5, 2, 0.03), std(0xb85c3f, { roughness:.75 }),  0.58, 1.93, 0.05);
+
+/* ---------- camera on tripod (pointed at the chair) ---------- */
+const camGroup = new THREE.Group();
+camGroup.position.set(2.15, 0, 0.55);
+diorama.add(camGroup);
+const hub = new THREE.Vector3(0, 1.15, 0);
+[Math.PI/2, Math.PI/2 + 2*Math.PI/3, Math.PI/2 + 4*Math.PI/3].forEach(a=>{
+  tubeBetween(camGroup, hub, new THREE.Vector3(Math.cos(a)*0.8, 0.03, Math.sin(a)*0.8), 0.05, std(0x2f3338, { roughness:.5 }));
+});
+add(camGroup, new THREE.CylinderGeometry(0.07, 0.07, 1.25, 12), std(0x2f3338, { roughness:.5 }), 0, 1.75, 0);
+add(camGroup, new THREE.BoxGeometry(0.18, 0.12, 0.18), std(0x22252a), 0, 2.4, 0);
+
+const headGroup = new THREE.Group();
+headGroup.position.set(0, 2.5, 0);
+camGroup.add(headGroup);
+add(headGroup, new RoundedBoxGeometry(0.62, 0.42, 0.55, 3, 0.06), std(0x33373d, { roughness:.45 }), 0, 0, 0);
+tubeBetween(headGroup, new THREE.Vector3(0,0,0.2), new THREE.Vector3(0,0,0.62), 0.16, std(0x22252a, { roughness:.4 }));
+add(headGroup, new THREE.CylinderGeometry(0.18, 0.18, 0.06, 20), std(0x4b5158, { roughness:.35, metalness:.5 }), 0, 0, 0.6)
+  .rotation.x = Math.PI/2;
+const lensGlass = add(headGroup, new THREE.CircleGeometry(0.13, 20), std(0x1a2530, { roughness:.15, metalness:.85 }), 0, 0, 0.635);
+lensGlass.castShadow = false;
+add(headGroup, new THREE.BoxGeometry(0.16, 0.14, 0.18), std(0x22252a), 0, 0.27, -0.12);
+const recMat = std(0x3a1512, { emissive:0xff2211, emissiveIntensity:2.5, roughness:.4 });
+add(headGroup, new THREE.SphereGeometry(0.05, 10, 10), recMat, 0, 0.24, 0.12);
+
+const camTarget = new THREE.Vector3(0.55, 2.05, -1.05);
+const headWorldLocal = new THREE.Vector3(camGroup.position.x, 2.5, camGroup.position.z);
+headGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3().subVectors(camTarget, headWorldLocal).normalize());
+
+/* ---------- ring light (glowing practical) ---------- */
+const ringPos = new THREE.Vector3(-2.3, 0, -0.45);
+add(diorama, new THREE.CylinderGeometry(0.34, 0.36, 0.07, 20), std(0x33373d, { roughness:.5 }), ringPos.x, 0.035, ringPos.z);
+tubeBetween(diorama, new THREE.Vector3(ringPos.x, 0.06, ringPos.z), new THREE.Vector3(ringPos.x, 3.15, ringPos.z), 0.055, std(0x33373d, { roughness:.5 }));
+const ringHead = new THREE.Group();
+ringHead.position.set(ringPos.x, 3.35, ringPos.z);
+diorama.add(ringHead);
+const ringMat = std(0xfff6e8, { emissive:0xffedd2, emissiveIntensity:1.7, roughness:.4 });
+add(ringHead, new THREE.TorusGeometry(0.52, 0.09, 16, 40), ringMat, 0, 0, 0);
+const diffuser = add(ringHead, new THREE.CircleGeometry(0.45, 32), new THREE.MeshBasicMaterial({ color:0xfffaf0 }), 0, 0, -0.02);
+diffuser.castShadow = false;
+add(ringHead, new THREE.BoxGeometry(0.12, 0.3, 0.1), std(0x33373d), 0, -0.62, -0.08);
+const ringTargetPos = new THREE.Vector3(0.55, 2.05, -1.05);
+ringHead.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3().subVectors(ringTargetPos, ringHead.position).normalize());
+
+const ringSpot = new THREE.SpotLight(0xfff2df, 2.6, 10, 0.6, 1, 1);
+ringSpot.position.copy(ringHead.position);
+diorama.add(ringSpot);
+const ringTargetObj = new THREE.Object3D(); ringTargetObj.position.copy(ringTargetPos); diorama.add(ringTargetObj);
+ringSpot.target = ringTargetObj;
+
+/* ---------- softbox (practical light) ---------- */
+const sbPos = new THREE.Vector3(3.45, 0, -2.35);
+add(diorama, new THREE.CylinderGeometry(0.32, 0.34, 0.07, 20), std(0x33373d, { roughness:.5 }), sbPos.x, 0.035, sbPos.z);
+tubeBetween(diorama, new THREE.Vector3(sbPos.x, 0.06, sbPos.z), new THREE.Vector3(sbPos.x, 2.9, sbPos.z), 0.05, std(0x33373d, { roughness:.5 }));
+const softboxHead = new THREE.Group();
+softboxHead.position.set(sbPos.x, 3.05, sbPos.z);
+diorama.add(softboxHead);
+add(softboxHead, new RoundedBoxGeometry(1.5, 1.9, 0.16, 2, 0.06), std(0xefe9dd, { roughness:.7 }), 0, 0, 0);
+const softPanel = add(softboxHead, new THREE.PlaneGeometry(1.28, 1.68), new THREE.MeshBasicMaterial({ color:0xfff8ec }), 0, 0, 0.085);
+softPanel.castShadow = false; softPanel.receiveShadow = false;
+add(softboxHead, new THREE.BoxGeometry(1.5, 0.12, 0.2), std(0x3a3f47), 0, -1.02, -0.04);
+const sbTargetPos = new THREE.Vector3(0.7, 1.8, -1.6);
+softboxHead.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3().subVectors(sbTargetPos, softboxHead.position).normalize());
+
+const softSpot = new THREE.SpotLight(0xffe9c9, 2.2, 10, 0.75, 1, 1);
+softSpot.position.copy(softboxHead.position);
+diorama.add(softSpot);
+const sbTargetObj = new THREE.Object3D(); sbTargetObj.position.copy(sbTargetPos); diorama.add(sbTargetObj);
+softSpot.target = sbTargetObj;
+
+/* ---------- floor lamp (practical warm light, left corner) ---------- */
+const flPos = new THREE.Vector3(-4.1, 0, 2.35);
+add(diorama, new THREE.CylinderGeometry(0.32, 0.34, 0.07, 20), std(0x33373d, { roughness:.5 }), flPos.x, 0.035, flPos.z);
+tubeBetween(diorama, new THREE.Vector3(flPos.x, 0.06, flPos.z), new THREE.Vector3(flPos.x, 2.75, flPos.z), 0.05, std(0x33373d, { roughness:.5 }));
+const shadeMat = std(0xf6e7c8, { side:THREE.DoubleSide, emissive:0xffdca8, emissiveIntensity:0.18, roughness:.9 });
+add(diorama, new THREE.CylinderGeometry(0.42, 0.5, 0.62, 24, 1, true), shadeMat, flPos.x, 2.72, flPos.z);
+const floorBulb = add(diorama, new THREE.SphereGeometry(0.11, 12, 12), new THREE.MeshBasicMaterial({ color:0xffe3b0 }), flPos.x, 2.55, flPos.z);
+floorBulb.castShadow = false;
+const floorLampLight = new THREE.PointLight(0xffd2a0, 0.7, 8, 2);
+floorLampLight.position.set(flPos.x, 2.5, flPos.z);
+diorama.add(floorLampLight);
+
+/* ---------- shelves on the left wall + props ---------- */
+const shelfMat = std(0xecd3a8, { roughness:.7 });
+[3.05, 4.15].forEach(y=>{
+  add(diorama, new RoundedBoxGeometry(1.0, 0.09, 2.6, 2, 0.03), shelfMat, -4.42, y, -1.9);
+  add(diorama, new THREE.BoxGeometry(0.1, 0.16, 0.14), std(0x33373d), -4.7, y-0.125, -2.95);
+  add(diorama, new THREE.BoxGeometry(0.1, 0.16, 0.14), std(0x33373d), -4.7, y-0.125, -0.85);
+});
+
+/* lower shelf props */
+const bookCols = [0xd97b5a, 0x8fa98f, 0xe3c26b];
+let by = 3.095;
+[0.09, 0.08, 0.1].forEach((h,i)=>{
+  const b = add(diorama, new THREE.BoxGeometry(0.5, h, 0.68), std(bookCols[i], { roughness:.8 }), -4.42, by+h/2, -2.85);
+  b.rotation.y = (i-1)*0.14; by += h;
+});
+add(diorama, new THREE.BoxGeometry(0.42, 0.55, 0.4), std(0x33373d, { roughness:.5 }), -4.42, 3.375, -1.75);
+const cone = add(diorama, new THREE.CylinderGeometry(0.13, 0.13, 0.04, 20), std(0x22252a, { roughness:.5 }), -4.18, 3.375, -1.75);
+cone.rotation.z = Math.PI/2;
+const coneDot = add(diorama, new THREE.CylinderGeometry(0.05, 0.05, 0.045, 12), std(0x565d66, { roughness:.4 }), -4.17, 3.375, -1.75);
+coneDot.rotation.z = Math.PI/2;
+
+add(diorama, new THREE.CylinderGeometry(0.15, 0.12, 0.22, 14), std(0xcf7a52, { roughness:.8 }), -4.42, 3.21, -1.05);
+for (let i=0;i<5;i++){
+  const a = i/5*Math.PI*2;
+  const leaf = add(diorama, new THREE.ConeGeometry(0.06, 0.34, 8), std(i%2 ? 0x6f9e6a : 0x87b06f, { flatShading:true }), -4.42 + Math.cos(a)*0.05, 3.32+0.15, -1.05 + Math.sin(a)*0.05);
+  leaf.rotation.set(Math.sin(a)*0.45, 0, -Math.cos(a)*0.45);
+}
+
+/* upper shelf props */
+add(diorama, new THREE.BoxGeometry(0.05, 0.64, 0.52), std(0xf7f1e6, { roughness:.8 }), -4.15, 4.53, -2.75);
+add(diorama, new THREE.BoxGeometry(0.02, 0.5, 0.4), std(0xa8bfd0, { roughness:.6 }), -4.11, 4.53, -2.75);
+
+const figBase = add(diorama, new THREE.CylinderGeometry(0.17, 0.19, 0.06, 16), std(0x33373d), -4.42, 4.23, -1.95);
+add(diorama, new THREE.ConeGeometry(0.19, 0.45, 14), std(0x7f9bb3, { roughness:.75 }), -4.42, 4.485, -1.95);
+add(diorama, new THREE.SphereGeometry(0.15, 16, 16), std(0xe8b98d, { roughness:.7 }), -4.42, 4.78, -1.95);
+const figBtnShape = new THREE.Shape();
+figBtnShape.moveTo(-0.05,-0.07); figBtnShape.lineTo(-0.05,0.07); figBtnShape.lineTo(0.09,0); figBtnShape.closePath();
+const figBtn = add(diorama, new THREE.ShapeGeometry(figBtnShape), std(0xfffdf8, { emissive:0xffffff, emissiveIntensity:.15 }), -4.24, 4.5, -1.95);
+figBtn.rotation.y = Math.PI/2;
+
+add(diorama, new THREE.BoxGeometry(0.5, 0.08, 0.62), std(0xc96f4a, { roughness:.8 }), -4.42, 4.24, -1.05).rotation.y = 0.12;
+add(diorama, new THREE.BoxGeometry(0.5, 0.08, 0.62), std(0x8fa98f, { roughness:.8 }), -4.42, 4.32, -1.05).rotation.y = -0.09;
+
+/* ---------- floor plant (right back corner) ---------- */
+const plantPos = new THREE.Vector3(4.05, 0, -3.15);
+add(diorama, new THREE.CylinderGeometry(0.38, 0.30, 0.55, 20), std(0xcf7a52, { roughness:.8 }), plantPos.x, 0.275, plantPos.z);
+add(diorama, new THREE.CylinderGeometry(0.40, 0.40, 0.1, 20), std(0xb96643, { roughness:.8 }), plantPos.x, 0.5, plantPos.z);
+const soil = add(diorama, new THREE.CircleGeometry(0.33, 20), std(0x4a3226, { roughness:1 }), plantPos.x, 0.545, plantPos.z);
+soil.rotation.x = -Math.PI/2; soil.castShadow = false;
+for (let i=0;i<6;i++){
+  const a = i/6*Math.PI*2 + 0.3;
+  const h = 1.25 + (i%3)*0.28;
+  const pivot = new THREE.Group();
+  pivot.position.set(plantPos.x, 0.55, plantPos.z);
+  pivot.rotation.y = a;
+  diorama.add(pivot);
+  const leafGeo = new THREE.ConeGeometry(0.16, h, 8);
+  leafGeo.translate(0, h/2, 0);
+  const leaf = add(pivot, leafGeo, std(i%2 ? 0x6f9e6a : 0x87b06f, { flatShading:true, roughness:.85 }), 0, 0, 0);
+  leaf.rotation.x = 0.32 + (i%3)*0.12;
+}
+
+/* ---------- play-button plaque on the back wall ---------- */
+const plaque = new THREE.Group();
+plaque.position.set(-3.0, 4.35, -3.93);
+diorama.add(plaque);
+add(plaque, new RoundedBoxGeometry(1.75, 1.2, 0.16, 3, 0.07), std(0xf0564a, { roughness:.55 }), 0, 0, 0);
+const triShape = new THREE.Shape();
+triShape.moveTo(-0.22, -0.32); triShape.lineTo(-0.22, 0.32); triShape.lineTo(0.45, 0); triShape.closePath();
+const triangle = add(plaque, new THREE.ShapeGeometry(triShape), std(0xfffdf8, { emissive:0xffffff, emissiveIntensity:.18 }), -0.05, 0, 0.085);
+triangle.castShadow = false;
+
+/* ---------- wall clock (second hand sweeps) ---------- */
+const clockGroup = new THREE.Group();
+clockGroup.position.set(3.15, 4.5, -3.95);
+diorama.add(clockGroup);
+const rim = add(clockGroup, new THREE.CylinderGeometry(0.46, 0.46, 0.1, 28), std(0x33373d, { roughness:.5 }), 0, 0, 0);
+rim.rotation.x = Math.PI/2;
+add(clockGroup, new THREE.CircleGeometry(0.38, 28), std(0xfbf6ee, { roughness:.9 }), 0, 0, 0.055).castShadow = false;
+const hourGeo = new THREE.BoxGeometry(0.06, 0.22, 0.02); hourGeo.translate(0, 0.08, 0);
+add(clockGroup, hourGeo, std(0x33373d), 0, 0, 0.075).rotation.z = -2.35;
+const minGeo = new THREE.BoxGeometry(0.045, 0.32, 0.02); minGeo.translate(0, 0.12, 0);
+add(clockGroup, minGeo, std(0x33373d), 0, 0, 0.075).rotation.z = 0.6;
+const secGeo = new THREE.BoxGeometry(0.035, 0.3, 0.02); secGeo.translate(0, 0.1, 0);
+const secondHand = add(clockGroup, secGeo, std(0xe04a38, { roughness:.5 }), 0, 0, 0.08);
+add(clockGroup, new THREE.SphereGeometry(0.045, 10, 10), std(0x33373d), 0, 0, 0.085);
+
+/* ---------- shadows: everything casts & receives except flagged meshes ---------- */
+diorama.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+screenPlane.castShadow = false; screenPlane.receiveShadow = false;
+diffuser.castShadow = false; softPanel.castShadow = false; floorBulb.castShadow = false; bulb.castShadow = false;
+triangle.castShadow = false; lensGlass.castShadow = false; soil.castShadow = false;
+
+/* ---------- lights (world) ---------- */
+const hemi = new THREE.HemisphereLight(0xcfe0ea, 0xd8c6ae, 0.85);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff0da, 1.5);
+sun.position.set(7, 10, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
+sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
+sun.shadow.camera.near = 2; sun.shadow.camera.far = 30;
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
+scene.add(sun); scene.add(sun.target);
+
+/* ---------- day / night state ---------- */
+const DAY = { bg:new THREE.Color(0xece7de), ground:new THREE.Color(0xd8cfc4), hemiSky:new THREE.Color(0xcfe0ea), hemiGround:new THREE.Color(0xd8c6ae), sun:new THREE.Color(0xfff0da), hemiInt:.85, sunInt:1.5, deskLamp:1.2, floorLamp:0.7, ringSpot:2.6, softbox:2.2, shadeEm:.18 };
+const NIGHT = { bg:new THREE.Color(0x161c29), ground:new THREE.Color(0x22262f), hemiSky:new THREE.Color(0x33405e), hemiGround:new THREE.Color(0x241f1a), sun:new THREE.Color(0x9db4dd), hemiInt:.38, sunInt:.22, deskLamp:3.4, floorLamp:4.5, ringSpot:5.2, softbox:4.6, shadeEm:.95 };
+let target = DAY;
+const cur = { bg:DAY.bg.clone(), ground:DAY.ground.clone(), hemiSky:DAY.hemiSky.clone(), hemiGround:DAY.hemiGround.clone(), sun:DAY.sun.clone(), hemiInt:DAY.hemiInt, sunInt:DAY.sunInt, deskLamp:DAY.deskLamp, floorLamp:DAY.floorLamp, ringSpot:DAY.ringSpot, softbox:DAY.softbox, shadeEm:DAY.shadeEm };
+
+const btn = document.getElementById('lightBtn');
+const modeLabel = document.getElementById('modeLabel');
+btn.addEventListener('click', ()=>{
+  const night = target === DAY;
+  target = night ? NIGHT : DAY;
+  document.body.classList.toggle('night', night);
+  modeLabel.textContent = night ? 'Gece' : 'Gündüz';
+});
+
+/* ---------- monitor screen drawing ---------- */
+const clipRows = [
+  { y:74, h:32, clips:[{x:36,w:120,c:'#4f8ef7'},{x:168,w:80,c:'#57c785'},{x:262,w:150,c:'#e3b341'}] },
+  { y:122, h:32, clips:[{x:36,w:70,c:'#f27059'},{x:118,w:140,c:'#9a6ff2'},{x:272,w:90,c:'#4f8ef7'}] },
+  { y:170, h:32, clips:[{x:36,w:180,c:'#57c785'},{x:230,w:110,c:'#e3b341'}] }
+];
+function rr(x,y,w,h,r){ ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x,y,w,h,r); else ctx.rect(x,y,w,h); }
+const pad2 = n => String(n).padStart(2,'0');
+
+function drawScreen(t){
+  ctx.fillStyle = '#151a23'; ctx.fillRect(0,0,512,300);
+  // top bar
+  ctx.fillStyle = '#1e2530'; ctx.fillRect(0,0,512,36);
+  ['#ff5f57','#febc2e','#28c840'].forEach((c,i)=>{ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(20+i*18, 18, 5, 0, Math.PI*2); ctx.fill(); });
+  ctx.fillStyle = '#8b95a7'; ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('timeline_v3.mp4', 78, 19);
+  const frames = Math.floor(t*24);
+  const tc = pad2(Math.floor(frames/1440)) + ':' + pad2(Math.floor(frames/24)%60) + ':' + pad2(frames%24);
+  ctx.fillStyle = '#e8ecf3'; ctx.font = '600 13px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.textAlign = 'right'; ctx.fillText(tc, 494, 19); ctx.textAlign = 'left';
+  // ruler ticks
+  ctx.strokeStyle = '#2c3542'; ctx.lineWidth = 1;
+  for (let x=30; x<=482; x+=32){ ctx.beginPath(); ctx.moveTo(x,44); ctx.lineTo(x,52); ctx.stroke(); }
+  // playhead position
+  const px = 30 + ((t*75) % 452);
+  // clip rows
+  for (const row of clipRows){
+    ctx.fillStyle = '#1a212c'; rr(28, row.y-4, 456, row.h+8, 6); ctx.fill();
+    for (const cl of row.clips){
+      ctx.fillStyle = cl.c; rr(cl.x, row.y, cl.w, row.h, 5); ctx.fill();
+      if (px >= cl.x && px <= cl.x+cl.w){ ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; rr(cl.x, row.y, cl.w, row.h, 5); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      for (let x=cl.x+8; x<cl.x+cl.w-6; x+=14){ ctx.fillRect(x, row.y+row.h/2-1, 5, 2); }
+    }
+  }
+  // moving waveform
+  ctx.strokeStyle = '#57c785'; ctx.lineWidth = 2; ctx.beginPath();
+  for (let x=30; x<=482; x+=6){
+    const y = 252 + Math.sin(x*0.09 + t*3.2) * 14 * Math.abs(Math.sin(x*0.013 + t*1.4));
+    if (x===30) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  // playhead
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.moveTo(px-6,40); ctx.lineTo(px+6,40); ctx.lineTo(px,51); ctx.closePath(); ctx.fill();
+  ctx.fillRect(px-1, 50, 2, 242);
+}
+
+/* ---------- animation loop ---------- */
+let autoSpin = true;
+controls.addEventListener('start', ()=>{ autoSpin = false; });
+
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  if (autoSpin) diorama.rotation.y += dt * 0.12;
+
+  // lighting transition
+  const k = 1 - Math.exp(-3*dt);
+  cur.bg.lerp(target.bg, k); scene.background.copy(cur.bg);
+  cur.ground.lerp(target.ground, k); groundMat.color.copy(cur.ground);
+  cur.hemiSky.lerp(target.hemiSky, k); hemi.color.copy(cur.hemiSky);
+  cur.hemiGround.lerp(target.hemiGround, k); hemi.groundColor.copy(cur.hemiGround);
+  cur.sun.lerp(target.sun, k); sun.color.copy(cur.sun);
+  cur.hemiInt += (target.hemiInt - cur.hemiInt)*k; hemi.intensity = cur.hemiInt;
+  cur.sunInt += (target.sunInt - cur.sunInt)*k; sun.intensity = cur.sunInt;
+  cur.deskLamp += (target.deskLamp - cur.deskLamp)*k; deskLampLight.intensity = cur.deskLamp;
+  cur.floorLamp += (target.floorLamp - cur.floorLamp)*k; floorLampLight.intensity = cur.floorLamp;
+  cur.ringSpot += (target.ringSpot - cur.ringSpot)*k; ringSpot.intensity = cur.ringSpot;
+  cur.softbox += (target.softbox - cur.softbox)*k; softSpot.intensity = cur.softbox;
+  cur.shadeEm += (target.shadeEm - cur.shadeEm)*k; shadeMat.emissiveIntensity = cur.shadeEm;
+
+  // life: timeline, REC light, clock second hand
+  drawScreen(t); screenTex.needsUpdate = true;
+  recMat.emissiveIntensity = (Math.sin(t*5.2) > 0 ? 3.4 : 0.25);
+  secondHand.rotation.z = -(t * Math.PI/30) % (Math.PI*2);
+
+  controls.update();
+  if (camera.position.y < 0.5) camera.position.y = 0.5; // safety: never below floor
+  renderer.render(scene, camera);
+}
+animate();
+
+/* ---------- resize ---------- */
+addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

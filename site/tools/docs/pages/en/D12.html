@@ -1,0 +1,39 @@
+<!-- description: The Cut tab of Kilnframe Desktop: transcribe on your computer, cut pauses and filler words, clean retakes and asides with your AI model, then decide the unsure cuts and takes. -->
+<p class="lead">The <span class="ui">Cut</span> tab is the <span class="ui">Automatic cut</span>: four steps from a raw recording to a tight one. Every step can be undone, and your own cuts and the takes you chose stay.</p>
+<figure class="shot"><img src="{{img}}cut-steps.webp" alt="The Cut tab: In at Playhead and Out at Playhead, step 1 Transcript done, step 2 Pauses and filler words done with the Gentle to Tight slider, Cut Pauses and Cut Filler Words" loading="lazy" /></figure>
+
+<h2>In and Out</h2>
+<p>With no In and Out, each step works on every recording (<span class="ui">No In/Out: every recording</span>). Set them with <span class="ui">In at Playhead</span> and <span class="ui">Out at Playhead</span>, or the <kbd>I</kbd> and <kbd>O</kbd> keys, and the buttons work only between them: <span class="ui">Transcribe In to Out</span>, <span class="ui">Cut Pauses from In to Out</span> and so on. <span class="ui">Clear</span> removes them.</p>
+
+<h2 id="step-1">1 Transcript</h2>
+<p><span class="ui">Transcribe</span> writes down what is said, on this computer: nothing is sent anywhere and nothing is paid. The other steps work from it. A progress line shows how far it has got and about how long is left; <span class="ui">Stop</span> ends it.</p>
+<p>A long recording may take a while on a slower computer. If you want it faster, <span class="ui">Settings</span> › <span class="ui">AI</span> › <span class="ui">Transcript</span> can send the sound to a cloud service instead (<a data-doc="D44">Cloud transcription</a>). Kilnframe asks before it does.</p>
+<p>When it is done, <span class="ui">Language heard</span> names the language. If it is wrong, press <span class="ui">Read the Transcript Again</span>.</p>
+
+<h2 id="step-2">2 Pauses and filler words</h2>
+<ul>
+  <li><span class="ui">Cut Pauses</span> cuts the silences. The slider sets how strictly, from <span class="ui">Gentle</span> to <span class="ui">Tight</span>; move it after cutting and the cut follows.</li>
+  <li><span class="ui">Cut Filler Words</span> cuts hesitations like “um, uh” at once. Words that may mean something, like “like, so”, are asked about in step 4.</li>
+  <li><span class="ui">Speed up waits</span>, for screen recordings: where nobody speaks but the screen keeps working (an install, a page loading), the moment plays 2 to 8 times as fast instead of being cut.</li>
+</ul>
+<p>This step runs on your computer, without a model.</p>
+
+<h2 id="step-3">3 Retakes and what does not belong</h2>
+<p><span class="ui">Clean Retakes and Asides</span> asks your AI model to find the sentences you said again, the starts you did not finish, and talk not meant for the viewer. It cuts what it is sure of and leaves the rest for step 4. This step needs a connected model (<a data-doc="D40">How Kilnframe uses AI</a>).</p>
+
+<h2 id="step-4">4 Unsure cuts and takes</h2>
+<p>Where the model was not sure, the cut is listed here and shows in orange in the transcript and on the timeline. Press the play button to listen around it, then <span class="ui">Cut</span> or <span class="ui">Keep</span>. <span class="ui">Cut All</span> and <span class="ui">Keep All</span> decide them all.</p>
+<p>Below, each group of retakes shows its takes. The one kept is framed; <span class="ui">Use This Take</span> keeps another.</p>
+<figure class="shot"><img src="{{img}}cut-takes.webp" alt="Step 4: three cuts the model was not sure of with Cut and Keep, Cut All and Keep All, and a group of two takes of the same sentence with Use This Take" loading="lazy" /></figure>
+
+<h2>Similar passages</h2>
+<p>Under the steps, <span class="ui">Find Similar Passages</span> asks your model for the places where you make the same point twice. Listen and cut the one you do not need; nothing is cut by itself.</p>
+
+<h2>What runs where</h2>
+<table>
+  <tr><th>Step</th><th>Runs</th></tr>
+  <tr><td>1 Transcript</td><td>On this computer (or a cloud service, if you choose one)</td></tr>
+  <tr><td>2 Pauses and filler words</td><td>On this computer</td></tr>
+  <tr><td>3 Retakes and asides, Similar passages</td><td>Your AI model</td></tr>
+  <tr><td>4 Unsure cuts and takes</td><td>You decide</td></tr>
+</table>

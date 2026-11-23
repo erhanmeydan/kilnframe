@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blur faces and areas · Kilnframe Desktop Docs</title>
+    <meta name="description" content="Blur or pixelate faces and areas in Kilnframe Desktop: find faces in a frame or draw an area, follow the movement, set where it starts and ends, and check the stretches flagged." />
+    <link rel="icon" href="../../../assets/desktop/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/docs/guides/blur/" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/guides/blur/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/rehberler/bulaniklastirma/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/guides/blur/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/docs/guides/blur/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="Blur faces and areas · Kilnframe Desktop Docs" />
+    <meta property="og:description" content="Blur or pixelate faces and areas in Kilnframe Desktop: find faces in a frame or draw an area, follow the movement, set where it starts and ends, and check the stretches flagged." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://kilnframe.com/assets/desktop/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../../assets/studio.css" />
+    <script>document.documentElement.classList.add("js")</script>
+    <!-- visit counts without cookies (goatcounter.com) -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../../../"><img src="../../../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
+        <nav>
+          <a href="../../../features/">Features</a>
+          <a href="../../../docs/" aria-current="page">Docs</a>
+          <a href="../../../#price">Price</a>
+          <a href="../../../plugin/">Plugin</a>
+        </nav>
+        <div class="lang"><a href="./" aria-current="page">EN</a><a href="../../../tr/docs/rehberler/bulaniklastirma/" hreflang="tr">TR</a></div>
+        <a class="btn solid" href="../../../#notify">Get notified</a>
+      </div>
+    </header>
+    <main class="docs">
+      <div class="wrap docs-grid">
+      <button class="docs-menu" type="button" aria-controls="docs-side" aria-expanded="false">Contents</button>
+      <aside class="docs-side" id="docs-side">
+        <form class="search" action="../../../docs/" method="get" role="search">
+          <input type="search" name="q" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" spellcheck="false" />
+          <template class="search-empty">No results. Try other words, or the <a href="../../../docs/help/faq/">FAQ</a>.</template>
+        </form>
+        <nav aria-label="Docs">
+          <ul><li><a href="../../../docs/">Kilnframe Desktop Docs</a></li></ul>
+          <p>Getting started</p>
+          <ul>
+            <li><a href="../../../docs/getting-started/install/">Install</a></li>
+            <li><a href="../../../docs/getting-started/first-video/">Your first video</a></li>
+            <li><a href="../../../docs/getting-started/editor-window/">The editor window</a></li>
+            <li><a href="../../../docs/getting-started/projects/">Projects and files</a></li>
+          </ul>
+          <p>Panels</p>
+          <ul>
+            <li><a href="../../../docs/panels/media/">Media</a></li>
+            <li><a href="../../../docs/panels/transcript/">Transcript</a></li>
+            <li><a href="../../../docs/panels/animations/">Animations</a></li>
+            <li><a href="../../../docs/panels/sound-effects/">Sound Effects</a></li>
+            <li><a href="../../../docs/panels/program/">Program (viewer)</a></li>
+            <li><a href="../../../docs/panels/timeline/">Timeline</a></li>
+            <li><a href="../../../docs/panels/cut/">Cut</a></li>
+            <li><a href="../../../docs/panels/clip/">Clip</a></li>
+            <li><a href="../../../docs/panels/picture/">Picture</a></li>
+            <li><a href="../../../docs/panels/sound/">Sound and Mixer</a></li>
+            <li><a href="../../../docs/panels/captions/">Captions</a></li>
+            <li><a href="../../../docs/panels/text/">Text, shapes and stickers</a></li>
+            <li><a href="../../../docs/panels/music/">Music</a></li>
+            <li><a href="../../../docs/panels/b-roll/">B-roll</a></li>
+            <li><a href="../../../docs/panels/publish/">Publish</a></li>
+            <li><a href="../../../docs/panels/assistant/">Assistant</a></li>
+          </ul>
+          <p>Guides</p>
+          <ul>
+            <li><a href="../../../docs/guides/correct-words/">Correct words and say them again</a></li>
+            <li><a href="../../../docs/guides/animation-styles/">Animation styles and your own</a></li>
+            <li><a href="../../../docs/guides/colour/">Colour</a></li>
+            <li><a href="../../../docs/guides/tutorials/">Screen tutorials</a></li>
+            <li><a href="../../../docs/guides/recorder/">Record screen and camera</a></li>
+            <li><a href="../../../docs/guides/multicam/">Multicam and speakers</a></li>
+            <li><a href="../../../docs/guides/blur/" aria-current="page">Blur faces and areas</a></li>
+            <li><a href="../../../docs/guides/green-screen/">Green screen</a></li>
+            <li><a href="../../../docs/guides/motion-keyframes/">Motion and keyframes</a></li>
+            <li><a href="../../../docs/guides/speed/">Speed, slow motion, freeze and reverse</a></li>
+            <li><a href="../../../docs/guides/sequences/">Sequences</a></li>
+            <li><a href="../../../docs/guides/shorts/">Short clips</a></li>
+            <li><a href="../../../docs/guides/translation/">Translation and dubbing</a></li>
+            <li><a href="../../../docs/guides/story/">Story from a topic</a></li>
+            <li><a href="../../../docs/guides/brand-kits/">Brand kits and fonts</a></li>
+            <li><a href="../../../docs/guides/find-in-footage/">Find in footage</a></li>
+            <li><a href="../../../docs/guides/export/">Export</a></li>
+            <li><a href="../../../docs/guides/jobs/">Running work and asked work</a></li>
+          </ul>
+          <p>AI connections</p>
+          <ul>
+            <li><a href="../../../docs/ai/overview/">How Kilnframe uses AI</a></li>
+            <li><a href="../../../docs/ai/claude-chatgpt-plan/">Use your Claude or ChatGPT plan</a></li>
+            <li><a href="../../../docs/ai/api-keys/">API keys</a></li>
+            <li><a href="../../../docs/ai/local-models/">Local models</a></li>
+            <li><a href="../../../docs/ai/cloud-transcript/">Cloud transcription</a></li>
+            <li><a href="../../../docs/ai/mcp/">Connect AI assistants (MCP)</a></li>
+          </ul>
+          <p>Account and privacy</p>
+          <ul>
+            <li><a href="../../../docs/account/licence/">Licence and trial</a></li>
+            <li><a href="../../../docs/account/updates/">Updates</a></li>
+            <li><a href="../../../docs/privacy/">Privacy in the app</a></li>
+          </ul>
+          <p>Reference</p>
+          <ul>
+            <li><a href="../../../docs/reference/shortcuts/">Keyboard shortcuts</a></li>
+            <li><a href="../../../docs/reference/settings/">Settings</a></li>
+            <li><a href="../../../docs/reference/known-limits/">Known limits</a></li>
+          </ul>
+          <p>Help</p>
+          <ul>
+            <li><a href="../../../docs/help/faq/">FAQ</a></li>
+            <li><a href="../../../docs/help/troubleshooting/">Troubleshooting</a></li>
+            <li><a href="../../../docs/help/report/">Report a problem</a></li>
+          </ul>
+          <p>Platforms</p>
+          <ul>
+            <li><a href="../../../docs/platforms/mac/">Mac</a></li>
+            <li><a href="../../../docs/platforms/windows/">Windows (Microsoft Store, Beta)</a></li>
+            <li><a href="../../../docs/platforms/linux/">Linux (Beta)</a></li>
+          </ul>
+        </nav>
+      </aside>
+      <article class="docs-body">
+        <span class="tc crumb">GUIDES</span>
+        <h1>Blur faces and areas</h1>
+        <p class="lead">Hide a face, a number plate or a screen: pick it once, and the blur follows it as it moves.</p>
+<figure class="shot"><img src="../../../assets/docs/en/blur.webp" width="1600" height="784" alt="The Blur faces and areas section with an area drawn on the picture" loading="lazy" /></figure>
+
+<h2 id="pick-what-to-hide">Pick what to hide</h2>
+<p>Select the clip and open <span class="ui">Clip</span> › <span class="ui">Blur faces and areas</span>.</p>
+<ul>
+  <li><span class="ui">Find Faces in This Frame</span>, then <span class="ui">Click the face to hide</span>. Faces are found best with the face model, downloaded once and run on this computer; <span class="ui">Download the Face Model</span> offers it.</li>
+  <li><span class="ui">Draw an Area</span> for anything else.</li>
+</ul>
+
+<h2 id="how-it-looks">How it looks</h2>
+<ul>
+  <li><span class="ui">Blur</span> or <span class="ui">Pixelate</span>; <span class="ui">Box</span> or <span class="ui">Oval</span>.</li>
+  <li><span class="ui">Strength</span>, and <span class="ui">Soft edge</span>: how far past the region the blur fades out. Inside the region it is always at full strength.</li>
+</ul>
+
+<h2 id="follow-and-time-it">Follow and time it</h2>
+<ul>
+  <li><span class="ui">Follow movement</span> tracks the face or area through the clip. After a change, <span class="ui">Follow again</span> before you export.</li>
+  <li><span class="ui">Starts here</span> and <span class="ui">Ends here</span> limit it to a stretch, from the playhead.</li>
+</ul>
+
+<h2 id="check-it">Check it</h2>
+<p>Where the face was lost, the list says <span class="ui">Check …</span> with the time: the blur held its place and grew, or moved to someone who took that place. Look at each flagged stretch. If the blurred person leaves the picture and someone else stands in the same place, the blur may stay on the wrong person: blur is not a guarantee, so watch the result.</p>
+<p>With several cameras, each camera is picked on its own (<span class="ui">Pick on This Camera</span>).</p>
+        <nav class="pager" aria-label="Previous / Next">
+          <a class="prev" rel="prev" href="../../../docs/guides/multicam/"><small>← Previous</small><b>Multicam and speakers</b></a>
+          <a class="next" rel="next" href="../../../docs/guides/green-screen/"><small>Next →</small><b>Green screen</b></a>
+        </nav>
+      </article>
+      <nav class="toc" aria-label="On this page">
+        <p>On this page</p>
+        <ul>
+          <li><a href="#pick-what-to-hide">Pick what to hide</a></li>
+          <li><a href="#how-it-looks">How it looks</a></li>
+          <li><a href="#follow-and-time-it">Follow and time it</a></li>
+          <li><a href="#check-it">Check it</a></li>
+        </ul>
+      </nav>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe Desktop by Erhan Meydan</span>
+        <span
+          ><a href="../../../features/">Features</a> · <a href="../../../docs/">Docs</a> ·
+          <a href="../../../plugin/">Free plugin</a> · <a href="../../../desktop/privacy/">Privacy</a> ·
+          <a href="../../../desktop/terms/">Terms</a> ·
+          <a href="mailto:hello@kilnframe.com">hello@kilnframe.com</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../../assets/docs-search.js"></script>
+    <script src="../../../assets/docs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yapay zeka asistanlarını bağla (MCP) · Kilnframe Desktop Kılavuzu</title>
+    <meta name="description" content="Claude Desktop, Claude Code, ChatGPT, Codex ve Cursor gibi yapay zeka asistanlarının açık Kilnframe Desktop projeni MCP ile düzenlemesine izin ver: açık olduğunu görme, her istemciyi bağlama, erişim anahtarı ve önce neyin sorulduğu." />
+    <link rel="icon" href="../../../../assets/desktop/favicon.png" />
+    <link rel="canonical" href="https://kilnframe.com/tr/docs/yapay-zeka/mcp/" />
+    <link rel="alternate" hreflang="en" href="https://kilnframe.com/docs/ai/mcp/" />
+    <link rel="alternate" hreflang="tr" href="https://kilnframe.com/tr/docs/yapay-zeka/mcp/" />
+    <link rel="alternate" hreflang="x-default" href="https://kilnframe.com/docs/ai/mcp/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kilnframe.com/tr/docs/yapay-zeka/mcp/" />
+    <meta property="og:site_name" content="Kilnframe" />
+    <meta property="og:title" content="Yapay zeka asistanlarını bağla (MCP) · Kilnframe Desktop Kılavuzu" />
+    <meta property="og:description" content="Claude Desktop, Claude Code, ChatGPT, Codex ve Cursor gibi yapay zeka asistanlarının açık Kilnframe Desktop projeni MCP ile düzenlemesine izin ver: açık olduğunu görme, her istemciyi bağlama, erişim anahtarı ve önce neyin sorulduğu." />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:image" content="https://kilnframe.com/assets/desktop/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kilnframe" />
+    <link rel="stylesheet" href="../../../../assets/studio.css" />
+    <script>document.documentElement.classList.add("js")</script>
+    <!-- visit counts without cookies (goatcounter.com) -->
+    <script
+      data-goatcounter="https://kilnframe.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="../../../../tr/"><img src="../../../../assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
+        <nav>
+          <a href="../../../../tr/ozellikler/">Özellikler</a>
+          <a href="../../../../tr/docs/" aria-current="page">Kılavuz</a>
+          <a href="../../../../tr/#fiyat">Fiyat</a>
+          <a href="../../../../tr/plugin/">Eklenti</a>
+        </nav>
+        <div class="lang"><a href="../../../../docs/ai/mcp/" hreflang="en">EN</a><a href="./" aria-current="page">TR</a></div>
+        <a class="btn solid" href="../../../../tr/#haber">Haber ver</a>
+      </div>
+    </header>
+    <main class="docs">
+      <div class="wrap docs-grid">
+      <button class="docs-menu" type="button" aria-controls="docs-side" aria-expanded="false">İçindekiler</button>
+      <aside class="docs-side" id="docs-side">
+        <form class="search" action="../../../../tr/docs/" method="get" role="search">
+          <input type="search" name="q" placeholder="Kılavuzda ara" aria-label="Kılavuzda ara" autocomplete="off" spellcheck="false" />
+          <template class="search-empty">Sonuç yok. Başka kelimeler dene ya da <a href="../../../../tr/docs/yardim/sss/">sık sorulanlara</a> bak.</template>
+        </form>
+        <nav aria-label="Kılavuz">
+          <ul><li><a href="../../../../tr/docs/">Kilnframe Desktop Kılavuzu</a></li></ul>
+          <p>Başlarken</p>
+          <ul>
+            <li><a href="../../../../tr/docs/baslarken/kurulum/">Kurulum</a></li>
+            <li><a href="../../../../tr/docs/baslarken/ilk-video/">İlk videon</a></li>
+            <li><a href="../../../../tr/docs/baslarken/editor-penceresi/">Editör penceresi</a></li>
+            <li><a href="../../../../tr/docs/baslarken/projeler/">Projeler ve dosyalar</a></li>
+          </ul>
+          <p>Paneller</p>
+          <ul>
+            <li><a href="../../../../tr/docs/paneller/medya/">Medya</a></li>
+            <li><a href="../../../../tr/docs/paneller/transkript/">Transkript</a></li>
+            <li><a href="../../../../tr/docs/paneller/animasyonlar/">Animasyonlar</a></li>
+            <li><a href="../../../../tr/docs/paneller/ses-efektleri/">Ses Efektleri</a></li>
+            <li><a href="../../../../tr/docs/paneller/program/">Program</a></li>
+            <li><a href="../../../../tr/docs/paneller/timeline/">Timeline</a></li>
+            <li><a href="../../../../tr/docs/paneller/kesim/">Kesim</a></li>
+            <li><a href="../../../../tr/docs/paneller/klip/">Klip</a></li>
+            <li><a href="../../../../tr/docs/paneller/goruntu/">Görüntü</a></li>
+            <li><a href="../../../../tr/docs/paneller/ses/">Ses ve Mikser</a></li>
+            <li><a href="../../../../tr/docs/paneller/altyazi/">Altyazı</a></li>
+            <li><a href="../../../../tr/docs/paneller/metin/">Metin, şekiller ve çıkartmalar</a></li>
+            <li><a href="../../../../tr/docs/paneller/muzik/">Müzik</a></li>
+            <li><a href="../../../../tr/docs/paneller/b-roll/">B-roll</a></li>
+            <li><a href="../../../../tr/docs/paneller/yayin/">Yayın</a></li>
+            <li><a href="../../../../tr/docs/paneller/asistan/">Asistan</a></li>
+          </ul>
+          <p>Rehberler</p>
+          <ul>
+            <li><a href="../../../../tr/docs/rehberler/kelime-duzeltme/">Kelimeleri düzeltmek ve sesle düzeltmek</a></li>
+            <li><a href="../../../../tr/docs/rehberler/animasyon-stilleri/">Animasyon stilleri ve kendi stilin</a></li>
+            <li><a href="../../../../tr/docs/rehberler/renk/">Renk</a></li>
+            <li><a href="../../../../tr/docs/rehberler/egitim-videolari/">Ekran eğitimleri</a></li>
+            <li><a href="../../../../tr/docs/rehberler/kayit/">Ekranı ve kamerayı kaydet</a></li>
+            <li><a href="../../../../tr/docs/rehberler/coklu-kamera/">Çoklu kamera ve konuşmacılar</a></li>
+            <li><a href="../../../../tr/docs/rehberler/bulaniklastirma/">Yüz ve alan bulanıklaştırma</a></li>
+            <li><a href="../../../../tr/docs/rehberler/yesil-perde/">Yeşil perde</a></li>
+            <li><a href="../../../../tr/docs/rehberler/hareket/">Hareket ve anahtar kareler</a></li>
+            <li><a href="../../../../tr/docs/rehberler/hiz/">Hız, ağır çekim, donmuş kare ve ters</a></li>
+            <li><a href="../../../../tr/docs/rehberler/kurgular/">Kurgular</a></li>
+            <li><a href="../../../../tr/docs/rehberler/kisa-videolar/">Kısa videolar</a></li>
+            <li><a href="../../../../tr/docs/rehberler/ceviri/">Çeviri ve seslendirme</a></li>
+            <li><a href="../../../../tr/docs/rehberler/konudan-hikaye/">Konudan hikaye</a></li>
+            <li><a href="../../../../tr/docs/rehberler/marka-kitleri/">Marka kitleri ve yazı tipleri</a></li>
+            <li><a href="../../../../tr/docs/rehberler/goruntulerde-bul/">Görüntülerde bul</a></li>
+            <li><a href="../../../../tr/docs/rehberler/disa-aktarma/">Dışa aktarma</a></li>
+            <li><a href="../../../../tr/docs/rehberler/isler/">Süren işler ve sorulan işler</a></li>
+          </ul>
+          <p>Yapay zeka bağlantıları</p>
+          <ul>
+            <li><a href="../../../../tr/docs/yapay-zeka/genel-bakis/">Kilnframe yapay zekayı nasıl kullanır</a></li>
+            <li><a href="../../../../tr/docs/yapay-zeka/claude-chatgpt-aboneligi/">Claude ya da ChatGPT aboneliğinle</a></li>
+            <li><a href="../../../../tr/docs/yapay-zeka/api-anahtarlari/">API anahtarları</a></li>
+            <li><a href="../../../../tr/docs/yapay-zeka/yerel-modeller/">Yerel modeller</a></li>
+            <li><a href="../../../../tr/docs/yapay-zeka/bulutta-transkript/">Bulutta transkript</a></li>
+            <li><a href="../../../../tr/docs/yapay-zeka/mcp/" aria-current="page">Yapay zeka asistanlarını bağla (MCP)</a></li>
+          </ul>
+          <p>Hesap ve gizlilik</p>
+          <ul>
+            <li><a href="../../../../tr/docs/hesap/lisans/">Lisans ve deneme</a></li>
+            <li><a href="../../../../tr/docs/hesap/guncellemeler/">Güncellemeler</a></li>
+            <li><a href="../../../../tr/docs/gizlilik/">Uygulamada gizlilik</a></li>
+          </ul>
+          <p>Başvuru</p>
+          <ul>
+            <li><a href="../../../../tr/docs/basvuru/kisayollar/">Klavye kısayolları</a></li>
+            <li><a href="../../../../tr/docs/basvuru/ayarlar/">Ayarlar</a></li>
+            <li><a href="../../../../tr/docs/basvuru/bilinen-sinirlar/">Bilinen sınırlar</a></li>
+          </ul>
+          <p>Yardım</p>
+          <ul>
+            <li><a href="../../../../tr/docs/yardim/sss/">Sık sorulanlar</a></li>
+            <li><a href="../../../../tr/docs/yardim/sorun-giderme/">Sorun giderme</a></li>
+            <li><a href="../../../../tr/docs/yardim/hata-bildir/">Hata bildir</a></li>
+          </ul>
+          <p>Platformlar</p>
+          <ul>
+            <li><a href="../../../../tr/docs/platformlar/mac/">Mac</a></li>
+            <li><a href="../../../../tr/docs/platformlar/windows/">Windows (Microsoft Store, Beta)</a></li>
+            <li><a href="../../../../tr/docs/platformlar/linux/">Linux (Beta)</a></li>
+          </ul>
+        </nav>
+      </aside>
+      <article class="docs-body">
+        <span class="tc crumb">YAPAY ZEKA BAĞLANTILARI</span>
+        <h1>Yapay zeka asistanlarını bağla (MCP)</h1>
+        <p class="lead">Kilnframe Desktop bir MCP sunucusu olabilir: Claude, ChatGPT, Codex ve Cursor gibi asistanlar açık projeyi okuyup gündelik sözlerle düzenleyebilir. Uygulamanın düğmeleriyle aynı denetlenmiş işlemleri kullanırlar; her düzenleme geri alınabilir.</p>
+<figure class="shot"><img src="../../../../assets/docs/tr/mcp-connections.webp" width="1600" height="1249" alt="Ayarlar, Bağlantılar: Yapay zeka asistanları bağlanabilsin, bağlantı noktası, adres, gizlenmiş erişim anahtarı ve istemci düğmeleri" loading="lazy" /></figure>
+
+<h2 id="ac">Aç</h2>
+<ol class="steps">
+  <li><b>Bağlantılar'ı aç</b><span class="ui">Ayarlar</span> › <span class="ui">Bağlantılar</span> › <span class="ui">Yapay zeka asistanlarını bağla (MCP)</span>.</li>
+  <li><b>Açık mı bak</b><span class="ui">Yapay zeka asistanları bağlanabilsin</span> ilk açılıştan beri açıktır. Altındaki satır <span class="ui">Açık, … numaralı bağlantı noktasında dinliyor.</span> der. Kapattıysan yeniden aç.</li>
+  <li><b>Bir istemci bağla</b><span class="ui">Bir yapay zeka istemcisi bağlayın</span> altında seninkinin düğmesine bas. O istemcinin ihtiyacı olanı kopyalar; altındaki kart nereye yapıştıracağını söyler.</li>
+</ol>
+<p>Mac'te, Windows'ta ve Linux'ta aynı şekilde çalışır. Node ya da başka bir şey kurman gerekmez.</p>
+
+<h2 id="her-istemci">Her istemci</h2>
+<ul>
+  <li><span class="ui">Claude Desktop</span>: <span class="ui">Claude Desktop'a ekle</span>'ye bas. Kilnframe kendi girdisini Claude Desktop'ın ayar dosyasına ekler ve eski dosyanın bir kopyasını yanında saklar. Sonra Claude Desktop'ı menü çubuğundaki ya da görev çubuğunun köşesindeki simgesinden tamamen kapat (penceresini kapatmak yetmez) ve yeniden aç. Elle yapmak istersen girdiyi kopyala ve Claude Desktop'ta Ayarlar › Geliştirici › Yapılandırmayı Düzenle'den <code>mcpServers</code> altına ekle.</li>
+  <li><span class="ui">Claude Code (Terminal)</span>: kopyalanan komutu bir terminalde (Windows'ta PowerShell'de) çalıştır. Kilnframe her klasördeki Claude Code oturumunda görünür, Claude Desktop'taki Code sekmesi de dahil. <span class="ui">Terminalde aç</span> ve <span class="ui">İlk istekle kopyala</span> bir adım kazandırır.</li>
+  <li><span class="ui">ChatGPT</span>: ChatGPT masaüstü uygulamasında yerel bir MCP sunucusu ekle ve kopyalanan komutu yapıştır.</li>
+  <li><span class="ui">Codex</span>: kopyalanan satırları Codex'i başlatmadan önce bir terminalde çalıştır.</li>
+  <li><span class="ui">Cursor</span>: Ayarlar › MCP › Yeni sunucu ekle'yi aç ve kopyalanan girdiyi <code>mcpServers</code> altına ekle.</li>
+  <li><span class="ui">Diğer istemciler</span>: adresi ve erişim anahtarını kopyala, bir HTTP MCP sunucusu olarak gir.</li>
+</ul>
+<p>Claude Desktop, ChatGPT ve Codex, Kilnframe'le gelen ve bağlantı noktası değişse bile uygulamayı bulan küçük bir yardımcıyı başlatır. Mac'te ayarlarını kopyalamadan önce Kilnframe Desktop'ı Uygulamalar'a taşı. Web'deki ChatGPT desteklenmez: sunucu bilerek bilgisayarında kalır. Her istemcinin denemen için <span class="ui">Örnek istekler</span>'i de var.</p>
+
+<h2 id="erisim-anahtari">Erişim anahtarı</h2>
+<p>Sunucu yalnızca bu bilgisayara cevap verir. <span class="ui">Erişim anahtarı</span>'na sahip her program açık projeyi düzenleyebilir; onu gizli tut. <span class="ui">Yeni anahtar</span> yenisini yapar ve bütün istemcilerin bağlantısını bir kerede keser; sonra komutları yeniden kopyala, Codex'i, ChatGPT'yi ve Claude Desktop'ı yeniden başlat. Paylaşılan bir bilgisayarda kullanmadığında sunucuyu kapat.</p>
+<p>Alışılmış bağlantı noktası kullanımdaysa sunucu şimdilik başka birinde dinler ve bunu söyler: adresi yeniden kopyala.</p>
+
+<h2 id="asistan-neyi-yapar-neyi-yapamaz">Asistan neyi yapar, neyi yapamaz</h2>
+<p>Pencerede yapabildiğin hemen her şeyi. Ama bazı şeyler Kilnframe penceresinde seni bekler: ücretli yapay zeka anahtarını ya da aboneliğini harcayan işler, model indirme, güncelleme, hata bildirimi, ekran kaydı, bir bulanıklık için yüzü seçmek ve birinin sesine benzeyen bir ses. Proje dışındaki dosyalar pencerenin kendi Kaydet penceresinden kaydedilir; yeri sen seçersin.</p>
+<p>Asistanın değiştirdikleri <span class="ui">Yapay zekanın son yaptıkları</span>'nda <span class="ui">Geri Al</span> ile ve Geçmiş'te adım olarak görünür.</p>
+<figure class="shot"><img src="../../../../assets/docs/tr/mcp-activity.webp" width="1400" height="880" alt="Bir asistanın isteğinden sonra Geri Al düğmesiyle Yapay zekanın son yaptıkları satırı" loading="lazy" /></figure>
+        <nav class="pager" aria-label="Önceki / Sonraki">
+          <a class="prev" rel="prev" href="../../../../tr/docs/yapay-zeka/bulutta-transkript/"><small>← Önceki</small><b>Bulutta transkript</b></a>
+          <a class="next" rel="next" href="../../../../tr/docs/hesap/lisans/"><small>Sonraki →</small><b>Lisans ve deneme</b></a>
+        </nav>
+      </article>
+      <nav class="toc" aria-label="Bu sayfada">
+        <p>Bu sayfada</p>
+        <ul>
+          <li><a href="#ac">Aç</a></li>
+          <li><a href="#her-istemci">Her istemci</a></li>
+          <li><a href="#erisim-anahtari">Erişim anahtarı</a></li>
+          <li><a href="#asistan-neyi-yapar-neyi-yapamaz">Asistan neyi yapar, neyi yapamaz</a></li>
+        </ul>
+      </nav>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Kilnframe Desktop, Erhan Meydan</span>
+        <span
+          ><a href="../../../../tr/ozellikler/">Özellikler</a> · <a href="../../../../tr/docs/">Kılavuz</a> ·
+          <a href="../../../../tr/plugin/">Ücretsiz eklenti</a> · <a href="../../../../tr/desktop/privacy/">Gizlilik</a> ·
+          <a href="../../../../tr/desktop/terms/">Koşullar</a> ·
+          <a href="mailto:hello@kilnframe.com">hello@kilnframe.com</a></span
+        >
+      </div>
+    </footer>
+    <script src="../../../../assets/docs-search.js"></script>
+    <script src="../../../../assets/docs.js"></script>
+  </body>
+</html>

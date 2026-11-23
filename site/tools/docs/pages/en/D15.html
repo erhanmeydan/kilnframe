@@ -1,0 +1,36 @@
+<!-- description: The Sound tab of Kilnframe Desktop: the mixer, noise reduction, voice isolation, voice effects, echo, loudness for YouTube or podcasts, ducking, voice-over, text to speech and an external microphone. -->
+<p class="lead">The <span class="ui">Sound</span> tab cleans the voice, sets it to the right loudness and keeps the music under it. Every setting is heard while playing as the export makes it.</p>
+<figure class="shot narrow"><img src="{{img}}sound.webp" alt="The Sound tab: Effects with Noise Reduction, Voice isolation (AI), Voice, Reduce room echo and Output with Loudness YouTube (-14 LUFS)" loading="lazy" /></figure>
+
+<h2>Mixer</h2>
+<p>One fader for each track: <span class="ui">Speech</span>, <span class="ui">Effects</span>, <span class="ui">Music</span>, and <span class="ui">Main Out</span> for the whole mix, with meters while playing. A fader lowers or raises its track all through; at the foot the track is off. Double-click a fader (or <kbd>Alt</kbd> and a click) to set it back to 0 dB.</p>
+<figure class="shot narrow"><img src="{{img}}mixer.webp" alt="The Mixer with faders for Speech, Effects, Music and Main Out and their meters" loading="lazy" /></figure>
+
+<h2>Effects</h2>
+<p>Effects work on a whole track (<span class="ui">Track effect</span>) or on one clip or piece of the speech (<span class="ui">Clip effect</span>); a clip's own effects run before its track's. <span class="ui">Effects on</span> switches them all.</p>
+<ul>
+  <li><span class="ui">Noise Reduction</span>: takes away the hum of the room.</li>
+  <li><span class="ui">Voice isolation (AI)</span>: keeps the speech and drops the rest. It runs on this computer; <span class="ui">Get the Voice Model (16 MB)</span> downloads its model once, then <span class="ui">Clean the Voice</span> and <span class="ui">Strength</span>.</li>
+  <li><span class="ui">Voice</span>: <span class="ui">Presence</span>, <span class="ui">Less mud</span>, <span class="ui">Less boom</span>, <span class="ui">De-ess</span> and <span class="ui">Gate quiet parts</span>.</li>
+  <li><span class="ui">Reduce room echo</span>: set the amount, then <span class="ui">Reduce Echo</span>. It runs on this computer.</li>
+</ul>
+
+<h2>Output</h2>
+<ul>
+  <li><span class="ui">Loudness</span>: <span class="ui">YouTube (-14 LUFS)</span>, <span class="ui">Podcast (-16 LUFS)</span> or <span class="ui">Leave As Is</span>. The speech is measured and brought to that level.</li>
+  <li><span class="ui">Peak Level</span>: the loudest the mix may get.</li>
+  <li><span class="ui">Fuller voice (broadcast)</span>.</li>
+</ul>
+
+<h2>Ducking</h2>
+<p><span class="ui">Dip my music and sounds under the speech</span>: while you speak, your own music and sounds go down by the <span class="ui">Dip Amount</span>, and come back up smoothly after it over the <span class="ui">Fade</span>. Music made by the app and effects from the Sound Effects library do not dip.</p>
+
+<h2>Voice-over and text to speech</h2>
+<ul>
+  <li><span class="ui">Voice-over</span>: <span class="ui">● Start Recording</span> records from your microphone from the playhead, on A2; the video plays silent meanwhile.</li>
+  <li><span class="ui">Text to speech</span>: type the <span class="ui">Text to read</span>, pick a <span class="ui">Voice</span> and press <span class="ui">Read Aloud</span>. It goes on A2 at the playhead. Gemini voices need a Gemini key, ElevenLabs voices an ElevenLabs key.</li>
+</ul>
+<figure class="shot narrow"><img src="{{img}}voice-over.webp" alt="The Voice-over and Text to speech sections of the Sound tab" loading="lazy" /></figure>
+
+<h2>External microphone</h2>
+<p>A microphone recorded apart is matched to the recording by its sound and replaces the camera's: <span class="ui">Add Microphone Recording…</span>. <span class="ui">Back to Camera Sound</span> undoes it.</p>

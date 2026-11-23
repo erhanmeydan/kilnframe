@@ -7,7 +7,20 @@ import { audioRangeParams } from "./audio-range";
 import { host, type Host, type HostSequence, type PlaceResult } from "./host";
 import { addCosts, formatTokens, formatUsd, type JobCost } from "./cost";
 import { lmStudioDefault, lmStudioRows, prettyModel, type ServedModel } from "./models";
-import { cleanProviderSettings, offersAddress, presetModel } from "./provider-settings";
+import {
+  DESKTOP_PROMO_HEIGHT,
+  type DesktopPromoSettings,
+  desktopPromoBar,
+  dismissDesktopPromo,
+  setDesktopPromo,
+  showsDesktopPromo,
+} from "./desktop-promo";
+import {
+  claudeModelSuccessor,
+  cleanProviderSettings,
+  offersAddress,
+  presetModel,
+} from "./provider-settings";
 import {
   musicAct,
   musicBox,
@@ -273,7 +286,7 @@ type Tab = "range" | "story" | "music" | "captions" | "voice" | "pauses";
 type Format = "orijinal" | "landscape" | "portrait" | "square";
 type Mode = "auto" | "fullscreen" | "overlay";
 
-interface Settings {
+interface Settings extends DesktopPromoSettings {
   /** auto, claude-code, an id from the companion's providers.json, or custom. */
   provider: string;
   /** The Claude model for auto, claude-code and anthropic. */
@@ -549,9 +562,6 @@ function unstore(key: string) {
     // ignore
   }
 }
-/** Claude models the list no longer offers, moved to the one that took their place. */
-const CLAUDE_MODEL_SUCCESSORS: Record<string, string> = { "claude-fable-5-1": "claude-fable-5-2" };
-
 function loadSettings(): Settings {
   try {
     const settings: Settings = {
@@ -563,7 +573,7 @@ function loadSettings(): Settings {
       lang: "auto",
       ...JSON.parse(stored("settings") ?? "{}"),
     };
-    return { ...settings, model: CLAUDE_MODEL_SUCCESSORS[settings.model] ?? settings.model };
+    return { ...settings, model: claudeModelSuccessor(settings.model) };
   } catch {
     return {
       provider: "auto",
@@ -899,10 +909,14 @@ const SOLO_BAR_HEIGHT = 52;
 function fitScroll() {
   const scroller = document.getElementById("scroll");
   const bar = root.querySelector(".actionbar") as HTMLElement | null;
+  const promo = root.querySelector(".promo") as HTMLElement | null;
   if (!scroller) return;
-  const h = bar?.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT;
-  scroller.style.height = bar ? `${Math.max(120, root.clientHeight - h)}px` : "100%";
-  if (bar) bar.style.height = `${h}px`;
+  // the card takes its own height (its description wraps in a narrow panel)
+  const promoHeight = promo ? promo.offsetHeight || DESKTOP_PROMO_HEIGHT : 0;
+  const h =
+    (bar ? (bar.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT) : 0) + promoHeight;
+  scroller.style.height = h ? `${Math.max(120, root.clientHeight - h)}px` : "100%";
+  if (bar) bar.style.height = `${bar.classList.contains("solo") ? SOLO_BAR_HEIGHT : BAR_HEIGHT}px`;
 }
 
 /**
@@ -924,7 +938,8 @@ function soloBar() {
   const bar = document.createElement("div");
   bar.className = "actionbar solo";
   bar.appendChild(main);
-  root.appendChild(bar);
+  // above the Kilnframe Desktop line, which stays last
+  root.insertBefore(bar, root.querySelector(".promo"));
 }
 
 /** The range tab's bar: what runs and how long, and the main button, always in view. */
@@ -2390,7 +2405,7 @@ function modelList(): string {
     options = rows.map((r) => [r.id, r.info]);
     const hidden = served.length - rows.length;
     note = setup.servedError[id]
-      ? `<div class="note err-text">${esc(setup.servedError[id])}</div>`
+      ? `<div class="note err-text">${esc(readableJobText(setup.servedError[id]) ?? setup.servedError[id])}</div>`
       : !served.length
         ? `<div class="note muted">${t(id === "ollama" ? "prov.ollamaNone" : "prov.lmNone")}</div>`
         : hidden
@@ -2682,6 +2697,11 @@ function settingsGeneral(): string {
   ${seg("review", s.review, [
     ["on", t("settings.reviewOn")],
     ["off", t("settings.reviewOff")],
+  ])}
+  <div class="lbl">${t("settings.desktopPromo")}</div>
+  ${seg("desktop-promo", showsDesktopPromo(s) ? "on" : "off", [
+    ["on", t("settings.desktopPromoOn")],
+    ["off", t("settings.desktopPromoOff")],
   ])}
   ${
     host().onTop
@@ -2979,7 +2999,12 @@ function render() {
               ? setupScreen()
               : home();
   const bar = !state.lightbox && state.screen === "home" && state.tab === "range" ? rangeBar() : "";
-  root.innerHTML = `<div class="scroll" id="scroll">${content}</div>${bar}`;
+  // the Kilnframe Desktop line sits under everything on the home screen, never over the work
+  const promo =
+    !state.lightbox && state.screen === "home" && showsDesktopPromo(state.settings)
+      ? desktopPromoBar()
+      : "";
+  root.innerHTML = `<div class="scroll" id="scroll">${content}</div>${bar}${promo}`;
   if (!state.lightbox && state.screen === "home" && state.tab !== "range") soloBar();
   fitScroll();
   fillImageSlots();
@@ -4319,8 +4344,19 @@ root.addEventListener("focusout", (event) => {
 });
 root.addEventListener("keydown", (event) => {
   lastTyped = Date.now();
-  // a one-line text box is a textarea (UXP draws its own frame on a one-line input): Enter adds no line
+  // a control reached with Tab (the Kilnframe Desktop line's link and ×) runs with Enter or Space
   const el = event.target as HTMLElement | null;
+  const key = (event as KeyboardEvent).key;
+  if (
+    (key === "Enter" || key === " ") &&
+    el?.getAttribute("tabindex") === "0" &&
+    el.hasAttribute("data-act")
+  ) {
+    event.preventDefault();
+    runAction(el);
+    return;
+  }
+  // a one-line text box is a textarea (UXP draws its own frame on a one-line input): Enter adds no line
   if (
     (event as KeyboardEvent).key === "Enter" &&
     el?.tagName === "TEXTAREA" &&
@@ -4848,6 +4884,12 @@ function runAction(el: HTMLElement) {
     state.settings = { ...state.settings, [act]: val };
     store("settings", JSON.stringify(state.settings));
     if (act === "lang") applyLang();
+  } else if (act === "desktop-promo") {
+    state.settings = setDesktopPromo(state.settings, val === "off" ? "off" : "on");
+    store("settings", JSON.stringify(state.settings));
+  } else if (act === "promo-dismiss") {
+    state.settings = dismissDesktopPromo(state.settings);
+    store("settings", JSON.stringify(state.settings));
   } else if (act === "ontop") {
     host().onTop?.set(val === "on");
   } else if (act === "provider") {

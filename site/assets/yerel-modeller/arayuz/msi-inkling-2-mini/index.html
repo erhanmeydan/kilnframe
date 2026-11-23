@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Düzenleyici</title>
+<style>
+  :root{
+    --bg:#0d0f14;
+    --panel:#161922;
+    --border:#272d3a;
+    --text:#eef1f7;
+    --muted:#9aa4b8;
+    --accent:#ffd166;
+    --playhead:#ff5470;
+    --header-w:172px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{
+    margin:0;
+    color:var(--text);
+    background:radial-gradient(1200px 700px at 28% -12%, #1b2232 0%, var(--bg) 56%);
+    font-family:ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  .app{height:100vh;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .panel{
+    background:linear-gradient(180deg,#181c26,#141722);
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:0 18px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+    overflow:hidden;
+  }
+  .panel-title{
+    padding:11px 14px 10px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    font-size:12px;
+    line-height:1.2;
+    font-weight:800;
+    letter-spacing:.08em;
+    color:#d9e0ec;
+  }
+  .panel-title.row-between{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .hint{font-size:11px;letter-spacing:.02em;color:var(--muted);font-weight:600}
+
+  .top{height:348px;flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:12px;min-height:0}
+  .preview-panel{display:flex;flex-direction:column}
+  .preview-screen{position:relative;flex:1;min-height:0;margin:12px;border-radius:10px;overflow:hidden;background:#10131a;border:1px solid rgba(255,255,255,.07)}
+  #previewCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .preview-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:22px;pointer-events:none}
+  .preview-name{font-size:54px;line-height:1.02;font-weight:850;letter-spacing:-.025em;text-align:center;color:#fff;text-shadow:0 5px 26px rgba(0,0,0,.58)}
+  .preview-name.gap{color:#c8d0df;font-weight:750}
+  .preview-tc{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:20px;font-weight:700;color:#fff;background:rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.15);padding:7px 13px;border-radius:9px}
+
+  .inspector-panel{display:flex;flex-direction:column;min-height:0}
+  .inspector{margin:12px 14px 0;display:flex;flex-direction:column;gap:8px}
+  .row{display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;gap:10px;padding:9px 10px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.055);border-radius:9px}
+  .row dt{margin:0;color:var(--muted);font-size:11px;line-height:1.25;letter-spacing:.08em;text-transform:uppercase}
+  .row dd{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:#f4f7fc}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-weight:700}
+  .inspector-note{margin:auto 14px 12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);color:var(--muted);font-size:12px;line-height:1.45}
+
+  .timeline-panel{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  .timeline{position:relative;flex:1 1 auto;min-height:0;padding:10px 0 12px;display:flex;flex-direction:column;gap:6px;overflow:hidden;user-select:none}
+  .grid-layer,.playhead-layer{position:absolute;left:var(--header-w);right:16px;top:24px;bottom:12px;pointer-events:none}
+  .grid-layer{z-index:0}
+  .grid-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.035)}
+  .grid-line.major{background:rgba(255,255,255,.075)}
+
+  .marker-row{display:grid;grid-template-columns:var(--header-w) minmax(0,1fr);height:14px;flex:0 0 auto;padding-right:16px}
+  .marker-lane{position:relative;cursor:pointer}
+  .playhead-pointer{position:absolute;top:2px;left:0;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid var(--playhead);filter:drop-shadow(0 2px 4px rgba(255,84,112,.5))}
+
+  .ruler-row,.track-row{display:grid;grid-template-columns:var(--header-w) minmax(0,1fr);align-items:stretch;padding-right:16px}
+  .ruler-row{height:30px;flex:0 0 auto}
+  .track-row{flex:1 1 0;min-height:0}
+  .track-head{display:flex;align-items:center;gap:9px;padding:0 10px 0 14px;border-right:1px solid rgba(255,255,255,.07);color:#d7ddea;font-size:13px;font-weight:700}
+  .ruler-head{color:var(--muted);font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:800}
+  .badge{display:inline-flex;min-width:36px;justify-content:center;padding:4px 6px;border-radius:7px;color:#0d1017;font-size:11px;font-weight:850;letter-spacing:.04em}
+  .badge.v1{background:#5aa2ff}.badge.v2{background:#b78cff}.badge.a1{background:#63e6be}
+  .ruler{position:relative;min-width:0;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.09);background:linear-gradient(180deg,#171b25,#12151d)}
+  .tick{position:absolute;bottom:0;width:1px;height:7px;background:rgba(255,255,255,.18);pointer-events:none}
+  .tick.major{height:13px;background:rgba(255,255,255,.38)}
+  .ruler-label{position:absolute;top:3px;transform:translateX(-50%);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:10px;color:#b8c1d4;white-space:nowrap;pointer-events:none}
+  .ruler-label.first{transform:none}
+  .ruler-label.last{transform:translateX(-100%)}
+  .lane{position:relative;min-width:0;border-top:1px solid rgba(255,255,255,.045);background:transparent}
+  .clip{position:absolute;top:7px;bottom:7px;min-width:2px;overflow:hidden;cursor:pointer;border-radius:8px;border:1px solid rgba(255,255,255,.22);background:linear-gradient(180deg,var(--c1),var(--c2));box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 6px 14px rgba(0,0,0,.28);transition:left .35s ease,width .35s ease,filter .12s ease,box-shadow .12s ease}
+  .clip:hover{filter:brightness(1.08)}
+  .clip:focus-visible{outline:3px solid rgba(255,209,102,.55);outline-offset:2px}
+  .clip.selected{border-color:#fff;box-shadow:0 0 0 3px var(--accent),inset 0 1px 0 rgba(255,255,255,.35),0 10px 24px rgba(0,0,0,.45)}
+  .clip-name{position:absolute;left:9px;right:8px;top:7px;z-index:2;font-size:12px;line-height:1.25;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .waveform{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .playhead-layer{z-index:5}
+  .playhead{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:linear-gradient(180deg,#ff9fb0,var(--playhead) 18%,var(--playhead));box-shadow:0 0 12px rgba(255,84,112,.55)}
+
+  .transport{flex:0 0 auto;height:64px;display:flex;align-items:center;gap:18px;padding:10px 16px}
+  .tc-block{display:flex;flex-direction:column;gap:3px;min-width:176px}
+  .caption{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .timecode{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:21px;line-height:1.15;font-weight:750;color:#eef2fa;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.08);padding:7px 12px;border-radius:9px}
+  .timecode.big{font-size:25px;color:#ffe3a3}
+  .close-gaps{margin-left:auto;height:42px;padding:0 18px;border-radius:10px;border:1px solid rgba(255,209,102,.55);background:linear-gradient(180deg,#ffd166,#f5a623);color:#241a05;font-size:14px;font-weight:850;letter-spacing:.02em;cursor:pointer;box-shadow:0 8px 18px rgba(245,166,35,.25)}
+  .close-gaps:hover{filter:brightness(1.06)}
+  .close-gaps:active{transform:translateY(1px)}
+  .close-gaps:focus-visible{outline:3px solid rgba(255,209,102,.35);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="top" aria-label="Önizleme ve bilgi paneli">
+    <div class="panel preview-panel" data-test="preview">
+      <div class="panel-title">Önizleme</div>
+      <div class="preview-screen" id="previewScreen">
+        <canvas id="previewCanvas"></canvas>
+        <div class="preview-overlay">
+          <div class="preview-name" id="previewName">Giriş</div>
+          <div class="preview-tc" id="previewTc">00:00:00:00</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="panel inspector-panel" data-test="inspector" aria-label="Klip bilgisi">
+      <div class="panel-title">Klip bilgisi</div>
+      <dl class="inspector">
+        <div class="row"><dt>Ad</dt><dd id="insName">Giriş</dd></div>
+        <div class="row"><dt>İz</dt><dd id="insTrack">V1 · Video 1</dd></div>
+        <div class="row"><dt>Başlangıç</dt><dd class="mono" id="insStart">00:00:00:00</dd></div>
+        <div class="row"><dt>Bitiş</dt><dd class="mono" id="insEnd">00:00:05:00</dd></div>
+        <div class="row"><dt>Süre</dt><dd class="mono" id="insDuration">00:00:05:00</dd></div>
+      </dl>
+      <div class="inspector-note">Klibe tıklayarak seçin. Ok tuşları imleci taşır; Shift ile 25 kare atlar.</div>
+    </aside>
+  </section>
+
+  <section class="panel timeline-panel" aria-label="Zaman çizelgesi">
+    <div class="panel-title row-between"><span>Zaman çizelgesi</span><span class="hint">← → kare · Shift + ← → 25 kare · Home / End</span></div>
+    <div class="timeline" id="timeline">
+      <div class="grid-layer" id="gridLayer" aria-hidden="true"></div>
+
+      <div class="marker-row">
+        <div class="track-head ruler-head">Zaman</div>
+        <div class="marker-lane" id="markerLane" title="İmleci taşı"><div class="playhead-pointer" id="playheadPointer"></div></div>
+      </div>
+
+      <div class="ruler-row">
+        <div class="track-head ruler-head" aria-hidden="true"></div>
+        <div class="ruler" data-test="ruler" id="ruler" role="slider" aria-label="Zaman çizelgesi cetveli"></div>
+      </div>
+
+      <div class="track-row" data-track="V1">
+        <div class="track-head"><span class="badge v1">V1</span><span>Video 1</span></div>
+        <div class="lane" id="lane-V1"></div>
+      </div>
+
+      <div class="track-row" data-track="V2">
+        <div class="track-head"><span class="badge v2">V2</span><span>Video 2</span></div>
+        <div class="lane" id="lane-V2"></div>
+      </div>
+
+      <div class="track-row" data-track="A1">
+        <div class="track-head"><span class="badge a1">A1</span><span>Müzik</span></div>
+        <div class="lane" id="lane-A1"></div>
+      </div>
+
+      <div class="playhead-layer" aria-hidden="true"><div class="playhead" id="playhead"></div></div>
+    </div>
+  </section>
+
+  <footer class="panel transport" aria-label="Taşıma çubuğu">
+    <div class="tc-block">
+      <span class="caption">Mevcut zaman</span>
+      <span class="timecode big" data-test="timecode" id="currentTimecode">00:00:00:00</span>
+    </div>
+    <div class="tc-block">
+      <span class="caption">Toplam süre</span>
+      <span class="timecode" data-test="duration" id="totalDuration">00:00:42:13</span>
+    </div>
+    <button class="close-gaps" id="closeGapsBtn" data-test="close-gaps" type="button">Boşlukları kapat</button>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const FPS = 25;
+  const tracks = {
+    V1: { id: 'V1', name: 'Video 1' },
+    V2: { id: 'V2', name: 'Video 2' },
+    A1: { id: 'A1', name: 'Müzik' }
+  };
+
+  const clips = [
+    { name: 'Giriş', track: 'V1', start: 0, duration: 125, color: '#4c9aff' },
+    { name: 'Röportaj', track: 'V1', start: 125, duration: 450, color: '#7c6cff' },
+    { name: 'B-roll Şehir', track: 'V1', start: 650, duration: 200, color: '#14b8a6' },
+    { name: 'Kapanış', track: 'V1', start: 900, duration: 163, color: '#f59e0b' },
+    { name: 'Logo', track: 'V2', start: 50, duration: 100, color: '#22d3ee' },
+    { name: 'Alt yazı', track: 'V2', start: 300, duration: 175, color: '#fb7185' },
+    { name: 'Müzik', track: 'A1', start: 0, duration: 980, color: '#159a6c' }
+  ];
+
+  const state = { frame: 0, selectedName: 'Giriş' };
+
+  const $ = id => document.getElementById(id);
+  const previewScreen = $('previewScreen');
+  const previewCanvas = $('previewCanvas');
+  const previewNameEl = $('previewName');
+  const previewTcEl = $('previewTc');
+  const currentTimecodeEl = $('currentTimecode');
+  const totalDurationEl = $('totalDuration');
+  const rulerEl = $('ruler');
+  const markerLane = $('markerLane');
+  const playheadPointer = $('playheadPointer');
+  const gridLayer = $('gridLayer');
+  const playheadEl = $('playhead');
+  const insName = $('insName'), insTrack = $('insTrack'), insStart = $('insStart'), insEnd = $('insEnd'), insDuration = $('insDuration');
+
+  const laneEls = { V1: $('lane-V1'), V2: $('lane-V2'), A1: $('lane-A1') };
+  const clipEls = {};
+
+  function pad2(n){ return String(n).padStart(2, '0'); }
+  function fmtTC(frame){
+    frame = Math.max(0, Math.floor(frame));
+    const ff = frame % FPS;
+    const totalSeconds = Math.floor(frame / FPS);
+    const ss = totalSeconds % 60;
+    const mm = Math.floor(totalSeconds / 60) % 60;
+    const hh = Math.floor(totalSeconds / 3600);
+    return `${pad2(hh)}:${pad2(mm)}:${pad2(ss)}:${pad2(ff)}`;
+  }
+  function totalDuration(){
+    return Math.max(...clips.map(c => c.start + c.duration));
+  }
+  function clampFrame(f){
+    const t = totalDuration();
+    return Math.max(0, Math.min(t, Math.round(f)));
+  }
+  function hexToRgb(hex){
+    const h = hex.replace('#','');
+    return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
+  }
+  function clamp255(n){ return Math.max(0, Math.min(255, Math.round(n))); }
+  function shade(hex, percent){
+    const { r, g, b } = hexToRgb(hex);
+    const target = percent < 0 ? 0 : 255;
+    const p = Math.abs(percent) / 100;
+    return `rgb(${clamp255(r + (target - r) * p)}, ${clamp255(g + (target - g) * p)}, ${clamp255(b + (target - b) * p)})`;
+  }
+  function currentV1Clip(){
+    const f = state.frame;
+    return clips.find(c => c.track === 'V1' && f >= c.start && f < c.start + c.duration) || null;
+  }
+
+  function buildClips(){
+    for (const clip of clips){
+      const el = document.createElement('div');
+      el.className = 'clip' + (clip.track === 'A1' ? ' music' : '');
+      el.dataset.clip = clip.name;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', `${clip.name} klibi`);
+      el.style.setProperty('--c1', shade(clip.color, clip.track === 'A1' ? 18 : 26));
+      el.style.setProperty('--c2', shade(clip.color, -34));
+
+      if (clip.track === 'A1'){
+        const cv = document.createElement('canvas');
+        cv.className = 'waveform';
+        el.appendChild(cv);
+      }
+
+      const label = document.createElement('span');
+      label.className = 'clip-name';
+      label.textContent = clip.name;
+      el.appendChild(label);
+
+      laneEls[clip.track].appendChild(el);
+      clipEls[clip.name] = el;
+      const select = () => {
+        state.selectedName = clip.name;
+        updateSelection();
+        updateInspector();
+      };
+      el.addEventListener('click', select);
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' '){
+          e.preventDefault();
+          select();
+        }
+      });
+    }
+  }
+
+  function layoutClips(){
+    const total = totalDuration();
+    for (const clip of clips){
+      const el = clipEls[clip.name];
+      el.style.left = `${(clip.start / total * 100).toFixed(6)}%`;
+      el.style.width = `${(clip.duration / total * 100).toFixed(6)}%`;
+      el.title = `${clip.name} · ${fmtTC(clip.start)} → ${fmtTC(clip.start + clip.duration)}`;
+    }
+    drawWaveform();
+  }
+
+  function renderRulerAndGrid(){
+    const total = totalDuration();
+    rulerEl.innerHTML = '';
+    gridLayer.innerHTML = '';
+
+    const steps = [25, 50, 100, 125, 200, 250, 500];
+    let majorStep = steps.find(s => Math.ceil(total / s) <= 9) || 500;
+    const minorStep = total <= 1200 ? 25 : 50;
+
+    for (let f = 0; f <= total; f += minorStep){
+      const left = `${(f / total * 100).toFixed(6)}%`;
+      const isMajor = f % majorStep === 0 || f === total;
+
+      const tick = document.createElement('div');
+      tick.className = 'tick' + (isMajor ? ' major' : '');
+      tick.style.left = left;
+      rulerEl.appendChild(tick);
+
+      const line = document.createElement('div');
+      line.className = 'grid-line' + (isMajor ? ' major' : '');
+      line.style.left = left;
+      gridLayer.appendChild(line);
+    }
+
+    // Timecode labels: major ticks plus the project end, avoiding overlap near the end.
+    const labelFrames = [];
+    for (let f = 0; f <= total; f += majorStep){
+      if (total - f < 90 && f !== 0) continue; // too close to the end label
+      labelFrames.push(f);
+    }
+    if (labelFrames[labelFrames.length - 1] !== total) labelFrames.push(total);
+
+    for (const f of labelFrames){
+      const left = `${(f / total * 100).toFixed(6)}%`;
+      let cls = 'ruler-label';
+      if (f === 0) cls += ' first';
+      else if (f === total) cls += ' last';
+      const label = document.createElement('div');
+      label.className = cls;
+      label.textContent = fmtTC(f);
+      label.style.left = left;
+      rulerEl.appendChild(label);
+    }
+
+    rulerEl.setAttribute('aria-valuemin', '0');
+    rulerEl.setAttribute('aria-valuemax', String(total));
+  }
+
+  function updateSelection(){
+    for (const clip of clips){
+      clipEls[clip.name].classList.toggle('selected', clip.name === state.selectedName);
+    }
+  }
+
+  function updateInspector(){
+    const clip = clips.find(c => c.name === state.selectedName) || clips[0];
+    insName.textContent = clip.name;
+    insTrack.textContent = `${clip.track} · ${tracks[clip.track].name}`;
+    insStart.textContent = fmtTC(clip.start);
+    insEnd.textContent = fmtTC(clip.start + clip.duration);
+    insDuration.textContent = fmtTC(clip.duration);
+  }
+
+  function updateTransport(){
+    const tc = fmtTC(state.frame);
+    currentTimecodeEl.textContent = tc;
+    previewTcEl.textContent = tc;
+    totalDurationEl.textContent = fmtTC(totalDuration());
+  }
+
+  function updatePlayhead(){
+    const total = totalDuration();
+    const pct = `${(state.frame / total * 100).toFixed(6)}%`;
+    playheadEl.style.left = pct;
+    playheadPointer.style.left = pct;
+    rulerEl.setAttribute('aria-valuenow', String(state.frame));
+    rulerEl.setAttribute('aria-valuetext', fmtTC(state.frame));
+  }
+
+  function drawPreview(){
+    const dpr = window.devicePixelRatio || 1;
+    const w = previewScreen.clientWidth, h = previewScreen.clientHeight;
+    if (w < 2 || h < 2) return;
+    previewCanvas.width = Math.round(w * dpr);
+    previewCanvas.height = Math.round(h * dpr);
+    const ctx = previewCanvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const clip = currentV1Clip();
+    if (clip){
+      const g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, shade(clip.color, 30));
+      g.addColorStop(0.55, clip.color);
+      g.addColorStop(1, shade(clip.color, -40));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+
+      const rg = ctx.createRadialGradient(w * .28, h * .18, 10, w * .28, h * .18, Math.max(w, h) * .78);
+      rg.addColorStop(0, 'rgba(255,255,255,.22)');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.globalAlpha = .08;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      for (let x = -h; x < w + h; x += 46){
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + h, h);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.globalAlpha = .05;
+      ctx.fillStyle = '#000';
+      for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+      ctx.globalAlpha = 1;
+    } else {
+      const g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, '#20242f');
+      g.addColorStop(1, '#12151d');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.globalAlpha = .07;
+      ctx.strokeStyle = '#ffffff';
+      for (let x = -h; x < w + h; x += 34){
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + h, h);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.globalAlpha = .06;
+      ctx.fillStyle = '#000';
+      for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+      ctx.globalAlpha = 1;
+    }
+
+    previewNameEl.textContent = clip ? clip.name : 'Boşluk';
+    previewNameEl.classList.toggle('gap', !clip);
+  }
+
+  function drawWaveform(){
+    const music = clips.find(c => c.track === 'A1');
+    const el = clipEls[music.name];
+    if (!el) return;
+    const canvas = el.querySelector('canvas');
+    const dpr = window.devicePixelRatio || 1;
+    const w = el.clientWidth, h = el.clientHeight;
+    if (w < 2 || h < 2) return;
+
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const padX = 10;
+    const centerY = h * .60;
+    const maxBarH = h * .56;
+    const n = Math.max(48, Math.min(180, Math.floor(w / 6)));
+    const gap = 2;
+    const barW = Math.max(1, (w - padX * 2 - gap * (n - 1)) / n);
+
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.fillRect(padX, centerY, w - padX * 2, 1);
+
+    for (let i = 0; i < n; i++){
+      const value = 0.5 + 0.3 * Math.sin(i / 9) + 0.15 * Math.sin(i / 2.3);
+      const bh = Math.max(1, value * maxBarH);
+      const x = padX + i * (barW + gap);
+      const y = centerY - bh / 2;
+      ctx.fillStyle = 'rgba(126,240,193,.92)';
+      ctx.fillRect(x, y, barW, bh);
+    }
+  }
+
+  function renderFrame(){
+    state.frame = clampFrame(state.frame);
+    updateTransport();
+    updatePlayhead();
+    drawPreview();
+  }
+
+  function renderStructure(){
+    state.frame = clampFrame(state.frame);
+    renderRulerAndGrid();
+    layoutClips();
+    updateSelection();
+    updateInspector();
+    renderFrame();
+  }
+
+  function closeGaps(){
+    const v1 = clips.filter(c => c.track === 'V1').sort((a, b) => a.start - b.start || a.duration - b.duration);
+    let cursor = 0;
+    for (const clip of v1){
+      clip.start = cursor;
+      cursor += clip.duration;
+    }
+    renderStructure();
+  }
+
+  function movePlayheadTo(clientX, rect){
+    const ratio = (clientX - rect.left) / rect.width;
+    state.frame = clampFrame(ratio * totalDuration());
+    renderFrame();
+  }
+
+  buildClips();
+  renderStructure();
+
+  rulerEl.addEventListener('click', e => {
+    movePlayheadTo(e.clientX, rulerEl.getBoundingClientRect());
+  });
+  markerLane.addEventListener('click', e => {
+    movePlayheadTo(e.clientX, markerLane.getBoundingClientRect());
+  });
+
+  $('closeGapsBtn').addEventListener('click', closeGaps);
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+      const delta = e.shiftKey ? (e.key === 'ArrowRight' ? 25 : -25) : (e.key === 'ArrowRight' ? 1 : -1);
+      e.preventDefault();
+      state.frame = clampFrame(state.frame + delta);
+      renderFrame();
+    } else if (e.key === 'Home'){
+      e.preventDefault();
+      state.frame = 0;
+      renderFrame();
+    } else if (e.key === 'End'){
+      e.preventDefault();
+      state.frame = totalDuration();
+      renderFrame();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    drawPreview();
+    drawWaveform();
+    updatePlayhead();
+  });
+})();
+</script>
+</body>
+</html>

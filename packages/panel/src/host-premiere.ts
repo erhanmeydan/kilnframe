@@ -952,6 +952,12 @@ export function createPremiereHost(
       onProgress?.(1, TOTAL);
       const endF = Math.round(ticksOf(await (await live()).getEndTime()) / tpf);
       const frames = frameCuts(cuts, ppro.TickTime.TIME_ONE_SECOND.ticksNumber / tpf, endF);
+      // Premiere 26.5 and 27.0 sometimes close inside the cut's transactions (a UXP crash on bulk timeline edits
+      // that Adobe knows of, reproduced 20 Nov 2026 with installed builds only): the project is saved first, so
+      // a crash loses nothing. Not saved, nothing is cut
+      stage = "save the project";
+      if (frames.length && !(await project.save().catch(() => false)))
+        throw new CutRefused(t("pauses.saveFailed"));
 
       // a transaction leaves the clip objects read before it no longer valid ("The script object is no longer
       // valid", 11 Nov 2026): the transitions come off first, the clips are read after

@@ -61,7 +61,8 @@
       <div class="wrap">
         <a class="brand" href="./"><img src="assets/desktop/icon.png" alt="" />Kilnframe Desktop</a>
         <nav>
-          <a href="#features">Features</a>
+          <a href="features/">Features</a>
+          <a href="docs/">Docs</a>
           <a href="#price">Price</a>
           <a href="#faq">Questions</a>
           <a href="plugin/">Plugin</a>
@@ -69,7 +70,7 @@
         <div class="lang">
           <a href="./" aria-current="page">EN</a><a href="tr/" hreflang="tr">TR</a>
         </div>
-        <a class="btn solid" href="#notify">Get notified</a>
+        <a class="btn solid" href="#get">Download</a>
       </div>
     </header>
 
@@ -78,7 +79,7 @@
         <div class="wrap">
           <div class="hero-head">
             <div>
-              <span class="tc">KILNFRAME DESKTOP · COMING SOON</span>
+              <span class="tc">KILNFRAME DESKTOP 0.1.0</span>
               <h1>Talk to the camera.<br />Get a finished <span class="clay">video.</span></h1>
             </div>
             <div>
@@ -88,7 +89,7 @@
                 captions and Shorts. You keep the last word on all of it.
               </p>
               <div class="downloads">
-                <a class="btn solid" href="#notify">Tell me when it's out</a>
+                <a class="btn solid" href="#get">Download free for 14 days</a>
                 <button class="btn play" data-play="assets/desktop/tour-en.mp4">
                   ▶ Watch the tour <small>4:54</small>
                 </button>
@@ -110,6 +111,7 @@
               height="720"
               alt="The tour's title card: the Kilnframe Desktop logo and its tagline"
             />
+            <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg></span>
             <span class="cue">▶ Watch the tour <small>4:54</small></span>
           </button>
         </div>
@@ -231,6 +233,7 @@
               </figure>
             </div>
           </div>
+          <p class="all-features"><a class="btn" href="features/">All features →</a></p>
         </div>
       </section>
 
@@ -279,14 +282,12 @@
             <div class="plan">
               <b>$10 <small>/ month</small></b>
               <span>Cancel any time.</span>
-              <span class="btn" aria-disabled="true">Available soon</span
-              >
+              <a class="btn" href="#get">Try it free</a>
             </div>
             <div class="plan best">
               <b>$100 <small>/ year</small></b>
               <span>Two months free.</span>
-              <span class="btn" aria-disabled="true">Available soon</span
-              >
+              <a class="btn" href="#get">Try it free</a>
             </div>
             <ul>
               <li>Every feature, on two computers</li>
@@ -342,32 +343,27 @@
             </details>
             <details>
               <summary>How do updates arrive?</summary>
-              <p>The app finds new versions by itself and asks before it updates.</p>
+              <p>On a Mac the app finds new versions by itself and asks before it updates. On Windows the Microsoft Store keeps it up to date. On Linux the app tells you, and you download the new AppImage.</p>
             </details>
           </div>
         </div>
       </section>
 
-      <section id="download">
-        <div class="wrap plugin-note">
-          <div>
-            <h2 style="margin-bottom: 10px">Editing in Premiere Pro, Resolve or FilmCraft?</h2>
-            <p>
-              The free, open-source Kilnframe plugin brings the animations and the music into the
-              editor you already use.
-            </p>
-          </div>
-          <a class="btn" href="plugin/">See the free plugin →</a>
-        </div>
-      </section>
-
-      <section class="closing" id="notify">
+      <section class="closing" id="get">
         <div class="wrap">
-          <span class="tc">COMING SOON</span>
-          <h2 style="margin-top: 12px">Be the first to try it.</h2>
+          <span class="tc">VERSION 0.1.0</span>
+          <h2 style="margin-top: 12px">Download Kilnframe Desktop.</h2>
           <p>
-            Kilnframe Desktop comes out soon for Mac, Windows and Linux. Leave your email and we
-            will write on launch day.
+            14 days free with every feature, no card. The app tells you when a new version is out.
+          </p>
+          <div class="downloads">
+            <a class="btn solid" href="https://github.com/erhanmeydan/kilnframe-desktop-releases/releases/download/v0.1.0/Kilnframe-Desktop-0.1.0-mac-arm64.dmg">Mac · Apple silicon</a>
+            <a class="btn solid" href="https://apps.microsoft.com/detail/9N0T9P4SGJ24">Windows · Microsoft Store (Beta)</a>
+            <a class="btn" href="https://github.com/erhanmeydan/kilnframe-desktop-releases/releases/download/v0.1.0/Kilnframe-Desktop-0.1.0-linux-x86_64.AppImage">Linux · x64 (Beta)</a>
+            <a class="btn" href="https://github.com/erhanmeydan/kilnframe-desktop-releases/releases/download/v0.1.0/Kilnframe-Desktop-0.1.0-linux-arm64.AppImage">Linux · Arm64 (Beta)</a>
+          </div>
+          <p style="margin-top: 26px" id="notify">
+            Leave your email for news of new versions and features.
           </p>
           <!-- the list lives at Kit; without the script the form still posts there and Kit shows its own page -->
           <form
@@ -386,6 +382,19 @@
             <button class="btn solid">Notify me</button>
             <p class="list-status" role="status"></p>
           </form>
+        </div>
+      </section>
+
+      <section id="download">
+        <div class="wrap plugin-note">
+          <div>
+            <h2 style="margin-bottom: 10px">Editing in Premiere Pro, Resolve or FilmCraft?</h2>
+            <p>
+              The free, open-source Kilnframe plugin brings the animations and the music into the
+              editor you already use.
+            </p>
+          </div>
+          <a class="btn" href="plugin/">See the free plugin →</a>
         </div>
       </section>
     </main>

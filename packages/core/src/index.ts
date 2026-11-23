@@ -28,6 +28,7 @@ export * from "./stages/style-create.js";
 export * from "./stages/story.js";
 export * from "./stages/review.js";
 export * from "./system.js";
+export * from "./temp-dir.js";
 export * from "./models.js";
 export * from "./ocr.js";
 export * from "./speech/index.js";

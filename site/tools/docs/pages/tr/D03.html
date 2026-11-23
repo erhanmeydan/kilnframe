@@ -1,0 +1,53 @@
+<!-- description: Kilnframe Desktop'ta ham kayıttan dışa aktarılmış videoya: transkript, boşlukların ve tekrarların kesimi, animasyon, altyazı, ses seviyesi ve dışa aktarma. -->
+<p class="lead">Bu sayfa kameraya konuştuğun bir kaydı YouTube'a hazır videoya kadar götürür. Her adım basacağın düğmeyi söyler; daha fazlası için panellerin kendi sayfaları var.</p>
+
+<h2>Başlamadan önce</h2>
+<ol class="steps">
+  <li><b>Kilnframe Desktop'ı kur ve aç</b>Bkz. <a data-doc="D02">Kurulum</a>.</li>
+  <li><b>Bir yapay zeka modeli bağla</b>Hoş geldin penceresinde <span class="ui">Modeli bağla</span>'ya bas. Claude ya da ChatGPT aboneliğin varsa giriş yapman yeter (<a data-doc="D41">nasıl</a>); yoksa bir API anahtarı girersin. <span class="ui">Sonra ayarlardan ben eklerim</span> de diyebilirsin: transkript ve boşluk kesimi modelsiz çalışır.</li>
+  <li><b>Program sorusunu yanıtla</b><span class="ui">Hangi kurgu programına alışkınsınız?</span> kısayolları ve panelleri ayarlar. İstersen <span class="ui">Tura Başla</span> ile editörde kısa bir gezinti yap.</li>
+</ol>
+
+<h2>Kaydını getir</h2>
+<ol class="steps">
+  <li><b>Dosyayı bırak</b>Videonu Başlangıç Penceresi'ndeki <span class="ui">Videonuzu ya da sesinizi buraya bırakın</span> alanına sürükle ya da <span class="ui">Dosya Ekle</span>'ye bas. Kayıt Timeline'da, yeni bir proje açılır.</li>
+</ol>
+<figure class="shot"><img src="{{img}}start-window.webp" alt="Başlangıç Penceresi: Videonuzu ya da sesinizi buraya bırakın, Yeni Proje, Aç…, Dosya Ekle, Kayıt Yap, Konudan Hikaye Yap ve Tura Başla düğmeleri, iki son proje" loading="lazy" /></figure>
+
+<h2>Kesimi ona bırak</h2>
+<p>Bu bölümdeki her şey sağdaki <span class="ui">Kesim</span> sekmesinde olur.</p>
+<ol class="steps">
+  <li><b>Transkripti çıkar</b><span class="ui">1 Transkript</span> altında <span class="ui">Transkript Çıkar</span>'a bas. Konuşma bu bilgisayarda yazıya dökülür; ilerleme satırı ne kadar kaldığını gösterir.</li>
+  <li><b>Boşlukları ve ııı'ları kes</b><span class="ui">2 Boşluklar ve dolgu kelimeleri</span> altında kaydırıcıyı <span class="ui">Yumuşak</span> ile <span class="ui">Sıkı</span> arasında ayarla, sonra <span class="ui">Boşlukları Kes</span> ve <span class="ui">Dolgu Kelimelerini Kes</span>'e bas. İzleyicinin altındaki süre hemen kısalır: örnek kaydımızda 1:31, 0:57 oldu.</li>
+  <li><b>Tekrarları temizle</b><span class="ui">3 Tekrarlar ve gereksizler</span> altında <span class="ui">Tekrarları ve Gereksizleri Temizle</span>'ye bas. Yapay zeka modelin iki kez söylediğin cümleleri, yarım kalan başlangıçları ve izleyiciye olmayan konuşmaları bulur.</li>
+  <li><b>Emin olmadıklarına sen karar ver</b><span class="ui">4 Emin olunmayanlar ve denemeler</span> altında dinle ve <span class="ui">Kes</span> ya da <span class="ui">Kalsın</span> de. Bir tekrar grubunda <span class="ui">Bu Denemeyi Kullan</span> kalacak olanı seçer.</li>
+</ol>
+<figure class="shot"><img src="{{img}}transcribing.webp" alt="Transkript çıkarılırken Kesim paneli: Transkript çıkarılıyor, ilerleme yüzdesi ve kalan süre" loading="lazy" /><figcaption>Transkript bu bilgisayarda çıkarılır.</figcaption></figure>
+<figure class="shot"><img src="{{img}}cut-steps.webp" alt="Boşlukları Kes ve Dolgu Kelimelerini Kes sonrası Kesim paneli, iki adım da Tamam, izleyicinin altında 0:57" loading="lazy" /><figcaption>İki düğmeden sonra: 1:31, 0:57 oldu.</figcaption></figure>
+<figure class="shot"><img src="{{img}}cut-takes.webp" alt="4. adım: modelin emin olamadığı kesim Kes ve Kalsın ile, iki denemeli bir tekrar grubu ve Bu Denemeyi Kullan" loading="lazy" /></figure>
+<p>Bir kelimeyi elle mi kesmek istiyorsun? Soldaki <span class="ui">Transkript</span>'te seç ve <kbd>Delete</kbd>'e bas. Üstü çizili bir kelimeye tıklarsan geri gelir. Bkz. <a data-doc="D07">Transkript</a>.</p>
+
+<h2>Animasyon ekle</h2>
+<ol class="steps">
+  <li><b>Bir aralık seç</b>Animasyonun başlayacağı yere gel ve <kbd>I</kbd>'ya bas, biteceği yere gel ve <kbd>O</kbd>'ya bas. Transkriptte kelimeleri seçip <span class="ui">In ve Out'u Seçime Koy</span> da diyebilirsin.</li>
+  <li><b>Üret</b><span class="ui">Animasyonlar</span> sekmesini aç, bir stil seç ve <span class="ui">Animasyon Üret</span>'e bas. <span class="ui">Not ve Görseller (isteğe bağlı)</span> altına yazdığın not, logo ya da fotoğraf animasyonu yönlendirir.</li>
+  <li><b>Sahneleri onayla</b>Önce her sahnenin bir karesini görürsün. Birini <span class="ui">Sahneyi Yeniden Yaz</span> ile değiştir; beğenince <span class="ui">Onayla ve Oluştur</span>'a bas. Animasyon kaydının üstündeki kendi izine yerleşir.</li>
+</ol>
+<figure class="shot"><img src="{{img}}animations.webp" alt="Animasyonlar sekmesi: beş saniyelik aralık seçili, bir not, bir logo ve bir fotoğraf, Animasyon Üret düğmesi" loading="lazy" /></figure>
+<figure class="shot"><img src="{{img}}animation-done.webp" alt="Program'da biten bir animasyon, yüzde 73 çubuk grafiği, klibi Timeline'da kaydın üstünde" loading="lazy" /></figure>
+
+<h2>Altyazı ve ses</h2>
+<ol class="steps">
+  <li><b>Altyazı</b><span class="ui">Altyazı</span> sekmesini aç, bir <span class="ui">Görünüm</span> seç ve <span class="ui">Altyazı Yap</span>'a bas.</li>
+  <li><b>Ses seviyesi</b><span class="ui">Ses</span> sekmesinde, <span class="ui">Efektler</span> altında <span class="ui">Ses seviyesi</span>'ni <span class="ui">YouTube (-14 LUFS)</span> yap.</li>
+</ol>
+<figure class="shot"><img src="{{img}}captions.webp" alt="Dokuz görünümüyle Altyazı sekmesi ve izleyicide altyazılı bir kare" loading="lazy" /></figure>
+
+<h2>Dışa aktar</h2>
+<ol class="steps">
+  <li><b>Dışa Aktar'ı aç</b>Sağ üstteki <span class="ui">Dışa Aktar</span>'a bas.</li>
+  <li><b>Boyutu seç</b><span class="ui">Boyut</span>'ta <span class="ui">YouTube</span>'u seç. <span class="ui">Yüksek (önerilen)</span> ve <span class="ui">H.264 (her yerde açılır)</span> çoğu video için doğru seçim.</li>
+  <li><b>Kaydet</b><span class="ui">Dışa Aktar…</span>'a bas ve dosyanın nereye gideceğini seç.</li>
+</ol>
+<figure class="shot narrow"><img src="{{img}}export.webp" alt="Dışa Aktar penceresi: Video, Tüm Timeline, Boyut YouTube 1920×1080, Kalite Yüksek, Kodek H.264, Ayrıca dışa aktar, Seçenekler" loading="lazy" /></figure>
+<p>Yukarıdaki her adım <span class="ui">Geri Al</span> ile ya da <span class="ui">Geçmiş</span>'ten geri alınır. Daha fazlası: <a data-doc="D38">Dışa aktarma</a> ve <a data-doc="D05">Projeler ve dosyalar</a>.</p>

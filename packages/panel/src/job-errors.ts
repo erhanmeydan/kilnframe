@@ -36,7 +36,11 @@ export type ReadableError =
       reasons: [];
     }
   | {
-      key: "job.contextTooSmall" | "job.contextTooSmallOllama";
+      key:
+        | "job.contextTooSmall"
+        | "job.contextTooSmallOllama"
+        | "job.lmstudioNotRunning"
+        | "job.ollamaNotRunning";
       vars: Record<string, never>;
       reasons: [];
     }
@@ -126,6 +130,10 @@ export function readableJobError(message: string): ReadableError | null {
     }
     return { key: "job.geminiFreeTierNoWait", vars: { limit }, reasons: [] };
   }
+  if (message.includes("LM Studio is not running."))
+    return { key: "job.lmstudioNotRunning", vars: {}, reasons: [] };
+  if (message.includes("Ollama is not running."))
+    return { key: "job.ollamaNotRunning", vars: {}, reasons: [] };
   if (message.includes("The model's context in Ollama is too small"))
     return { key: "job.contextTooSmallOllama", vars: {}, reasons: [] };
   if (message.includes("The model's context in LM Studio is too small"))

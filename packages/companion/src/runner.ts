@@ -49,6 +49,7 @@ import {
   type RenderPlanResult,
   type Defaults,
   type TextProvider,
+  removeTempDir,
 } from "@kilnframe/core";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -361,7 +362,7 @@ async function styleJob(
       billing: provider.billing ?? "api",
     };
   } finally {
-    rmSync(work, { recursive: true, force: true });
+    removeTempDir(work);
   }
 }
 

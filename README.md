@@ -100,8 +100,8 @@ A step-by-step guide with screenshots: [docs/ilk-animasyon.md](docs/ilk-animasyo
 
 ## Music
 
-1. Open the **Music** tab and choose **Whole Timeline** or **In/Out**. Write what you would like (calm piano,
-   drums at the end) or leave it to the AI.
+1. Open the **Music** tab. With In and Out marked, the music is made for that range; without them, for the whole
+   timeline. Write what you would like (calm piano, drums at the end) or leave it to the AI.
 2. Press **Plan the Music**. Gemini, on the same Google key as the music, splits the speech into sections by topic, each with its mood, tempo and
    how it hands over to the next. Change a section's direction, join two, or leave one without music.
 3. Press **Make the Music**. Google Lyria writes one piece per section. This needs a Google Gemini key
@@ -273,8 +273,8 @@ Adım adım, ekran görüntülü rehber: [docs/ilk-animasyon.md](docs/ilk-animas
 
 ### Müzik
 
-1. **Müzik** sekmesini açın, **Tüm Timeline** ya da **In/Out**'u seçin. İsteğinizi yazın (sakin piyano,
-   finalde davul) ya da yapay zekaya bırakın.
+1. **Müzik** sekmesini açın. In ve Out işaretliyse müzik o aralık için, değilse bütün timeline için yapılır.
+   İsteğinizi yazın (sakin piyano, finalde davul) ya da yapay zekaya bırakın.
 2. **Müzik Planı Çıkar**'a basın. Müzikle aynı Google anahtarıyla Gemini konuşmayı konulara göre bölümlere ayırır; her bölümün havası,
    temposu ve bir sonrakine nasıl geçtiği yazar. Bir bölümün yönünü değiştirebilir, iki bölümü
    birleştirebilir ya da bir bölümü müziksiz bırakabilirsiniz.

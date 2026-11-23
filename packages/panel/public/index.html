@@ -51,6 +51,80 @@
         box-sizing: border-box;
         flex-shrink: 0;
       }
+      /* the Kilnframe Desktop card under everything: its icon, name and what it is; the card opens the page */
+      .promo {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        box-sizing: border-box;
+        border-top: 1px solid #303030;
+        background: #262626;
+        padding: 10px 6px 10px 12px;
+        cursor: pointer;
+      }
+      .promo-icon {
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
+        margin-right: 10px;
+        border-radius: 7px;
+      }
+      .promo-body {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+      .promo-head {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        height: 18px;
+      }
+      .promo-title {
+        flex: 1 1 0;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 12px;
+        font-weight: bold;
+        color: #d6d6d6;
+      }
+      .promo .promo-link {
+        flex: 0 0 auto;
+        margin-left: 8px;
+        padding: 2px;
+      }
+      .promo-x {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        margin-left: 2px;
+        text-align: center;
+        font-size: 14px;
+        color: #8f8f8f;
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      .promo-x:hover {
+        color: #d6d6d6;
+      }
+      .promo-text {
+        margin-top: 2px;
+        font-size: 11px;
+        line-height: 15px;
+        color: #8f8f8f;
+      }
+      .promo-trial {
+        margin-top: 3px;
+        font-size: 11px;
+        line-height: 15px;
+        color: #d6d6d6;
+      }
+      .promo-link:focus,
+      .promo-x:focus {
+        outline: 1px solid #5b8cff;
+      }
       /* fewer boxes (panel design 2, 8 Oct 2026): frames only on things that are clicked or typed in */
       .rangeline {
         padding: 2px 0 8px;

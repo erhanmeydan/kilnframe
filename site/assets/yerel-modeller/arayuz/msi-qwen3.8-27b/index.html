@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kesit — Kurgu Stüdyosu</title>
+<style>
+  :root{
+    --bg:#0e1219; --panel:#161c28; --lane:#121722;
+    --line:#242e40; --line2:#2f3a52;
+    --text:#e9edf5; --mut:#9aa6bc; --dim:#68758d;
+    --accent:#ffb02e; --ph:#ff4136;
+    --gut:150px;
+    --sans:"Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    font-family:var(--sans); color:var(--text); background:
+      radial-gradient(1200px 520px at 12% -12%, rgba(62,207,178,.07), transparent 60%),
+      radial-gradient(1000px 480px at 92% 112%, rgba(255,176,46,.06), transparent 60%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased; user-select:none;
+  }
+  .mono{font-family:var(--mono)}
+  .app{height:100vh;display:flex;flex-direction:column;padding:14px 16px 12px;gap:12px}
+
+  /* ---------- top bar ---------- */
+  .topbar{height:40px;flex:none;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand svg{display:block}
+  .brand-name{font-size:16px;font-weight:800;letter-spacing:.02em}
+  .brand-sub{font-size:11px;color:var(--dim);margin-left:9px;padding-left:11px;border-left:1px solid var(--line2)}
+  .topbar-right{display:flex;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;
+        background:#1a2231;border:1px solid var(--line);font-size:11px;color:var(--mut)}
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px rgba(74,222,128,.9);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* ---------- panels ---------- */
+  .panel{background:linear-gradient(180deg,#181f2d,#151b27);border:1px solid var(--line);border-radius:10px;
+         box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 10px 30px -18px rgba(0,0,0,.9)}
+  .panel-head{height:36px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid var(--line)}
+  .panel-head h2{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#b3bed4;display:flex;align-items:center;gap:9px}
+  .panel-head h2::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--hd,#5b8def)}
+
+  /* ---------- top area ---------- */
+  .top-area{height:352px;flex:none;display:flex;gap:12px}
+  .preview-panel{flex:1;min-width:0;display:flex;flex-direction:column;--hd:#3ecfb2}
+  .pv-body{position:relative;flex:1;min-height:0;margin:10px;border-radius:8px;overflow:hidden;background:#0b0f16;border:1px solid #1e2739}
+  .pv-body canvas{position:absolute;inset:0;width:100%;height:100%}
+  .pv-overlay{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:14px 18px}
+  .pv-tc-row{display:flex;justify-content:flex-end}
+  .pv-tc{font-size:13px;font-weight:600;color:#ffe9c9;background:rgba(10,13,20,.72);border:1px solid rgba(255,255,255,.14);padding:5px 10px;border-radius:6px;letter-spacing:.06em}
+  .pv-kicker{display:block;font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.62);margin-bottom:4px}
+  .pv-name{font-size:clamp(30px,3.6vw,50px);font-weight:800;letter-spacing:-.01em;line-height:1.02;color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.55)}
+
+  .inspector{width:296px;flex:none;display:flex;flex-direction:column;--hd:#d6c14a}
+  .insp-body{flex:1;min-height:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
+  .insp-strip{height:5px;border-radius:3px;margin-bottom:12px;box-shadow:0 0 14px rgba(0,0,0,.4)}
+  .insp-head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .swatch{width:13px;height:13px;border-radius:4px;border:1px solid rgba(255,255,255,.35)}
+  .insp-tag{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+  .insp-name{font-size:21px;font-weight:800;letter-spacing:-.01em;margin-bottom:14px}
+  .irow{display:flex;align-items:baseline;justify-content:space-between;padding:9px 2px;border-top:1px solid #212b3e}
+  .irow dt{font-size:11px;color:var(--mut);letter-spacing:.04em}
+  .irow dd{font-size:13.5px;font-weight:600;letter-spacing:.04em}
+  .insp-foot{margin-top:auto;padding-top:12px;font-size:10.5px;color:var(--dim);border-top:1px solid #212b3e}
+  .insp-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:0 14px}
+  .insp-empty svg{margin-bottom:8px;opacity:.9}
+  .insp-empty b{font-size:15px;font-weight:700}
+  .insp-empty span{font-size:12px;color:var(--dim);line-height:1.5}
+
+  /* ---------- transport ---------- */
+  .transport{height:48px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:16px}
+  .t-group{display:flex;align-items:center;gap:12px}
+  .t-label{font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+  #tcNow{font-size:19px;font-weight:700;color:#ffc233;letter-spacing:.06em;text-shadow:0 0 14px rgba(255,194,51,.35)}
+  #tcDur{font-size:15px;font-weight:600;color:var(--mut);letter-spacing:.06em}
+  .hint{font-size:11px;color:var(--dim);margin-right:4px;white-space:nowrap}
+  .btn{background:linear-gradient(180deg,#ffb547,#f2932a);color:#241503;font-family:var(--sans);font-weight:800;font-size:13px;
+       border:1px solid #ffd08a;border-radius:8px;padding:9px 16px;cursor:pointer;white-space:nowrap;
+       box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 12px -3px rgba(242,147,42,.5);
+       transition:transform .15s ease, box-shadow .15s ease, filter .15s ease}
+  .btn:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 7px 18px -4px rgba(242,147,42,.65)}
+  .btn:active{transform:translateY(0) scale(.98)}
+  .btn:focus-visible{outline:2px solid #ffe1ad;outline-offset:2px}
+  .btn.flash{box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 0 0 5px rgba(255,176,46,.28)}
+
+  /* ---------- timeline ---------- */
+  .timeline-panel{flex:1;min-height:0;display:flex;flex-direction:column;padding-bottom:12px;--hd:#ff7a59}
+  .tl-meta{font-size:11px;color:var(--dim);letter-spacing:.04em}
+  .tl-stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;padding:10px 14px 0;gap:8px}
+  .tl-ruler-row,.trow{display:flex;gap:10px}
+  .gutter-spacer{width:var(--gut);flex:none}
+  .ruler{position:relative;flex:1;height:26px;border-bottom:1px solid var(--line2);cursor:pointer;overflow:hidden;background:rgba(255,255,255,.012)}
+  .ruler:hover{background:rgba(255,255,255,.035)}
+  .tick{position:absolute;bottom:0;width:1px;background:#3a465f}
+  .tick.major{height:9px;background:#4d5b78}
+  .tick.end{background:var(--accent);box-shadow:0 0 6px rgba(255,176,46,.7)}
+  .rlab{position:absolute;top:3px;font-size:10px;color:#7f8ca4;letter-spacing:.03em;white-space:nowrap}
+
+  .tl-rows{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+  .trow{flex:1;min-height:0}
+  .track-label{width:var(--gut);flex:none;display:flex;align-items:center;gap:9px;padding-right:2px}
+  .tk-badge{width:24px;height:24px;flex:none;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800}
+  .tk-txt b{display:block;font-size:13px;font-weight:700;line-height:1.15}
+  .tk-txt small{font-size:10.5px;color:var(--dim)}
+  .lane{position:relative;flex:1;border-radius:8px;background:linear-gradient(180deg,#141a26,#111623);border:1px solid #1f2939;box-shadow:inset 0 2px 8px rgba(0,0,0,.35)}
+
+  .clip{position:absolute;top:7px;bottom:7px;border-radius:7px;cursor:pointer;overflow:hidden;isolation:isolate;
+        border:1px solid rgba(255,255,255,.1);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 3px 10px -5px rgba(0,0,0,.8);
+        transition:filter .16s ease, border-color .16s ease, box-shadow .16s ease}
+  .clip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c);z-index:3}
+  .clip:hover{filter:brightness(1.14);border-color:var(--c)}
+  .clip.selected{border-color:var(--c);filter:brightness(1.18);
+        box-shadow:0 0 0 2px var(--c), inset 0 0 0 1px rgba(255,255,255,.14), 0 6px 22px -6px rgba(0,0,0,.85)}
+  .clip-text{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;justify-content:center;padding:4px 12px 4px 16px;min-width:0;
+        background:linear-gradient(90deg, rgba(8,11,17,.74) 0%, rgba(8,11,17,.36) 52%, rgba(8,11,17,0) 84%)}
+  .clip-name{font-size:13px;font-weight:700;color:#f4f7fc;text-shadow:0 1px 3px rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clip-meta{font-size:9.5px;color:rgba(255,255,255,.66);text-shadow:0 1px 2px rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .wave{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+
+  .gapchip{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;
+           border:1px dashed rgba(255,255,255,.16);border-radius:6px;font-size:9.5px;color:rgba(255,255,255,.4);pointer-events:none}
+
+  .tl-stage.anim .clip{transition:left .5s cubic-bezier(.24,.9,.3,1), width .5s cubic-bezier(.24,.9,.3,1)}
+
+  /* ---------- playhead ---------- */
+  .playhead{position:absolute;top:0;bottom:6px;width:2px;background:var(--ph);z-index:30;pointer-events:none;
+            box-shadow:0 0 10px rgba(255,65,54,.85), 0 0 2px rgba(255,65,54,1);transition:left .1s ease-out}
+  .ph-cap{position:absolute;top:-3px;left:50%;transform:translateX(-50%);width:0;height:0;
+          border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid var(--ph);
+          filter:drop-shadow(0 0 4px rgba(255,65,54,.8))}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="14" rx="3" stroke="#ffb02e" stroke-width="1.6"/>
+        <path d="M9 5v14" stroke="#3ecfb2" stroke-width="1.6"/>
+        <path d="M15 5v14" stroke="#3ecfb2" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="2.4" fill="#ff4136"/>
+      </svg>
+      <span class="brand-name">Kesit</span><span class="brand-sub">Kurgu Stüdyosu</span>
+    </div>
+    <div class="topbar-right">
+      <span class="chip"><i class="dot"></i>Hazır</span>
+      <span class="chip mono">25 kare/sn</span>
+    </div>
+  </header>
+
+  <section class="top-area">
+    <div class="panel preview-panel" data-test="preview">
+      <div class="panel-head">
+        <h2>Önizleme</h2>
+        <span class="chip mono" style="height:22px;font-size:10.5px">V1 · Video 1</span>
+      </div>
+      <div class="pv-body" id="pvBody">
+        <canvas id="pvCanvas"></canvas>
+        <div class="pv-overlay">
+          <div class="pv-tc-row"><span class="pv-tc mono" id="pvTc">00:00:00:00</span></div>
+          <div><span class="pv-kicker">V1 · Video 1</span><h3 class="pv-name" id="pvName">Giriş</h3></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="panel inspector" data-test="inspector">
+      <div class="panel-head"><h2>Klip bilgisi</h2><span class="chip mono" style="height:22px;font-size:10.5px">25 fps</span></div>
+      <div class="insp-body" id="inspBody"></div>
+    </aside>
+  </section>
+
+  <div class="panel transport">
+    <div class="t-group">
+      <span class="t-label">Oynatma başı</span>
+      <span class="mono" data-test="timecode" id="tcNow">00:00:00:00</span>
+    </div>
+    <div class="t-group">
+      <span class="t-label">Toplam süre</span>
+      <span class="mono" data-test="duration" id="tcDur">00:00:42:13</span>
+    </div>
+    <div class="t-group">
+      <span class="hint mono">← → kare · Shift+ok ±1 sn · Home/End uçlar</span>
+      <button class="btn" id="closeGaps" data-test="close-gaps">Boşlukları kapat</button>
+    </div>
+  </div>
+
+  <section class="panel timeline-panel">
+    <div class="panel-head">
+      <h2>Zaman çizelgesi</h2>
+      <span class="tl-meta mono" id="tlMeta"></span>
+    </div>
+    <div class="tl-stage" id="tlStage">
+      <div class="tl-ruler-row">
+        <div class="gutter-spacer"></div>
+        <div class="ruler" data-test="ruler" id="ruler"></div>
+      </div>
+      <div class="tl-rows">
+        <div class="trow" data-track="V1">
+          <div class="track-label">
+            <span class="tk-badge" style="background:rgba(91,141,239,.16);border:1px solid rgba(91,141,239,.5);color:#8fb0f5">V</span>
+            <div class="tk-txt"><b>Video 1</b><small>4 klip</small></div>
+          </div>
+          <div class="lane" id="lane-V1"></div>
+        </div>
+        <div class="trow" data-track="V2">
+          <div class="track-label">
+            <span class="tk-badge" style="background:rgba(87,199,227,.14);border:1px solid rgba(87,199,227,.5);color:#7fd6ee">V</span>
+            <div class="tk-txt"><b>Video 2</b><small>2 klip</small></div>
+          </div>
+          <div class="lane" id="lane-V2"></div>
+        </div>
+        <div class="trow" data-track="A1">
+          <div class="track-label">
+            <span class="tk-badge" style="background:rgba(82,192,122,.14);border:1px solid rgba(82,192,122,.5);color:#7fd6a0">A</span>
+            <div class="tk-txt"><b>Müzik</b><small>1 klip</small></div>
+          </div>
+          <div class="lane" id="lane-A1"></div>
+        </div>
+      </div>
+      <div class="playhead" id="playhead"><span class="ph-cap"></span></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const FPS = 25;
+  const OFFSET = 160; // gutter (150) + row gap (10), matches CSS
+
+  const tracks = [
+    { id:"V1", name:"Video 1", type:"video", clips:[
+      { name:"Giriş",        start:0,   dur:125, color:"#3ecfb2" },
+      { name:"Röportaj",     start:125, dur:450, color:"#5b8def" },
+      { name:"B-roll Şehir", start:650, dur:200, color:"#eaa63f" },
+      { name:"Kapanış",      start:900, dur:163, color:"#ef6a4d" } ]},
+    { id:"V2", name:"Video 2", type:"video", clips:[
+      { name:"Logo",     start:50,  dur:100, color:"#57c7e3" },
+      { name:"Alt yazı", start:300, dur:175, color:"#d6c14a" } ]},
+    { id:"A1", name:"Müzik", type:"audio", clips:[
+      { name:"Müzik", start:0, dur:980, color:"#52c07a" } ]}
+  ];
+
+  let playhead = 0;
+  let selected = null;
+  let ppf = 1;
+
+  const $ = s => document.querySelector(s);
+  const ruler = $("#ruler"), stage = $("#tlStage"), phEl = $("#playhead");
+  const lanes = { V1:$("#lane-V1"), V2:$("#lane-V2"), A1:$("#lane-A1") };
+
+  /* ---------- helpers ---------- */
+  function total(){ let m=0; for(const t of tracks) for(const c of t.clips) m=Math.max(m, c.start+c.dur); return m; }
+  function tc(f){
+    f = Math.max(0, Math.round(f));
+    const ff=f%FPS, s=Math.floor(f/FPS), ss=s%60, mm=Math.floor(s/60)%60, hh=Math.floor(s/3600);
+    return [hh,mm,ss,ff].map(n=>String(n).padStart(2,"0")).join(":");
+  }
+  function rgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+  function hexRGB(h){ const n=parseInt(h.slice(1),16); return {r:n>>16&255,g:n>>8&255,b:n&255}; }
+
+  /* ---------- build clip blocks once ---------- */
+  for(const t of tracks){
+    for(const c of t.clips){
+      const el = document.createElement("div");
+      el.className = "clip";
+      el.dataset.clip = c.name;
+      el.style.setProperty("--c", c.color);
+      el.style.background = `linear-gradient(180deg, ${rgba(c.color,.34)}, ${rgba(c.color,.15)})`;
+
+      if(t.type === "audio"){
+        const cv = document.createElement("canvas");
+        cv.className = "wave";
+        el.appendChild(cv);
+        c.wave = cv;
+      }
+
+      const txt = document.createElement("div"); txt.className = "clip-text";
+      const nm = document.createElement("span"); nm.className="clip-name"; nm.textContent=c.name;
+      const mt = document.createElement("span"); mt.className="clip-meta mono";
+      txt.appendChild(nm); txt.appendChild(mt);
+      el.appendChild(txt);
+
+      c.el = el; c.metaEl = mt;
+      el.addEventListener("click", ev => { ev.stopPropagation(); select(c); });
+      lanes[t.id].appendChild(el);
+    }
+  }
+
+  /* ---------- ruler ---------- */
+  function buildRuler(T){
+    ruler.innerHTML = "";
+    const W = T * ppf;
+    let stepSec = [1,2,5,10,15,30].find(s => s*FPS*ppf >= 84) || 30;
+    for(let f=0; f<=T; f+=FPS){
+      const major = (f % (stepSec*FPS)) === 0;
+      const tk = document.createElement("div");
+      tk.className = "tick" + (major ? " major" : "");
+      tk.style.left = (f*ppf) + "px";
+      ruler.appendChild(tk);
+      if(major && f*ppf < W - 72){
+        const lb = document.createElement("span");
+        lb.className = "rlab mono";
+        lb.textContent = tc(f);
+        lb.style.left = (f*ppf + 5) + "px";
+        ruler.appendChild(lb);
+      }
+    }
+    const end = document.createElement("div");
+    end.className = "tick major end";
+    end.style.left = (W - 1) + "px";
+    ruler.appendChild(end);
+  }
+
+  /* ---------- gaps (V1) ---------- */
+  function renderGaps(){
+    const lane = lanes.V1;
+    lane.querySelectorAll(".gapchip").forEach(e => e.remove());
+    const cs = tracks[0].clips.slice().sort((a,b)=>a.start-b.start);
+    let count=0, frames=0;
+    for(let i=0;i<cs.length-1;i++){
+      const g = cs[i+1].start - (cs[i].start + cs[i].dur);
+      if(g > 0){
+        count++; frames += g;
+        const d = document.createElement("div");
+        d.className = "gapchip";
+        d.style.left = ((cs[i].start+cs[i].dur)*ppf) + "px";
+        d.style.width = (g*ppf) + "px";
+        d.textContent = g + " kare";
+        lane.appendChild(d);
+      }
+    }
+    $("#tlMeta").textContent = count ? `V1 · ${count} boşluk · toplam ${frames} kare` : "Boşluklar kapatıldı ✓";
+  }
+
+  /* ---------- waveform (one bar per frame) ---------- */
+  function drawWave(c){
+    const cv = c.wave; if(!cv) return;
+    const w = cv.clientWidth, h = cv.clientHeight;
+    if(w < 4 || h < 4) return;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+    const x = cv.getContext("2d");
+    x.setTransform(dpr,0,0,dpr,0,0);
+    x.clearRect(0,0,w,h);
+    x.strokeStyle = "rgba(255,255,255,.14)";
+    x.beginPath(); x.moveTo(0,h/2); x.lineTo(w,h/2); x.stroke();
+    const n = c.dur, bw = w/n;
+    x.fillStyle = "rgba(226,255,238,.78)";
+    for(let i=0;i<n;i++){
+      const v = 0.5 + 0.3*Math.sin(i/9) + 0.15*Math.sin(i/2.3);
+      const bh = Math.max(2, v*(h*0.78));
+      x.fillRect(i*bw + (bw>2 ? .6 : 0), (h-bh)/2, Math.max(.8, bw*.6), bh);
+    }
+  }
+
+  /* ---------- layout / sync ---------- */
+  function positionPlayhead(){ phEl.style.left = (OFFSET + playhead*ppf) + "px"; }
+
+  function updatePreviewState(){
+    const v1 = tracks[0].clips;
+    let active = null;
+    for(const c of v1){ if(playhead >= c.start && playhead < c.start+c.dur){ active=c; break; } }
+    $("#pvName").textContent = active ? active.name : "Boşluk";
+    pvTarget = hexRGB(active ? active.color : "#4a5468");
+    gapMode = !active;
+  }
+
+  function syncPlayhead(){
+    positionPlayhead();
+    const s = tc(playhead);
+    $("#tcNow").textContent = s;
+    $("#pvTc").textContent = s;
+    updatePreviewState();
+  }
+
+  function setPlayhead(f){
+    playhead = Math.min(total(), Math.max(0, Math.round(f)));
+    syncPlayhead();
+  }
+
+  function metaFits(c){
+    const avail = c.dur*ppf - 34; // left + right padding allowance
+    if(avail < 50) return false;
+    pctx.font = "600 9.5px ui-monospace,'SF Mono',Consolas,monospace";
+    return pctx.measureText(c.metaEl.textContent).width <= avail;
+  }
+
+  function layout(){
+    const T = total();
+    ppf = lanes.V1.clientWidth / T;
+    buildRuler(T);
+    for(const t of tracks) for(const c of t.clips){
+      c.el.style.left  = (c.start*ppf) + "px";
+      c.el.style.width = (c.dur*ppf)   + "px";
+      c.metaEl.textContent = tc(c.start) + " – " + tc(c.start+c.dur);
+      c.metaEl.style.display = metaFits(c) ? "" : "none";
+    }
+    renderGaps();
+    for(const t of tracks) if(t.type==="audio") for(const c of t.clips) drawWave(c);
+    $("#tcDur").textContent = tc(T);
+    positionPlayhead();
+  }
+
+  /* ---------- inspector ---------- */
+  function select(c){
+    selected = c;
+    for(const t of tracks) for(const k of t.clips) k.el.classList.toggle("selected", k === c);
+    renderInspector();
+  }
+
+  function renderInspector(){
+    const body = $("#inspBody");
+    if(!selected){
+      body.innerHTML = `
+        <div class="insp-empty">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#68758d" stroke-width="1.5" aria-hidden="true">
+            <rect x="3" y="6" width="18" height="12" rx="2.5"/>
+            <path d="M9 6v12M15 6v12" opacity=".7"/>
+          </svg>
+          <b>Bir klip seçin</b>
+          <span>Zaman çizelgesinde bir klipe tıklayarak adını, izini ve giriş–çıkış noktalarını görüntüleyin.</span>
+        </div>`;
+      return;
+    }
+    const c = selected;
+    let trackName = "";
+    for(const t of tracks) if(t.clips.includes(c)) trackName = t.name;
+    body.innerHTML = `
+      <div class="insp-strip" style="background:${c.color};box-shadow:0 0 16px ${rgba(c.color,.5)}"></div>
+      <div class="insp-head"><span class="swatch" style="background:${c.color}"></span><span class="insp-tag">Klip</span></div>
+      <h3 class="insp-name">${c.name}</h3>
+      <dl>
+        <div class="irow"><dt>İz</dt><dd>${trackName}</dd></div>
+        <div class="irow"><dt>Giriş noktası</dt><dd class="mono">${tc(c.start)}</dd></div>
+        <div class="irow"><dt>Çıkış noktası</dt><dd class="mono">${tc(c.start+c.dur)}</dd></div>
+        <div class="irow"><dt>Süre</dt><dd class="mono">${tc(c.dur)}</dd></div>
+      </dl>
+      <div class="insp-foot mono">25 kare/sn · ${c.dur} kare</div>`;
+  }
+
+  /* ---------- close gaps ---------- */
+  $("#closeGaps").addEventListener("click", () => {
+    const cs = tracks[0].clips.slice().sort((a,b)=>a.start-b.start);
+    let t = 0;
+    for(const c of cs){ c.start = t; t += c.dur; }
+    stage.classList.add("anim");
+    layout();
+    if(playhead > total()) setPlayhead(total()); else syncPlayhead();
+    renderInspector();
+    const btn = $("#closeGaps");
+    btn.classList.add("flash");
+    setTimeout(()=>btn.classList.remove("flash"), 520);
+    setTimeout(()=>{
+      stage.classList.remove("anim");
+      for(const tr of tracks) if(tr.type==="audio") for(const c of tr.clips) drawWave(c);
+    }, 640);
+  });
+
+  /* ---------- ruler scrub / click ---------- */
+  let scrubbing = false;
+  function rulerTo(e){
+    const r = ruler.getBoundingClientRect();
+    setPlayhead((e.clientX - r.left) / ppf);
+  }
+  ruler.addEventListener("pointerdown", e => { scrubbing = true; ruler.setPointerCapture(e.pointerId); rulerTo(e); });
+  ruler.addEventListener("pointermove", e => { if(scrubbing) rulerTo(e); });
+  ["pointerup","pointercancel"].forEach(ev => ruler.addEventListener(ev, () => scrubbing = false));
+
+  /* ---------- keyboard transport ---------- */
+  window.addEventListener("keydown", e => {
+    switch(e.key){
+      case "ArrowRight": setPlayhead(playhead + (e.shiftKey ? FPS : 1)); break;
+      case "ArrowLeft":  setPlayhead(playhead - (e.shiftKey ? FPS : 1)); break;
+      case "Home":       setPlayhead(0); break;
+      case "End":        setPlayhead(total()); break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  /* ---------- preview canvas (drawn, animated background) ---------- */
+  const pvBody = $("#pvBody"), pcv = $("#pvCanvas"), pctx = pcv.getContext("2d");
+  let pvW=0, pvH=0;
+  let cur = { r:74, g:84, b:104 };
+  let pvTarget = hexRGB("#3ecfb2");
+  let gapMode = false;
+
+  function sizePv(){
+    pvW = pvBody.clientWidth; pvH = pvBody.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    pcv.width = Math.round(pvW*dpr); pcv.height = Math.round(pvH*dpr);
+    pctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function drawPv(t){
+    const W=pvW, H=pvH; if(!W||!H) return;
+    const r=cur.r|0, g=cur.g|0, b=cur.b|0;
+    pctx.clearRect(0,0,W,H);
+
+    let bg = pctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,"#0b0f16");
+    bg.addColorStop(1,`rgba(${r},${g},${b},.38)`);
+    pctx.fillStyle = bg; pctx.fillRect(0,0,W,H);
+
+    pctx.save();
+    pctx.globalCompositeOperation = "lighter";
+    for(let k=0;k<3;k++){
+      const s = t*0.00012*(0.55+k*0.3) + k*2.2;
+      const ox = W*(0.5 + 0.42*Math.sin(s));
+      const oy = H*(0.5 + 0.46*Math.cos(s*0.83));
+      const rad = Math.max(50, H*(0.5 + k*0.24));
+      const rg = pctx.createRadialGradient(ox,oy,0, ox,oy,rad);
+      rg.addColorStop(0,`rgba(${r},${g},${b},.30)`);
+      rg.addColorStop(1,"rgba(0,0,0,0)");
+      pctx.fillStyle = rg;
+      pctx.beginPath(); pctx.arc(ox,oy,rad,0,Math.PI*2); pctx.fill();
+    }
+    pctx.restore();
+
+    if(gapMode){
+      pctx.save();
+      pctx.strokeStyle = "rgba(255,255,255,.045)"; pctx.lineWidth = 1;
+      for(let i=-H;i<W;i+=18){ pctx.beginPath(); pctx.moveTo(i,H); pctx.lineTo(i+H,0); pctx.stroke(); }
+      pctx.restore();
+    }
+
+    // rule-of-thirds guides + center cross
+    pctx.strokeStyle = "rgba(255,255,255,.06)"; pctx.lineWidth = 1;
+    [W/3, W*2/3].forEach(x=>{ pctx.beginPath(); pctx.moveTo(x,0); pctx.lineTo(x,H); pctx.stroke(); });
+    [H/3, H*2/3].forEach(y=>{ pctx.beginPath(); pctx.moveTo(0,y); pctx.lineTo(W,y); pctx.stroke(); });
+    pctx.strokeStyle = "rgba(255,255,255,.1)";
+    pctx.beginPath(); pctx.moveTo(W/2-9,H/2); pctx.lineTo(W/2+9,H/2); pctx.moveTo(W/2,H/2-9); pctx.lineTo(W/2,H/2+9); pctx.stroke();
+
+    let scrim = pctx.createLinearGradient(0,H*0.5,0,H);
+    scrim.addColorStop(0,"rgba(8,10,16,0)"); scrim.addColorStop(1,"rgba(8,10,16,.62)");
+    pctx.fillStyle = scrim; pctx.fillRect(0,0,W,H);
+
+    let vg = pctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.35, W/2,H/2,Math.max(W,H)*.78);
+    vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,.4)");
+    pctx.fillStyle = vg; pctx.fillRect(0,0,W,H);
+  }
+
+  function loop(t){
+    cur.r += (pvTarget.r - cur.r)*0.06;
+    cur.g += (pvTarget.g - cur.g)*0.06;
+    cur.b += (pvTarget.b - cur.b)*0.06;
+    drawPv(t);
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- init ---------- */
+  window.addEventListener("resize", () => { layout(); sizePv(); });
+  renderInspector();
+  layout();
+  setPlayhead(0);
+  sizePv();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!-- description: Fix common problems in Kilnframe Desktop: an AI model that will not connect, a recording that will not start, missing files, slow playback or export, licence messages and an MCP port in use. -->
+<p class="lead">The messages you may meet, what they mean, and what to do.</p>
+
+<h2>The AI model does not connect</h2>
+<ul>
+  <li><span class="ui">not installed</span> next to Claude Plan or ChatGPT Plan: Claude Code or Codex is missing. Copy the <span class="ui">Install command</span>, run it, and press <span class="ui">Look Again</span> (<a data-doc="D41">Claude or ChatGPT plan</a>).</li>
+  <li><span class="ui">signed out</span>: press <span class="ui">Sign In</span> and confirm in the browser.</li>
+  <li><span class="ui">update</span>: an old version can stop working; press <span class="ui">Update</span>.</li>
+  <li><span class="ui">Could not connect.</span> after <span class="ui">Test Connection</span>: check the key, the address of a custom endpoint, or that LM Studio or Ollama is running (<a data-doc="D42">API keys</a>, <a data-doc="D43">Local models</a>).</li>
+  <li><span class="ui">Connected, but the model did not read the picture.</span>: choose a model that reads images.</li>
+</ul>
+
+<h2>A recording does not start</h2>
+<p>The recorder says which permission is missing and offers <span class="ui">Open Settings</span>. On a Mac allow Screen &amp; System Audio Recording, Camera and Microphone, then reopen Kilnframe; on Windows let desktop apps use the camera and microphone. On a Linux Wayland desktop clicks are not recorded (<a data-doc="D26">Record screen and camera</a>). If the camera is in use by another app, close it or choose <span class="ui">None</span>.</p>
+
+<h2>A file is missing</h2>
+<p>A clip says <span class="ui">Missing. Find it</span>: the file is not where the project left it. Open <span class="ui">File</span> › <span class="ui">Find Media…</span> and find it; the others in the same folder come with it (<a data-doc="D05">Projects and files</a>).</p>
+
+<h2>Playback is slow</h2>
+<ul>
+  <li>Set <span class="ui">Playback quality</span> to <span class="ui">Smooth</span>: a phone's 4K or HEVC video then plays from a light copy (<a data-doc="D10">Program</a>).</li>
+  <li>Heavy work slows the app while it runs; <span class="ui">Running work</span> under the viewer shows it and can stop it.</li>
+  <li>If the caches filled the disk, <span class="ui">Settings</span> › <span class="ui">Storage</span> › <span class="ui">Empty Caches Now</span>.</li>
+</ul>
+
+<h2>Export is slow</h2>
+<p>Tick <span class="ui">Hardware acceleration</span> in the Export window. Smooth slow motion (<span class="ui">Make new frames</span>) makes the export take longer, and the window says so.</p>
+
+<h2>Licence messages</h2>
+<ul>
+  <li><span class="ui">This key is in use on 2 computers. Remove one of them first.</span>: free one with <span class="ui">Remove This Computer</span> there.</li>
+  <li><span class="ui">The licence could not be checked for 3 weeks. Connect to the internet once.</span></li>
+  <li>On Linux, a key kept only until you quit: start a keyring service such as GNOME Keyring or KWallet (<a data-doc="D46">Licence and trial</a>).</li>
+</ul>
+
+<h2>MCP: the port is in use</h2>
+<p>Another program took the port, so the server listens on another for now and says so. Copy the command for Claude Code, Cursor and other clients again (<a data-doc="D45">Connect AI assistants</a>).</p>
+
+<p>Still stuck? <a data-doc="D54">Report a problem</a>.</p>

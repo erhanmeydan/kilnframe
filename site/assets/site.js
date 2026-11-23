@@ -1,4 +1,4 @@
-// kilnframe.com: the newest release's version, the visitor's own system first, the promo video in a dialog and
+// kilnframe.com: the newest release's version, the visitor's own system first, the promo video in place (or in a dialog) and
 // the benchmark clips playing under the pointer. The download links need no script:
 // releases/latest/download/... always gives the newest installers.
 (() => {
@@ -19,8 +19,42 @@
   // the promo video opens in a dialog
   const dialog = document.querySelector("dialog.player");
   const player = dialog?.querySelector("video");
+  // a page with a film frame plays it in place: the frame becomes the player, and any other button for the
+  // same video brings the frame into view and starts it
+  const film = document.querySelector(".film[data-play]");
+  let video = null;
+  const playInPlace = () => {
+    if (!film) return;
+    if (!video) {
+      const img = film.querySelector("img");
+      video = document.createElement("video");
+      video.controls = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.src = film.dataset.play;
+      if (img) {
+        video.poster = img.currentSrc || img.src;
+        video.width = img.width;
+        video.height = img.height;
+      }
+      const frame = document.createElement("div");
+      frame.className = "film screen playing";
+      frame.append(video);
+      film.replaceWith(frame);
+    }
+    void video.play().catch(() => {});
+    return video;
+  };
+  if (film) film.addEventListener("click", playInPlace);
   for (const button of document.querySelectorAll("[data-play]"))
     button.addEventListener("click", () => {
+      if (button === film) return;
+      if (film && button.dataset.play === film.dataset.play) {
+        const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        (video?.parentElement ?? film).scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+        playInPlace();
+        return;
+      }
       if (!dialog || !player) return;
       player.src = button.dataset.play;
       dialog.showModal();

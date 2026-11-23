@@ -1,0 +1,108 @@
+// The Docs tree, in the order the sidebar shows it, in both languages (docs/release/docs-outline.md in the app
+// repo is the plan). A page is built when pages/<lang>/<id>.html exists; the others stay in the sidebar, greyed.
+export const SECTIONS = [
+  {
+    en: "Getting started",
+    tr: "Başlarken",
+    pages: [
+      ["D02", "getting-started/install", "Install", "baslarken/kurulum", "Kurulum"],
+      ["D03", "getting-started/first-video", "Your first video", "baslarken/ilk-video", "İlk videon"],
+      ["D04", "getting-started/editor-window", "The editor window", "baslarken/editor-penceresi", "Editör penceresi"],
+      ["D05", "getting-started/projects", "Projects and files", "baslarken/projeler", "Projeler ve dosyalar"],
+    ],
+  },
+  {
+    en: "Panels",
+    tr: "Paneller",
+    pages: [
+      ["D06", "panels/media", "Media", "paneller/medya", "Medya"],
+      ["D07", "panels/transcript", "Transcript", "paneller/transkript", "Transkript"],
+      ["D08", "panels/animations", "Animations", "paneller/animasyonlar", "Animasyonlar"],
+      ["D09", "panels/sound-effects", "Sound Effects", "paneller/ses-efektleri", "Ses Efektleri"],
+      ["D10", "panels/program", "Program (viewer)", "paneller/program", "Program"],
+      ["D11", "panels/timeline", "Timeline", "paneller/timeline", "Timeline"],
+      ["D12", "panels/cut", "Cut", "paneller/kesim", "Kesim"],
+      ["D13", "panels/clip", "Clip", "paneller/klip", "Klip"],
+      ["D14", "panels/picture", "Picture", "paneller/goruntu", "Görüntü"],
+      ["D15", "panels/sound", "Sound and Mixer", "paneller/ses", "Ses ve Mikser"],
+      ["D16", "panels/captions", "Captions", "paneller/altyazi", "Altyazı"],
+      ["D17", "panels/text", "Text, shapes and stickers", "paneller/metin", "Metin, şekiller ve çıkartmalar"],
+      ["D18", "panels/music", "Music", "paneller/muzik", "Müzik"],
+      ["D19", "panels/b-roll", "B-roll", "paneller/b-roll", "B-roll"],
+      ["D20", "panels/publish", "Publish", "paneller/yayin", "Yayın"],
+      ["D21", "panels/assistant", "Assistant", "paneller/asistan", "Asistan"],
+    ],
+  },
+  {
+    en: "Guides",
+    tr: "Rehberler",
+    pages: [
+      ["D22", "guides/correct-words", "Correct words and say them again", "rehberler/kelime-duzeltme", "Kelimeleri düzeltmek ve sesle düzeltmek"],
+      ["D23", "guides/animation-styles", "Animation styles and your own", "rehberler/animasyon-stilleri", "Animasyon stilleri ve kendi stilin"],
+      ["D24", "guides/colour", "Colour", "rehberler/renk", "Renk"],
+      ["D25", "guides/tutorials", "Screen tutorials", "rehberler/egitim-videolari", "Ekran eğitimleri"],
+      ["D26", "guides/recorder", "Record screen and camera", "rehberler/kayit", "Ekranı ve kamerayı kaydet"],
+      ["D27", "guides/multicam", "Multicam and speakers", "rehberler/coklu-kamera", "Çoklu kamera ve konuşmacılar"],
+      ["D28", "guides/blur", "Blur faces and areas", "rehberler/bulaniklastirma", "Yüz ve alan bulanıklaştırma"],
+      ["D29", "guides/green-screen", "Green screen", "rehberler/yesil-perde", "Yeşil perde"],
+      ["D30", "guides/motion-keyframes", "Motion and keyframes", "rehberler/hareket", "Hareket ve anahtar kareler"],
+      ["D31", "guides/speed", "Speed, slow motion, freeze and reverse", "rehberler/hiz", "Hız, ağır çekim, donmuş kare ve ters"],
+      ["D32", "guides/sequences", "Sequences", "rehberler/kurgular", "Kurgular"],
+      ["D33", "guides/shorts", "Short clips", "rehberler/kisa-videolar", "Kısa videolar"],
+      ["D34", "guides/translation", "Translation and dubbing", "rehberler/ceviri", "Çeviri ve seslendirme"],
+      ["D35", "guides/story", "Story from a topic", "rehberler/konudan-hikaye", "Konudan hikaye"],
+      ["D36", "guides/brand-kits", "Brand kits and fonts", "rehberler/marka-kitleri", "Marka kitleri ve yazı tipleri"],
+      ["D37", "guides/find-in-footage", "Find in footage", "rehberler/goruntulerde-bul", "Görüntülerde bul"],
+      ["D38", "guides/export", "Export", "rehberler/disa-aktarma", "Dışa aktarma"],
+      ["D39", "guides/jobs", "Running work and asked work", "rehberler/isler", "Süren işler ve sorulan işler"],
+    ],
+  },
+  {
+    en: "AI connections",
+    tr: "Yapay zeka bağlantıları",
+    pages: [
+      ["D40", "ai/overview", "How Kilnframe uses AI", "yapay-zeka/genel-bakis", "Kilnframe yapay zekayı nasıl kullanır"],
+      ["D41", "ai/claude-chatgpt-plan", "Use your Claude or ChatGPT plan", "yapay-zeka/claude-chatgpt-aboneligi", "Claude ya da ChatGPT aboneliğinle"],
+      ["D42", "ai/api-keys", "API keys", "yapay-zeka/api-anahtarlari", "API anahtarları"],
+      ["D43", "ai/local-models", "Local models", "yapay-zeka/yerel-modeller", "Yerel modeller"],
+      ["D44", "ai/cloud-transcript", "Cloud transcription", "yapay-zeka/bulutta-transkript", "Bulutta transkript"],
+      ["D45", "ai/mcp", "Connect AI assistants (MCP)", "yapay-zeka/mcp", "Yapay zeka asistanlarını bağla (MCP)"],
+    ],
+  },
+  {
+    en: "Account and privacy",
+    tr: "Hesap ve gizlilik",
+    pages: [
+      ["D46", "account/licence", "Licence and trial", "hesap/lisans", "Lisans ve deneme"],
+      ["D47", "account/updates", "Updates", "hesap/guncellemeler", "Güncellemeler"],
+      ["D48", "privacy", "Privacy in the app", "gizlilik", "Uygulamada gizlilik"],
+    ],
+  },
+  {
+    en: "Reference",
+    tr: "Başvuru",
+    pages: [
+      ["D49", "reference/shortcuts", "Keyboard shortcuts", "basvuru/kisayollar", "Klavye kısayolları"],
+      ["D50", "reference/settings", "Settings", "basvuru/ayarlar", "Ayarlar"],
+      ["D51", "reference/known-limits", "Known limits", "basvuru/bilinen-sinirlar", "Bilinen sınırlar"],
+    ],
+  },
+  {
+    en: "Help",
+    tr: "Yardım",
+    pages: [
+      ["D52", "help/faq", "FAQ", "yardim/sss", "Sık sorulanlar"],
+      ["D53", "help/troubleshooting", "Troubleshooting", "yardim/sorun-giderme", "Sorun giderme"],
+      ["D54", "help/report", "Report a problem", "yardim/hata-bildir", "Hata bildir"],
+    ],
+  },
+  {
+    en: "Platforms",
+    tr: "Platformlar",
+    pages: [
+      ["D55", "platforms/mac", "Mac", "platformlar/mac", "Mac"],
+      ["D56", "platforms/windows", "Windows (Microsoft Store, Beta)", "platformlar/windows", "Windows (Microsoft Store, Beta)"],
+      ["D57", "platforms/linux", "Linux (Beta)", "platformlar/linux", "Linux (Beta)"],
+    ],
+  },
+];

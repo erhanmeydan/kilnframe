@@ -1,0 +1,46 @@
+<!-- description: Kilnframe Desktop'ın ihtiyaçları ve kurulumu: Mac'te, Windows'ta Microsoft Store'dan, Linux'ta AppImage olarak. -->
+<p class="lead">Kilnframe Desktop Mac, Windows ve Linux'ta çalışır. Her birinde adımlar kısa; ilk açılışta olanlar her yerde aynı.</p>
+
+<div class="callout">
+  <p><b>Sürüm 0.1.0.</b> Mac ve Linux için <a data-page="home#indir">ana sayfadan</a> indir; Windows'ta <a href="https://apps.microsoft.com/detail/9N0T9P4SGJ24">Microsoft Store'dan</a> al.</p>
+</div>
+
+<h2 id="neler-gerekli">Neler gerekli</h2>
+<table>
+  <tr><th>Sistem</th><th>Çalıştığı yer</th></tr>
+  <tr><td>Mac</td><td>Apple Silicon (M1 ve sonrası).</td></tr>
+  <tr><td>Windows</td><td>Windows 10 (1809 sürümü) ve sonrası, x64 ya da Arm. Microsoft Store'dan, Beta olarak.</td></tr>
+  <tr><td>Linux</td><td>x64 ya da Arm64, AppImage olarak. Beta.</td></tr>
+</table>
+<p>16 GB bellek önerilir. Ekran kartı şart değil; varsa (NVIDIA, AMD, Intel ya da Apple) dışa aktarma onu kullanır ve birkaç kat hızlı biter.</p>
+
+<h2>Mac</h2>
+<ol class="steps">
+  <li><b>İndir</b>Mac sürümünü kilnframe.com'dan indir.</li>
+  <li><b>Uygulamalar klasörüne taşı</b>İndirdiğin dosyayı aç ve <b>Kilnframe Desktop</b>'ı Uygulamalar klasörüne sürükle.</li>
+  <li><b>Aç</b>Uygulamalar klasöründen aç. Yeni sürümler kendiliğinden gelir; uygulama kurmadan önce sorar.</li>
+</ol>
+
+<h2>Windows</h2>
+<p>Windows'ta Kilnframe Desktop yalnızca Microsoft Store'dan kurulur.</p>
+<ol class="steps">
+  <li><b>Store'da bul</b>Microsoft Store'u aç ve <b>Kilnframe Desktop</b> diye ara, ya da <a href="https://apps.microsoft.com/detail/9N0T9P4SGJ24">Store sayfasını</a> aç.</li>
+  <li><b>Kur</b><b>Al</b> (ya da <b>Yükle</b>) düğmesine bas. Güncellemeleri Store yapar.</li>
+</ol>
+
+<h2>Linux</h2>
+<p>Linux'ta Kilnframe Desktop tek bir AppImage dosyası: kurulacak bir şey yok.</p>
+<ol class="steps">
+  <li><b>İndir</b>Bilgisayarına uygun AppImage dosyasını (x64 ya da Arm64) indir.</li>
+  <li><b>Çalıştırmaya izin ver</b>Dosyaya sağ tıkla, <b>Özellikler</b>'i seç ve <b>İzinler</b>'de <b>Programı çalıştırmaya izin ver</b>'i aç. Terminalde dosya için <code>chmod +x</code> da aynı işi görür.</li>
+  <li><b>Aç</b>Dosyaya çift tıkla.</li>
+</ol>
+<p>Anahtarların ve lisansın sistemin anahtar zincirinde saklanır. Linux'ta bunun için GNOME Keyring ya da KWallet gibi bir anahtar zinciri hizmetinin çalışıyor olması gerekir.</p>
+
+<h2>İlk açılış</h2>
+<p>Kilnframe bir kereye mahsus iki şey sorar.</p>
+<p>Önce <span class="ui">Hangi kurgu programına alışkınsınız?</span> Premiere Pro, Final Cut Pro, DaVinci Resolve ya da CapCut'ı seçersen kısayollar ve panellerin yeri ona göre olur. Kurguda yeniysen <span class="ui">Hiçbiri</span>'ni seç. Sonradan Ayarlar'dan değiştirebilirsin.</p>
+<figure class="shot"><img src="{{img}}program-question.webp" alt="Hangi kurgu programına alışkınsınız? sorusu: Premiere Pro, Final Cut Pro, DaVinci Resolve, CapCut ve Hiçbiri" loading="lazy" /></figure>
+<p>Sonra hoş geldin penceresi gelir. Başlamak için gerekenleri gösterir: <span class="ui">1. Bir yapay zeka modeli bağlayın</span> ve <span class="ui">2. Kaydınızı bırakın</span>; bir de denemenin kaç günü kaldığını. <span class="ui">Modeli bağla</span> yapay zeka ayarlarını açar, <span class="ui">Sonra ayarlardan ben eklerim</span> pencereyi kapatır, <span class="ui">Tura Başla</span> seni editörde kısa bir gezintiye çıkarır.</p>
+<figure class="shot narrow"><img src="{{img}}welcome.webp" alt="Hoş geldin penceresi: Bir yapay zeka modeli bağlayın, Kaydınızı bırakın ve Sonra ayarlardan ben eklerim, Tura Başla, Modeli bağla düğmeleri" loading="lazy" /></figure>
+<p>Sırada: <a data-doc="D03">ilk videon</a> ya da <a data-doc="D41">Claude veya ChatGPT aboneliğini kullanmak</a>.</p>

@@ -1,0 +1,25 @@
+<!-- description: Run Kilnframe Desktop's AI work on your own computer with LM Studio or Ollama: free and offline, what to set up, which models work, and what to expect. -->
+<p class="lead">With LM Studio or Ollama, the AI model runs on your own computer: free, offline, and nothing leaves it.</p>
+<figure class="shot"><img src="{{img}}local-model.webp" alt="Settings, AI Model with LM Studio (local) picked, marked Experimental, and its notes" loading="lazy" /></figure>
+
+<h2>LM Studio</h2>
+<ol class="steps">
+  <li><b>Start its server</b>Open LM Studio and start its server in the Developer tab.</li>
+  <li><b>Choose it</b>In <span class="ui">Settings</span> › <span class="ui">AI</span> › <span class="ui">AI Model</span>, pick <span class="ui">LM Studio (local)</span>. No key is needed.</li>
+  <li><b>Pick a model</b>Only models that can read images are listed. A model that is not loaded yet is loaded when you choose it; the row shows <span class="ui">Loaded</span> with its context length.</li>
+</ol>
+
+<h2>Ollama</h2>
+<ol class="steps">
+  <li><b>Run it</b>Ollama must be running, with a model that reads images.</li>
+  <li><b>Raise the context</b>In Ollama's settings, set the context length to at least 64K: Ollama cuts a longer prompt without saying so.</li>
+  <li><b>Choose it</b>Pick <span class="ui">Ollama (local)</span> and a model. Ollama loads it when a job starts.</li>
+</ol>
+
+<h2>Thinking</h2>
+<p>For a model that can think before it answers, <span class="ui">Thinking</span> turns that <span class="ui">On</span> or <span class="ui">Off</span>. Off is faster and uses less of the model's context.</p>
+
+<h2>What to expect</h2>
+<p>Local models are free and work offline; they need a strong computer and may fall short of cloud models. Both are marked <span class="ui">Experimental</span>: they have not passed Kilnframe's test set yet, and animation scenes may come out simpler.</p>
+<p>A local model does the writing and judging jobs. The transcript is separate: it runs on this computer by itself (<a data-doc="D44">Cloud transcription</a> is the other way).</p>
+<p>If no models come, the tab says so: make sure LM Studio or Ollama is open, then press <span class="ui">Test Connection</span>.</p>

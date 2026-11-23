@@ -1,6 +1,6 @@
 import { runAgentProcess, type AgentRunResult } from "./agent-run.js";
 import { spawnAgent, spawnAgentSync } from "./agent-binary.js";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,6 +11,7 @@ import {
   type TextRequest,
   type TextResponse,
 } from "./types.js";
+import { removeTempDir } from "../temp-dir.js";
 
 /**
  * Uses the official Codex CLI the user installed and signed in to with their ChatGPT account,
@@ -112,7 +113,7 @@ export function readCodexEvents(output: string): {
 }
 
 export interface CodexOptions {
-  /** Empty: the model set in Codex itself (~/.codex/config.toml). */
+  /** Empty: Codex's own default model (the editor's config.toml is not read). */
   model: string;
   effort: string;
 }
@@ -127,6 +128,15 @@ export function codexErrorRetryable(error: string): boolean {
     error,
   );
 }
+
+/**
+ * Keeps the editor's own Codex setup out of Kilnframe's calls: config.toml (its MCP servers, plugins, hooks,
+ * turn-end program, default model and model provider) is not read; the ChatGPT sign-in in CODEX_HOME still is.
+ * Measured on Codex CLI 0.169 (22 Nov 2026): -c overrides merge into config.toml, and an MCP server written
+ * there by hand (the ChatGPT app's node_repl) started in every call whatever -c said; this flag alone stops
+ * it. A call needs no tools: the model and the effort are given on the command line.
+ */
+export const CODEX_ISOLATION = ["--ignore-user-config"];
 
 export class CodexProvider implements TextProvider {
   readonly name = "codex";
@@ -178,6 +188,9 @@ export class CodexProvider implements TextProvider {
         "--skip-git-repo-check",
         "--sandbox",
         "read-only",
+        // the editor's own MCP servers, hooks and turn-end program would start in every call: child
+        // processes that slow it down and, on Windows, hold the work folder
+        ...CODEX_ISOLATION,
         "-c",
         `model_reasoning_effort="${this.effort === "max" ? "xhigh" : this.effort}"`,
         ...(this.model ? ["-m", this.model] : []),
@@ -208,7 +221,7 @@ export class CodexProvider implements TextProvider {
         },
       };
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   }
 
