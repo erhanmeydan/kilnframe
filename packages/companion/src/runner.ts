@@ -6,6 +6,7 @@ import {
   previewCaptionStill,
   renderCaptions,
   createSpeechProvider,
+  speechVoiceFor,
   fixContext,
   voiceSampleSpans,
   createStyle,
@@ -394,13 +395,15 @@ async function storyVoiceJob(
     provider: id,
     model: params.speechModel,
     apiKey: await keys.get(loadSpeechCatalog().find((p) => p.id === id)?.keyName ?? id),
+    baseUrl: params.speechBaseURL,
   });
   mkdirSync(params.outDir, { recursive: true });
   writeFileSync(join(params.outDir, "story.txt"), `${params.text}\n`);
+  const voice = speechVoiceFor(defaults, id, params.voice);
   const result = await narrate({
     provider: speech,
     text: params.text,
-    voice: params.voice,
+    voice,
     style: params.style,
     language: params.language,
     outFile: join(params.outDir, "narration.wav"),
@@ -408,7 +411,7 @@ async function storyVoiceJob(
   });
   writeFileSync(
     join(params.outDir, "narration.json"),
-    `${JSON.stringify({ title: params.title, voice: params.voice, provider: speech.id, model: speech.model, ...result }, null, 2)}\n`,
+    `${JSON.stringify({ title: params.title, voice, provider: speech.id, model: speech.model, ...result }, null, 2)}\n`,
   );
   let music: { file: string; priceUsd: number } | null = null;
   let musicError: string | null = null;
@@ -534,12 +537,13 @@ async function voiceFixSayJob(
   defaults: Defaults,
   progress: (message: string) => void,
 ) {
+  // a clone on the editor's own speech server is read there; every other fix is read by ElevenLabs
+  const id = params.speechProvider === "local" ? "local" : "elevenlabs";
   const speech = createSpeechProvider(defaults, {
-    provider: "elevenlabs",
-    model: voiceFixModel(),
-    apiKey: await keys.get(
-      loadSpeechCatalog().find((p) => p.id === "elevenlabs")?.keyName ?? "elevenlabs",
-    ),
+    provider: id,
+    ...(id === "elevenlabs" ? { model: voiceFixModel() } : {}),
+    apiKey: await keys.get(loadSpeechCatalog().find((p) => p.id === id)?.keyName ?? id),
+    baseUrl: params.speechBaseURL,
   });
   const result = await narrate({
     provider: speech,

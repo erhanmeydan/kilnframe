@@ -152,6 +152,8 @@ Only text and a few small stills go to the AI you chose: the transcript, the sce
 description and, for Automatic mode, three frames of the range so the model can see where you stand.
 For music, the sections' descriptions go to Google Lyria as text. Your audio and video files stay on your
 computer. Rendering, speech recognition and sound effects run locally.
+Story mode and Voice Fix can also read with a speech server of your own, so no text leaves your network:
+see [docs/local-voice.md](docs/local-voice.md).
 
 ## Contributing
 

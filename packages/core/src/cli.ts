@@ -15,7 +15,7 @@ import { listStyles, loadStyle } from "./styles.js";
 import { suggestStyles } from "./stages/suggest.js";
 import { createStyle, previewStyle } from "./stages/style-create.js";
 import { storyText, writeStory, type Story } from "./stages/story.js";
-import { createSpeechProvider, narrate, speechPriceUsd } from "./speech/index.js";
+import { createSpeechProvider, narrate, speechPriceUsd, speechVoiceFor } from "./speech/index.js";
 import {
   CAPTION_LOOKS,
   correctCaptionWords,
@@ -128,7 +128,11 @@ async function main(argv: string[]): Promise<number> {
       provider: args.speechProvider,
       model: args.speechModel,
     });
-    const voice = args.voice ?? defaults.speech.voice;
+    const voice = speechVoiceFor(
+      defaults,
+      args.speechProvider ?? defaults.speech.provider,
+      args.voice,
+    );
     const result = await narrate({
       provider: speech,
       text: storyText(story),

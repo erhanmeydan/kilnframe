@@ -188,6 +188,60 @@ describe("voice fix panel", () => {
     expect(say).not.toHaveProperty("style");
   });
 
+  it("switches to the local voice before a fix, asks that server for its voices and remembers the choice", async () => {
+    const { ctx, sent, store } = fakeCtx();
+    (ctx as unknown as { speechBaseURL: () => string }).speechBaseURL = () => "http://box:9000";
+    const st = atStage("idle", { keySet: null });
+    expect(voiceFixBox(st, ctx)).toContain('data-act="fix-provider" data-val="local"');
+    voiceFixAct(st, ctx, "fix-provider", "local");
+    await tick();
+    expect(st.provider).toBe("local");
+    expect(store["voice-fix-provider"]).toBe("local");
+    expect(sent.find((m) => m.type === "speech.voices")).toMatchObject({
+      provider: "local",
+      baseURL: "http://box:9000",
+    });
+    // not in the middle of a fix
+    const mid = atStage("edit");
+    voiceFixAct(mid, ctx, "fix-provider", "local");
+    expect(mid.provider).toBe("elevenlabs");
+  });
+
+  it("clones and reads on the local server when the fix is local, keeping its clone apart from ElevenLabs'", async () => {
+    const { ctx, sent, store } = fakeCtx();
+    (ctx as unknown as { speechBaseURL: () => string }).speechBaseURL = () => "http://box:9000";
+    const st = atStage("consent", { provider: "local" });
+    voiceFixAct(st, ctx, "fix-consent", "");
+    (ctx as unknown as { request: (m: Msg) => Promise<unknown> }).request = async (m: Msg) => {
+      sent.push(m);
+      if (m.type === "speech.clone") return { voice: "mine", name: "Kilnframe: Talk" };
+      return { jobId: "j9" };
+    };
+    voiceFixAct(st, ctx, "fix-clone", "");
+    await tick();
+    await tick();
+    expect(sent.find((m) => m.type === "speech.clone")).toMatchObject({
+      provider: "local",
+      baseURL: "http://box:9000",
+      consent: true,
+    });
+    expect(store["voice-clone:local:seq-1:0"]).toBe("mine");
+    expect(store["voice-clone:seq-1:0"]).toBeUndefined();
+    expect(jobs(sent)[0]).toMatchObject({
+      kind: "voice-fix-say",
+      voice: "mine",
+      speechProvider: "local",
+      speechBaseURL: "http://box:9000",
+    });
+  });
+
+  it("an ElevenLabs fix names no provider, as before", async () => {
+    const { ctx, sent } = fakeCtx({ stored: { "voice-clone:seq-1:0": "v1" } });
+    voiceFixAct(atStage("edit"), ctx, "fix-say", "");
+    await tick();
+    expect(jobs(sent)[0]).not.toHaveProperty("speechProvider");
+  });
+
   it("says so and sends nothing when the text is empty", async () => {
     const { ctx, sent } = fakeCtx({ stored: { "voice-clone:seq-1:0": "v1" } });
     const st = atStage("edit", { text: "   " });

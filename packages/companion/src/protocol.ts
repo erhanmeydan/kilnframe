@@ -99,7 +99,10 @@ const ProviderChoice = {
 };
 
 /** A speech provider of config/speech.json. */
-export const SpeechProviderId = z.enum(["gemini", "elevenlabs"]);
+export const SpeechProviderId = z.enum(["gemini", "elevenlabs", "local"]);
+
+/** The address of the editor's own speech server (provider "local"); other providers ignore it. */
+const SpeechBaseURL = z.string().url().max(300).optional();
 
 /** A music provider of config/music.json: Lyria (a Gemini key) or ElevenLabs. */
 export const MusicProviderId = z.enum(["gemini", "elevenlabs"]);
@@ -135,6 +138,7 @@ export const StoryVoiceJobParamsSchema = z.object({
   outDir: z.string().min(1),
   speechProvider: SpeechProviderId.optional(),
   speechModel: z.string().optional(),
+  speechBaseURL: SpeechBaseURL,
   /** The narration's language, for providers that take it. */
   language: z.string().max(10).optional(),
   /** A music bed under the narration, in the chosen style's mood when there is one. */
@@ -276,6 +280,9 @@ export const VoiceFixSayJobParamsSchema = z.object({
   before: z.string().max(2000).optional(),
   after: z.string().max(2000).optional(),
   language: z.string().max(10).optional(),
+  /** Who reads the take: the editor's ElevenLabs voice clone (default) or a local server's voice. */
+  speechProvider: SpeechProviderId.optional(),
+  speechBaseURL: SpeechBaseURL,
   outDir: z.string().min(1),
   take: z.number().int().min(1),
 });
@@ -435,13 +442,18 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("job.get"), jobId: z.string() }),
   z.object({ type: z.literal("styles.delete"), name: z.string().min(1) }),
   /** The voices of a speech provider (config/speech.json); the defaults' provider when none is named. */
-  z.object({ type: z.literal("speech.voices"), provider: SpeechProviderId.optional() }),
+  z.object({
+    type: z.literal("speech.voices"),
+    provider: SpeechProviderId.optional(),
+    baseURL: SpeechBaseURL,
+  }),
   z.object({
     type: z.literal("speech.preview"),
     // part of a cache file name, so a plain voice name (or an ElevenLabs voice id) only
     voice: z.string().regex(/^[A-Za-z0-9_.-]{1,60}$/),
     language: z.string().regex(/^[A-Za-z-]{2,10}$/),
     provider: SpeechProviderId.optional(),
+    baseURL: SpeechBaseURL,
     /** The name the sample says, when the voice is an id. */
     label: z.string().max(60).optional(),
   }),
@@ -453,6 +465,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("speech.clone"),
+      /** Whose account or server makes the clone: ElevenLabs (default) or a local speech server. */
+      provider: SpeechProviderId.optional(),
+      baseURL: SpeechBaseURL,
       audioPath: z.string().regex(/\.wav$/i),
       /** Either one range of the file or several spans of it, never both. */
       rangeStartS: z.number().min(0).optional(),

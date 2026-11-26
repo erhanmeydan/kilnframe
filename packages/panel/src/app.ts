@@ -223,10 +223,11 @@ function newStory(): StoryState {
   };
 }
 
-type SpeechProvider = "gemini" | "elevenlabs";
+type SpeechProvider = "gemini" | "elevenlabs" | "local";
 
 function storedSpeechProvider(): SpeechProvider {
-  return stored("story-speech") === "elevenlabs" ? "elevenlabs" : "gemini";
+  const p = stored("story-speech");
+  return p === "elevenlabs" || p === "local" ? p : "gemini";
 }
 
 /** Each provider keeps its own last voice: a Gemini name means nothing to ElevenLabs. */
@@ -235,7 +236,15 @@ function voiceKey(provider: SpeechProvider): string {
 }
 
 function storedVoice(provider: SpeechProvider): string {
-  return stored(voiceKey(provider)) ?? (provider === "gemini" ? "Kore" : "");
+  return (
+    stored(voiceKey(provider)) ??
+    (provider === "gemini" ? "Kore" : provider === "local" ? "default" : "")
+  );
+}
+
+/** The address of the editor's local speech server, when they set one (settings, Narration and Music). */
+function localSpeechURL(): string | undefined {
+  return state.settings.baseURLs["local-speech"]?.trim() || undefined;
 }
 
 /** Voices that suit a narration, shown first (panel design, 8 Oct 2026). */
@@ -1334,12 +1343,14 @@ function storyBox(): string {
   ${seg("story-speech", st.speechProvider, [
     ["gemini", "Gemini"],
     ["elevenlabs", "ElevenLabs"],
+    ["local", t("story.localName")],
   ])}
   ${st.keySet ? "" : `<div class="box warn">${t(st.speechProvider === "gemini" ? "story.noKey" : "story.noKeyEleven")}<div class="btn2 mt" data-act="settings" data-val="voice">${t("home.openSettings")}</div></div>`}
   ${st.voicesError ? `<div class="box error">${esc(t("story.voicesFailed", { message: st.voicesError }))}</div>` : ""}
   ${st.speechProvider === "elevenlabs" && st.keySet ? `<div class="note muted">${t("story.elevenNote")}</div>` : ""}
+  ${st.speechProvider === "local" ? `<div class="note muted">${t("story.localNote")}</div>` : ""}
   <div class="vlist">${voices}</div>
-  ${st.speechProvider === "elevenlabs" && st.keySet ? cloneBox() : ""}
+  ${st.speechProvider !== "gemini" && st.keySet ? cloneBox() : ""}
   ${shown.length < st.voices.length || st.allVoices ? `<div class="link more" data-act="story-voices-all">${st.allVoices ? t("story.fewerVoices") : t("story.allVoices", { n: st.voices.length })}</div>` : ""}
   <div class="lbl">${t("home.format")}</div>
   ${seg("story-format", st.format, [
@@ -1480,11 +1491,12 @@ const CLONE_MIN_S = 30;
 function cloneBox(): string {
   const c = state.story.clone;
   const done = c.done
-    ? `<div class="box ok mt">${t("clone.done", { name: esc(c.done) })}</div>`
+    ? `<div class="box ok mt">${t(state.story.speechProvider === "local" ? "clone.doneLocal" : "clone.done", { name: esc(c.done) })}</div>`
     : "";
   if (!c.open)
     return `${done}<div class="link more" data-act="clone-open">+ ${t("clone.open")}</div>`;
-  if (c.running) return `<div class="box mt">${t("clone.running")}</div>`;
+  if (c.running)
+    return `<div class="box mt">${t(state.story.speechProvider === "local" ? "clone.runningLocal" : "clone.running")}</div>`;
   const range = state.seq?.range.source === "inout" ? state.seq.range : null;
   const length = !range
     ? `<div class="box warn">${t("clone.needRange")}</div>`
@@ -1497,7 +1509,7 @@ function cloneBox(): string {
     `<div class="check mt" data-act="${act}"><span class="box-mark${on ? " on" : ""}">${on ? "✓" : ""}</span><span>${text}</span></div>`;
   return `<div class="box mt">
   <div class="lbl">${t("clone.title")}</div>
-  <div class="note muted">${t("clone.hint")}</div>
+  <div class="note muted">${t(state.story.speechProvider === "local" ? "clone.hintLocal" : "clone.hint")}</div>
   ${musicRangeLine("range")}
   ${length}
   <div class="lbl">${t("clone.name")}</div>
@@ -1555,6 +1567,9 @@ async function cloneVoice() {
     const reply = await session.request<ServerMessage>(
       {
         type: "speech.clone",
+        ...(st.speechProvider === "local"
+          ? { provider: "local", ...(localSpeechURL() ? { baseURL: localSpeechURL() } : {}) }
+          : {}),
         audioPath,
         rangeStartS: Math.max(0, range.startS - audio.offsetSeconds),
         rangeEndS: range.endS - audio.offsetSeconds,
@@ -1567,7 +1582,7 @@ async function cloneVoice() {
     );
     trace(`clone: made ${String(reply.voice)} from ${String(reply.durationS)} s`);
     st.voice = String(reply.voice);
-    store(voiceKey("elevenlabs"), st.voice);
+    store(voiceKey(st.speechProvider), st.voice);
     c.open = false;
     c.consent = false;
     c.done = name;
@@ -1585,7 +1600,11 @@ async function loadVoices() {
   const st = state.story;
   const provider = st.speechProvider;
   const reply = await session.request<ServerMessage>(
-    { type: "speech.voices", provider },
+    {
+      type: "speech.voices",
+      provider,
+      ...(provider === "local" && localSpeechURL() ? { baseURL: localSpeechURL() } : {}),
+    },
     "voices",
     30_000,
   );
@@ -1673,6 +1692,9 @@ async function makeStorySequence() {
         style: st.voiceStyle.slice(0, 300) || undefined,
         outDir: String(prepared.jobDir),
         speechProvider: st.speechProvider,
+        ...(st.speechProvider === "local" && localSpeechURL()
+          ? { speechBaseURL: localSpeechURL() }
+          : {}),
         language: st.language,
         ...(st.music === "on"
           ? {
@@ -2434,7 +2456,7 @@ function speechKeys(): string {
     elevenKey || setup.editingKey === "elevenlabs"
       ? keyBlock("elevenlabs", elevenEntry, false)
       : `<div class="btns"><div class="btn2 sm" data-act="key-edit" data-val="elevenlabs">${t("prov.addKey")}</div></div>`;
-  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div><div class="note muted">${t("prov.elevenPermissions")}</div>`;
+  return `<div class="lbl">${t("prov.speech")}</div>${body}<div class="note muted">${t("prov.speechNote")}</div><div class="lbl">ElevenLabs</div>${eleven}<div class="note muted">${t("prov.elevenNote")}</div><div class="note muted">${t("prov.elevenPermissions")}</div><div class="lbl">${t("prov.local")}</div><textarea class="one" id="speech-base-input" data-provider="local-speech" placeholder="http://127.0.0.1:8890" rows="1">${esc(state.settings.baseURLs["local-speech"] ?? "")}</textarea><div class="note muted">${t("prov.localNote")}</div>`;
 }
 
 /** The first-run guide: companion, computer, speech model, AI, narration and a first try. */
@@ -2882,6 +2904,14 @@ function lightboxScreen(): string {
  * the custom endpoint's address would be saved under the next provider (and its key sent there).
  */
 function readProviderFields() {
+  const speechField = document.getElementById("speech-base-input") as HTMLInputElement | null;
+  if (speechField) {
+    state.settings = {
+      ...state.settings,
+      baseURLs: { ...state.settings.baseURLs, "local-speech": speechField.value ?? "" },
+    };
+    store("settings", JSON.stringify(state.settings));
+  }
   const baseField = document.getElementById("base-input") as HTMLInputElement | null;
   const modelField = document.getElementById("model-input") as HTMLInputElement | null;
   if (!baseField && !modelField) return;
@@ -3008,6 +3038,8 @@ function render() {
   if (keyAgain) keyAgain.value = setup.keyDraft;
   // the address and model boxes are textareas too: until set, UXP reports them empty and the next read
   // would save the provider's address as blank
+  const speechBase = document.getElementById("speech-base-input") as HTMLTextAreaElement | null;
+  if (speechBase) speechBase.value = state.settings.baseURLs["local-speech"] ?? "";
   for (const [fieldId, saved] of [
     ["base-input", state.settings.baseURLs],
     ["model-input", state.settings.models],
@@ -3216,6 +3248,7 @@ const voiceFixCtx: VoiceFixCtx = {
   stored: (key) => stored(key),
   store: (key, value) => store(key, value),
   forget: (key) => unstore(key),
+  speechBaseURL: () => localSpeechURL(),
 };
 
 /** What the Remove Pauses tab (pauses.ts) uses from the rest of the panel. */
@@ -4674,7 +4707,7 @@ function runAction(el: HTMLElement) {
     return void cloneVoice();
   } else if (act === "story-speech") {
     const st = state.story;
-    const provider: SpeechProvider = val === "elevenlabs" ? "elevenlabs" : "gemini";
+    const provider: SpeechProvider = val === "elevenlabs" || val === "local" ? val : "gemini";
     if (provider !== st.speechProvider) {
       st.speechProvider = provider;
       store("story-speech", provider);
@@ -4709,6 +4742,9 @@ function runAction(el: HTMLElement) {
           voice: val || state.story.voice,
           language: state.story.language,
           provider: state.story.speechProvider,
+          ...(state.story.speechProvider === "local" && localSpeechURL()
+            ? { baseURL: localSpeechURL() }
+            : {}),
           label: state.story.voices.find((v) => v.name === (val || state.story.voice))?.label,
         },
         "speech.played",

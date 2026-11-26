@@ -168,7 +168,7 @@ export const USAGE = `Usage:
                         [--revise <style> --note <text>] [--no-preview] [--provider ...] [--model <id>]
   kilnframe style-preview --style <name> --out <dir> [--provider ...] [--model <id>]
   kilnframe story (--brief <text> | --script <file>) --out <dir> [--duration <s>] [--language <code>]
-                        [--tone <text>] [--voice <name>] [--speech-provider gemini|elevenlabs] [--speech-model <id>] [--no-voice] [--provider ...]
+                        [--tone <text>] [--voice <name>] [--speech-provider gemini|elevenlabs|local] [--speech-model <id>] [--no-voice] [--provider ...]
   kilnframe captions --audio <file> --style <look> --fps <rate> --size <WxH> --out <dir>
                         [--glossary <name,name,...>] [--spoken] [--language <code>] [--provider ...] [--model <id>]
 
